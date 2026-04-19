@@ -53,11 +53,9 @@ const loadLadderSelector=async()=>{
   }
   sel.innerHTML='<option value="">-- Select a ladder --</option>'+
     allLadders.map(l=>`<option value="${l.id}">${l.name}${l.status==='closed'?' (closed)':''}</option>`).join('');
-  const active=allLadders.find(l=>l.status==='active')||allLadders[0];
-  sel.value=active.id;
-  currentLadder=active;
+  sel.value='';
+  currentLadder=null;
   updateLadderBanner();
-  await loadLadderPlayers();
 };
 
 const onLadderChange=async()=>{
