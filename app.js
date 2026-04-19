@@ -686,10 +686,7 @@ const addPlayer=async(e)=>{
   const body={first_name:document.getElementById('p-first').value.trim(),last_name:document.getElementById('p-last').value.trim(),email:document.getElementById('p-email').value.trim()||null,phone:document.getElementById('p-phone').value.trim()||null,gender:document.getElementById('p-gender').value||null,status:document.getElementById('p-status').value,date_joined:document.getElementById('p-joined').value||null,current_rank:999};
   try{
     await api('players','POST',body);
-    const banner=document.getElementById('player-success');
-    document.getElementById('success-name').textContent=`${body.first_name} ${body.last_name} added!`;
-    banner.style.display='flex';
-    setTimeout(()=>banner.style.display='none',5000);
+    toast(`${body.first_name} ${body.last_name} added successfully!`);
     e.target.reset();
     document.getElementById('p-joined').value=new Date().toISOString().split('T')[0];
     allPlayers=[];
