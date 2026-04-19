@@ -204,24 +204,29 @@ const openLadderPlayers=async(ladderId,ladderName)=>{
 };
 
 const refreshLadderPlayersModal=async()=>{
-  allPlayers=await api('players?select=*&order=first_name');
-  const enrolled=await api(`ladder_players?select=ladder_id,player_id&ladder_id=eq.${modalLadderId}`);
-  const enrolledIds=enrolled.map(r=>Number(r.player_id));
-  const enrolledPlayers=enrolledIds.map(id=>allPlayers.find(p=>Number(p.id)===id)).filter(Boolean);
-  const available=allPlayers.filter(p=>!enrolledIds.includes(Number(p.id))&&p.status!=='inactive');
+  const [allP, enrolled] = await Promise.all([
+    api('players?select=*&order=first_name'),
+    api(`ladder_players?select=ladder_id,player_id&ladder_id=eq.${modalLadderId}`)
+  ]);
+  allPlayers = allP;
+  const enrolledIds = enrolled.map(r=>Number(r.player_id));
+  const enrolledPlayers = enrolledIds.map(id=>allPlayers.find(p=>Number(p.id)===id)).filter(Boolean);
+  const available = allPlayers.filter(p=>!enrolledIds.includes(Number(p.id))&&p.status!=='inactive');
 
-  document.getElementById('lp-enrolled').innerHTML=enrolledPlayers.length?enrolledPlayers.map(p=>`
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:0.5px solid var(--border);">
-      <span style="font-size:13px;font-weight:600;">${p.first_name} ${p.last_name}
-        <span class="badge badge-${p.status}" style="margin-left:6px;">${p.status}</span>
-      </span>
-      <button class="btn btn-danger btn-sm" onclick="removeFromLadder(${modalLadderId},${p.id})">Remove</button>
-    </div>`).join(''):'<div style="font-size:13px;color:var(--text-muted);padding:8px 0;">No players enrolled yet.</div>';
+  document.getElementById('lp-enrolled').innerHTML = enrolledPlayers.length
+    ? enrolledPlayers.map(p=>`
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:0.5px solid var(--border);">
+          <span style="font-size:13px;font-weight:600;">${p.first_name} ${p.last_name}
+            <span class="badge badge-${p.status}" style="margin-left:6px;">${p.status}</span>
+          </span>
+          <button class="btn btn-danger btn-sm" onclick="removeFromLadder(${modalLadderId},${p.id})">Remove</button>
+        </div>`).join('')
+    : '<div style="font-size:13px;color:var(--text-muted);padding:8px 0;">No players enrolled yet.</div>';
 
-  const addSel=document.getElementById('lp-add-select');
-  addSel.value='';
-  addSel.innerHTML=`<option value="">-- Select player to add --</option>`+
+  const addSel = document.getElementById('lp-add-select');
+  addSel.innerHTML = '<option value="">-- Select player to add --</option>' +
     available.map(p=>`<option value="${p.id}">${p.first_name} ${p.last_name} (${p.status})</option>`).join('');
+  addSel.value = '';
 };
 
 const addToLadder=async()=>{
@@ -230,9 +235,11 @@ const addToLadder=async()=>{
   if(!pid||isNaN(pid)){toast('Please select a player.',true);return;}
   const addBtn=document.querySelector('#lp-modal .btn-primary');
   if(addBtn)addBtn.disabled=true;
+  sel.value='';
+  const payload={ladder_id:parseInt(modalLadderId),player_id:pid,joined_at:new Date().toISOString().split('T')[0]};
+  console.log('Adding to ladder:', payload);
   try{
-    await api('ladder_players','POST',{ladder_id:modalLadderId,player_id:pid,joined_at:new Date().toISOString().split('T')[0]});
-    sel.value='';
+    await api('ladder_players','POST',payload);
     toast('Player added to ladder!');
     await refreshLadderPlayersModal();
     await loadLadderPlayers();
