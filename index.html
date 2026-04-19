@@ -396,6 +396,24 @@
 </div>
 
 <div class="toast" id="toast"></div>
+
+<div id="success-banner" style="display:none;position:fixed;top:24px;left:50%;transform:translateX(-50%);z-index:998;width:90%;max-width:460px;">
+  <div style="background:var(--teal-light);border:1.5px solid var(--teal);border-radius:var(--radius);padding:16px 20px;display:flex;align-items:center;gap:12px;">
+    <div style="width:32px;height:32px;background:var(--teal);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8l3.5 3.5L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <div style="font-weight:800;font-size:14px;color:#085041;" id="success-banner-msg"></div>
+  </div>
+</div>
+
+<div id="error-banner" style="display:none;position:fixed;top:24px;left:50%;transform:translateX(-50%);z-index:998;width:90%;max-width:460px;">
+  <div style="background:var(--orange-light);border:1.5px solid var(--orange);border-radius:var(--radius);padding:16px 20px;display:flex;align-items:center;gap:12px;">
+    <div style="width:32px;height:32px;background:var(--orange);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 3l10 10M13 3L3 13" stroke="white" stroke-width="2.5" stroke-linecap="round"/></svg>
+    </div>
+    <div style="font-weight:800;font-size:14px;color:#712B13;" id="error-banner-msg"></div>
+  </div>
+</div>
 <script src="app.js"></script>
 </body>
 </html>

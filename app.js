@@ -23,9 +23,16 @@ let extraGameCount=0;
 let extraGames=[];
 
 const toast=(msg,err=false)=>{
-  const t=document.getElementById('toast');
-  t.textContent=msg;t.style.background=err?'#A32D2D':'#0d1f4a';
-  t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3500);
+  const bannerId=err?'error-banner':'success-banner';
+  const msgId=err?'error-banner-msg':'success-banner-msg';
+  const other=err?'success-banner':'error-banner';
+  document.getElementById(other).style.display='none';
+  document.getElementById(msgId).textContent=msg;
+  document.getElementById(bannerId).style.display='block';
+  clearTimeout(window._toastTimer);
+  window._toastTimer=setTimeout(()=>{
+    document.getElementById(bannerId).style.display='none';
+  },4000);
 };
 
 const showPage=(name,btn)=>{
@@ -119,6 +126,7 @@ const loadLaddersPage=async()=>{
       <div style="display:flex;align-items:center;gap:8px;">
         <span class="badge badge-${l.status==='active'?'active':'inactive'}">${l.status}</span>
         <button class="btn btn-outline btn-sm" onclick="openLadderPlayers(${l.id},'${l.name.replace(/'/g,"\\'")}')">Players</button>
+        <button class="btn btn-outline btn-sm" onclick="openEditLadder(${l.id})">Edit</button>
         <button class="btn btn-outline btn-sm" onclick="toggleLadderStatus(${l.id},'${l.status}')">${l.status==='active'?'Close':'Reopen'}</button>
         <button class="btn btn-danger btn-sm" onclick="deleteLadder(${l.id},this.dataset.name)" data-name="${l.name}">Delete</button>
       </div>
