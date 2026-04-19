@@ -109,6 +109,9 @@
   .footer-tag{display:block;font-size:9px;font-weight:800;letter-spacing:3px;text-transform:uppercase;color:var(--blue-light);margin-bottom:10px;}
   .footer-logo{height:28px;width:auto;}
 
+  nav button:disabled{opacity:0.35;cursor:not-allowed;pointer-events:none;}
+  .page-disabled{pointer-events:none;opacity:0.4;user-select:none;}
+
   @media(max-width:600px){
     .form-row{grid-template-columns:1fr;}
     main{padding:16px 12px;}
@@ -441,13 +444,13 @@ const loadLadderSelector=async()=>{
   allLadders=await api('ladders?select=*&order=id.desc');
   const sel=document.getElementById('ladder-selector');
   if(!allLadders.length){
-    sel.innerHTML='<option value="">No ladders yet</option>';
+    sel.innerHTML='<option value="">-- No ladders yet --</option>';
     currentLadder=null;
     updateLadderBanner();
     return;
   }
-  sel.innerHTML=allLadders.map(l=>`<option value="${l.id}">${l.name}${l.status==='closed'?' (closed)':''}</option>`).join('');
-  // default to first active ladder or first overall
+  sel.innerHTML='<option value="">-- Select a ladder --</option>'+
+    allLadders.map(l=>`<option value="${l.id}">${l.name}${l.status==='closed'?' (closed)':''}</option>`).join('');
   const active=allLadders.find(l=>l.status==='active')||allLadders[0];
   sel.value=active.id;
   currentLadder=active;
@@ -471,12 +474,12 @@ const onLadderChange=async()=>{
 
 const updateLadderBanner=()=>{
   const banner=document.getElementById('ladder-banner');
-  const ladderPages=['ladder','sessions','entry'];
   const ladderNavBtns=document.querySelectorAll('nav button[data-page]');
+  const ladderPages=['ladder','sessions','entry'];
   if(!currentLadder){
-    banner.innerHTML='<span style="color:rgba(255,255,255,0.5);font-style:italic;">No ladder selected — go to Ladders tab to create one</span>';
+    banner.innerHTML='<span style="color:rgba(255,255,255,0.5);font-style:italic;">No ladder selected — create one in the Ladders tab</span>';
     ladderNavBtns.forEach(b=>{
-      if(ladderPages.includes(b.dataset.page)) b.disabled=true;
+      if(ladderPages.includes(b.dataset.page)){b.disabled=true;}
     });
     ladderPages.forEach(p=>{
       const el=document.getElementById(`page-${p}`);
@@ -486,7 +489,7 @@ const updateLadderBanner=()=>{
   }
   const statusColor=currentLadder.status==='active'?'#C6F221':'#9CE3FF';
   banner.innerHTML=`<span style="color:${statusColor};font-weight:800;">${currentLadder.name}</span><span style="color:rgba(255,255,255,0.6);margin-left:8px;font-size:10px;">${currentLadder.status.toUpperCase()}</span>`;
-  ladderNavBtns.forEach(b=>b.disabled=false);
+  ladderNavBtns.forEach(b=>{b.disabled=false;});
   ladderPages.forEach(p=>{
     const el=document.getElementById(`page-${p}`);
     if(el)el.classList.remove('page-disabled');
