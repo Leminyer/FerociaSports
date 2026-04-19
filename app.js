@@ -208,9 +208,6 @@ const refreshLadderPlayersModal=async()=>{
   const enrolled=await api(`ladder_players?select=*,players(*)&ladder_id=eq.${modalLadderId}`);
   const enrolledIds=enrolled.map(r=>Number(r.player_id));
   const available=allPlayers.filter(p=>!enrolledIds.includes(Number(p.id))&&p.status!=='inactive');
-  console.log('Enrolled IDs:', enrolledIds, typeof enrolledIds[0]);
-  console.log('All player IDs:', allPlayers.map(p=>({id:p.id, type:typeof p.id})));
-  console.log('Available:', available.map(p=>p.first_name));
 
   document.getElementById('lp-enrolled').innerHTML=enrolled.length?enrolled.map(r=>`
     <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:0.5px solid var(--border);">
@@ -239,10 +236,12 @@ const addToLadder=async()=>{
     await refreshLadderPlayersModal();
     await loadLadderPlayers();
   }catch(e){
-    if(e.message&&e.message.toLowerCase().includes('duplicate')){
+    const msg = e.message||'';
+    if(msg.includes('409')||msg.toLowerCase().includes('duplicate')||msg.toLowerCase().includes('conflict')){
       toast('This player is already in the ladder.',true);
+      await refreshLadderPlayersModal();
     } else {
-      toast(`Error: ${e.message}`,true);
+      toast(`Error: ${msg}`,true);
     }
   } finally {
     if(addBtn)addBtn.disabled=false;
