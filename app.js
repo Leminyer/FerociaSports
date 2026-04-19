@@ -206,8 +206,11 @@ const openLadderPlayers=async(ladderId,ladderName)=>{
 const refreshLadderPlayersModal=async()=>{
   if(!allPlayers.length)allPlayers=await api('players?select=*&order=first_name');
   const enrolled=await api(`ladder_players?select=*,players(*)&ladder_id=eq.${modalLadderId}`);
-  const enrolledIds=enrolled.map(r=>parseInt(r.player_id));
-  const available=allPlayers.filter(p=>!enrolledIds.includes(parseInt(p.id))&&p.status!=='inactive');
+  const enrolledIds=enrolled.map(r=>Number(r.player_id));
+  const available=allPlayers.filter(p=>!enrolledIds.includes(Number(p.id))&&p.status!=='inactive');
+  console.log('Enrolled IDs:', enrolledIds, typeof enrolledIds[0]);
+  console.log('All player IDs:', allPlayers.map(p=>({id:p.id, type:typeof p.id})));
+  console.log('Available:', available.map(p=>p.first_name));
 
   document.getElementById('lp-enrolled').innerHTML=enrolled.length?enrolled.map(r=>`
     <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:0.5px solid var(--border);">
