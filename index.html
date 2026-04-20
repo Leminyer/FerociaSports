@@ -411,16 +411,12 @@
 <div class="modal-bg" id="lp-modal">
   <div class="modal">
     <div class="modal-title" id="lp-modal-title">Players</div>
-    <div style="margin-bottom:16px;">
-      <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:8px;">Enrolled players</div>
-      <div id="lp-enrolled"></div>
-    </div>
-    <div style="border-top:0.5px solid var(--border);padding-top:16px;">
-      <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:8px;">Add player</div>
-      <div style="display:flex;gap:8px;">
-        <select id="lp-add-select" style="flex:1;font-size:13px;"></select>
-        <button class="btn btn-primary btn-sm" data-action="addToLadder">Add</button>
+    <div style="border:0.5px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;">
+      <div style="padding:8px 12px;background:var(--bg);border-bottom:0.5px solid var(--border);">
+        <input type="text" id="lp-search" placeholder="Search player..." autocomplete="off"
+          style="width:100%;border:none;background:transparent;font-size:13px;font-family:Montserrat,sans-serif;outline:none;color:var(--text);">
       </div>
+      <div style="max-height:55vh;overflow-y:auto;" id="lp-enrolled"></div>
     </div>
     <div class="modal-actions">
       <button type="button" class="btn btn-outline btn-sm" data-action="closeLpModal">Close</button>
