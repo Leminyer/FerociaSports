@@ -87,13 +87,10 @@ const onLadderChange=async()=>{
   currentLadder=allLadders.find(l=>l.id===id)||null;
   updateLadderBanner();
   await loadLadderPlayers();
-  const activePage=document.querySelector('.page.active');
-  if(activePage){
-    const name=activePage.id.replace('page-','');
-    if(name==='ladder')loadLadder();
-    if(name==='sessions')loadSessions();
-    if(name==='entry')initEntry();
-  }
+  // Always switch to Programs tab and show Standings
+  switchMainTab('programs');
+  const standingsBtn=document.querySelector('#subnav-programs button[data-page="ladder"]');
+  showPage('ladder', standingsBtn);
 };
 
 const updateLadderBanner=()=>{
