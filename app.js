@@ -618,7 +618,7 @@ const searchPlayersEntry=()=>{
 };
 
 const addCourtPlayer=(id)=>{
-  if(courtPlayers.length>=5){toast('Maximum 5 players per court.',true);return;}
+  if(courtPlayers.length>=6){toast('Maximum 6 players per court.',true);return;}
   const p=ladderPlayers.find(x=>x.id===id);
   if(!p||courtPlayers.find(cp=>cp.id===id))return;
   courtPlayers.push(p);
@@ -663,6 +663,14 @@ const getRoundRobinMatchups=(n)=>{
     {teamA:[3,4],teamB:[0,2],sit:1},  // R3: 4&5 vs 1&3, bye=2
     {teamA:[1,3],teamB:[2,4],sit:0},  // R4: 2&4 vs 3&5, bye=1
     {teamA:[0,3],teamB:[1,4],sit:2},  // R5: 1&4 vs 2&5, bye=3
+  ];
+  if(n===6)return[
+    {teamA:[0,1],teamB:[2,3],sit:[4,5]},  // R1: 1&2 vs 3&4, bye=5,6
+    {teamA:[1,5],teamB:[0,4],sit:[2,3]},  // R2: 2&6 vs 1&5, bye=3,4
+    {teamA:[3,4],teamB:[2,5],sit:[0,1]},  // R3: 4&5 vs 3&6, bye=1,2
+    {teamA:[0,2],teamB:[1,4],sit:[3,5]},  // R4: 1&3 vs 2&5, bye=4,6
+    {teamA:[3,5],teamB:[1,2],sit:[0,4]},  // R5: 4&6 vs 2&3, bye=1,5
+    {teamA:[0,3],teamB:[4,5],sit:[1,2]},  // R6: 1&4 vs 5&6, bye=2,3
   ];
   return[];
 };
@@ -721,7 +729,8 @@ const renderGameCard=(gameNum,matchup,isExtra)=>{
   div.style.cssText='border:0.5px solid var(--border);border-radius:var(--radius-sm);margin-bottom:12px;overflow:hidden;';
   const tA=matchup?matchup.teamA.map(i=>courtPlayers[i]):[];
   const tB=matchup?matchup.teamB.map(i=>courtPlayers[i]):[];
-  const sitting=matchup&&matchup.sit!==null?courtPlayers[matchup.sit]:null;
+  const sitRaw=matchup?matchup.sit:null;
+  const sitting=sitRaw===null?null:Array.isArray(sitRaw)?sitRaw.map(i=>courtPlayers[i]).filter(Boolean):[courtPlayers[sitRaw]].filter(Boolean);
   const teamANames=tA.map(p=>`${p.first_name} ${p.last_name}`).join(' & ')||'Team A';
   const teamBNames=tB.map(p=>`${p.first_name} ${p.last_name}`).join(' & ')||'Team B';
   const teamAIds=tA.map(p=>p.id);
@@ -730,7 +739,7 @@ const renderGameCard=(gameNum,matchup,isExtra)=>{
     <div style="background:var(--blue);padding:10px 14px;display:flex;align-items:center;justify-content:space-between;">
       <span style="font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--lime);">Game ${gameNum}${isExtra?' (extra)':''}</span>
       <div style="display:flex;align-items:center;gap:12px;">
-        ${sitting?`<span style="font-size:11px;color:var(--blue-light);font-weight:500;">Sitting out: <strong style="color:white;">${sitting.first_name} ${sitting.last_name}</strong></span>`:''}
+        ${sitting&&sitting.length?`<span style="font-size:11px;color:var(--blue-light);font-weight:500;">Sitting out: <strong style="color:white;">${sitting.map(p=>p.first_name+' '+p.last_name).join(', ')}</strong></span>`:''}
         <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:11px;color:var(--orange-light);font-weight:700;text-transform:uppercase;letter-spacing:.5px;">
           <input type="checkbox" id="void-${gameNum}" onchange="toggleVoid(${gameNum})"> Void
         </label>
@@ -847,6 +856,11 @@ const submitSession=async()=>{
   if(!date||!courtNum){toast('Please fill in session date and court number.',true);return;}
   if(!courtPlayers.length){toast('Please add players to the court.',true);return;}
   const rows=[];
+  // Renumber extra games sequentially after regular games
+  const extraGameNumbers=extraGames.map((g,i)=>({original:g,display:gameCount+1+i}));
+  // Map extra game IDs (101, 102...) to sequential display numbers (4, 5...)
+  const extraGameMap={};
+  extraGames.forEach((g,i)=>{extraGameMap[g]=gameCount+1+i;});
   const allGameNums=[...Array(gameCount).keys()].map(i=>i+1).concat(extraGames);
 
   // Validate date + court combination is unique
@@ -904,8 +918,8 @@ const submitSession=async()=>{
       tAIds=document.getElementById(`teamA-ids-${gameNum}`)?.value.split(',').filter(Boolean).map(Number)||[];
       tBIds=document.getElementById(`teamB-ids-${gameNum}`)?.value.split(',').filter(Boolean).map(Number)||[];
     }
-    tAIds.forEach(pid=>{if(!pid)return;rows.push({session_date:date,court_group:parseInt(courtNum),player_id:pid,game_number:gameNum,score_for:isVoided?null:scoreA,score_against:isVoided?null:scoreB,points_earned:ptA,is_sub:ladderPlayers.find(p=>p.id===pid)?.status==='sub',default_no_show:false,ladder_id:currentLadder.id});});
-    tBIds.forEach(pid=>{if(!pid)return;rows.push({session_date:date,court_group:parseInt(courtNum),player_id:pid,game_number:gameNum,score_for:isVoided?null:scoreB,score_against:isVoided?null:scoreA,points_earned:ptB,is_sub:ladderPlayers.find(p=>p.id===pid)?.status==='sub',default_no_show:false,ladder_id:currentLadder.id});});
+    tAIds.forEach(pid=>{if(!pid)return;rows.push({session_date:date,court_group:parseInt(courtNum),player_id:pid,game_number:(extraGameMap[gameNum]||gameNum),score_for:isVoided?null:scoreA,score_against:isVoided?null:scoreB,points_earned:ptA,is_sub:ladderPlayers.find(p=>p.id===pid)?.status==='sub',default_no_show:false,ladder_id:currentLadder.id});});
+    tBIds.forEach(pid=>{if(!pid)return;rows.push({session_date:date,court_group:parseInt(courtNum),player_id:pid,game_number:(extraGameMap[gameNum]||gameNum),score_for:isVoided?null:scoreB,score_against:isVoided?null:scoreA,points_earned:ptB,is_sub:ladderPlayers.find(p=>p.id===pid)?.status==='sub',default_no_show:false,ladder_id:currentLadder.id});});
   }
   if(!rows.length){toast('No scores entered yet.',true);return;}
   try{
