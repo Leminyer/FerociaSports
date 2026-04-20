@@ -387,54 +387,56 @@ const editGame=async(btn)=>{
   const gnum=btn.dataset.gnum;
   const date=btn.dataset.date;
   const court=btn.dataset.court;
-  // Fetch full game data
   const rows=await api(`matches?id=in.(${ids.join(',')})&select=*,players(first_name,last_name)`);
   if(!rows.length){toast('Could not load game data.',true);return;}
-  // Build edit modal content
+  const isVoided=rows[0].score_for===null;
   const modalBody=document.getElementById('edit-game-body');
   modalBody.innerHTML=`
     <div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:1px;">
       Game ${gnum} — ${new Date(date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})} — Court ${court}
     </div>
-    ${rows.map(r=>`
-      <div style="padding:10px 0;border-bottom:0.5px solid var(--border);">
-        <div style="font-weight:700;font-size:13px;margin-bottom:8px;">${r.players?r.players.first_name+' '+r.players.last_name:'Unknown'}</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
-          <div class="form-group">
-            <label>Score for</label>
-            <input type="number" min="0" max="11" id="eg-sf-${r.id}" value="${r.score_for!==null?r.score_for:''}" placeholder="0">
+    <label style="display:flex;align-items:center;gap:8px;margin-bottom:16px;cursor:pointer;padding:10px 14px;background:var(--orange-light);border-radius:var(--radius-sm);font-size:13px;font-weight:700;color:var(--orange);">
+      <input type="checkbox" id="eg-void-game" ${isVoided?'checked':''} onchange="toggleEditGameVoid()"> Void this game (0 points for all players)
+    </label>
+    <div id="eg-scores-section" style="${isVoided?'opacity:0.4;pointer-events:none;':''}">
+      <div style="font-size:11px;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Scores per player</div>
+      ${rows.map(r=>`
+        <div style="padding:10px 0;border-bottom:0.5px solid var(--border);">
+          <div style="font-weight:700;font-size:13px;margin-bottom:8px;">${r.players?r.players.first_name+' '+r.players.last_name:'Unknown'}</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+            <div class="form-group">
+              <label>Score for</label>
+              <input type="number" min="0" max="11" id="eg-sf-${r.id}" value="${r.score_for!==null?r.score_for:''}" placeholder="0">
+            </div>
+            <div class="form-group">
+              <label>Score against</label>
+              <input type="number" min="0" max="11" id="eg-sa-${r.id}" value="${r.score_against!==null?r.score_against:''}" placeholder="0">
+            </div>
+            <div class="form-group">
+              <label>Points earned</label>
+              <input type="number" min="-1" max="4" id="eg-pts-${r.id}" value="${r.points_earned!==null?r.points_earned:0}" placeholder="0">
+            </div>
           </div>
-          <div class="form-group">
-            <label>Score against</label>
-            <input type="number" min="0" max="11" id="eg-sa-${r.id}" value="${r.score_against!==null?r.score_against:''}" placeholder="0">
-          </div>
-          <div class="form-group">
-            <label>Points earned</label>
-            <input type="number" min="-1" max="4" id="eg-pts-${r.id}" value="${r.points_earned!==null?r.points_earned:0}" placeholder="0">
-          </div>
-        </div>
-        <label style="display:flex;align-items:center;gap:6px;margin-top:8px;cursor:pointer;font-size:12px;font-weight:600;text-transform:none;letter-spacing:0;">
-          <input type="checkbox" id="eg-void-${r.id}" ${r.score_for===null?'checked':''} onchange="toggleEditVoid('${r.id}')"> Voided (no score)
-        </label>
-      </div>`).join('')}
+        </div>`).join('')}
+    </div>
     <input type="hidden" id="eg-ids" value="${ids.join(',')}">
   `;
   document.getElementById('edit-game-modal').classList.add('open');
 };
 
-const toggleEditVoid=(id)=>{
-  const isVoid=document.getElementById(`eg-void-${id}`).checked;
-  document.getElementById(`eg-sf-${id}`).disabled=isVoid;
-  document.getElementById(`eg-sa-${id}`).disabled=isVoid;
-  document.getElementById(`eg-pts-${id}`).disabled=isVoid;
+const toggleEditGameVoid=()=>{
+  const isVoid=document.getElementById('eg-void-game').checked;
+  const section=document.getElementById('eg-scores-section');
+  section.style.opacity=isVoid?'0.4':'1';
+  section.style.pointerEvents=isVoid?'none':'auto';
 };
 
 const saveEditGame=async(e)=>{
   e.preventDefault();
   const ids=document.getElementById('eg-ids').value.split(',').filter(Boolean);
+  const isVoid=document.getElementById('eg-void-game').checked;
   try{
     for(const id of ids){
-      const isVoid=document.getElementById(`eg-void-${id}`)?.checked||false;
       const sf=document.getElementById(`eg-sf-${id}`);
       const sa=document.getElementById(`eg-sa-${id}`);
       const pts=document.getElementById(`eg-pts-${id}`);
