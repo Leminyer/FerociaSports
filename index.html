@@ -25,11 +25,7 @@
   .header-tagline{font-size:11px;font-weight:800;letter-spacing:4px;text-transform:uppercase;color:var(--lime);padding-left:2px;}
   .date-tag{font-size:11px;color:var(--blue-light);font-weight:600;}
 
-  .ladder-bar{background:#0d3ba8;padding:8px 24px;display:flex;align-items:center;gap:12px;border-bottom:1px solid rgba(255,255,255,0.1);}
-  .ladder-bar label{font-size:10px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--blue-light);white-space:nowrap;}
-  .ladder-bar select{background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.2);color:white;padding:5px 10px;border-radius:var(--radius-sm);font-size:12px;font-family:Montserrat,sans-serif;font-weight:600;flex:1;max-width:280px;}
-  .ladder-bar select option{background:var(--blue);color:white;}
-  #ladder-banner{font-size:13px;font-weight:700;color:white;}
+
 
   nav{background:var(--white);border-bottom:0.5px solid var(--border);display:flex;padding:0 24px;overflow-x:auto;}
   nav button{background:none;border:none;padding:13px 14px;font-size:11px;font-family:'Montserrat',sans-serif;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:var(--text-muted);cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;transition:color .15s;}
@@ -110,6 +106,25 @@
   .footer-logo{height:28px;width:auto;}
 
   nav button:disabled{opacity:0.35;cursor:not-allowed;pointer-events:none;}
+
+  /* Two-tab nav */
+  .main-nav{background:var(--blue);display:flex;padding:0 24px;border-bottom:3px solid var(--lime);}
+  .main-nav-btn{background:none;border:none;padding:12px 20px;font-size:12px;font-family:'Montserrat',sans-serif;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,0.6);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-3px;transition:color .15s;}
+  .main-nav-btn.active{color:white;border-bottom-color:var(--lime);}
+  .main-nav-btn:hover{color:white;}
+
+  /* Sub nav */
+  .sub-nav{background:var(--white);border-bottom:0.5px solid var(--border);display:flex;padding:0 24px;overflow-x:auto;}
+  .sub-nav button{background:none;border:none;padding:11px 14px;font-size:11px;font-family:'Montserrat',sans-serif;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:var(--text-muted);cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;transition:color .15s;}
+  .sub-nav button.active{color:var(--blue);border-bottom-color:var(--blue);}
+  .sub-nav button:hover{color:var(--text);}
+  .sub-nav button:disabled{opacity:0.35;cursor:not-allowed;pointer-events:none;}
+
+  /* Ladder selector inside sub-nav */
+  .sub-nav-ladder{display:flex;align-items:center;gap:8px;padding:6px 14px 6px 0;border-right:1px solid var(--border);margin-right:4px;}
+  .sub-nav-ladder label{font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);white-space:nowrap;}
+  .sub-nav-ladder select{background:none;border:1px solid var(--border);color:var(--text);padding:3px 8px;border-radius:var(--radius-sm);font-size:12px;font-family:'Montserrat',sans-serif;font-weight:700;max-width:180px;}
+
   .page-disabled{pointer-events:none;opacity:0.4;user-select:none;}
 
   @media(max-width:600px){
@@ -131,20 +146,28 @@
   <span class="date-tag" id="last-updated"></span>
 </header>
 
-<div class="ladder-bar">
-  <label>Active ladder:</label>
-  <select id="ladder-selector" onchange="onLadderChange()"></select>
-  <span id="ladder-banner" style="font-size:12px;"></span>
+<div class="main-nav">
+  <button class="main-nav-btn active" id="tab-programs">Programs</button>
+  <button class="main-nav-btn" id="tab-management">Management</button>
 </div>
 
-<nav>
-  <button class="active" data-page="ladder" onclick="showPage('ladder',this)">Standings</button>
-  <button data-page="sessions" onclick="showPage('sessions',this)">Sessions</button>
-  <button data-page="entry" onclick="showPage('entry',this)">Record Session</button>
-  <button onclick="showPage('players',this)">Players</button>
-  <button onclick="showPage('add-player',this)">Add Player</button>
-  <button onclick="showPage('ladders',this)">Ladders</button>
-</nav>
+<div class="sub-nav" id="subnav-programs">
+  <div class="sub-nav-ladder">
+    <label>Ladder</label>
+    <select id="ladder-selector" onchange="onLadderChange()"></select>
+  </div>
+  <button class="active" data-page="ladder" data-action="showPage" data-page="ladder">Standings</button>
+  <button data-page="sessions" data-action="showPage" data-page="sessions">Sessions</button>
+  <button data-page="entry" data-action="showPage" data-page="entry">Record Session</button>
+</div>
+
+<div class="sub-nav" id="subnav-management" style="display:none;">
+  <button data-action="showPage" data-page="players">Players</button>
+  <button data-action="showPage" data-page="add-player">Add Player</button>
+  <button data-action="showPage" data-page="ladders">Ladders</button>
+</div>
+
+<div id="ladder-banner" style="display:none;"></div>
 
 <main>
 
@@ -212,12 +235,12 @@
       <div class="card" id="games-setup-card" style="display:none;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
           <div class="card-title" style="margin:0;">Step 3 — Record games</div>
-          <button class="btn btn-outline btn-sm" onclick="addExtraGame()">+ Add game</button>
+          <button class="btn btn-outline btn-sm" data-action="addExtraGame">+ Add game</button>
         </div>
         <div id="games-container"></div>
       </div>
       <div id="save-btn-wrap" style="display:none;margin-bottom:24px;">
-        <button class="btn btn-primary" onclick="submitSession()" style="width:100%;">Save session</button>
+        <button class="btn btn-primary" data-action="submitSession" style="width:100%;">Save session</button>
       </div>
     </div>
   </div>
@@ -326,7 +349,7 @@
         </select>
       </div>
       <div class="modal-actions">
-        <button type="button" class="btn btn-danger btn-sm" onclick="closeEditLadderModal()">Cancel</button>
+        <button type="button" class="btn btn-danger btn-sm" data-action="closeEditLadderModal">Cancel</button>
         <button type="submit" class="btn btn-primary btn-sm">Save changes</button>
       </div>
     </form>
@@ -367,7 +390,7 @@
         </div>
       </div>
       <div class="modal-actions">
-        <button type="button" class="btn btn-danger btn-sm" onclick="closeModal()">Cancel</button>
+        <button type="button" class="btn btn-danger btn-sm" data-action="closeModal">Cancel</button>
         <button type="submit" class="btn btn-primary btn-sm">Save changes</button>
       </div>
     </form>
@@ -386,11 +409,11 @@
       <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:8px;">Add player</div>
       <div style="display:flex;gap:8px;">
         <select id="lp-add-select" style="flex:1;font-size:13px;"></select>
-        <button class="btn btn-primary btn-sm" onclick="addToLadder()">Add</button>
+        <button class="btn btn-primary btn-sm" data-action="addToLadder">Add</button>
       </div>
     </div>
     <div class="modal-actions">
-      <button type="button" class="btn btn-outline btn-sm" onclick="closeLpModal()">Close</button>
+      <button type="button" class="btn btn-outline btn-sm" data-action="closeLpModal">Close</button>
     </div>
   </div>
 </div>

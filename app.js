@@ -35,9 +35,26 @@ const toast=(msg,err=false)=>{
   },4000);
 };
 
+const switchMainTab=(tab)=>{
+  document.getElementById('tab-programs').classList.toggle('active', tab==='programs');
+  document.getElementById('tab-management').classList.toggle('active', tab==='management');
+  document.getElementById('subnav-programs').style.display=tab==='programs'?'flex':'none';
+  document.getElementById('subnav-management').style.display=tab==='management'?'flex':'none';
+  if(tab==='programs'){
+    const activeBtn=document.querySelector('#subnav-programs button.active');
+    const activePage=activeBtn?activeBtn.dataset.page||null:null;
+    if(activePage)showPage(activePage,activeBtn);
+    else showPage('ladder',document.querySelector('#subnav-programs button[data-page="ladder"]'));
+  } else {
+    const activeBtn=document.querySelector('#subnav-management button.active');
+    if(activeBtn){const name=activeBtn.textContent.toLowerCase().replace(' ','-');showPage(name,activeBtn);}
+    else showPage('players',document.querySelector('#subnav-management button'));
+  }
+};
+
 const showPage=(name,btn)=>{
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.sub-nav button').forEach(b=>b.classList.remove('active'));
   document.getElementById(`page-${name}`).classList.add('active');
   if(btn)btn.classList.add('active');
   if(name==='ladder')loadLadder();
@@ -80,27 +97,15 @@ const onLadderChange=async()=>{
 };
 
 const updateLadderBanner=()=>{
-  const banner=document.getElementById('ladder-banner');
-  const ladderNavBtns=document.querySelectorAll('nav button[data-page]');
   const ladderPages=['ladder','sessions','entry'];
+  const ladderNavBtns=document.querySelectorAll('#subnav-programs button[data-page]');
   if(!currentLadder){
-    banner.innerHTML='<span style="color:rgba(255,255,255,0.5);font-style:italic;">No ladder selected — create one in the Ladders tab</span>';
-    ladderNavBtns.forEach(b=>{
-      if(ladderPages.includes(b.dataset.page)){b.disabled=true;}
-    });
-    ladderPages.forEach(p=>{
-      const el=document.getElementById(`page-${p}`);
-      if(el)el.classList.add('page-disabled');
-    });
+    ladderNavBtns.forEach(b=>{if(ladderPages.includes(b.dataset.page))b.disabled=true;});
+    ladderPages.forEach(p=>{const el=document.getElementById(`page-${p}`);if(el)el.classList.add('page-disabled');});
     return;
   }
-  const statusColor=currentLadder.status==='active'?'#C6F221':'#9CE3FF';
-  banner.innerHTML=`<span style="color:${statusColor};font-weight:800;">${currentLadder.name}</span><span style="color:rgba(255,255,255,0.6);margin-left:8px;font-size:10px;">${currentLadder.status.toUpperCase()}</span>`;
-  ladderNavBtns.forEach(b=>{b.disabled=false;});
-  ladderPages.forEach(p=>{
-    const el=document.getElementById(`page-${p}`);
-    if(el)el.classList.remove('page-disabled');
-  });
+  ladderNavBtns.forEach(b=>b.disabled=false);
+  ladderPages.forEach(p=>{const el=document.getElementById(`page-${p}`);if(el)el.classList.remove('page-disabled');});
 };
 
 const loadLadderPlayers=async()=>{
@@ -719,5 +724,27 @@ const saveEditPlayer=async(e)=>{
 
 // ─── INIT ─────────────────────────────────────────────────────────────
 document.getElementById('last-updated').textContent=new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+
+// Single delegated listener handles all button clicks
+document.addEventListener('click', e=>{
+  const btn = e.target.closest('[data-action]');
+  if(!btn) return;
+  const action = btn.dataset.action;
+  const page = btn.dataset.page;
+  if(action==='showPage' && page) showPage(page, btn);
+  if(action==='addExtraGame') addExtraGame();
+  if(action==='submitSession') submitSession();
+  if(action==='closeEditLadderModal') closeEditLadderModal();
+  if(action==='closeModal') closeModal();
+  if(action==='addToLadder') addToLadder();
+  if(action==='closeLpModal') closeLpModal();
+  if(action==='switchTab') switchMainTab(btn.dataset.tab);
+});
+
+document.getElementById('tab-programs').dataset.action='switchTab';
+document.getElementById('tab-programs').dataset.tab='programs';
+document.getElementById('tab-management').dataset.action='switchTab';
+document.getElementById('tab-management').dataset.tab='management';
+
 loadLadderSelector().then(()=>loadLadder());
 
