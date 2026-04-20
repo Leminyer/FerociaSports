@@ -437,8 +437,18 @@ const renderCourtPlayers=()=>{
 };
 
 const getRoundRobinMatchups=(n)=>{
-  if(n===5)return[{teamA:[0,1],teamB:[2,3],sit:4},{teamA:[0,2],teamB:[3,4],sit:1},{teamA:[1,3],teamB:[0,4],sit:2}];
-  if(n===4)return[{teamA:[0,1],teamB:[2,3],sit:null},{teamA:[0,2],teamB:[1,3],sit:null},{teamA:[0,3],teamB:[1,2],sit:null}];
+  if(n===4)return[
+    {teamA:[0,1],teamB:[2,3],sit:null},  // R1: 1&2 vs 3&4
+    {teamA:[0,3],teamB:[1,2],sit:null},  // R2: 1&4 vs 2&3
+    {teamA:[1,3],teamB:[0,2],sit:null},  // R3: 2&4 vs 1&3
+  ];
+  if(n===5)return[
+    {teamA:[0,1],teamB:[2,3],sit:4},  // R1: 1&2 vs 3&4, bye=5
+    {teamA:[0,4],teamB:[1,2],sit:3},  // R2: 1&5 vs 2&3, bye=4
+    {teamA:[3,4],teamB:[0,2],sit:1},  // R3: 4&5 vs 1&3, bye=2
+    {teamA:[1,3],teamB:[2,4],sit:0},  // R4: 2&4 vs 3&5, bye=1
+    {teamA:[0,3],teamB:[1,4],sit:2},  // R5: 1&4 vs 2&5, bye=3
+  ];
   return[];
 };
 
