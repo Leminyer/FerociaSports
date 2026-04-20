@@ -228,6 +228,9 @@ const refreshLadderPlayersModal=async()=>{
   const listEl = document.getElementById('lp-enrolled');
   const allChecked = activePlayers.every(p=>enrolledIds.includes(Number(p.id)));
 
+  // Store enrolled IDs for save comparison
+  listEl.dataset.enrolledIds = enrolledIds.join(',');
+
   listEl.innerHTML = `
     <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:2px solid var(--border);background:var(--blue-pale);position:sticky;top:0;z-index:1;">
       <input type="checkbox" id="lp-select-all" ${allChecked?'checked':''} style="width:16px;height:16px;cursor:pointer;" data-action="lpToggleAll">
@@ -239,7 +242,7 @@ const refreshLadderPlayersModal=async()=>{
       return `<div class="lp-player-row" data-name="${(p.first_name+' '+p.last_name).toLowerCase()}"
         style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:0.5px solid var(--border);">
         <input type="checkbox" id="lp-cb-${p.id}" ${isEnrolled?'checked':''} style="width:16px;height:16px;cursor:pointer;"
-          data-action="lpTogglePlayer" data-pid="${p.id}" data-enrolled="${isEnrolled}">
+          data-pid="${p.id}">
         <label for="lp-cb-${p.id}" style="font-size:13px;font-weight:600;cursor:pointer;flex:1;">
           ${p.first_name} ${p.last_name}
           <span class="badge badge-${p.status}" style="margin-left:6px;">${p.status}</span>
@@ -248,46 +251,39 @@ const refreshLadderPlayersModal=async()=>{
     }).join('')}`;
 };
 
-const lpTogglePlayer=async(btn)=>{
-  const pid=parseInt(btn.dataset.pid);
-  const isEnrolled=btn.dataset.enrolled==='true';
-  btn.disabled=true;
+const lpSaveChanges=async()=>{
+  const listEl=document.getElementById('lp-enrolled');
+  const prevEnrolledIds=(listEl.dataset.enrolledIds||'').split(',').filter(Boolean).map(Number);
+  const checkboxes=document.querySelectorAll('#lp-enrolled input[type="checkbox"][data-pid]');
+  const nowCheckedIds=[...checkboxes].filter(cb=>cb.checked).map(cb=>parseInt(cb.dataset.pid));
+
+  const toAdd=nowCheckedIds.filter(id=>!prevEnrolledIds.includes(id));
+  const toRemove=prevEnrolledIds.filter(id=>!nowCheckedIds.includes(id));
+
+  if(!toAdd.length&&!toRemove.length){
+    toast('No changes to save.');
+    return;
+  }
+  const saveBtn=document.getElementById('lp-save-btn');
+  if(saveBtn){saveBtn.disabled=true;saveBtn.textContent='Saving...';}
   try{
-    if(isEnrolled){
-      await api(`ladder_players?ladder_id=eq.${modalLadderId}&player_id=eq.${pid}`,'DELETE');
-    } else {
-      await api('ladder_players','POST',{ladder_id:parseInt(modalLadderId),player_id:pid});
-    }
+    if(toAdd.length) await api('ladder_players','POST',toAdd.map(pid=>({ladder_id:parseInt(modalLadderId),player_id:pid})));
+    for(const pid of toRemove) await api(`ladder_players?ladder_id=eq.${modalLadderId}&player_id=eq.${pid}`,'DELETE');
+    toast(`Saved! ${toAdd.length} added, ${toRemove.length} removed.`);
     await refreshLadderPlayersModal();
     await loadLadderPlayers();
   }catch(e){
-    toast(e.message.includes('409')||e.message.includes('duplicate')?'Player already enrolled.':e.message,true);
-    btn.disabled=false;
+    toast(`Error: ${e.message}`,true);
+  }finally{
+    if(saveBtn){saveBtn.disabled=false;saveBtn.textContent='Save changes';}
   }
 };
 
-const lpToggleAll=async(btn)=>{
+const lpToggleAll=(btn)=>{
   const selectAll=btn.checked;
-  const checkboxes=document.querySelectorAll('[data-action="lpTogglePlayer"]');
-  btn.disabled=true;
-  try{
-    if(selectAll){
-      const toAdd=[];
-      checkboxes.forEach(cb=>{
-        if(cb.dataset.enrolled==='false') toAdd.push({ladder_id:parseInt(modalLadderId),player_id:parseInt(cb.dataset.pid)});
-      });
-      if(toAdd.length) await api('ladder_players','POST',toAdd);
-    } else {
-      for(const cb of checkboxes){
-        if(cb.dataset.enrolled==='true'){
-          await api(`ladder_players?ladder_id=eq.${modalLadderId}&player_id=eq.${cb.dataset.pid}`,'DELETE');
-        }
-      }
-    }
-    await refreshLadderPlayersModal();
-    await loadLadderPlayers();
-  }catch(e){toast(`Error: ${e.message}`,true);}
-  finally{btn.disabled=false;}
+  document.querySelectorAll('#lp-enrolled input[type="checkbox"][data-pid]').forEach(cb=>{
+    cb.checked=selectAll;
+  });
 };
 
 const addToLadder=async()=>{
@@ -952,8 +948,8 @@ document.addEventListener('click', e=>{
   if(action==='addExtraGame') addExtraGame();
   if(action==='editGame') editGame(btn);
   if(action==='deleteSession') deleteSession(btn);
-  if(action==='lpTogglePlayer') lpTogglePlayer(btn);
   if(action==='lpToggleAll') lpToggleAll(btn);
+  if(action==='lpSaveChanges') lpSaveChanges();
   if(action==='submitSession') submitSession();
   if(action==='closeEditLadderModal') closeEditLadderModal();
   if(action==='closeModal') closeModal();
