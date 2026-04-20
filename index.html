@@ -227,9 +227,16 @@
         <div style="margin-bottom:10px;font-size:12px;color:var(--text-muted);font-weight:500;">Add 4 or 5 players. Only players enrolled in this ladder will appear.</div>
         <div id="court-players-list"></div>
         <div style="margin-top:10px;position:relative;">
-          <input type="text" id="player-search-entry" placeholder="Search player by name..." oninput="searchPlayersEntry()" autocomplete="off"
-            style="width:100%;padding:10px 14px;font-size:13px;border:0.5px solid var(--border);border-radius:var(--radius-sm);font-family:Montserrat,sans-serif;">
-          <div id="player-search-results" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--white);border:0.5px solid var(--border);border-radius:var(--radius-sm);z-index:50;max-height:200px;overflow-y:auto;"></div>
+          <div style="border:0.5px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;">
+            <div style="padding:8px 10px;background:var(--bg);border-bottom:0.5px solid var(--border);">
+              <input type="text" id="player-search-entry" placeholder="Type to search players..." autocomplete="off"
+                style="width:100%;border:none;background:transparent;font-size:13px;font-family:Montserrat,sans-serif;outline:none;color:var(--text);"
+                oninput="searchPlayersEntry()">
+            </div>
+            <div id="player-search-results" style="max-height:220px;overflow-y:auto;background:var(--white);">
+              <div id="player-dropdown-list"></div>
+            </div>
+          </div>
         </div>
       </div>
       <div class="card" id="games-setup-card" style="display:none;">

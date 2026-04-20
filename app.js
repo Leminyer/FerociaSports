@@ -374,7 +374,8 @@ const initEntry=async()=>{
   document.getElementById('games-setup-card').style.display='none';
   document.getElementById('save-btn-wrap').style.display='none';
   document.getElementById('player-search-entry').value='';
-  document.getElementById('player-search-results').style.display='none';
+  const psl=document.getElementById('player-dropdown-list');
+  if(psl)psl.innerHTML='';
   if(!currentLadder){
     document.getElementById('entry-no-ladder').style.display='block';
     document.getElementById('entry-form').style.display='none';
@@ -383,24 +384,31 @@ const initEntry=async()=>{
     document.getElementById('entry-form').style.display='block';
     if(!allPlayers.length)allPlayers=await api('players?select=*&order=first_name');
     if(!ladderPlayers.length)await loadLadderPlayers();
+    renderPlayerDropdown('');
   }
 };
 
-const searchPlayersEntry=()=>{
-  const q=document.getElementById('player-search-entry').value.toLowerCase().trim();
-  const res=document.getElementById('player-search-results');
-  if(!q){res.style.display='none';return;}
+const renderPlayerDropdown=(filter='')=>{
+  const list=document.getElementById('player-dropdown-list');
+  if(!list)return;
   const matches=ladderPlayers
     .filter(p=>!courtPlayers.find(cp=>cp.id===p.id))
-    .filter(p=>`${p.first_name} ${p.last_name}`.toLowerCase().includes(q))
-    .slice(0,8);
-  if(!matches.length){res.style.display='none';return;}
-  res.innerHTML=matches.map(p=>`
-    <div onclick="addCourtPlayer(${p.id})" style="padding:10px 14px;cursor:pointer;font-size:13px;font-weight:500;border-bottom:0.5px solid var(--border);"
-      onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">
-      ${p.first_name} ${p.last_name}${p.status==='sub'?' <span style="font-size:10px;color:var(--orange);">(Sub)</span>':''}
+    .filter(p=>!filter||`${p.first_name} ${p.last_name}`.toLowerCase().includes(filter.toLowerCase()));
+  if(!matches.length){
+    list.innerHTML=`<div style="padding:12px 14px;font-size:13px;color:var(--text-muted);text-align:center;">${filter?'No players found':'All players added'}</div>`;
+    return;
+  }
+  list.innerHTML=matches.map(p=>`
+    <div data-action="addCourtPlayerBtn" data-pid="${p.id}"
+      style="padding:10px 14px;cursor:pointer;font-size:13px;font-weight:600;border-bottom:0.5px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+      <span>${p.first_name} ${p.last_name}</span>
+      ${p.status==='sub'?'<span style="font-size:10px;font-weight:700;background:var(--orange-light);color:var(--orange);padding:2px 7px;border-radius:99px;">Sub</span>':''}
     </div>`).join('');
-  res.style.display='block';
+};
+
+const searchPlayersEntry=()=>{
+  const q=document.getElementById('player-search-entry').value;
+  renderPlayerDropdown(q);
 };
 
 const addCourtPlayer=(id)=>{
@@ -409,12 +417,13 @@ const addCourtPlayer=(id)=>{
   if(!p||courtPlayers.find(cp=>cp.id===id))return;
   courtPlayers.push(p);
   document.getElementById('player-search-entry').value='';
-  document.getElementById('player-search-results').style.display='none';
+  renderPlayerDropdown('');
   renderCourtPlayers();
 };
 
 const removeCourtPlayer=(id)=>{
   courtPlayers=courtPlayers.filter(p=>p.id!==id);
+  renderPlayerDropdown(document.getElementById('player-search-entry')?.value||'');
   renderCourtPlayers();
   if(courtPlayers.length<4){
     document.getElementById('games-setup-card').style.display='none';
@@ -739,6 +748,7 @@ document.addEventListener('click', e=>{
   const action = btn.dataset.action;
   const page = btn.dataset.page;
   if(action==='showPage' && page) showPage(page, btn);
+  if(action==='addCourtPlayerBtn'){const pid=parseInt(btn.dataset.pid);addCourtPlayer(pid);}
   if(action==='addExtraGame') addExtraGame();
   if(action==='submitSession') submitSession();
   if(action==='closeEditLadderModal') closeEditLadderModal();
