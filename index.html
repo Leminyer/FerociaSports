@@ -255,7 +255,10 @@
   <!-- PLAYERS -->
   <div id="page-players" class="page">
     <div class="card">
-      <div class="card-title">All Players</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <div class="card-title" style="margin:0;">All Players</div>
+        <span id="players-count" style="font-size:12px;font-weight:700;color:var(--text-muted);background:var(--gray);padding:3px 10px;border-radius:99px;"></span>
+      </div>
       <div style="margin-bottom:14px;">
         <input type="text" id="player-search" placeholder="Search by name..." oninput="filterPlayers()"
           style="width:100%;padding:10px 14px;font-size:13px;border:0.5px solid var(--border);border-radius:var(--radius-sm);font-family:'Montserrat',sans-serif;">

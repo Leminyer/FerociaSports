@@ -841,6 +841,7 @@ const loadPlayers=async()=>{
         <td style="color:var(--text-muted)">${p.date_joined?new Date(p.date_joined+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'-'}</td>
         <td><button class="btn btn-outline btn-sm" onclick="openEdit(${p.id})">Edit</button></td>
       </tr>`).join('');
+    document.getElementById('players-count').textContent=`${allPlayers.length} player${allPlayers.length!==1?'s':''}`;
     document.getElementById('players-table').innerHTML=`
       <table><thead><tr><th>Name</th><th>Gender</th><th>Email</th><th>Phone</th><th>Status</th><th>Joined</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
   }catch(e){document.getElementById('players-table').innerHTML=`<div class="empty">Error: ${e.message}</div>`;}
