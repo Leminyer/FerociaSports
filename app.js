@@ -752,6 +752,14 @@ const submitSession=async()=>{
   const rows=[];
   const allGameNums=[...Array(gameCount).keys()].map(i=>i+1).concat(extraGames);
 
+  // Validate date + court combination is unique
+  const existing=await api(`matches?session_date=eq.${date}&court_group=eq.${courtNum}&ladder_id=eq.${currentLadder.id}&limit=1`);
+  if(existing.length){
+    const existingDate=new Date(date+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'});
+    toast(`A session for Court ${courtNum} on ${existingDate} already exists. Please edit the existing session or choose a different court/date.`,true);
+    return;
+  }
+
   // Validate game 4 (4-player closest scores) has all players selected
   if(courtPlayers.length===4){
     const a1=document.getElementById('extraA1-4')?.value;
