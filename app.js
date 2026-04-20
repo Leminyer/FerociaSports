@@ -339,23 +339,116 @@ const loadSessions=async()=>{
     let html='';
     Object.values(grouped).forEach(s=>{
       const date=new Date(s.date+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',year:'numeric',month:'short',day:'numeric'});
-      html+=`<div style="margin-bottom:20px;"><div style="font-size:11px;font-weight:800;color:var(--blue);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">${date} — Court ${s.group}</div>`;
+      const sessionKey=`${s.date}__${s.court_group}`;
+      html+=`<div style="margin-bottom:24px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <div style="font-size:11px;font-weight:800;color:var(--blue);text-transform:uppercase;letter-spacing:1px">${date} — Court ${s.group}</div>
+        </div>`;
       Object.entries(s.games).forEach(([gnum,players])=>{
-        html+=`<div style="margin-bottom:6px;padding:10px 12px;background:var(--bg);border-radius:var(--radius-sm);font-size:13px;border-left:3px solid var(--lime)">
-          <span style="font-weight:800;color:var(--text-muted);margin-right:10px;font-size:11px;text-transform:uppercase;letter-spacing:.5px">Game ${gnum}</span>`;
+        const gameIds=players.map(p=>p.id).join(',');
+        html+=`<div style="margin-bottom:6px;padding:10px 12px;background:var(--bg);border-radius:var(--radius-sm);font-size:13px;border-left:3px solid var(--lime);">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;">
+            <div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px;">
+              <span style="font-weight:800;color:var(--text-muted);font-size:11px;text-transform:uppercase;letter-spacing:.5px;margin-right:4px;">Game ${gnum}</span>`;
         players.forEach(p=>{
           const name=p.players?`${p.players.first_name} ${p.players.last_name}`:'Unknown';
           const score=p.score_for!==null?`${p.score_for}-${p.score_against}`:'-';
           const pts=p.default_no_show?'-1':`+${p.points_earned}`;
           const color=p.default_no_show?'var(--orange)':'var(--teal)';
-          html+=`<span style="margin-right:14px;font-weight:500">${name} <span style="color:${color};font-weight:700">${score} / ${pts}pts</span></span>`;
+          html+=`<span style="margin-right:10px;font-weight:500">${name} <span style="color:${color};font-weight:700">${score}/${pts}pts</span></span>`;
         });
-        html+=`</div>`;
+        html+=`</div>
+            <div style="display:flex;gap:6px;flex-shrink:0;">
+              <button class="btn btn-outline btn-sm" data-action="editGame" data-gameids="${gameIds}" data-gnum="${gnum}" data-date="${s.date}" data-court="${s.group}">Edit</button>
+            </div>
+          </div>
+        </div>`;
       });
       html+=`</div>`;
     });
     document.getElementById('sessions-list').innerHTML=html;
   }catch(e){document.getElementById('sessions-list').innerHTML=`<div class="empty">Error: ${e.message}</div>`;}
+};
+
+const deleteGame=async(btn)=>{
+  const ids=btn.dataset.gameids.split(',').filter(Boolean);
+  const gnum=btn.dataset.gnum;
+  const date=new Date(btn.dataset.date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+  if(!confirm(`Delete Game ${gnum} from ${date}? This cannot be undone.`))return;
+  try{
+    for(const id of ids) await api(`matches?id=eq.${id}`,'DELETE');
+    toast(`Game ${gnum} deleted.`);
+    loadSessions();
+  }catch(e){toast(`Error: ${e.message}`,true);}
+};
+
+const editGame=async(btn)=>{
+  const ids=btn.dataset.gameids.split(',').filter(Boolean);
+  const gnum=btn.dataset.gnum;
+  const date=btn.dataset.date;
+  const court=btn.dataset.court;
+  // Fetch full game data
+  const rows=await api(`matches?id=in.(${ids.join(',')})&select=*,players(first_name,last_name)`);
+  if(!rows.length){toast('Could not load game data.',true);return;}
+  // Build edit modal content
+  const modalBody=document.getElementById('edit-game-body');
+  modalBody.innerHTML=`
+    <div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:1px;">
+      Game ${gnum} — ${new Date(date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})} — Court ${court}
+    </div>
+    ${rows.map(r=>`
+      <div style="padding:10px 0;border-bottom:0.5px solid var(--border);">
+        <div style="font-weight:700;font-size:13px;margin-bottom:8px;">${r.players?r.players.first_name+' '+r.players.last_name:'Unknown'}</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+          <div class="form-group">
+            <label>Score for</label>
+            <input type="number" min="0" max="11" id="eg-sf-${r.id}" value="${r.score_for!==null?r.score_for:''}" placeholder="0">
+          </div>
+          <div class="form-group">
+            <label>Score against</label>
+            <input type="number" min="0" max="11" id="eg-sa-${r.id}" value="${r.score_against!==null?r.score_against:''}" placeholder="0">
+          </div>
+          <div class="form-group">
+            <label>Points earned</label>
+            <input type="number" min="-1" max="4" id="eg-pts-${r.id}" value="${r.points_earned!==null?r.points_earned:0}" placeholder="0">
+          </div>
+        </div>
+        <label style="display:flex;align-items:center;gap:6px;margin-top:8px;cursor:pointer;font-size:12px;font-weight:600;text-transform:none;letter-spacing:0;">
+          <input type="checkbox" id="eg-void-${r.id}" ${r.score_for===null?'checked':''} onchange="toggleEditVoid('${r.id}')"> Voided (no score)
+        </label>
+      </div>`).join('')}
+    <input type="hidden" id="eg-ids" value="${ids.join(',')}">
+  `;
+  document.getElementById('edit-game-modal').classList.add('open');
+};
+
+const toggleEditVoid=(id)=>{
+  const isVoid=document.getElementById(`eg-void-${id}`).checked;
+  document.getElementById(`eg-sf-${id}`).disabled=isVoid;
+  document.getElementById(`eg-sa-${id}`).disabled=isVoid;
+  document.getElementById(`eg-pts-${id}`).disabled=isVoid;
+};
+
+const saveEditGame=async(e)=>{
+  e.preventDefault();
+  const ids=document.getElementById('eg-ids').value.split(',').filter(Boolean);
+  try{
+    for(const id of ids){
+      const isVoid=document.getElementById(`eg-void-${id}`)?.checked||false;
+      const sf=document.getElementById(`eg-sf-${id}`);
+      const sa=document.getElementById(`eg-sa-${id}`);
+      const pts=document.getElementById(`eg-pts-${id}`);
+      const body={
+        score_for:isVoid?null:(sf&&sf.value!==''?parseInt(sf.value):null),
+        score_against:isVoid?null:(sa&&sa.value!==''?parseInt(sa.value):null),
+        points_earned:isVoid?0:(pts&&pts.value!==''?parseInt(pts.value):0),
+      };
+      await api(`matches?id=eq.${id}`,'PATCH',body);
+    }
+    toast('Game updated successfully!');
+    document.getElementById('edit-game-modal').classList.remove('open');
+    loadSessions();
+  }catch(e){toast(`Error: ${e.message}`,true);}
 };
 
 // ─── RECORD SESSION ──────────────────────────────────────────────────
@@ -642,6 +735,23 @@ const submitSession=async()=>{
   if(!courtPlayers.length){toast('Please add players to the court.',true);return;}
   const rows=[];
   const allGameNums=[...Array(gameCount).keys()].map(i=>i+1).concat(extraGames);
+
+  // Validate all scores are entered unless game is voided
+  const missingScores=[];
+  for(const gameNum of allGameNums){
+    const isVoided=document.getElementById(`void-${gameNum}`)?.checked||false;
+    if(isVoided)continue;
+    const sA=document.getElementById(`scoreA-${gameNum}`);
+    const sB=document.getElementById(`scoreB-${gameNum}`);
+    if(!sA||sA.value===''||!sB||sB.value===''){
+      missingScores.push(gameNum);
+    }
+  }
+  if(missingScores.length){
+    toast(`Please enter scores for Game${missingScores.length>1?'s':''} ${missingScores.join(', ')} or mark ${missingScores.length>1?'them':'it'} as void.`,true);
+    return;
+  }
+
   for(const gameNum of allGameNums){
     const sA=document.getElementById(`scoreA-${gameNum}`);
     const sB=document.getElementById(`scoreB-${gameNum}`);
@@ -652,12 +762,13 @@ const submitSession=async()=>{
     const ptA=isVoided?0:calcPoints(scoreA,scoreB);
     const ptB=isVoided?0:calcPoints(scoreB,scoreA);
     let tAIds,tBIds;
-    if(gameNum>100||gameNum===4){
+    const isExtraGame=gameNum>100||(gameNum===4&&courtPlayers.length===4);
+    if(isExtraGame){
       tAIds=[document.getElementById(`extraA1-${gameNum}`)?.value,document.getElementById(`extraA2-${gameNum}`)?.value].filter(Boolean).map(Number);
       tBIds=[document.getElementById(`extraB1-${gameNum}`)?.value,document.getElementById(`extraB2-${gameNum}`)?.value].filter(Boolean).map(Number);
     }else{
-      tAIds=document.getElementById(`teamA-ids-${gameNum}`).value.split(',').filter(Boolean).map(Number);
-      tBIds=document.getElementById(`teamB-ids-${gameNum}`).value.split(',').filter(Boolean).map(Number);
+      tAIds=document.getElementById(`teamA-ids-${gameNum}`)?.value.split(',').filter(Boolean).map(Number)||[];
+      tBIds=document.getElementById(`teamB-ids-${gameNum}`)?.value.split(',').filter(Boolean).map(Number)||[];
     }
     tAIds.forEach(pid=>{if(!pid)return;rows.push({session_date:date,court_group:parseInt(courtNum),player_id:pid,game_number:gameNum,score_for:isVoided?null:scoreA,score_against:isVoided?null:scoreB,points_earned:ptA,is_sub:ladderPlayers.find(p=>p.id===pid)?.status==='sub',default_no_show:false,ladder_id:currentLadder.id});});
     tBIds.forEach(pid=>{if(!pid)return;rows.push({session_date:date,court_group:parseInt(courtNum),player_id:pid,game_number:gameNum,score_for:isVoided?null:scoreB,score_against:isVoided?null:scoreA,points_earned:ptB,is_sub:ladderPlayers.find(p=>p.id===pid)?.status==='sub',default_no_show:false,ladder_id:currentLadder.id});});
@@ -750,9 +861,11 @@ document.addEventListener('click', e=>{
   if(action==='showPage' && page) showPage(page, btn);
   if(action==='addCourtPlayerBtn'){const pid=parseInt(btn.dataset.pid);addCourtPlayer(pid);}
   if(action==='addExtraGame') addExtraGame();
+  if(action==='editGame') editGame(btn);
   if(action==='submitSession') submitSession();
   if(action==='closeEditLadderModal') closeEditLadderModal();
   if(action==='closeModal') closeModal();
+  if(action==='closeEditGameModal') document.getElementById('edit-game-modal').classList.remove('open');
   if(action==='addToLadder') addToLadder();
   if(action==='closeLpModal') closeLpModal();
   if(action==='switchTab') switchMainTab(btn.dataset.tab);
@@ -762,6 +875,7 @@ document.getElementById('tab-programs').dataset.action='switchTab';
 document.getElementById('tab-programs').dataset.tab='programs';
 document.getElementById('tab-management').dataset.action='switchTab';
 document.getElementById('tab-management').dataset.tab='management';
+document.getElementById('edit-game-form').addEventListener('submit',saveEditGame);
 
 loadLadderSelector().then(()=>loadLadder());
 

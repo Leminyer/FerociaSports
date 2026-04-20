@@ -427,6 +427,20 @@
 
 <div class="toast" id="toast"></div>
 
+<!-- Edit game modal -->
+<div class="modal-bg" id="edit-game-modal">
+  <div class="modal">
+    <div class="modal-title">Edit Game</div>
+    <form id="edit-game-form">
+      <div id="edit-game-body"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-danger btn-sm" data-action="closeEditGameModal">Cancel</button>
+        <button type="submit" class="btn btn-primary btn-sm">Save changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <div id="success-banner" style="display:none;position:fixed;top:24px;left:50%;transform:translateX(-50%);z-index:998;width:90%;max-width:500px;box-shadow:0 4px 20px rgba(0,0,0,0.15);">
   <div style="background:var(--teal-light);border:1.5px solid var(--teal);border-radius:var(--radius);padding:18px 24px;display:flex;align-items:center;gap:14px;">
     <div style="width:36px;height:36px;background:var(--teal);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
