@@ -259,9 +259,15 @@
         <div class="card-title" style="margin:0;">All Players</div>
         <span id="players-count" style="font-size:12px;font-weight:700;color:var(--text-muted);background:var(--gray);padding:3px 10px;border-radius:99px;"></span>
       </div>
-      <div style="margin-bottom:14px;">
-        <input type="text" id="player-search" placeholder="Search by name..." oninput="filterPlayers()"
-          style="width:100%;padding:10px 14px;font-size:13px;border:0.5px solid var(--border);border-radius:var(--radius-sm);font-family:'Montserrat',sans-serif;">
+      <div style="display:flex;gap:10px;margin-bottom:14px;">
+        <input type="text" id="player-search" placeholder="Search by name..."
+          style="flex:1;padding:10px 14px;font-size:13px;border:0.5px solid var(--border);border-radius:var(--radius-sm);font-family:'Montserrat',sans-serif;">
+        <select id="player-status-filter"
+          style="font-size:12px;padding:5px 10px;font-family:'Montserrat',sans-serif;font-weight:600;border:0.5px solid var(--border);border-radius:var(--radius-sm);">
+          <option value="all">All status</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
       </div>
       <div id="players-table"><div class="loading">Loading players...</div></div>
     </div>
@@ -322,7 +328,6 @@
             <label>Status</label>
             <select id="p-status">
               <option value="active">Active</option>
-              <option value="sub">Sub</option>
               <option value="inactive">Inactive</option>
             </select>
           </div>
@@ -394,7 +399,6 @@
           <label>Status</label>
           <select id="edit-status">
             <option value="active">Active</option>
-            <option value="sub">Sub</option>
             <option value="inactive">Inactive</option>
           </select>
         </div>

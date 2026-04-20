@@ -221,7 +221,7 @@ const openLadderPlayers=async(ladderId,ladderName)=>{
 const refreshLadderPlayersModal=async()=>{
   const [allP, enrolled] = await Promise.all([
     api('players?select=*&order=first_name'),
-    api(`ladder_players?select=ladder_id,player_id&ladder_id=eq.${modalLadderId}`)
+    api(`ladder_players?select=ladder_id,player_id,status&ladder_id=eq.${modalLadderId}`)
   ]);
   allPlayers = allP;
   const enrolledIds = enrolled.map(r=>Number(r.player_id));
@@ -243,7 +243,7 @@ const refreshLadderPlayersModal=async()=>{
     ${activePlayers.map(p=>{
       const isEnrolled=enrolledIds.includes(Number(p.id));
       const enrolledRow=enrolled.find(r=>Number(r.player_id)===Number(p.id));
-      const ladderStatus=enrolledRow?.status||'active';
+      const ladderStatus=(enrolledRow&&enrolledRow.status)?enrolledRow.status:'active';
       return `<div class="lp-player-row" data-name="${(p.first_name+' '+p.last_name).toLowerCase()}"
         style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:0.5px solid var(--border);">
         <input type="checkbox" id="lp-cb-${p.id}" ${isEnrolled?'checked':''} style="width:16px;height:16px;cursor:pointer;"
@@ -965,9 +965,13 @@ const submitSession=async()=>{
 // ─── PLAYERS ─────────────────────────────────────────────────────────
 const filterPlayers=()=>{
   const q=document.getElementById('player-search').value.toLowerCase().trim();
+  const statusFilter=document.getElementById('player-status-filter')?.value||'all';
   document.querySelectorAll('#players-table tbody tr').forEach(row=>{
     const name=row.querySelector('td')?.textContent.toLowerCase()||'';
-    row.style.display=name.includes(q)?'':'none';
+    const statusCell=row.querySelectorAll('td')[4]?.textContent.toLowerCase()||'';
+    const nameMatch=name.includes(q);
+    const statusMatch=statusFilter==='all'||statusCell.includes(statusFilter);
+    row.style.display=(nameMatch&&statusMatch)?'':'none';
   });
 };
 
@@ -1103,6 +1107,8 @@ document.addEventListener('input', e=>{
   }
 });
 
+document.getElementById('player-status-filter')?.addEventListener('change', filterPlayers);
+document.getElementById('player-search')?.addEventListener('input', filterPlayers);
 document.getElementById('tab-programs').dataset.action='switchTab';
 document.getElementById('tab-programs').dataset.tab='programs';
 document.getElementById('tab-management').dataset.action='switchTab';
