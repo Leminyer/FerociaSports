@@ -264,13 +264,17 @@ const refreshLadderPlayersModal=async()=>{
 const lpChangeStatus=async(sel)=>{
   const pid=parseInt(sel.dataset.pid);
   const newStatus=sel.value;
+  sel.disabled=true;
   try{
     await api(`ladder_players?ladder_id=eq.${modalLadderId}&player_id=eq.${pid}`,'PATCH',{status:newStatus});
     sel.style.background=newStatus==='active'?'var(--teal-light)':'var(--orange-light)';
     sel.style.color=newStatus==='active'?'var(--teal)':'var(--orange)';
-    await loadLadderPlayers();
+    // Update in-memory ladderPlayers so standings reflect change immediately
+    const p=ladderPlayers.find(x=>x.id===pid);
+    if(p) p.ladder_status=newStatus;
     toast(`Status updated to ${newStatus}.`);
   }catch(e){toast(`Error: ${e.message}`,true);}
+  finally{sel.disabled=false;}
 };
 
 const lpSaveChanges=async()=>{

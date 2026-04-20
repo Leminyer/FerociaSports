@@ -418,9 +418,14 @@
       </div>
       <div style="max-height:55vh;overflow-y:auto;" id="lp-enrolled"></div>
     </div>
-    <div class="modal-actions">
-      <button type="button" class="btn btn-outline btn-sm" data-action="closeLpModal">Cancel</button>
-      <button type="button" class="btn btn-primary btn-sm" id="lp-save-btn" data-action="lpSaveChanges">Save changes</button>
+    <div class="modal-actions" style="flex-direction:column;gap:8px;align-items:stretch;">
+      <div style="font-size:11px;color:var(--text-muted);text-align:center;font-weight:500;">
+        Status changes (Active/Sub) save automatically. Use Save changes to enroll or remove players.
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button type="button" class="btn btn-outline btn-sm" data-action="closeLpModal">Close</button>
+        <button type="button" class="btn btn-primary btn-sm" id="lp-save-btn" data-action="lpSaveChanges">Save changes</button>
+      </div>
     </div>
   </div>
 </div>
