@@ -1058,9 +1058,14 @@ document.addEventListener('click', e=>{
   if(action==='switchTab') switchMainTab(btn.dataset.tab);
 });
 
+document.addEventListener('change', e=>{
+  const el=e.target;
+  if(el.dataset.action==='lpChangeStatus'){lpChangeStatus(el);return;}
+});
+
 document.addEventListener('input', e=>{
   const el=e.target;
-  // Status change for ladder player
+  // Status change for ladder player (also handled in change event above)
   if(el.dataset.action==='lpChangeStatus'){lpChangeStatus(el);return;}
   // Search filter for ladder players modal
   if(el.id==='lp-search'){
