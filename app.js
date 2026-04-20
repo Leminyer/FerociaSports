@@ -108,7 +108,10 @@ const updateLadderBanner=()=>{
 const loadLadderPlayers=async()=>{
   if(!currentLadder){ladderPlayers=[];return;}
   const rows=await api(`ladder_players?select=*,players(*)&ladder_id=eq.${currentLadder.id}`);
-  ladderPlayers=rows.map(r=>r.players).filter(Boolean);
+  ladderPlayers=rows.map(r=>({
+    ...r.players,
+    ladder_status: r.status||'active'
+  })).filter(Boolean);
 };
 
 // ─── LADDER MANAGEMENT PAGE ─────────────────────────────────────────
@@ -239,6 +242,8 @@ const refreshLadderPlayersModal=async()=>{
     </div>
     ${activePlayers.map(p=>{
       const isEnrolled=enrolledIds.includes(Number(p.id));
+      const enrolledRow=enrolled.find(r=>Number(r.player_id)===Number(p.id));
+      const ladderStatus=enrolledRow?.status||'active';
       return `<div class="lp-player-row" data-name="${(p.first_name+' '+p.last_name).toLowerCase()}"
         style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:0.5px solid var(--border);">
         <input type="checkbox" id="lp-cb-${p.id}" ${isEnrolled?'checked':''} style="width:16px;height:16px;cursor:pointer;"
@@ -247,8 +252,25 @@ const refreshLadderPlayersModal=async()=>{
           ${p.first_name} ${p.last_name}
           <span class="badge badge-${p.status}" style="margin-left:6px;">${p.status}</span>
         </label>
+        ${isEnrolled?`<select data-action="lpChangeStatus" data-pid="${p.id}"
+          style="font-size:11px;font-weight:700;padding:3px 8px;border:0.5px solid var(--border);border-radius:99px;font-family:Montserrat,sans-serif;background:${ladderStatus==='active'?'var(--teal-light)':'var(--orange-light)'};color:${ladderStatus==='active'?'var(--teal)':'var(--orange)'};cursor:pointer;">
+          <option value="active" ${ladderStatus==='active'?'selected':''}>Active</option>
+          <option value="sub" ${ladderStatus==='sub'?'selected':''}>Sub</option>
+        </select>`:''}
       </div>`;
     }).join('')}`;
+};
+
+const lpChangeStatus=async(sel)=>{
+  const pid=parseInt(sel.dataset.pid);
+  const newStatus=sel.value;
+  try{
+    await api(`ladder_players?ladder_id=eq.${modalLadderId}&player_id=eq.${pid}`,'PATCH',{status:newStatus});
+    sel.style.background=newStatus==='active'?'var(--teal-light)':'var(--orange-light)';
+    sel.style.color=newStatus==='active'?'var(--teal)':'var(--orange)';
+    await loadLadderPlayers();
+    toast(`Status updated to ${newStatus}.`);
+  }catch(e){toast(`Error: ${e.message}`,true);}
 };
 
 const lpSaveChanges=async()=>{
@@ -337,7 +359,7 @@ const loadLadder=async()=>{
     const pm={};
     ladderPlayers.forEach(p=>pm[p.id]=0);
     matches.forEach(m=>{if(pm[m.player_id]!==undefined)pm[m.player_id]+=(m.points_earned||0);});
-    const ranked=[...ladderPlayers].sort((a,b)=>(pm[b.id]||0)-(pm[a.id]||0));
+    const ranked=[...ladderPlayers].filter(p=>p.ladder_status==='active').sort((a,b)=>(pm[b.id]||0)-(pm[a.id]||0));
     ranked.forEach((p,i)=>{p._rank=i+1;p._points=pm[p.id]||0;});
     allPlayers._ranked=ranked;
     const sessions=[...new Set(matches.map(m=>m.session_date))];
@@ -406,8 +428,9 @@ const loadSessions=async()=>{
           const name=p.players?`${p.players.first_name} ${p.players.last_name}`:'Unknown';
           const score=p.score_for!==null?`${p.score_for}-${p.score_against}`:'-';
           const pts=p.default_no_show?'-1':`+${p.points_earned}`;
-          const color=p.default_no_show?'var(--orange)':'var(--teal)';
-          html+=`<span style="margin-right:10px;font-weight:500">${name} <span style="color:${color};font-weight:700">${score}/${pts}pts</span></span>`;
+          const color=p.default_no_show?'var(--orange)':p.is_sub?'var(--text-muted)':'var(--teal)';
+          const subTag=p.is_sub?'<span style="font-size:9px;font-weight:800;background:var(--orange-light);color:var(--orange);padding:1px 5px;border-radius:99px;margin-left:3px;">SUB</span>':'';
+          html+=`<span style="margin-right:10px;font-weight:500">${name}${subTag} <span style="color:${color};font-weight:700">${score}/${pts}pts</span></span>`;
         });
         html+=`</div>
             <div style="display:flex;gap:6px;flex-shrink:0;">
@@ -918,8 +941,14 @@ const submitSession=async()=>{
       tAIds=document.getElementById(`teamA-ids-${gameNum}`)?.value.split(',').filter(Boolean).map(Number)||[];
       tBIds=document.getElementById(`teamB-ids-${gameNum}`)?.value.split(',').filter(Boolean).map(Number)||[];
     }
-    tAIds.forEach(pid=>{if(!pid)return;rows.push({session_date:date,court_group:parseInt(courtNum),player_id:pid,game_number:(extraGameMap[gameNum]||gameNum),score_for:isVoided?null:scoreA,score_against:isVoided?null:scoreB,points_earned:ptA,is_sub:ladderPlayers.find(p=>p.id===pid)?.status==='sub',default_no_show:false,ladder_id:currentLadder.id});});
-    tBIds.forEach(pid=>{if(!pid)return;rows.push({session_date:date,court_group:parseInt(courtNum),player_id:pid,game_number:(extraGameMap[gameNum]||gameNum),score_for:isVoided?null:scoreB,score_against:isVoided?null:scoreA,points_earned:ptB,is_sub:ladderPlayers.find(p=>p.id===pid)?.status==='sub',default_no_show:false,ladder_id:currentLadder.id});});
+    tAIds.forEach(pid=>{if(!pid)return;
+      const pA=ladderPlayers.find(p=>p.id===pid);
+      const isSubA=pA?.ladder_status==='sub';
+      rows.push({session_date:date,court_group:parseInt(courtNum),player_id:pid,game_number:(extraGameMap[gameNum]||gameNum),score_for:isVoided?null:scoreA,score_against:isVoided?null:scoreB,points_earned:isSubA?0:ptA,is_sub:isSubA,default_no_show:false,ladder_id:currentLadder.id});});
+    tBIds.forEach(pid=>{if(!pid)return;
+      const pB=ladderPlayers.find(p=>p.id===pid);
+      const isSubB=pB?.ladder_status==='sub';
+      rows.push({session_date:date,court_group:parseInt(courtNum),player_id:pid,game_number:(extraGameMap[gameNum]||gameNum),score_for:isVoided?null:scoreB,score_against:isVoided?null:scoreA,points_earned:isSubB?0:ptB,is_sub:isSubB,default_no_show:false,ladder_id:currentLadder.id});});
   }
   if(!rows.length){toast('No scores entered yet.',true);return;}
   try{
@@ -1027,6 +1056,8 @@ document.addEventListener('click', e=>{
 
 document.addEventListener('input', e=>{
   const el=e.target;
+  // Status change for ladder player
+  if(el.dataset.action==='lpChangeStatus'){lpChangeStatus(el);return;}
   // Search filter for ladder players modal
   if(el.id==='lp-search'){
     const q=el.value.toLowerCase();
