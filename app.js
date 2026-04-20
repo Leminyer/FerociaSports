@@ -406,15 +406,15 @@ const editGame=async(btn)=>{
           <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
             <div class="form-group">
               <label>Score for</label>
-              <input type="number" min="0" max="11" id="eg-sf-${r.id}" value="${r.score_for!==null?r.score_for:''}" placeholder="0">
+              <input type="number" min="0" max="11" id="eg-sf-${r.id}" value="${r.score_for!==null?r.score_for:''}" placeholder="0" data-egrid="${r.id}" data-egtype="sf">
             </div>
             <div class="form-group">
               <label>Score against</label>
-              <input type="number" min="0" max="11" id="eg-sa-${r.id}" value="${r.score_against!==null?r.score_against:''}" placeholder="0">
+              <input type="number" min="0" max="11" id="eg-sa-${r.id}" value="${r.score_against!==null?r.score_against:''}" placeholder="0" data-egrid="${r.id}" data-egtype="sa">
             </div>
             <div class="form-group">
-              <label>Points earned</label>
-              <input type="number" min="-1" max="4" id="eg-pts-${r.id}" value="${r.points_earned!==null?r.points_earned:0}" placeholder="0">
+              <label>Points earned <span style="font-size:9px;color:var(--teal);">(auto)</span></label>
+              <input type="number" min="-1" max="4" id="eg-pts-${r.id}" value="${r.points_earned!==null?r.points_earned:0}" placeholder="0" style="background:var(--bg);" readonly>
             </div>
           </div>
         </div>`).join('')}
@@ -583,14 +583,14 @@ const buildGames=()=>{
             <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--blue);margin-bottom:8px;">Team A</div>
             <select id="extraA1-4" style="width:100%;margin-bottom:6px;font-size:12px;font-family:Montserrat,sans-serif;"><option value="">Player 1</option>${courtPlayers.map(p=>`<option value="${p.id}">${p.first_name} ${p.last_name}</option>`).join('')}</select>
             <select id="extraA2-4" style="width:100%;margin-bottom:8px;font-size:12px;font-family:Montserrat,sans-serif;"><option value="">Player 2</option>${courtPlayers.map(p=>`<option value="${p.id}">${p.first_name} ${p.last_name}</option>`).join('')}</select>
-            <input type="number" min="0" max="11" placeholder="Score" id="scoreA-4" oninput="autoCalcExtraGame(4)" style="width:100%;text-align:center;font-size:18px;font-weight:800;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:6px;">
+            <input type="number" min="0" max="11" placeholder="Score" id="scoreA-4" data-egame="4" data-eteam="A" style="width:100%;text-align:center;font-size:18px;font-weight:800;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:6px;">
           </div>
           <div style="font-size:16px;font-weight:800;color:var(--text-muted);padding-top:40px;">VS</div>
           <div style="background:var(--teal-light);border-radius:var(--radius-sm);padding:12px;">
             <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--teal);margin-bottom:8px;">Team B</div>
             <select id="extraB1-4" style="width:100%;margin-bottom:6px;font-size:12px;font-family:Montserrat,sans-serif;"><option value="">Player 1</option>${courtPlayers.map(p=>`<option value="${p.id}">${p.first_name} ${p.last_name}</option>`).join('')}</select>
             <select id="extraB2-4" style="width:100%;margin-bottom:8px;font-size:12px;font-family:Montserrat,sans-serif;"><option value="">Player 2</option>${courtPlayers.map(p=>`<option value="${p.id}">${p.first_name} ${p.last_name}</option>`).join('')}</select>
-            <input type="number" min="0" max="11" placeholder="Score" id="scoreB-4" oninput="autoCalcExtraGame(4)" style="width:100%;text-align:center;font-size:18px;font-weight:800;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:6px;">
+            <input type="number" min="0" max="11" placeholder="Score" id="scoreB-4" data-egame="4" data-eteam="B" style="width:100%;text-align:center;font-size:18px;font-weight:800;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:6px;">
           </div>
         </div>
         <div id="pts-preview-4" style="margin-top:10px;font-size:12px;color:var(--text-muted);text-align:center;font-weight:500;"></div>
@@ -708,14 +708,14 @@ const addExtraGame=()=>{
           <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--blue);margin-bottom:8px;">Team A</div>
           <select id="extraA1-${gameNum}" style="width:100%;margin-bottom:6px;font-size:12px;font-family:Montserrat,sans-serif;"><option value="">Player 1</option>${ladderPlayers.map(p=>`<option value="${p.id}">${p.first_name} ${p.last_name}</option>`).join('')}</select>
           <select id="extraA2-${gameNum}" style="width:100%;margin-bottom:8px;font-size:12px;font-family:Montserrat,sans-serif;"><option value="">Player 2</option>${ladderPlayers.map(p=>`<option value="${p.id}">${p.first_name} ${p.last_name}</option>`).join('')}</select>
-          <input type="number" min="0" max="11" placeholder="Score" id="scoreA-${gameNum}" oninput="autoCalcExtraGame(${gameNum})" style="width:100%;text-align:center;font-size:18px;font-weight:800;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:6px;">
+          <input type="number" min="0" max="11" placeholder="Score" id="scoreA-${gameNum}" data-egame="${gameNum}" data-eteam="A" style="width:100%;text-align:center;font-size:18px;font-weight:800;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:6px;">
         </div>
         <div style="font-size:16px;font-weight:800;color:var(--text-muted);padding-top:36px;">VS</div>
         <div style="background:var(--teal-light);border-radius:var(--radius-sm);padding:12px;">
           <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--teal);margin-bottom:8px;">Team B</div>
           <select id="extraB1-${gameNum}" style="width:100%;margin-bottom:6px;font-size:12px;font-family:Montserrat,sans-serif;"><option value="">Player 1</option>${ladderPlayers.map(p=>`<option value="${p.id}">${p.first_name} ${p.last_name}</option>`).join('')}</select>
           <select id="extraB2-${gameNum}" style="width:100%;margin-bottom:8px;font-size:12px;font-family:Montserrat,sans-serif;"><option value="">Player 2</option>${ladderPlayers.map(p=>`<option value="${p.id}">${p.first_name} ${p.last_name}</option>`).join('')}</select>
-          <input type="number" min="0" max="11" placeholder="Score" id="scoreB-${gameNum}" oninput="autoCalcExtraGame(${gameNum})" style="width:100%;text-align:center;font-size:18px;font-weight:800;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:6px;">
+          <input type="number" min="0" max="11" placeholder="Score" id="scoreB-${gameNum}" data-egame="${gameNum}" data-eteam="B" style="width:100%;text-align:center;font-size:18px;font-weight:800;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:6px;">
         </div>
       </div>
       <div id="pts-preview-${gameNum}" style="margin-top:10px;font-size:12px;color:var(--text-muted);text-align:center;font-weight:500;"></div>
@@ -737,6 +737,19 @@ const submitSession=async()=>{
   if(!courtPlayers.length){toast('Please add players to the court.',true);return;}
   const rows=[];
   const allGameNums=[...Array(gameCount).keys()].map(i=>i+1).concat(extraGames);
+
+  // Validate game 4 (4-player closest scores) has all players selected
+  if(courtPlayers.length===4){
+    const a1=document.getElementById('extraA1-4')?.value;
+    const a2=document.getElementById('extraA2-4')?.value;
+    const b1=document.getElementById('extraB1-4')?.value;
+    const b2=document.getElementById('extraB2-4')?.value;
+    const isVoided4=document.getElementById('void-4')?.checked||false;
+    if(!isVoided4&&(!a1||!a2||!b1||!b2)){
+      toast('Game 4: Please select all 4 players or mark the game as void.',true);
+      return;
+    }
+  }
 
   // Validate all scores are entered unless game is voided
   const missingScores=[];
@@ -871,6 +884,36 @@ document.addEventListener('click', e=>{
   if(action==='addToLadder') addToLadder();
   if(action==='closeLpModal') closeLpModal();
   if(action==='switchTab') switchMainTab(btn.dataset.tab);
+});
+
+document.addEventListener('input', e=>{
+  const el=e.target;
+  // Auto-calc for edit game modal
+  const rid=el.dataset.egrid;
+  if(rid){
+    const sf=document.getElementById(`eg-sf-${rid}`);
+    const sa=document.getElementById(`eg-sa-${rid}`);
+    const pts=document.getElementById(`eg-pts-${rid}`);
+    if(sf&&sa&&pts&&sf.value!==''&&sa.value!==''){
+      pts.value=calcPoints(parseInt(sf.value),parseInt(sa.value));
+    }
+  }
+  // Auto-calc for extra/game4 score inputs
+  const egame=el.dataset.egame;
+  if(egame){
+    const sA=document.getElementById(`scoreA-${egame}`);
+    const sB=document.getElementById(`scoreB-${egame}`);
+    if(sA&&sB&&sA.value!==''&&sB.value!==''){
+      const ptA=calcPoints(parseInt(sA.value),parseInt(sB.value));
+      const ptB=calcPoints(parseInt(sB.value),parseInt(sA.value));
+      const preview=document.getElementById(`pts-preview-${egame}`);
+      if(preview){
+        const aColor=ptA>ptB?'var(--teal)':'var(--orange)';
+        const bColor=ptB>ptA?'var(--teal)':'var(--orange)';
+        preview.innerHTML=`<span style="color:${aColor};font-weight:700;">Team A: +${ptA} pts</span> &nbsp;|&nbsp; <span style="color:${bColor};font-weight:700;">Team B: +${ptB} pts</span>`;
+      }
+    }
+  }
 });
 
 document.getElementById('tab-programs').dataset.action='switchTab';
