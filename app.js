@@ -369,10 +369,11 @@ const loadLadder=async()=>{
     ranked.forEach((p,i)=>{p._rank=i+1;p._points=pm[p.id]||0;});
     allPlayers._ranked=ranked;
     const sessions=[...new Set(matches.map(m=>m.session_date))];
+    const uniqueGames=new Set(matches.map(m=>`${m.session_date}__${m.court_group}__${m.game_number}`)).size;
     document.getElementById('ladder-stats').innerHTML=`
       <div class="stat"><div class="stat-label">Players</div><div class="stat-value">${ladderPlayers.length}</div></div>
       <div class="stat"><div class="stat-label">Sessions</div><div class="stat-value">${sessions.length}</div></div>
-      <div class="stat"><div class="stat-label">Games</div><div class="stat-value">${matches.length}</div></div>
+      <div class="stat"><div class="stat-label">Games</div><div class="stat-value">${uniqueGames}</div></div>
       <div class="stat lime"><div class="stat-label">Leader</div><div class="stat-value">${ranked[0]?ranked[0].first_name+' '+ranked[0].last_name:'-'}</div></div>`;
     renderLadder();
   }catch(e){document.getElementById('ladder-table').innerHTML=`<div class="empty">Error: ${e.message}</div>`;}
