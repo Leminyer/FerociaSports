@@ -853,15 +853,15 @@ const addExtraGame=()=>{
       <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:start;gap:12px;">
         <div style="background:var(--blue-pale);border-radius:var(--radius-sm);padding:12px;">
           <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--blue);margin-bottom:8px;">Team A</div>
-          <select id="extraA1-${gameNum}" style="width:100%;margin-bottom:6px;font-size:12px;font-family:Montserrat,sans-serif;"><option value="">Player 1</option>${ladderPlayers.map(p=>`<option value="${p.id}">${p.first_name} ${p.last_name}</option>`).join('')}</select>
-          <select id="extraA2-${gameNum}" style="width:100%;margin-bottom:8px;font-size:12px;font-family:Montserrat,sans-serif;"><option value="">Player 2</option>${ladderPlayers.map(p=>`<option value="${p.id}">${p.first_name} ${p.last_name}</option>`).join('')}</select>
+          <select id="extraA1-${gameNum}" style="width:100%;margin-bottom:6px;font-size:12px;font-family:Montserrat,sans-serif;"><option value="">Player 1</option>${courtPlayers.map(p=>`<option value="${p.id}">${p.first_name} ${p.last_name}</option>`).join('')}</select>
+          <select id="extraA2-${gameNum}" style="width:100%;margin-bottom:8px;font-size:12px;font-family:Montserrat,sans-serif;"><option value="">Player 2</option>${courtPlayers.map(p=>`<option value="${p.id}">${p.first_name} ${p.last_name}</option>`).join('')}</select>
           <input type="number" min="0" max="11" placeholder="Score" id="scoreA-${gameNum}" data-egame="${gameNum}" data-eteam="A" style="width:100%;text-align:center;font-size:18px;font-weight:800;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:6px;">
         </div>
         <div style="font-size:16px;font-weight:800;color:var(--text-muted);padding-top:36px;">VS</div>
         <div style="background:var(--teal-light);border-radius:var(--radius-sm);padding:12px;">
           <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--teal);margin-bottom:8px;">Team B</div>
-          <select id="extraB1-${gameNum}" style="width:100%;margin-bottom:6px;font-size:12px;font-family:Montserrat,sans-serif;"><option value="">Player 1</option>${ladderPlayers.map(p=>`<option value="${p.id}">${p.first_name} ${p.last_name}</option>`).join('')}</select>
-          <select id="extraB2-${gameNum}" style="width:100%;margin-bottom:8px;font-size:12px;font-family:Montserrat,sans-serif;"><option value="">Player 2</option>${ladderPlayers.map(p=>`<option value="${p.id}">${p.first_name} ${p.last_name}</option>`).join('')}</select>
+          <select id="extraB1-${gameNum}" style="width:100%;margin-bottom:6px;font-size:12px;font-family:Montserrat,sans-serif;"><option value="">Player 1</option>${courtPlayers.map(p=>`<option value="${p.id}">${p.first_name} ${p.last_name}</option>`).join('')}</select>
+          <select id="extraB2-${gameNum}" style="width:100%;margin-bottom:8px;font-size:12px;font-family:Montserrat,sans-serif;"><option value="">Player 2</option>${courtPlayers.map(p=>`<option value="${p.id}">${p.first_name} ${p.last_name}</option>`).join('')}</select>
           <input type="number" min="0" max="11" placeholder="Score" id="scoreB-${gameNum}" data-egame="${gameNum}" data-eteam="B" style="width:100%;text-align:center;font-size:18px;font-weight:800;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:6px;">
         </div>
       </div>
