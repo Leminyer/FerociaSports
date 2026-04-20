@@ -270,8 +270,8 @@ const lpSaveChanges=async()=>{
     if(toAdd.length) await api('ladder_players','POST',toAdd.map(pid=>({ladder_id:parseInt(modalLadderId),player_id:pid})));
     for(const pid of toRemove) await api(`ladder_players?ladder_id=eq.${modalLadderId}&player_id=eq.${pid}`,'DELETE');
     toast(`Saved! ${toAdd.length} added, ${toRemove.length} removed.`);
-    await refreshLadderPlayersModal();
     await loadLadderPlayers();
+    document.getElementById('lp-modal').classList.remove('open');
   }catch(e){
     toast(`Error: ${e.message}`,true);
   }finally{
@@ -391,7 +391,10 @@ const loadSessions=async()=>{
       html+=`<div style="margin-bottom:24px;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
           <div style="font-size:11px;font-weight:800;color:var(--blue);text-transform:uppercase;letter-spacing:1px">${date} — Court ${s.group}</div>
-          <button class="btn btn-danger btn-sm" data-action="deleteSession" data-matchids="${sessionMatchIds}" data-date="${s.date}" data-court="${s.group}">Delete session</button>
+          <div style="display:flex;gap:6px;">
+            <button class="btn btn-outline btn-sm" data-action="editSession" data-matchids="${sessionMatchIds}" data-date="${s.date}" data-court="${s.group}">Edit session</button>
+            <button class="btn btn-danger btn-sm" data-action="deleteSession" data-matchids="${sessionMatchIds}" data-date="${s.date}" data-court="${s.group}">Delete session</button>
+          </div>
         </div>`;
       Object.entries(s.games).forEach(([gnum,players])=>{
         const gameIds=players.map(p=>p.id).join(',');
@@ -417,6 +420,53 @@ const loadSessions=async()=>{
     });
     document.getElementById('sessions-list').innerHTML=html;
   }catch(e){document.getElementById('sessions-list').innerHTML=`<div class="empty">Error: ${e.message}</div>`;}
+};
+
+const editSession=(btn)=>{
+  const ids=btn.dataset.matchids.split(',').filter(Boolean);
+  const date=btn.dataset.date;
+  const court=btn.dataset.court;
+  document.getElementById('es-ids').value=ids.join(',');
+  document.getElementById('es-date').value=date;
+  document.getElementById('es-court').value=court;
+  document.getElementById('es-orig-date').value=date;
+  document.getElementById('es-orig-court').value=court;
+  document.getElementById('edit-session-modal').classList.add('open');
+};
+
+const saveEditSession=async(e)=>{
+  e.preventDefault();
+  const ids=document.getElementById('es-ids').value.split(',').filter(Boolean);
+  const newDate=document.getElementById('es-date').value;
+  const newCourt=document.getElementById('es-court').value;
+  const origDate=document.getElementById('es-orig-date').value;
+  const origCourt=document.getElementById('es-orig-court').value;
+
+  if(!newDate||!newCourt){toast('Please fill in both date and court number.',true);return;}
+
+  // Check uniqueness only if date or court changed
+  if(newDate!==origDate||newCourt!==origCourt){
+    const existing=await api(`matches?session_date=eq.${newDate}&court_group=eq.${newCourt}&ladder_id=eq.${currentLadder.id}&limit=1`);
+    if(existing.length){
+      const d=new Date(newDate+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'});
+      toast(`A session already exists for Court ${newCourt} on ${d}. Please choose a different date or court.`,true);
+      return;
+    }
+  }
+
+  const saveBtn=document.getElementById('es-save-btn');
+  if(saveBtn){saveBtn.disabled=true;saveBtn.textContent='Saving...';}
+  try{
+    for(const id of ids){
+      await api(`matches?id=eq.${id}`,'PATCH',{session_date:newDate,court_group:parseInt(newCourt)});
+    }
+    toast('Session updated!');
+    document.getElementById('edit-session-modal').classList.remove('open');
+    loadSessions();
+  }catch(e){toast(`Error: ${e.message}`,true);}
+  finally{
+    if(saveBtn){saveBtn.disabled=false;saveBtn.textContent='Save changes';}
+  }
 };
 
 const deleteSession=async(btn)=>{
@@ -948,12 +998,14 @@ document.addEventListener('click', e=>{
   if(action==='addExtraGame') addExtraGame();
   if(action==='editGame') editGame(btn);
   if(action==='deleteSession') deleteSession(btn);
+  if(action==='editSession') editSession(btn);
   if(action==='lpToggleAll') lpToggleAll(btn);
   if(action==='lpSaveChanges') lpSaveChanges();
   if(action==='submitSession') submitSession();
   if(action==='closeEditLadderModal') closeEditLadderModal();
   if(action==='closeModal') closeModal();
   if(action==='closeEditGameModal') document.getElementById('edit-game-modal').classList.remove('open');
+  if(action==='closeEditSessionModal') document.getElementById('edit-session-modal').classList.remove('open');
   if(action==='addToLadder') addToLadder();
   if(action==='closeLpModal') closeLpModal();
   if(action==='switchTab') switchMainTab(btn.dataset.tab);
@@ -1002,6 +1054,7 @@ document.getElementById('tab-programs').dataset.tab='programs';
 document.getElementById('tab-management').dataset.action='switchTab';
 document.getElementById('tab-management').dataset.tab='management';
 document.getElementById('edit-game-form').addEventListener('submit',saveEditGame);
+document.getElementById('edit-session-form').addEventListener('submit',saveEditSession);
 
 loadLadderSelector().then(()=>loadLadder());
 
