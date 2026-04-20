@@ -340,9 +340,11 @@ const loadSessions=async()=>{
     Object.values(grouped).forEach(s=>{
       const date=new Date(s.date+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',year:'numeric',month:'short',day:'numeric'});
       const sessionKey=`${s.date}__${s.court_group}`;
+      const sessionMatchIds=Object.values(s.games).flat().map(m=>m.id).join(',');
       html+=`<div style="margin-bottom:24px;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
           <div style="font-size:11px;font-weight:800;color:var(--blue);text-transform:uppercase;letter-spacing:1px">${date} — Court ${s.group}</div>
+          <button class="btn btn-danger btn-sm" data-action="deleteSession" data-matchids="${sessionMatchIds}" data-date="${s.date}" data-court="${s.group}">Delete session</button>
         </div>`;
       Object.entries(s.games).forEach(([gnum,players])=>{
         const gameIds=players.map(p=>p.id).join(',');
@@ -368,6 +370,18 @@ const loadSessions=async()=>{
     });
     document.getElementById('sessions-list').innerHTML=html;
   }catch(e){document.getElementById('sessions-list').innerHTML=`<div class="empty">Error: ${e.message}</div>`;}
+};
+
+const deleteSession=async(btn)=>{
+  const ids=btn.dataset.matchids.split(',').filter(Boolean);
+  const date=new Date(btn.dataset.date+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'});
+  const court=btn.dataset.court;
+  if(!confirm(`Delete entire session for ${date} — Court ${court}?\n\nThis will remove all ${ids.length} game records. This cannot be undone.`))return;
+  try{
+    for(const id of ids) await api(`matches?id=eq.${id}`,'DELETE');
+    toast(`Session deleted — ${ids.length} records removed.`);
+    loadSessions();
+  }catch(e){toast(`Error: ${e.message}`,true);}
 };
 
 const deleteGame=async(btn)=>{
@@ -877,6 +891,7 @@ document.addEventListener('click', e=>{
   if(action==='addCourtPlayerBtn'){const pid=parseInt(btn.dataset.pid);addCourtPlayer(pid);}
   if(action==='addExtraGame') addExtraGame();
   if(action==='editGame') editGame(btn);
+  if(action==='deleteSession') deleteSession(btn);
   if(action==='submitSession') submitSession();
   if(action==='closeEditLadderModal') closeEditLadderModal();
   if(action==='closeModal') closeModal();
