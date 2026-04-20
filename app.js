@@ -210,6 +210,8 @@ const openLadderPlayers=async(ladderId,ladderName)=>{
   modalLadderId=ladderId;
   document.getElementById('lp-modal-title').textContent=`Players — ${ladderName}`;
   document.getElementById('lp-modal').classList.add('open');
+  const searchEl=document.getElementById('lp-search');
+  if(searchEl)searchEl.value='';
   await refreshLadderPlayersModal();
 };
 
@@ -227,14 +229,15 @@ const refreshLadderPlayersModal=async()=>{
   const allChecked = activePlayers.every(p=>enrolledIds.includes(Number(p.id)));
 
   listEl.innerHTML = `
-    <div style="display:flex;align-items:center;gap:8px;padding:8px 0 12px;border-bottom:1.5px solid var(--border);margin-bottom:4px;">
+    <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:2px solid var(--border);background:var(--blue-pale);position:sticky;top:0;z-index:1;">
       <input type="checkbox" id="lp-select-all" ${allChecked?'checked':''} style="width:16px;height:16px;cursor:pointer;" data-action="lpToggleAll">
-      <label for="lp-select-all" style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;cursor:pointer;color:var(--blue);">Select all players</label>
-      <span style="margin-left:auto;font-size:12px;font-weight:600;color:var(--text-muted);">${enrolledIds.length} enrolled</span>
+      <label for="lp-select-all" style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;cursor:pointer;color:var(--blue);">Select all</label>
+      <span style="margin-left:auto;font-size:12px;font-weight:700;color:var(--blue);">${enrolledIds.length} / ${activePlayers.length} enrolled</span>
     </div>
     ${activePlayers.map(p=>{
       const isEnrolled=enrolledIds.includes(Number(p.id));
-      return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:0.5px solid var(--border);">
+      return `<div class="lp-player-row" data-name="${(p.first_name+' '+p.last_name).toLowerCase()}"
+        style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:0.5px solid var(--border);">
         <input type="checkbox" id="lp-cb-${p.id}" ${isEnrolled?'checked':''} style="width:16px;height:16px;cursor:pointer;"
           data-action="lpTogglePlayer" data-pid="${p.id}" data-enrolled="${isEnrolled}">
         <label for="lp-cb-${p.id}" style="font-size:13px;font-weight:600;cursor:pointer;flex:1;">
@@ -962,6 +965,14 @@ document.addEventListener('click', e=>{
 
 document.addEventListener('input', e=>{
   const el=e.target;
+  // Search filter for ladder players modal
+  if(el.id==='lp-search'){
+    const q=el.value.toLowerCase();
+    document.querySelectorAll('#lp-enrolled .lp-player-row').forEach(row=>{
+      row.style.display=row.dataset.name.includes(q)?'':'none';
+    });
+    return;
+  }
   // Auto-calc for edit game modal
   const rid=el.dataset.egrid;
   if(rid){
