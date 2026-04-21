@@ -193,9 +193,10 @@ const onLadderChange=async()=>{
   currentLadder=allLadders.find(l=>l.id===id)||null;
   updateLadderBanner();
   await loadLadderPlayers();
-  // Make sure Programs tab and Ladder sub-tab are active
-  document.getElementById('tab-programs').classList.add('active');
-  document.getElementById('tab-management').classList.remove('active');
+  // Hide home pages, show ladder content
+  document.getElementById('page-home').classList.remove('active');
+  document.getElementById('page-programs-home').classList.remove('active');
+  document.getElementById('tab-home').classList.remove('active');
   document.getElementById('subnav-programs').style.display='flex';
   document.getElementById('subnav-management').style.display='none';
   document.getElementById('prog-tab-ladder').classList.add('active');
