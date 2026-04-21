@@ -168,6 +168,17 @@ const showPage=(name,btn)=>{
   if(name==='add-player')initAddPlayer();
   if(name==='share')loadSharePage();
   if(name==='tournaments')loadTournamentsPage();
+  // Ensure management pages always have the management subnav visible
+  const mgmtPages=['players','add-player','ladders','tournaments','share'];
+  if(mgmtPages.includes(name)){
+    document.getElementById('subnav-management').style.display='flex';
+    document.getElementById('subnav-programs').style.display='none';
+    document.getElementById('subnav-ladder-options').style.display='none';
+    document.getElementById('subnav-tournament-options').style.display='none';
+    document.getElementById('page-home').classList.remove('active');
+    document.getElementById('page-programs-home').classList.remove('active');
+    document.getElementById('tab-home').classList.remove('active');
+  }
   if(name==='tournament-view'){const el=document.getElementById('tournament-view-content');if(el&&!currentTournamentId)el.innerHTML='<div class="empty">Select a tournament from the dropdown above.</div>';}
 };
 
@@ -1374,6 +1385,13 @@ const CATEGORY_LABELS = {
 let currentTournamentId = null;
 
 const loadTournamentsPage = async () => {
+  // Make sure management subnav is visible
+  document.getElementById('subnav-management').style.display='flex';
+  document.getElementById('subnav-programs').style.display='none';
+  document.getElementById('subnav-ladder-options').style.display='none';
+  document.getElementById('subnav-tournament-options').style.display='none';
+  document.getElementById('page-home').classList.remove('active');
+  document.getElementById('page-programs-home').classList.remove('active');
   const tournaments = await api('tournaments?select=*&order=id.desc');
   const el = document.getElementById('tournaments-list');
   if (!tournaments.length) { el.innerHTML = '<div class="empty">No tournaments yet. Create your first one!</div>'; return; }
