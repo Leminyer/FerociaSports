@@ -1423,17 +1423,26 @@ const getCheckedCategories=(prefix)=>{
 
 const createTournament = async (e) => {
   e.preventDefault();
+  e.stopPropagation();
+  console.log('createTournament called');
   const name = document.getElementById('tn-name').value.trim();
   const categories = getCheckedCategories('tn');
+  console.log('name:', name, 'categories:', categories);
   if (!name) { toast('Please enter a tournament name.', true); return; }
   if (!categories.length) { toast('Please select at least one category.', true); return; }
   const body = { name, categories: `{${categories.join(',')}}`, date: document.getElementById('tn-date').value || null, status: 'draft' };
   try {
+    console.log('Posting tournament...');
     await api('tournaments', 'POST', body);
+    console.log('Tournament created, loading page...');
     toast(`Tournament "${name}" created!`);
     document.getElementById('create-tournament-form').reset();
-    loadTournamentsPage();
-  } catch(e) { toast(`Error: ${e.message}`, true); }
+    await loadTournamentsPage();
+    console.log('loadTournamentsPage done');
+  } catch(err) { 
+    console.error('Error:', err);
+    toast(`Error: ${err.message}`, true); 
+  }
 };
 
 const openEditTournament = (btn) => {
