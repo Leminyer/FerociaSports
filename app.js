@@ -1365,10 +1365,7 @@ document.getElementById('edit-game-form').addEventListener('submit',saveEditGame
 document.getElementById('ladder-selector').addEventListener('change',onLadderChange);
 document.getElementById('tournament-selector')?.addEventListener('change',onTournamentChange);
 document.getElementById('edit-session-form').addEventListener('submit',saveEditSession);
-document.getElementById('create-tournament-form').addEventListener('submit',createTournament);
-document.getElementById('edit-tournament-form').addEventListener('submit',saveEditTournament);
-document.getElementById('add-team-form').addEventListener('submit',saveAddTeam);
-document.getElementById('record-match-form').addEventListener('submit',saveRecordMatch);
+// Tournament form listeners moved to end of file
 
 loadLadderSelector();
 
@@ -1933,3 +1930,8 @@ const updateFinalsProgression = async (matchId, match, winnerId, scoreA, scoreB)
   if (finalMatch.length) await api(`tournament_matches?id=eq.${finalMatch[0].id}`,'PATCH',{team_a_id:winners[0],team_b_id:winners[1]});
 };
 
+// Tournament form listeners (must be after function definitions)
+document.getElementById('create-tournament-form').addEventListener('submit',createTournament);
+document.getElementById('edit-tournament-form').addEventListener('submit',saveEditTournament);
+document.getElementById('add-team-form').addEventListener('submit',saveAddTeam);
+document.getElementById('record-match-form').addEventListener('submit',saveRecordMatch);
