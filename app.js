@@ -42,16 +42,93 @@ const switchMainTab=(tab)=>{
   document.getElementById('tab-management').classList.toggle('active', tab==='management');
   document.getElementById('subnav-programs').style.display=tab==='programs'?'flex':'none';
   document.getElementById('subnav-management').style.display=tab==='management'?'flex':'none';
+  // Also show/hide the program sub-options based on current prog tab
+  const ladderOpts=document.getElementById('subnav-ladder-options');
+  const tournOpts=document.getElementById('subnav-tournament-options');
   if(tab==='programs'){
-    const activeBtn=document.querySelector('#subnav-programs button.active');
-    const activePage=activeBtn?activeBtn.dataset.page||null:null;
-    if(activePage)showPage(activePage,activeBtn);
-    else showPage('ladder',document.querySelector('#subnav-programs button[data-page="ladder"]'));
+    const progTab=document.getElementById('prog-tab-ladder').classList.contains('active')?'ladder':'tournament';
+    if(ladderOpts) ladderOpts.style.display=progTab==='ladder'?'flex':'none';
+    if(tournOpts) tournOpts.style.display=progTab==='tournament'?'flex':'none';
+    if(progTab==='ladder'){
+      showPage('ladder',document.querySelector('#subnav-ladder-options button[data-page="ladder"]'));
+    }
   } else {
+    if(ladderOpts) ladderOpts.style.display='none';
+    if(tournOpts) tournOpts.style.display='none';
     const activeBtn=document.querySelector('#subnav-management button.active');
-    if(activeBtn){const name=activeBtn.textContent.toLowerCase().replace(' ','-');showPage(name,activeBtn);}
+    if(activeBtn) showPage(activeBtn.dataset.page,activeBtn);
     else showPage('players',document.querySelector('#subnav-management button'));
   }
+};
+
+const switchProgramTab=(tab)=>{
+  const ladderOpts=document.getElementById('subnav-ladder-options');
+  const tournOpts=document.getElementById('subnav-tournament-options');
+  document.getElementById('prog-tab-ladder').classList.toggle('active',tab==='ladder');
+  document.getElementById('prog-tab-tournament').classList.toggle('active',tab==='tournament');
+  ladderOpts.style.display=tab==='ladder'?'flex':'none';
+  tournOpts.style.display=tab==='tournament'?'flex':'none';
+  if(tab==='ladder'){
+    showPage('ladder',document.querySelector('#subnav-ladder-options button[data-page="ladder"]'));
+  } else {
+    loadTournamentSelector();
+    showPage('tournament-view',document.querySelector('#subnav-tournament-options button[data-page="tournament-view"]'));
+  }
+};
+
+const loadTournamentSelector=async()=>{
+  const sel=document.getElementById('tournament-selector');
+  if(!sel)return;
+  const tournaments=await api('tournaments?select=*&order=id.desc');
+  sel.innerHTML='<option value="">-- Select a tournament --</option>'+
+    tournaments.map(t=>`<option value="${t.id}">${t.name}${t.status==='completed'?' (completed)':''}</option>`).join('');
+};
+
+const onTournamentChange=async()=>{
+  const tid=document.getElementById('tournament-selector').value;
+  if(!tid){document.getElementById('tournament-view-content').innerHTML='<div class="empty">Select a tournament to view details.</div>';return;}
+  currentTournamentId=parseInt(tid);
+  await renderTournamentViewReadOnly();
+};
+
+const renderTournamentViewReadOnly=async()=>{
+  const el=document.getElementById('tournament-view-content');
+  el.innerHTML='<div class="loading">Loading tournament...</div>';
+  const [tArr,teams,matches]=await Promise.all([
+    api(`tournaments?id=eq.${currentTournamentId}&select=*`),
+    api(`tournament_teams?tournament_id=eq.${currentTournamentId}&select=*`),
+    api(`tournament_matches?tournament_id=eq.${currentTournamentId}&select=*&order=round,id`)
+  ]);
+  const t=tArr[0]; if(!t)return;
+  const categoryLabel=CATEGORY_LABELS[t.category]||t.category;
+  const date=t.date?new Date(t.date+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'long',day:'numeric',year:'numeric'}):'No date set';
+  const rrMatches=matches.filter(m=>m.phase==='round_robin');
+  const finalsMatches=matches.filter(m=>m.phase==='finals');
+  const standings=calcTournamentStandings(teams,rrMatches);
+  const tMap={};teams.forEach(t=>tMap[t.id]=t.name);
+
+  let html=`
+    <div class="card">
+      <div style="font-size:18px;font-weight:800;">${t.name}</div>
+      <div style="font-size:12px;color:var(--text-muted);margin-top:4px;font-weight:600;">${categoryLabel} · ${date}</div>
+    </div>`;
+
+  // Standings
+  if(standings.length){
+    html+=`<div class="card"><div class="card-title">Standings</div>${renderStandingsTable(standings)}</div>`;
+  }
+
+  // Round robin matches
+  if(rrMatches.length){
+    html+=`<div class="card"><div class="card-title">Round Robin Results</div>${renderRRMatchTable(rrMatches,teams)}</div>`;
+  }
+
+  // Finals
+  if(finalsMatches.length&&t.finals_format){
+    html+=`<div class="card"><div class="card-title">Finals</div>${renderFinalsSection(finalsMatches,teams,t,standings)}</div>`;
+  }
+
+  el.innerHTML=html||'<div class="empty">No data yet for this tournament.</div>';
 };
 
 const showPage=(name,btn)=>{
@@ -67,6 +144,7 @@ const showPage=(name,btn)=>{
   if(name==='add-player')initAddPlayer();
   if(name==='share')loadSharePage();
   if(name==='tournaments')loadTournamentsPage();
+  if(name==='tournament-view'){const el=document.getElementById('tournament-view-content');if(el&&!currentTournamentId)el.innerHTML='<div class="empty">Select a tournament from the dropdown above.</div>';}
 };
 
 // ─── LADDER SELECTOR ────────────────────────────────────────────────
@@ -99,10 +177,11 @@ const onLadderChange=async()=>{
 
 const updateLadderBanner=()=>{
   const ladderPages=['ladder','sessions','entry'];
-  const ladderNavBtns=document.querySelectorAll('#subnav-programs button[data-page]');
+  const ladderNavBtns=document.querySelectorAll('#subnav-ladder-options button[data-page]');
   if(!currentLadder){
     ladderNavBtns.forEach(b=>{if(ladderPages.includes(b.dataset.page))b.disabled=true;});
     ladderPages.forEach(p=>{const el=document.getElementById(`page-${p}`);if(el)el.classList.add('page-disabled');});
+    document.getElementById('subnav-ladder-options')?.querySelectorAll('button[data-page]').forEach(b=>{if(ladderPages.includes(b.dataset.page))b.disabled=true;});
     return;
   }
   ladderNavBtns.forEach(b=>b.disabled=false);
@@ -1162,6 +1241,7 @@ document.addEventListener('click', e=>{
   if(action==='addToLadder') addToLadder();
   if(action==='closeLpModal') closeLpModal();
   if(action==='switchTab') switchMainTab(btn.dataset.tab);
+  if(action==='switchProgramTab') switchProgramTab(btn.dataset.tab);
   // Tournament actions
   if(action==='openTournamentDetail') openTournamentDetail(btn);
   if(action==='openEditTournament') openEditTournament(btn);

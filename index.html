@@ -194,13 +194,30 @@ const checkPassword = async () => {
 </div>
 
 <div class="sub-nav" id="subnav-programs">
+  <button class="active" id="prog-tab-ladder" data-action="switchProgramTab" data-tab="ladder">Ladder</button>
+  <button id="prog-tab-tournament" data-action="switchProgramTab" data-tab="tournament">Tournaments</button>
+</div>
+
+<!-- Ladder sub-options -->
+<div class="sub-nav" id="subnav-ladder-options" style="background:var(--bg);border-bottom:0.5px solid var(--border);">
   <div class="sub-nav-ladder">
     <label>Ladder</label>
     <select id="ladder-selector" onchange="onLadderChange()"></select>
   </div>
-  <button class="active" data-page="ladder" data-action="showPage" data-page="ladder">Standings</button>
-  <button data-page="sessions" data-action="showPage" data-page="sessions">Sessions</button>
-  <button data-page="entry" data-action="showPage" data-page="entry">Record Session</button>
+  <button data-page="ladder" data-action="showPage" class="active">Standings</button>
+  <button data-page="sessions" data-action="showPage">Sessions</button>
+  <button data-page="entry" data-action="showPage">Record Session</button>
+</div>
+
+<!-- Tournament sub-options -->
+<div class="sub-nav" id="subnav-tournament-options" style="display:none;background:var(--bg);border-bottom:0.5px solid var(--border);">
+  <div class="sub-nav-ladder">
+    <label>Tournament</label>
+    <select id="tournament-selector" onchange="onTournamentChange()">
+      <option value="">-- Select a tournament --</option>
+    </select>
+  </div>
+  <button data-page="tournament-view" data-action="showPage">Overview</button>
 </div>
 
 <div class="sub-nav" id="subnav-management" style="display:none;">
@@ -418,6 +435,11 @@ const checkPassword = async () => {
       <button class="btn btn-outline btn-sm" data-action="backToTournaments">← Back to tournaments</button>
     </div>
     <div id="tournament-detail-content"></div>
+  </div>
+
+  <!-- TOURNAMENT VIEW PAGE (Programs) -->
+  <div id="page-tournament-view" class="page">
+    <div id="tournament-view-content"><div class="empty">Select a tournament to view details.</div></div>
   </div>
 
   <!-- SHARE PAGE -->
