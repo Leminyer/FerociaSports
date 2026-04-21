@@ -140,7 +140,8 @@ const renderTournamentViewReadOnly=async()=>{
 
 const showPage=(name,btn)=>{
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  document.querySelectorAll('.sub-nav button').forEach(b=>b.classList.remove('active'));
+  // Only deactivate buttons in visible subnavs, not all subnavs
+  document.querySelectorAll('.sub-nav:not([style*="display:none"]):not([style*="display: none"]) button').forEach(b=>b.classList.remove('active'));
   document.getElementById(`page-${name}`).classList.add('active');
   if(btn)btn.classList.add('active');
   if(name==='ladder')loadLadder();
@@ -158,17 +159,17 @@ const showPage=(name,btn)=>{
 const loadLadderSelector=async()=>{
   allLadders=await api('ladders?select=*&order=id.desc');
   const sel=document.getElementById('ladder-selector');
+  if(!sel)return;
   if(!allLadders.length){
     sel.innerHTML='<option value="">-- No ladders yet --</option>';
     currentLadder=null;
-    updateLadderBanner();
     return;
   }
   sel.innerHTML='<option value="">-- Select a ladder --</option>'+
     allLadders.map(l=>`<option value="${l.id}">${l.name}${l.status==='closed'?' (closed)':''}</option>`).join('');
   sel.value='';
   currentLadder=null;
-  updateLadderBanner();
+  // Do NOT navigate or call updateLadderBanner here — user hasn't clicked anything yet
 };
 
 const onLadderChange=async()=>{
@@ -176,9 +177,17 @@ const onLadderChange=async()=>{
   currentLadder=allLadders.find(l=>l.id===id)||null;
   updateLadderBanner();
   await loadLadderPlayers();
-  // Always switch to Programs tab and show Standings
-  switchMainTab('programs');
-  const standingsBtn=document.querySelector('#subnav-programs button[data-page="ladder"]');
+  // Make sure Programs tab and Ladder sub-tab are active
+  document.getElementById('tab-programs').classList.add('active');
+  document.getElementById('tab-management').classList.remove('active');
+  document.getElementById('subnav-programs').style.display='flex';
+  document.getElementById('subnav-management').style.display='none';
+  document.getElementById('prog-tab-ladder').classList.add('active');
+  document.getElementById('prog-tab-tournament').classList.remove('active');
+  document.getElementById('subnav-ladder-options').style.display='flex';
+  document.getElementById('subnav-tournament-options').style.display='none';
+  // Show standings
+  const standingsBtn=document.querySelector('#subnav-ladder-options button[data-page="ladder"]');
   showPage('ladder', standingsBtn);
 };
 
@@ -1313,6 +1322,13 @@ document.addEventListener('input', e=>{
 
 document.getElementById('player-status-filter')?.addEventListener('change', filterPlayers);
 document.getElementById('player-search')?.addEventListener('input', filterPlayers);
+// Hide everything on load — user must click to navigate
+document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+document.getElementById('subnav-programs').style.display='none';
+document.getElementById('subnav-management').style.display='none';
+document.getElementById('subnav-ladder-options').style.display='none';
+document.getElementById('subnav-tournament-options').style.display='none';
+
 document.getElementById('tab-programs').dataset.action='switchTab';
 document.getElementById('tab-programs').dataset.tab='programs';
 document.getElementById('tab-management').dataset.action='switchTab';
