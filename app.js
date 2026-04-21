@@ -37,27 +37,37 @@ const toast=(msg,err=false)=>{
   },4000);
 };
 
+const goHome=()=>{
+  // Reset all navs and show home page
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-home').classList.add('active');
+  document.getElementById('subnav-programs').style.display='none';
+  document.getElementById('subnav-management').style.display='none';
+  document.getElementById('subnav-ladder-options').style.display='none';
+  document.getElementById('subnav-tournament-options').style.display='none';
+  document.getElementById('tab-home').classList.add('active');
+};
+
 const switchMainTab=(tab)=>{
-  // Hide home page when navigating
-  const home=document.getElementById('page-home');
-  if(home)home.classList.remove('active');
-  document.getElementById('tab-programs').classList.toggle('active', tab==='programs');
-  document.getElementById('tab-management').classList.toggle('active', tab==='management');
-  document.getElementById('subnav-programs').style.display=tab==='programs'?'flex':'none';
-  document.getElementById('subnav-management').style.display=tab==='management'?'flex':'none';
-  // Also show/hide the program sub-options based on current prog tab
+  // Hide home page
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('tab-home').classList.remove('active');
+
   const ladderOpts=document.getElementById('subnav-ladder-options');
   const tournOpts=document.getElementById('subnav-tournament-options');
+
   if(tab==='programs'){
-    // Hide both sub-navs — wait for user to pick Ladder or Tournament
+    document.getElementById('subnav-programs').style.display='flex';
+    document.getElementById('subnav-management').style.display='none';
     if(ladderOpts) ladderOpts.style.display='none';
     if(tournOpts) tournOpts.style.display='none';
-    // Deactivate both prog tabs
     document.getElementById('prog-tab-ladder').classList.remove('active');
     document.getElementById('prog-tab-tournament').classList.remove('active');
-    // Hide all pages
-    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  } else {
+    // Show Programs landing page
+    document.getElementById('page-programs-home').classList.add('active');
+  } else if(tab==='management'){
+    document.getElementById('subnav-programs').style.display='none';
+    document.getElementById('subnav-management').style.display='flex';
     if(ladderOpts) ladderOpts.style.display='none';
     if(tournOpts) tournOpts.style.display='none';
     const activeBtn=document.querySelector('#subnav-management button.active');
@@ -69,16 +79,19 @@ const switchMainTab=(tab)=>{
 const switchProgramTab=(tab)=>{
   const ladderOpts=document.getElementById('subnav-ladder-options');
   const tournOpts=document.getElementById('subnav-tournament-options');
+  // Hide programs home landing
+  document.getElementById('page-programs-home').classList.remove('active');
   document.getElementById('prog-tab-ladder').classList.toggle('active',tab==='ladder');
   document.getElementById('prog-tab-tournament').classList.toggle('active',tab==='tournament');
   ladderOpts.style.display=tab==='ladder'?'flex':'none';
   tournOpts.style.display=tab==='tournament'?'flex':'none';
   if(tab==='ladder'){
     const standingsBtn=document.querySelector('#subnav-ladder-options button[data-page="ladder"]');
-    // Reload ladder selector in case ladders were added/changed
     loadLadderSelector().then(()=>{
       if(currentLadder) showPage('ladder',standingsBtn);
-      else{ document.querySelectorAll('.page').forEach(p=>p.classList.remove('active')); }
+      else{
+        document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+      }
     });
   } else {
     loadTournamentSelector();
@@ -1260,6 +1273,7 @@ document.addEventListener('click', e=>{
   if(action==='addToLadder') addToLadder();
   if(action==='closeLpModal') closeLpModal();
   if(action==='switchTab') switchMainTab(btn.dataset.tab);
+  if(action==='goHome') goHome();
   if(action==='switchProgramTab') switchProgramTab(btn.dataset.tab);
   // Tournament actions
   if(action==='openTournamentDetail') openTournamentDetail(btn);
@@ -1328,15 +1342,13 @@ document.getElementById('player-search')?.addEventListener('input', filterPlayer
 // Show home page on load
 document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
 document.getElementById('page-home').classList.add('active');
+document.getElementById('tab-home').classList.add('active');
 document.getElementById('subnav-programs').style.display='none';
 document.getElementById('subnav-management').style.display='none';
 document.getElementById('subnav-ladder-options').style.display='none';
 document.getElementById('subnav-tournament-options').style.display='none';
 
-document.getElementById('tab-programs').dataset.action='switchTab';
-document.getElementById('tab-programs').dataset.tab='programs';
-document.getElementById('tab-management').dataset.action='switchTab';
-document.getElementById('tab-management').dataset.tab='management';
+document.getElementById('tab-home').dataset.action='goHome';
 document.getElementById('edit-game-form').addEventListener('submit',saveEditGame);
 document.getElementById('ladder-selector').addEventListener('change',onLadderChange);
 document.getElementById('tournament-selector')?.addEventListener('change',onTournamentChange);

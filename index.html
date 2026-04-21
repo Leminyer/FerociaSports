@@ -189,8 +189,7 @@ const checkPassword = async () => {
 </header>
 
 <div class="main-nav">
-  <button class="main-nav-btn" id="tab-programs">Programs</button>
-  <button class="main-nav-btn" id="tab-management">Management</button>
+  <button class="main-nav-btn" id="tab-home">🏠 Home</button>
 </div>
 
 <div class="sub-nav" id="subnav-programs">
@@ -231,6 +230,29 @@ const checkPassword = async () => {
 <div id="ladder-banner" style="display:none;"></div>
 
 <main>
+
+  <!-- PROGRAMS LANDING PAGE -->
+  <div id="page-programs-home" class="page">
+    <div style="text-align:center;padding:48px 24px 32px;">
+      <div style="font-size:13px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);margin-bottom:32px;">Programs</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:480px;margin:0 auto;">
+        <div data-action="switchProgramTab" data-tab="ladder"
+          style="background:var(--blue);border-radius:var(--radius);padding:28px 20px;cursor:pointer;transition:opacity .15s;"
+          onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
+          <div style="font-size:32px;margin-bottom:12px;">🏅</div>
+          <div style="font-size:14px;font-weight:800;color:white;letter-spacing:.5px;text-transform:uppercase;">Ladder</div>
+          <div style="font-size:11px;color:var(--blue-light);margin-top:4px;font-weight:500;">Standings & Sessions</div>
+        </div>
+        <div data-action="switchProgramTab" data-tab="tournament"
+          style="background:var(--orange);border-radius:var(--radius);padding:28px 20px;cursor:pointer;transition:opacity .15s;"
+          onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
+          <div style="font-size:32px;margin-bottom:12px;">🏆</div>
+          <div style="font-size:14px;font-weight:800;color:white;letter-spacing:.5px;text-transform:uppercase;">Tournaments</div>
+          <div style="font-size:11px;color:var(--orange-light);margin-top:4px;font-weight:500;">Brackets & Results</div>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- WELCOME / HOME -->
   <div id="page-home" class="page active">
