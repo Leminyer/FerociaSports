@@ -46,12 +46,14 @@ const switchMainTab=(tab)=>{
   const ladderOpts=document.getElementById('subnav-ladder-options');
   const tournOpts=document.getElementById('subnav-tournament-options');
   if(tab==='programs'){
-    const progTab=document.getElementById('prog-tab-ladder').classList.contains('active')?'ladder':'tournament';
-    if(ladderOpts) ladderOpts.style.display=progTab==='ladder'?'flex':'none';
-    if(tournOpts) tournOpts.style.display=progTab==='tournament'?'flex':'none';
-    if(progTab==='ladder'){
-      showPage('ladder',document.querySelector('#subnav-ladder-options button[data-page="ladder"]'));
-    }
+    // Hide both sub-navs — wait for user to pick Ladder or Tournament
+    if(ladderOpts) ladderOpts.style.display='none';
+    if(tournOpts) tournOpts.style.display='none';
+    // Deactivate both prog tabs
+    document.getElementById('prog-tab-ladder').classList.remove('active');
+    document.getElementById('prog-tab-tournament').classList.remove('active');
+    // Hide all pages
+    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   } else {
     if(ladderOpts) ladderOpts.style.display='none';
     if(tournOpts) tournOpts.style.display='none';
@@ -69,7 +71,8 @@ const switchProgramTab=(tab)=>{
   ladderOpts.style.display=tab==='ladder'?'flex':'none';
   tournOpts.style.display=tab==='tournament'?'flex':'none';
   if(tab==='ladder'){
-    showPage('ladder',document.querySelector('#subnav-ladder-options button[data-page="ladder"]'));
+    const standingsBtn=document.querySelector('#subnav-ladder-options button[data-page="ladder"]');
+    showPage('ladder',standingsBtn);
   } else {
     loadTournamentSelector();
     showPage('tournament-view',document.querySelector('#subnav-tournament-options button[data-page="tournament-view"]'));
