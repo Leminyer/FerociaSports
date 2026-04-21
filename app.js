@@ -1400,7 +1400,7 @@ const loadTournamentsPage = async () => {
       <div>
         <div style="font-weight:700;font-size:14px;">${t.name}</div>
         <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">
-          ${CATEGORY_LABELS[t.category]||t.category}
+          ${(t.categories||[]).map(c=>CATEGORY_LABELS[c]||c).join(' · ')||'No categories'}
           ${t.date?' · '+new Date(t.date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):''}
         </div>
       </div>
@@ -1413,18 +1413,21 @@ const loadTournamentsPage = async () => {
     </div>`).join('');
 };
 
+const getCheckedCategories=(prefix)=>{
+  const cats=['mixed','mens','womens','team'];
+  return cats.map(c=>document.getElementById(`${prefix}-cat-${c}`)?.checked?document.getElementById(`${prefix}-cat-${c}`).value:null).filter(Boolean);
+};
+
 const createTournament = async (e) => {
   e.preventDefault();
-  const body = {
-    name: document.getElementById('tn-name').value.trim(),
-    category: document.getElementById('tn-category').value,
-    date: document.getElementById('tn-date').value || null,
-    status: 'draft'
-  };
-  if (!body.name) { toast('Please enter a tournament name.', true); return; }
+  const name = document.getElementById('tn-name').value.trim();
+  const categories = getCheckedCategories('tn');
+  if (!name) { toast('Please enter a tournament name.', true); return; }
+  if (!categories.length) { toast('Please select at least one category.', true); return; }
+  const body = { name, categories: `{${categories.join(',')}}`, date: document.getElementById('tn-date').value || null, status: 'draft' };
   try {
     await api('tournaments', 'POST', body);
-    toast(`Tournament "${body.name}" created!`);
+    toast(`Tournament "${name}" created!`);
     document.getElementById('create-tournament-form').reset();
     loadTournamentsPage();
   } catch(e) { toast(`Error: ${e.message}`, true); }
@@ -1437,9 +1440,15 @@ const openEditTournament = (btn) => {
     const t = rows[0];
     document.getElementById('edit-tn-id').value = t.id;
     document.getElementById('edit-tn-name').value = t.name;
-    document.getElementById('edit-tn-category').value = t.category;
     document.getElementById('edit-tn-date').value = t.date || '';
     document.getElementById('edit-tn-status').value = t.status;
+    // Check the right category boxes
+    const cats=['mixed','mens','womens','team'];
+    const vals=['mixed_doubles','mens_doubles','womens_doubles','team_challenge'];
+    cats.forEach((c,i)=>{
+      const cb=document.getElementById(`edit-tn-cat-${c}`);
+      if(cb) cb.checked=(t.categories||[]).includes(vals[i]);
+    });
     document.getElementById('edit-tournament-modal').classList.add('open');
   });
 };
@@ -1447,9 +1456,11 @@ const openEditTournament = (btn) => {
 const saveEditTournament = async (e) => {
   e.preventDefault();
   const id = document.getElementById('edit-tn-id').value;
+  const categories = getCheckedCategories('edit-tn');
+  if (!categories.length) { toast('Please select at least one category.', true); return; }
   const body = {
     name: document.getElementById('edit-tn-name').value.trim(),
-    category: document.getElementById('edit-tn-category').value,
+    categories: `{${categories.join(',')}}`,
     date: document.getElementById('edit-tn-date').value || null,
     status: document.getElementById('edit-tn-status').value
   };
@@ -1498,63 +1509,78 @@ const renderTournamentDetail = async () => {
   const t = tArr[0];
   if (!t) return;
 
-  const categoryLabel = CATEGORY_LABELS[t.category] || t.category;
   const statusColor = t.status==='active'?'var(--teal)':t.status==='completed'?'var(--blue)':'var(--text-muted)';
   const date = t.date ? new Date(t.date+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'long',day:'numeric',year:'numeric'}) : 'No date set';
-
-  // Calculate standings from round robin matches
-  const standings = calcTournamentStandings(teams, matches.filter(m=>m.phase==='round_robin'));
-  const rrMatches = matches.filter(m=>m.phase==='round_robin');
-  const finalsMatches = matches.filter(m=>m.phase==='finals');
-  const rrComplete = rrMatches.length>0 && rrMatches.every(m=>m.status==='completed');
+  const categories = t.categories || [];
 
   let html = `
     <div class="card">
-      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:4px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
         <div>
           <div style="font-size:18px;font-weight:800;color:var(--text);">${t.name}</div>
-          <div style="font-size:12px;color:var(--text-muted);margin-top:4px;font-weight:600;">${categoryLabel} · ${date}</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:4px;font-weight:600;">${date}</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">
+            ${categories.map(c=>`<span class="badge badge-active">${CATEGORY_LABELS[c]||c}</span>`).join('')}
+          </div>
         </div>
         <span style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:${statusColor};">${t.status}</span>
       </div>
-    </div>
+    </div>`;
 
-    <!-- TEAMS -->
-    <div class="card">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-        <div class="card-title" style="margin:0;">Teams (${teams.length})</div>
-        ${t.status!=='completed'?`<button class="btn btn-primary btn-sm" data-action="openAddTeam" data-tid="${t.id}" data-category="${t.category}">+ Add team</button>`:''}
-      </div>
-      ${teams.length?`<table>
-        <thead><tr><th>#</th><th>Team name</th><th>Players</th><th></th></tr></thead>
-        <tbody>${await renderTeamRows(teams, t.status)}</tbody>
-      </table>`:'<div class="empty">No teams yet. Add your first team!</div>'}
-    </div>
+  // Render each category independently
+  for(const category of categories){
+    const catTeams = teams.filter(tm=>tm.category===category);
+    const catRR = matches.filter(m=>m.phase==='round_robin'&&m.category===category);
+    const catFinals = matches.filter(m=>m.phase==='finals'&&m.category===category);
+    const standings = calcTournamentStandings(catTeams, catRR);
+    const rrComplete = catRR.length>0 && catRR.every(m=>m.status==='completed');
+    // Get finals format per category from tournament
+    const finalsFormat = finalsFormatMap[`${t.id}_${category}`]||null;
 
-    <!-- ROUND ROBIN -->
-    ${teams.length>=2?`
-    <div class="card">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-        <div class="card-title" style="margin:0;">Round Robin</div>
-        ${t.status!=='completed'&&rrMatches.length===0?`<button class="btn btn-primary btn-sm" data-action="generateRoundRobin" data-tid="${t.id}">Generate matches</button>`:''}
+    html += `
+    <div style="border:2px solid var(--blue);border-radius:var(--radius);margin-bottom:20px;overflow:hidden;">
+      <div style="background:var(--blue);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;">
+        <div style="font-size:13px;font-weight:800;color:white;text-transform:uppercase;letter-spacing:1px;">${CATEGORY_LABELS[category]||category}</div>
+        ${t.status!=='completed'?`<button class="btn btn-sm" style="background:var(--lime);color:var(--lime-dark);font-weight:800;" data-action="openAddTeam" data-tid="${t.id}" data-category="${category}">+ Add team</button>`:''}
       </div>
-      ${rrMatches.length?renderRRMatchTable(rrMatches, teams)+renderStandingsTable(standings):'<div class="empty" style="font-size:13px;">Click "Generate matches" to create the round robin schedule.</div>'}
-    </div>`:''}
+      <div style="padding:16px;">
+        <!-- Teams -->
+        <div style="margin-bottom:16px;">
+          <div class="card-title">Teams (${catTeams.length})</div>
+          ${catTeams.length?`<table>
+            <thead><tr><th>#</th><th>Team</th><th>Players</th><th></th></tr></thead>
+            <tbody>${await renderTeamRows(catTeams, t.status)}</tbody>
+          </table>`:'<div class="empty" style="font-size:13px;">No teams yet for this category.</div>'}
+        </div>
 
-    <!-- FINALS -->
-    ${rrComplete?`
-    <div class="card">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-        <div class="card-title" style="margin:0;">Finals</div>
-        ${!t.finals_format&&t.status!=='completed'?`
-          <div style="display:flex;gap:8px;">
-            <button class="btn btn-outline btn-sm" data-action="setFinalsFormat" data-tid="${t.id}" data-format="top4">Top 4</button>
-            <button class="btn btn-primary btn-sm" data-action="setFinalsFormat" data-tid="${t.id}" data-format="bracket">Bracket</button>
-          </div>`:''}
+        <!-- Round Robin -->
+        ${catTeams.length>=2?`
+        <div style="margin-bottom:16px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+            <div class="card-title" style="margin:0;">Round Robin</div>
+            ${t.status!=='completed'&&catRR.length===0?`<button class="btn btn-primary btn-sm" data-action="generateRoundRobin" data-tid="${t.id}" data-category="${category}">Generate</button>`:''}
+          </div>
+          ${catRR.length?renderRRMatchTable(catRR,catTeams)+renderStandingsTable(standings):'<div class="empty" style="font-size:13px;">Click Generate to create round robin schedule.</div>'}
+        </div>`:''}
+
+        <!-- Finals -->
+        ${rrComplete?`
+        <div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+            <div class="card-title" style="margin:0;">Finals</div>
+            ${!finalsFormat&&t.status!=='completed'?`
+              <div style="display:flex;gap:8px;">
+                <button class="btn btn-outline btn-sm" data-action="setFinalsFormat" data-tid="${t.id}" data-category="${category}" data-format="top4">Top 4</button>
+                <button class="btn btn-primary btn-sm" data-action="setFinalsFormat" data-tid="${t.id}" data-category="${category}" data-format="bracket">Bracket</button>
+              </div>`:''}
+          </div>
+          ${catFinals.length?renderFinalsSection(catFinals,catTeams,{...t,finals_format:finalsFormat},standings)
+            :(finalsFormat?`<button class="btn btn-primary btn-sm" data-action="generateFinals" data-tid="${t.id}" data-category="${category}" data-format="${finalsFormat}">Generate finals</button>`
+            :'<div class="empty" style="font-size:13px;">Choose finals format above.</div>')}
+        </div>`:''}
       </div>
-      ${t.finals_format?renderFinalsSection(finalsMatches, teams, t, standings):'<div class="empty" style="font-size:13px;">Choose the finals format above.</div>'}
-    </div>`:''}
-  `;
+    </div>`;
+  }
 
   document.getElementById('tournament-detail-content').innerHTML = html;
 };
@@ -1715,7 +1741,7 @@ const saveAddTeam = async (e) => {
   const name = document.getElementById('at-name').value.trim();
   const count = category==='team_challenge'?4:2;
   if (!name) { toast('Please enter a team name.', true); return; }
-  const body = { tournament_id: parseInt(tid), name,
+  const body = { tournament_id: parseInt(tid), name, category,
     player1_id: parseInt(document.getElementById('at-p1')?.value)||null,
     player2_id: parseInt(document.getElementById('at-p2')?.value)||null,
     player3_id: count>=3?(parseInt(document.getElementById('at-p3')?.value)||null):null,
@@ -1740,26 +1766,18 @@ const deleteTeam = async (btn) => {
 
 const generateRoundRobin = async (btn) => {
   const tid = btn.dataset.tid;
-  const teams = await api(`tournament_teams?tournament_id=eq.${tid}&select=id,name`);
+  const category = btn.dataset.category;
+  const teams = await api(`tournament_teams?tournament_id=eq.${tid}&category=eq.${category}&select=id,name`);
   if (teams.length < 2) { toast('Need at least 2 teams to generate matches.', true); return; }
-
-  // Generate all pairs (round robin)
   const matches = [];
   let round = 1;
   for (let i = 0; i < teams.length; i++) {
     for (let j = i+1; j < teams.length; j++) {
-      matches.push({
-        tournament_id: parseInt(tid),
-        phase: 'round_robin',
-        round,
-        team_a_id: teams[i].id,
-        team_b_id: teams[j].id,
-        status: 'pending'
-      });
+      matches.push({ tournament_id:parseInt(tid), phase:'round_robin', round, category,
+        team_a_id:teams[i].id, team_b_id:teams[j].id, status:'pending' });
       round++;
     }
   }
-
   try {
     await api('tournament_matches','POST',matches);
     toast(`${matches.length} round robin matches generated!`);
@@ -1769,10 +1787,14 @@ const generateRoundRobin = async (btn) => {
 
 // ─── FINALS GENERATION ───────────────────────────────────────────────────────
 
+// Store finals format per category in memory (keyed by tournamentId_category)
+const finalsFormatMap = {};
+
 const setFinalsFormat = async (btn) => {
   const tid = btn.dataset.tid;
   const format = btn.dataset.format;
-  await api(`tournaments?id=eq.${tid}`,'PATCH',{finals_format:format});
+  const category = btn.dataset.category;
+  finalsFormatMap[`${tid}_${category}`] = format;
   toast(`Finals format set to ${format==='bracket'?'Bracket':'Top 4'}.`);
   renderTournamentDetail();
 };
@@ -1780,8 +1802,9 @@ const setFinalsFormat = async (btn) => {
 const generateFinals = async (btn) => {
   const tid = btn.dataset.tid;
   const format = btn.dataset.format;
-  const teams = await api(`tournament_teams?tournament_id=eq.${tid}&select=id`);
-  const matches = await api(`tournament_matches?tournament_id=eq.${tid}&phase=eq.round_robin&select=*`);
+  const category = btn.dataset.category;
+  const teams = await api(`tournament_teams?tournament_id=eq.${tid}&category=eq.${category}&select=id`);
+  const matches = await api(`tournament_matches?tournament_id=eq.${tid}&phase=eq.round_robin&category=eq.${category}&select=*`);
   const standings = calcTournamentStandings(teams, matches);
 
   let finalsMatches = [];
@@ -1789,17 +1812,16 @@ const generateFinals = async (btn) => {
     // Semifinal 1: 1st vs 4th, Semifinal 2: 2nd vs 3rd
     // Then: loser1 vs loser2 (3rd place), winner1 vs winner2 (final)
     finalsMatches = [
-      { tournament_id:parseInt(tid), phase:'finals', round:1, team_a_id:standings[0]?.id, team_b_id:standings[3]?.id, status:'pending' },
-      { tournament_id:parseInt(tid), phase:'finals', round:1, team_a_id:standings[1]?.id, team_b_id:standings[2]?.id, status:'pending' },
-      { tournament_id:parseInt(tid), phase:'finals', round:2, team_a_id:null, team_b_id:null, status:'pending' }, // 3rd place
-      { tournament_id:parseInt(tid), phase:'finals', round:3, team_a_id:null, team_b_id:null, status:'pending' }, // Final
+      { tournament_id:parseInt(tid), phase:'finals', round:1, category, team_a_id:standings[0]?.id, team_b_id:standings[3]?.id, status:'pending' },
+      { tournament_id:parseInt(tid), phase:'finals', round:1, category, team_a_id:standings[1]?.id, team_b_id:standings[2]?.id, status:'pending' },
+      { tournament_id:parseInt(tid), phase:'finals', round:2, category, team_a_id:null, team_b_id:null, status:'pending' },
+      { tournament_id:parseInt(tid), phase:'finals', round:3, category, team_a_id:null, team_b_id:null, status:'pending' },
     ];
   } else {
-    // Bracket: 1 vs 2 final directly (simple bracket for smaller tournaments)
     finalsMatches = [
-      { tournament_id:parseInt(tid), phase:'finals', round:1, team_a_id:standings[0]?.id, team_b_id:standings[1]?.id, status:'pending' },
-      { tournament_id:parseInt(tid), phase:'finals', round:2, team_a_id:standings[2]?.id||null, team_b_id:standings[3]?.id||null, status:'pending' },
-      { tournament_id:parseInt(tid), phase:'finals', round:3, team_a_id:null, team_b_id:null, status:'pending' },
+      { tournament_id:parseInt(tid), phase:'finals', round:1, category, team_a_id:standings[0]?.id, team_b_id:standings[1]?.id, status:'pending' },
+      { tournament_id:parseInt(tid), phase:'finals', round:2, category, team_a_id:standings[2]?.id||null, team_b_id:standings[3]?.id||null, status:'pending' },
+      { tournament_id:parseInt(tid), phase:'finals', round:3, category, team_a_id:null, team_b_id:null, status:'pending' },
     ];
   }
 
@@ -1882,15 +1904,18 @@ const updateFinalsProgression = async (matchId, match, winnerId, scoreA, scoreB)
   // After semifinals (round 1), populate 3rd place and final
   if (match.round !== 1) return;
   const loserId = winnerId === match.team_a_id ? match.team_b_id : match.team_a_id;
-  const allSemis = await api(`tournament_matches?tournament_id=eq.${currentTournamentId}&phase=eq.finals&round=eq.1&select=*`);
+  const catMatch = await api(`tournament_matches?id=eq.${matchId}&select=category`);
+  const matchCategory = catMatch[0]?.category||null;
+  const catFilter = matchCategory?`&category=eq.${matchCategory}`:'';
+  const allSemis = await api(`tournament_matches?tournament_id=eq.${currentTournamentId}&phase=eq.finals&round=eq.1${catFilter}&select=*`);
   const completedSemis = allSemis.filter(m=>m.status==='completed');
   if (completedSemis.length < 2) return;
 
   const winners = completedSemis.map(m=>m.winner_team_id);
   const losers = completedSemis.map(m=>m.winner_team_id===m.team_a_id?m.team_b_id:m.team_a_id);
 
-  const thirdMatch = await api(`tournament_matches?tournament_id=eq.${currentTournamentId}&phase=eq.finals&round=eq.2&select=*`);
-  const finalMatch = await api(`tournament_matches?tournament_id=eq.${currentTournamentId}&phase=eq.finals&round=eq.3&select=*`);
+  const thirdMatch = await api(`tournament_matches?tournament_id=eq.${currentTournamentId}&phase=eq.finals&round=eq.2${catFilter}&select=*`);
+  const finalMatch = await api(`tournament_matches?tournament_id=eq.${currentTournamentId}&phase=eq.finals&round=eq.3${catFilter}&select=*`);
 
   if (thirdMatch.length) await api(`tournament_matches?id=eq.${thirdMatch[0].id}`,'PATCH',{team_a_id:losers[0],team_b_id:losers[1]});
   if (finalMatch.length) await api(`tournament_matches?id=eq.${finalMatch[0].id}`,'PATCH',{team_a_id:winners[0],team_b_id:winners[1]});

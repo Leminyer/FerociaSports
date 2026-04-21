@@ -453,19 +453,17 @@ const checkPassword = async () => {
       <div class="card-title">Create New Tournament</div>
       <form id="create-tournament-form">
         <div class="form-group"><label>Tournament name</label><input type="text" id="tn-name" required placeholder="e.g. Spring Tournament 2026"></div>
-        <div class="form-row">
-          <div class="form-group">
-            <label>Category</label>
-            <select id="tn-category">
-              <option value="mixed_doubles">Mixed Doubles</option>
-              <option value="mens_doubles">Men's Doubles</option>
-              <option value="womens_doubles">Women's Doubles</option>
-              <option value="team_challenge">Team Challenge (2M+2W)</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Date</label>
-            <input type="date" id="tn-date">
+        <div class="form-group">
+          <label>Date</label>
+          <input type="date" id="tn-date">
+        </div>
+        <div class="form-group">
+          <label>Categories (select all that apply)</label>
+          <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px;">
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;text-transform:none;letter-spacing:0;cursor:pointer;"><input type="checkbox" id="tn-cat-mixed" value="mixed_doubles"> Mixed Doubles</label>
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;text-transform:none;letter-spacing:0;cursor:pointer;"><input type="checkbox" id="tn-cat-mens" value="mens_doubles"> Men's Doubles</label>
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;text-transform:none;letter-spacing:0;cursor:pointer;"><input type="checkbox" id="tn-cat-womens" value="womens_doubles"> Women's Doubles</label>
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;text-transform:none;letter-spacing:0;cursor:pointer;"><input type="checkbox" id="tn-cat-team" value="team_challenge"> Team Challenge (2M+2W)</label>
           </div>
         </div>
         <button type="submit" class="btn btn-primary">Create tournament</button>
@@ -630,17 +628,15 @@ const checkPassword = async () => {
     <form id="edit-tournament-form">
       <input type="hidden" id="edit-tn-id">
       <div class="form-group"><label>Name</label><input type="text" id="edit-tn-name" required></div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>Category</label>
-          <select id="edit-tn-category">
-            <option value="mixed_doubles">Mixed Doubles</option>
-            <option value="mens_doubles">Men's Doubles</option>
-            <option value="womens_doubles">Women's Doubles</option>
-            <option value="team_challenge">Team Challenge (2M+2W)</option>
-          </select>
+      <div class="form-group"><label>Date</label><input type="date" id="edit-tn-date"></div>
+      <div class="form-group">
+        <label>Categories</label>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px;">
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;text-transform:none;letter-spacing:0;cursor:pointer;"><input type="checkbox" id="edit-tn-cat-mixed" value="mixed_doubles"> Mixed Doubles</label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;text-transform:none;letter-spacing:0;cursor:pointer;"><input type="checkbox" id="edit-tn-cat-mens" value="mens_doubles"> Men's Doubles</label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;text-transform:none;letter-spacing:0;cursor:pointer;"><input type="checkbox" id="edit-tn-cat-womens" value="womens_doubles"> Women's Doubles</label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;text-transform:none;letter-spacing:0;cursor:pointer;"><input type="checkbox" id="edit-tn-cat-team" value="team_challenge"> Team Challenge (2M+2W)</label>
         </div>
-        <div class="form-group"><label>Date</label><input type="date" id="edit-tn-date"></div>
       </div>
       <div class="form-group">
         <label>Status</label>
