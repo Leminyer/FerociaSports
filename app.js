@@ -65,6 +65,7 @@ const showPage=(name,btn)=>{
   if(name==='entry')initEntry();
   if(name==='ladders')loadLaddersPage();
   if(name==='add-player')initAddPlayer();
+  if(name==='share')loadSharePage();
 };
 
 // ─── LADDER SELECTOR ────────────────────────────────────────────────
@@ -1096,6 +1097,43 @@ const saveEditPlayer=async(e)=>{
 };
 
 // ─── INIT ─────────────────────────────────────────────────────────────
+const loadSharePage=async()=>{
+  const ladders=await api('ladders?select=*&order=id.desc');
+  const el=document.getElementById('share-ladder-list');
+  if(!ladders.length){el.innerHTML='<div class="empty">No ladders yet. Create one in the Ladders tab.</div>';return;}
+  const baseUrl=window.location.origin+window.location.pathname.replace('index.html','')+'players.html';
+  el.innerHTML=ladders.map(l=>{
+    const encoded=btoa(String(l.id));
+    const url=`${baseUrl}?l=${encoded}`;
+    const statusColor=l.status==='active'?'var(--teal)':'var(--text-muted)';
+    return `<div style="padding:16px 0;border-bottom:0.5px solid var(--border);">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+        <div>
+          <div style="font-weight:700;font-size:14px;">${l.name}</div>
+          <div style="font-size:11px;font-weight:700;color:${statusColor};text-transform:uppercase;letter-spacing:.5px;margin-top:2px;">${l.status}</div>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="copyShareLink('${url}','copy-btn-${l.id}')" id="copy-btn-${l.id}">Copy link</button>
+      </div>
+      <div style="margin-top:10px;background:var(--bg);border:0.5px solid var(--border);border-radius:var(--radius-sm);padding:8px 12px;font-size:12px;font-weight:500;color:var(--text-muted);word-break:break-all;font-family:monospace;">${url}</div>
+    </div>`;
+  }).join('');
+};
+
+const copyShareLink=(url,btnId)=>{
+  navigator.clipboard.writeText(url).then(()=>{
+    const btn=document.getElementById(btnId);
+    if(btn){
+      const orig=btn.textContent;
+      btn.textContent='Copied!';
+      btn.style.background='var(--teal)';
+      setTimeout(()=>{btn.textContent=orig;btn.style.background='';},2000);
+    }
+    toast('Link copied to clipboard!');
+  }).catch(()=>{
+    toast('Could not copy. Please copy the link manually.',true);
+  });
+};
+
 document.getElementById('last-updated').textContent=new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
 
 // Single delegated listener handles all button clicks

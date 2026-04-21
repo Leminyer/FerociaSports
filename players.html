@@ -154,9 +154,10 @@ const api=async(path)=>{
   return res.json();
 };
 
-// Get ladder ID from URL ?ladder=X
+// Get ladder ID from URL ?l=BASE64_ENCODED_ID
 const params=new URLSearchParams(window.location.search);
-const ladderId=params.get('ladder');
+const encoded=params.get('l');
+const ladderId=encoded?atob(encoded):null;
 
 let ladderData=null;
 let allMatches=[];
@@ -180,7 +181,7 @@ const init=async()=>{
       <div class="error-screen">
         <div style="font-size:48px;margin-bottom:16px;">🏓</div>
         <h2>No ladder specified</h2>
-        <p>Please use a valid link provided by your organizer.</p>
+        <p>Please use the link provided by your organizer.</p>
       </div>`;
     return;
   }
