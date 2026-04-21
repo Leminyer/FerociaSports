@@ -1385,13 +1385,16 @@ const CATEGORY_LABELS = {
 let currentTournamentId = null;
 
 const loadTournamentsPage = async () => {
-  // Make sure management subnav is visible
+  // Make sure management subnav is visible and tournaments page is active
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-tournaments').classList.add('active');
   document.getElementById('subnav-management').style.display='flex';
   document.getElementById('subnav-programs').style.display='none';
   document.getElementById('subnav-ladder-options').style.display='none';
   document.getElementById('subnav-tournament-options').style.display='none';
-  document.getElementById('page-home').classList.remove('active');
-  document.getElementById('page-programs-home').classList.remove('active');
+  document.getElementById('tab-home').classList.remove('active');
+  // Activate tournaments button in subnav
+  document.querySelectorAll('#subnav-management button').forEach(b=>b.classList.toggle('active',b.dataset.page==='tournaments'));
   const tournaments = await api('tournaments?select=*&order=id.desc');
   const el = document.getElementById('tournaments-list');
   if (!tournaments.length) { el.innerHTML = '<div class="empty">No tournaments yet. Create your first one!</div>'; return; }
