@@ -232,6 +232,32 @@ const checkPassword = async () => {
 
 <main>
 
+  <!-- WELCOME / HOME -->
+  <div id="page-home" class="page active">
+    <div style="text-align:center;padding:48px 24px 32px;">
+      <div style="font-size:48px;margin-bottom:16px;">🏓</div>
+      <div style="font-size:22px;font-weight:800;color:var(--blue);margin-bottom:8px;letter-spacing:-0.5px;">Welcome to Ferocia Pickleball</div>
+      <div style="font-size:14px;color:var(--text-muted);font-weight:500;max-width:400px;margin:0 auto 40px;">Select a section below to get started.</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:480px;margin:0 auto;">
+        <div data-action="switchTab" data-tab="programs"
+          style="background:var(--blue);border-radius:var(--radius);padding:28px 20px;cursor:pointer;transition:opacity .15s;"
+          onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
+          <div style="font-size:32px;margin-bottom:12px;">🏆</div>
+          <div style="font-size:14px;font-weight:800;color:white;letter-spacing:.5px;text-transform:uppercase;">Programs</div>
+          <div style="font-size:11px;color:var(--blue-light);margin-top:4px;font-weight:500;">Ladders & Tournaments</div>
+        </div>
+        <div data-action="switchTab" data-tab="management"
+          style="background:var(--teal);border-radius:var(--radius);padding:28px 20px;cursor:pointer;transition:opacity .15s;"
+          onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
+          <div style="font-size:32px;margin-bottom:12px;">⚙️</div>
+          <div style="font-size:14px;font-weight:800;color:white;letter-spacing:.5px;text-transform:uppercase;">Management</div>
+          <div style="font-size:11px;color:var(--teal-light);margin-top:4px;font-weight:500;">Players, Ladders & Settings</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
   <!-- STANDINGS -->
   <div id="page-ladder" class="page active">
     <div class="stats-grid" id="ladder-stats"></div>

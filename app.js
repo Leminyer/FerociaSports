@@ -38,6 +38,9 @@ const toast=(msg,err=false)=>{
 };
 
 const switchMainTab=(tab)=>{
+  // Hide home page when navigating
+  const home=document.getElementById('page-home');
+  if(home)home.classList.remove('active');
   document.getElementById('tab-programs').classList.toggle('active', tab==='programs');
   document.getElementById('tab-management').classList.toggle('active', tab==='management');
   document.getElementById('subnav-programs').style.display=tab==='programs'?'flex':'none';
@@ -1322,8 +1325,9 @@ document.addEventListener('input', e=>{
 
 document.getElementById('player-status-filter')?.addEventListener('change', filterPlayers);
 document.getElementById('player-search')?.addEventListener('input', filterPlayers);
-// Hide everything on load — user must click to navigate
+// Show home page on load
 document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+document.getElementById('page-home').classList.add('active');
 document.getElementById('subnav-programs').style.display='none';
 document.getElementById('subnav-management').style.display='none';
 document.getElementById('subnav-ladder-options').style.display='none';
