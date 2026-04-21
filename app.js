@@ -72,7 +72,11 @@ const switchProgramTab=(tab)=>{
   tournOpts.style.display=tab==='tournament'?'flex':'none';
   if(tab==='ladder'){
     const standingsBtn=document.querySelector('#subnav-ladder-options button[data-page="ladder"]');
-    showPage('ladder',standingsBtn);
+    // Reload ladder selector in case ladders were added/changed
+    loadLadderSelector().then(()=>{
+      if(currentLadder) showPage('ladder',standingsBtn);
+      else{ document.querySelectorAll('.page').forEach(p=>p.classList.remove('active')); }
+    });
   } else {
     loadTournamentSelector();
     showPage('tournament-view',document.querySelector('#subnav-tournament-options button[data-page="tournament-view"]'));
@@ -1314,13 +1318,15 @@ document.getElementById('tab-programs').dataset.tab='programs';
 document.getElementById('tab-management').dataset.action='switchTab';
 document.getElementById('tab-management').dataset.tab='management';
 document.getElementById('edit-game-form').addEventListener('submit',saveEditGame);
+document.getElementById('ladder-selector').addEventListener('change',onLadderChange);
+document.getElementById('tournament-selector')?.addEventListener('change',onTournamentChange);
 document.getElementById('edit-session-form').addEventListener('submit',saveEditSession);
 document.getElementById('create-tournament-form').addEventListener('submit',createTournament);
 document.getElementById('edit-tournament-form').addEventListener('submit',saveEditTournament);
 document.getElementById('add-team-form').addEventListener('submit',saveAddTeam);
 document.getElementById('record-match-form').addEventListener('submit',saveRecordMatch);
 
-loadLadderSelector().then(()=>loadLadder());
+loadLadderSelector();
 
 
 // ─── TOURNAMENTS ─────────────────────────────────────────────────────────────
