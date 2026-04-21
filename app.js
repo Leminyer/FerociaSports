@@ -66,6 +66,7 @@ const showPage=(name,btn)=>{
   if(name==='ladders')loadLaddersPage();
   if(name==='add-player')initAddPlayer();
   if(name==='share')loadSharePage();
+  if(name==='tournaments')loadTournamentsPage();
 };
 
 // ─── LADDER SELECTOR ────────────────────────────────────────────────
@@ -1161,6 +1162,20 @@ document.addEventListener('click', e=>{
   if(action==='addToLadder') addToLadder();
   if(action==='closeLpModal') closeLpModal();
   if(action==='switchTab') switchMainTab(btn.dataset.tab);
+  // Tournament actions
+  if(action==='openTournamentDetail') openTournamentDetail(btn);
+  if(action==='openEditTournament') openEditTournament(btn);
+  if(action==='deleteTournament') deleteTournament(btn);
+  if(action==='backToTournaments') backToTournaments();
+  if(action==='openAddTeam') openAddTeam(btn);
+  if(action==='deleteTeam') deleteTeam(btn);
+  if(action==='generateRoundRobin') generateRoundRobin(btn);
+  if(action==='setFinalsFormat') setFinalsFormat(btn);
+  if(action==='generateFinals') generateFinals(btn);
+  if(action==='openRecordMatch') openRecordMatch(btn);
+  if(action==='closeEditTournamentModal') document.getElementById('edit-tournament-modal').classList.remove('open');
+  if(action==='closeAddTeamModal') document.getElementById('add-team-modal').classList.remove('open');
+  if(action==='closeRecordMatchModal') document.getElementById('record-match-modal').classList.remove('open');
 });
 
 document.addEventListener('change', e=>{
@@ -1217,6 +1232,527 @@ document.getElementById('tab-management').dataset.action='switchTab';
 document.getElementById('tab-management').dataset.tab='management';
 document.getElementById('edit-game-form').addEventListener('submit',saveEditGame);
 document.getElementById('edit-session-form').addEventListener('submit',saveEditSession);
+document.getElementById('create-tournament-form').addEventListener('submit',createTournament);
+document.getElementById('edit-tournament-form').addEventListener('submit',saveEditTournament);
+document.getElementById('add-team-form').addEventListener('submit',saveAddTeam);
+document.getElementById('record-match-form').addEventListener('submit',saveRecordMatch);
 
 loadLadderSelector().then(()=>loadLadder());
+
+
+// ─── TOURNAMENTS ─────────────────────────────────────────────────────────────
+
+const CATEGORY_LABELS = {
+  mixed_doubles: 'Mixed Doubles',
+  mens_doubles: "Men's Doubles",
+  womens_doubles: "Women's Doubles",
+  team_challenge: 'Team Challenge (2M+2W)'
+};
+
+let currentTournamentId = null;
+
+const loadTournamentsPage = async () => {
+  const tournaments = await api('tournaments?select=*&order=id.desc');
+  const el = document.getElementById('tournaments-list');
+  if (!tournaments.length) { el.innerHTML = '<div class="empty">No tournaments yet. Create your first one!</div>'; return; }
+  el.innerHTML = tournaments.map(t => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:0.5px solid var(--border);flex-wrap:wrap;gap:8px;">
+      <div>
+        <div style="font-weight:700;font-size:14px;">${t.name}</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">
+          ${CATEGORY_LABELS[t.category]||t.category}
+          ${t.date?' · '+new Date(t.date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):''}
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <span class="badge badge-${t.status==='active'?'active':t.status==='completed'?'inactive':'sub'}">${t.status}</span>
+        <button class="btn btn-primary btn-sm" data-action="openTournamentDetail" data-tid="${t.id}">Manage</button>
+        <button class="btn btn-outline btn-sm" data-action="openEditTournament" data-tid="${t.id}">Edit</button>
+        <button class="btn btn-danger btn-sm" data-action="deleteTournament" data-tid="${t.id}" data-tname="${t.name}">Delete</button>
+      </div>
+    </div>`).join('');
+};
+
+const createTournament = async (e) => {
+  e.preventDefault();
+  const body = {
+    name: document.getElementById('tn-name').value.trim(),
+    category: document.getElementById('tn-category').value,
+    date: document.getElementById('tn-date').value || null,
+    status: 'draft'
+  };
+  if (!body.name) { toast('Please enter a tournament name.', true); return; }
+  try {
+    await api('tournaments', 'POST', body);
+    toast(`Tournament "${body.name}" created!`);
+    document.getElementById('create-tournament-form').reset();
+    loadTournamentsPage();
+  } catch(e) { toast(`Error: ${e.message}`, true); }
+};
+
+const openEditTournament = (btn) => {
+  const tid = btn.dataset.tid;
+  api(`tournaments?id=eq.${tid}&select=*`).then(rows => {
+    if (!rows.length) return;
+    const t = rows[0];
+    document.getElementById('edit-tn-id').value = t.id;
+    document.getElementById('edit-tn-name').value = t.name;
+    document.getElementById('edit-tn-category').value = t.category;
+    document.getElementById('edit-tn-date').value = t.date || '';
+    document.getElementById('edit-tn-status').value = t.status;
+    document.getElementById('edit-tournament-modal').classList.add('open');
+  });
+};
+
+const saveEditTournament = async (e) => {
+  e.preventDefault();
+  const id = document.getElementById('edit-tn-id').value;
+  const body = {
+    name: document.getElementById('edit-tn-name').value.trim(),
+    category: document.getElementById('edit-tn-category').value,
+    date: document.getElementById('edit-tn-date').value || null,
+    status: document.getElementById('edit-tn-status').value
+  };
+  try {
+    await api(`tournaments?id=eq.${id}`, 'PATCH', body);
+    toast('Tournament updated!');
+    document.getElementById('edit-tournament-modal').classList.remove('open');
+    loadTournamentsPage();
+  } catch(e) { toast(`Error: ${e.message}`, true); }
+};
+
+const deleteTournament = async (btn) => {
+  const tid = btn.dataset.tid;
+  const name = btn.dataset.tname;
+  if (!confirm(`Delete tournament "${name}"?\n\nThis will delete all teams and matches. This cannot be undone.`)) return;
+  try {
+    const teams = await api(`tournament_teams?tournament_id=eq.${tid}&select=id`);
+    for (const t of teams) await api(`tournament_matches?team_a_id=eq.${t.id}`, 'DELETE');
+    await api(`tournament_teams?tournament_id=eq.${tid}`, 'DELETE');
+    await api(`tournament_matches?tournament_id=eq.${tid}`, 'DELETE');
+    await api(`tournaments?id=eq.${tid}`, 'DELETE');
+    toast(`Tournament "${name}" deleted.`);
+    loadTournamentsPage();
+  } catch(e) { toast(`Error: ${e.message}`, true); }
+};
+
+// ─── TOURNAMENT DETAIL ────────────────────────────────────────────────────────
+
+const openTournamentDetail = async (btn) => {
+  currentTournamentId = parseInt(btn.dataset.tid);
+  showPage('tournament-detail', null);
+  await renderTournamentDetail();
+};
+
+const backToTournaments = () => {
+  currentTournamentId = null;
+  showPage('tournaments', document.querySelector('#subnav-management button[data-page="tournaments"]'));
+};
+
+const renderTournamentDetail = async () => {
+  const [tArr, teams, matches] = await Promise.all([
+    api(`tournaments?id=eq.${currentTournamentId}&select=*`),
+    api(`tournament_teams?tournament_id=eq.${currentTournamentId}&select=*`),
+    api(`tournament_matches?tournament_id=eq.${currentTournamentId}&select=*&order=round,id`)
+  ]);
+  const t = tArr[0];
+  if (!t) return;
+
+  const categoryLabel = CATEGORY_LABELS[t.category] || t.category;
+  const statusColor = t.status==='active'?'var(--teal)':t.status==='completed'?'var(--blue)':'var(--text-muted)';
+  const date = t.date ? new Date(t.date+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'long',day:'numeric',year:'numeric'}) : 'No date set';
+
+  // Calculate standings from round robin matches
+  const standings = calcTournamentStandings(teams, matches.filter(m=>m.phase==='round_robin'));
+  const rrMatches = matches.filter(m=>m.phase==='round_robin');
+  const finalsMatches = matches.filter(m=>m.phase==='finals');
+  const rrComplete = rrMatches.length>0 && rrMatches.every(m=>m.status==='completed');
+
+  let html = `
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:4px;">
+        <div>
+          <div style="font-size:18px;font-weight:800;color:var(--text);">${t.name}</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:4px;font-weight:600;">${categoryLabel} · ${date}</div>
+        </div>
+        <span style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:${statusColor};">${t.status}</span>
+      </div>
+    </div>
+
+    <!-- TEAMS -->
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <div class="card-title" style="margin:0;">Teams (${teams.length})</div>
+        ${t.status!=='completed'?`<button class="btn btn-primary btn-sm" data-action="openAddTeam" data-tid="${t.id}" data-category="${t.category}">+ Add team</button>`:''}
+      </div>
+      ${teams.length?`<table>
+        <thead><tr><th>#</th><th>Team name</th><th>Players</th><th></th></tr></thead>
+        <tbody>${await renderTeamRows(teams, t.status)}</tbody>
+      </table>`:'<div class="empty">No teams yet. Add your first team!</div>'}
+    </div>
+
+    <!-- ROUND ROBIN -->
+    ${teams.length>=2?`
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <div class="card-title" style="margin:0;">Round Robin</div>
+        ${t.status!=='completed'&&rrMatches.length===0?`<button class="btn btn-primary btn-sm" data-action="generateRoundRobin" data-tid="${t.id}">Generate matches</button>`:''}
+      </div>
+      ${rrMatches.length?renderRRMatchTable(rrMatches, teams)+renderStandingsTable(standings):'<div class="empty" style="font-size:13px;">Click "Generate matches" to create the round robin schedule.</div>'}
+    </div>`:''}
+
+    <!-- FINALS -->
+    ${rrComplete?`
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <div class="card-title" style="margin:0;">Finals</div>
+        ${!t.finals_format&&t.status!=='completed'?`
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-outline btn-sm" data-action="setFinalsFormat" data-tid="${t.id}" data-format="top4">Top 4</button>
+            <button class="btn btn-primary btn-sm" data-action="setFinalsFormat" data-tid="${t.id}" data-format="bracket">Bracket</button>
+          </div>`:''}
+      </div>
+      ${t.finals_format?renderFinalsSection(finalsMatches, teams, t, standings):'<div class="empty" style="font-size:13px;">Choose the finals format above.</div>'}
+    </div>`:''}
+  `;
+
+  document.getElementById('tournament-detail-content').innerHTML = html;
+};
+
+const renderTeamRows = async (teams, status) => {
+  // Get player names for all teams
+  const playerIds = [...new Set(teams.flatMap(t=>[t.player1_id,t.player2_id,t.player3_id,t.player4_id].filter(Boolean)))];
+  let players = [];
+  if (playerIds.length) players = await api(`players?id=in.(${playerIds.join(',')})&select=id,first_name,last_name`);
+  const pMap = {};
+  players.forEach(p=>pMap[p.id]=`${p.first_name} ${p.last_name}`);
+
+  return teams.map((t,i) => {
+    const playerList = [t.player1_id,t.player2_id,t.player3_id,t.player4_id]
+      .filter(Boolean).map(id=>pMap[id]||'Unknown').join(', ');
+    return `<tr>
+      <td style="font-weight:800;color:var(--text-muted);">${i+1}</td>
+      <td style="font-weight:700;">${t.name}</td>
+      <td style="color:var(--text-muted);font-size:12px;">${playerList}</td>
+      <td>${status!=='completed'?`<button class="btn btn-danger btn-sm" data-action="deleteTeam" data-teamid="${t.id}">Remove</button>`:''}</td>
+    </tr>`;
+  }).join('');
+};
+
+const calcTournamentStandings = (teams, rrMatches) => {
+  const stats = {};
+  teams.forEach(t => stats[t.id] = {id:t.id, name:t.name, w:0, l:0, pts_for:0, pts_against:0, points:0});
+  rrMatches.filter(m=>m.status==='completed').forEach(m => {
+    if (!stats[m.team_a_id]||!stats[m.team_b_id]) return;
+    stats[m.team_a_id].pts_for += m.score_a||0;
+    stats[m.team_a_id].pts_against += m.score_b||0;
+    stats[m.team_b_id].pts_for += m.score_b||0;
+    stats[m.team_b_id].pts_against += m.score_a||0;
+    if (m.winner_team_id===m.team_a_id) { stats[m.team_a_id].w++; stats[m.team_a_id].points+=2; stats[m.team_b_id].l++; }
+    else if (m.winner_team_id===m.team_b_id) { stats[m.team_b_id].w++; stats[m.team_b_id].points+=2; stats[m.team_a_id].l++; }
+  });
+  return Object.values(stats).sort((a,b)=>b.points-a.points||(b.pts_for-b.pts_against)-(a.pts_for-a.pts_against));
+};
+
+const renderStandingsTable = (standings) => {
+  if (!standings.length) return '';
+  return `<div style="margin-top:16px;">
+    <div class="card-title">Standings</div>
+    <table>
+      <thead><tr><th>Pos</th><th>Team</th><th>W</th><th>L</th><th>Pts</th></tr></thead>
+      <tbody>${standings.map((s,i)=>`<tr>
+        <td><span class="rank-badge ${i===0?'top1':i===1?'top2':i===2?'top3':''}">${i+1}</span></td>
+        <td style="font-weight:700;">${s.name}</td>
+        <td style="color:var(--teal);font-weight:700;">${s.w}</td>
+        <td style="color:var(--orange);font-weight:700;">${s.l}</td>
+        <td><span class="points-pill">${s.points}</span></td>
+      </tr>`).join('')}
+      </tbody>
+    </table>
+  </div>`;
+};
+
+const renderRRMatchTable = (matches, teams) => {
+  const tMap = {};
+  teams.forEach(t=>tMap[t.id]=t.name);
+  const rounds = [...new Set(matches.map(m=>m.round))].sort((a,b)=>a-b);
+  return rounds.map(round => `
+    <div style="margin-bottom:12px;">
+      <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:6px;">Round ${round}</div>
+      ${matches.filter(m=>m.round===round).map(m=>`
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--bg);border-radius:var(--radius-sm);margin-bottom:4px;border-left:3px solid ${m.status==='completed'?'var(--lime)':'var(--border)'};">
+          <div style="font-size:13px;font-weight:600;flex:1;">${tMap[m.team_a_id]||'?'} <span style="color:var(--text-muted);font-weight:400;">vs</span> ${tMap[m.team_b_id]||'?'}</div>
+          ${m.status==='completed'
+            ?`<span style="font-size:13px;font-weight:800;color:var(--blue);margin:0 12px;">${m.score_a} - ${m.score_b}</span>`
+            :`<span style="font-size:11px;color:var(--text-muted);margin:0 12px;">Pending</span>`}
+          <button class="btn btn-outline btn-sm" data-action="openRecordMatch" data-matchid="${m.id}" data-phase="round_robin">${m.status==='completed'?'Edit':'Record'}</button>
+        </div>`).join('')}
+    </div>`).join('');
+};
+
+const renderFinalsSection = (finalsMatches, teams, tournament, standings) => {
+  const tMap = {};
+  teams.forEach(t=>tMap[t.id]=t.name);
+
+  if (!finalsMatches.length) {
+    return `<div style="font-size:13px;color:var(--text-muted);margin-bottom:12px;">Format: <strong>${tournament.finals_format==='bracket'?'Bracket':'Top 4'}</strong></div>
+      <button class="btn btn-primary btn-sm" data-action="generateFinals" data-tid="${tournament.id}" data-format="${tournament.finals_format}">Generate finals matches</button>`;
+  }
+
+  const completed = finalsMatches.every(m=>m.status==='completed');
+  const rounds = [...new Set(finalsMatches.map(m=>m.round))].sort((a,b)=>a-b);
+  const roundLabels = {1:'Semifinals',2:'3rd Place Match',3:'Final',4:'Final'};
+
+  let html = `<div style="font-size:13px;color:var(--text-muted);margin-bottom:12px;">Format: <strong>${tournament.finals_format==='bracket'?'Bracket':'Top 4'}</strong></div>`;
+
+  html += rounds.map(round => `
+    <div style="margin-bottom:12px;">
+      <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--blue);margin-bottom:6px;">${roundLabels[round]||'Round '+round}</div>
+      ${finalsMatches.filter(m=>m.round===round).map(m=>`
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--blue-pale);border-radius:var(--radius-sm);margin-bottom:4px;border-left:3px solid var(--blue);">
+          <div style="font-size:13px;font-weight:600;flex:1;">${tMap[m.team_a_id]||'TBD'} <span style="color:var(--text-muted);font-weight:400;">vs</span> ${tMap[m.team_b_id]||'TBD'}</div>
+          ${m.status==='completed'
+            ?`<span style="font-size:13px;font-weight:800;color:var(--blue);margin:0 12px;">${m.score_a} - ${m.score_b}</span>`
+            :`<span style="font-size:11px;color:var(--text-muted);margin:0 12px;">Pending</span>`}
+          ${m.team_a_id&&m.team_b_id?`<button class="btn btn-outline btn-sm" data-action="openRecordMatch" data-matchid="${m.id}" data-phase="finals">${m.status==='completed'?'Edit':'Record'}</button>`:'<span style="font-size:11px;color:var(--text-muted);">Awaiting results</span>'}
+        </div>`).join('')}
+    </div>`).join('');
+
+  // Show podium if finals complete
+  if (completed) {
+    const finalMatch = finalsMatches.find(m=>m.round===Math.max(...finalsMatches.map(x=>x.round)));
+    const thirdMatch = finalsMatches.find(m=>m.round===Math.max(...finalsMatches.map(x=>x.round))-1);
+    const first = finalMatch?.winner_team_id ? tMap[finalMatch.winner_team_id] : null;
+    const second = finalMatch?.winner_team_id ? tMap[finalMatch.team_a_id===finalMatch.winner_team_id?finalMatch.team_b_id:finalMatch.team_a_id] : null;
+    const third = thirdMatch?.winner_team_id ? tMap[thirdMatch.winner_team_id] : null;
+    if (first) {
+      html += `<div style="margin-top:20px;padding:20px;background:linear-gradient(135deg,var(--blue),#0d2a8f);border-radius:var(--radius);text-align:center;">
+        <div style="font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--lime);margin-bottom:16px;">🏆 Final Results</div>
+        <div style="display:flex;justify-content:center;gap:24px;flex-wrap:wrap;">
+          ${second?`<div style="text-align:center;"><div style="font-size:28px;">🥈</div><div style="font-size:13px;font-weight:700;color:#e0e0e0;margin-top:4px;">${second}</div><div style="font-size:11px;color:var(--blue-light);">2nd place</div></div>`:''}
+          <div style="text-align:center;"><div style="font-size:36px;">🥇</div><div style="font-size:15px;font-weight:800;color:var(--lime);margin-top:4px;">${first}</div><div style="font-size:11px;color:var(--lime-dark);font-weight:700;">Champion</div></div>
+          ${third?`<div style="text-align:center;"><div style="font-size:28px;">🥉</div><div style="font-size:13px;font-weight:700;color:#cd7f32;margin-top:4px;">${third}</div><div style="font-size:11px;color:var(--blue-light);">3rd place</div></div>`:''}
+        </div>
+      </div>`;
+    }
+  }
+  return html;
+};
+
+// ─── TEAM MANAGEMENT ──────────────────────────────────────────────────────────
+
+const openAddTeam = (btn) => {
+  const tid = btn.dataset.tid;
+  const category = btn.dataset.category;
+  document.getElementById('at-tournament-id').value = tid;
+  document.getElementById('at-category').value = category;
+  document.getElementById('at-name').value = '';
+  document.getElementById('add-team-title').textContent = `Add Team — ${CATEGORY_LABELS[category]||category}`;
+
+  // Build player fields based on category
+  const isTeamChallenge = category === 'team_challenge';
+  const count = isTeamChallenge ? 4 : 2;
+  const labels = isTeamChallenge
+    ? ['Player 1 (Man)','Player 2 (Man)','Player 3 (Woman)','Player 4 (Woman)']
+    : ['Player 1','Player 2'];
+
+  const opts = allPlayers.filter(p=>p.status!=='inactive').map(p=>`<option value="${p.id}">${p.first_name} ${p.last_name}</option>`).join('');
+  document.getElementById('at-players-fields').innerHTML = labels.slice(0,count).map((lbl,i)=>`
+    <div class="form-group" style="margin-top:10px;">
+      <label>${lbl}</label>
+      <select id="at-p${i+1}" style="width:100%;">
+        <option value="">-- Select player --</option>${opts}
+      </select>
+    </div>`).join('');
+
+  document.getElementById('add-team-modal').classList.add('open');
+};
+
+const saveAddTeam = async (e) => {
+  e.preventDefault();
+  const tid = document.getElementById('at-tournament-id').value;
+  const category = document.getElementById('at-category').value;
+  const name = document.getElementById('at-name').value.trim();
+  const count = category==='team_challenge'?4:2;
+  if (!name) { toast('Please enter a team name.', true); return; }
+  const body = { tournament_id: parseInt(tid), name,
+    player1_id: parseInt(document.getElementById('at-p1')?.value)||null,
+    player2_id: parseInt(document.getElementById('at-p2')?.value)||null,
+    player3_id: count>=3?(parseInt(document.getElementById('at-p3')?.value)||null):null,
+    player4_id: count>=4?(parseInt(document.getElementById('at-p4')?.value)||null):null,
+  };
+  try {
+    await api('tournament_teams','POST',body);
+    toast(`Team "${name}" added!`);
+    document.getElementById('add-team-modal').classList.remove('open');
+    renderTournamentDetail();
+  } catch(e) { toast(`Error: ${e.message}`, true); }
+};
+
+const deleteTeam = async (btn) => {
+  if (!confirm('Remove this team? This cannot be undone.')) return;
+  await api(`tournament_teams?id=eq.${btn.dataset.teamid}`,'DELETE');
+  toast('Team removed.');
+  renderTournamentDetail();
+};
+
+// ─── ROUND ROBIN GENERATION ───────────────────────────────────────────────────
+
+const generateRoundRobin = async (btn) => {
+  const tid = btn.dataset.tid;
+  const teams = await api(`tournament_teams?tournament_id=eq.${tid}&select=id,name`);
+  if (teams.length < 2) { toast('Need at least 2 teams to generate matches.', true); return; }
+
+  // Generate all pairs (round robin)
+  const matches = [];
+  let round = 1;
+  for (let i = 0; i < teams.length; i++) {
+    for (let j = i+1; j < teams.length; j++) {
+      matches.push({
+        tournament_id: parseInt(tid),
+        phase: 'round_robin',
+        round,
+        team_a_id: teams[i].id,
+        team_b_id: teams[j].id,
+        status: 'pending'
+      });
+      round++;
+    }
+  }
+
+  try {
+    await api('tournament_matches','POST',matches);
+    toast(`${matches.length} round robin matches generated!`);
+    renderTournamentDetail();
+  } catch(e) { toast(`Error: ${e.message}`, true); }
+};
+
+// ─── FINALS GENERATION ───────────────────────────────────────────────────────
+
+const setFinalsFormat = async (btn) => {
+  const tid = btn.dataset.tid;
+  const format = btn.dataset.format;
+  await api(`tournaments?id=eq.${tid}`,'PATCH',{finals_format:format});
+  toast(`Finals format set to ${format==='bracket'?'Bracket':'Top 4'}.`);
+  renderTournamentDetail();
+};
+
+const generateFinals = async (btn) => {
+  const tid = btn.dataset.tid;
+  const format = btn.dataset.format;
+  const teams = await api(`tournament_teams?tournament_id=eq.${tid}&select=id`);
+  const matches = await api(`tournament_matches?tournament_id=eq.${tid}&phase=eq.round_robin&select=*`);
+  const standings = calcTournamentStandings(teams, matches);
+
+  let finalsMatches = [];
+  if (format === 'top4') {
+    // Semifinal 1: 1st vs 4th, Semifinal 2: 2nd vs 3rd
+    // Then: loser1 vs loser2 (3rd place), winner1 vs winner2 (final)
+    finalsMatches = [
+      { tournament_id:parseInt(tid), phase:'finals', round:1, team_a_id:standings[0]?.id, team_b_id:standings[3]?.id, status:'pending' },
+      { tournament_id:parseInt(tid), phase:'finals', round:1, team_a_id:standings[1]?.id, team_b_id:standings[2]?.id, status:'pending' },
+      { tournament_id:parseInt(tid), phase:'finals', round:2, team_a_id:null, team_b_id:null, status:'pending' }, // 3rd place
+      { tournament_id:parseInt(tid), phase:'finals', round:3, team_a_id:null, team_b_id:null, status:'pending' }, // Final
+    ];
+  } else {
+    // Bracket: 1 vs 2 final directly (simple bracket for smaller tournaments)
+    finalsMatches = [
+      { tournament_id:parseInt(tid), phase:'finals', round:1, team_a_id:standings[0]?.id, team_b_id:standings[1]?.id, status:'pending' },
+      { tournament_id:parseInt(tid), phase:'finals', round:2, team_a_id:standings[2]?.id||null, team_b_id:standings[3]?.id||null, status:'pending' },
+      { tournament_id:parseInt(tid), phase:'finals', round:3, team_a_id:null, team_b_id:null, status:'pending' },
+    ];
+  }
+
+  try {
+    await api('tournament_matches','POST',finalsMatches);
+    toast('Finals matches generated!');
+    renderTournamentDetail();
+  } catch(e) { toast(`Error: ${e.message}`, true); }
+};
+
+// ─── RECORD MATCH ─────────────────────────────────────────────────────────────
+
+const openRecordMatch = async (btn) => {
+  const matchId = btn.dataset.matchid;
+  const phase = btn.dataset.phase;
+  const match = (await api(`tournament_matches?id=eq.${matchId}&select=*`))[0];
+  if (!match) return;
+
+  const teams = await api(`tournament_teams?tournament_id=eq.${currentTournamentId}&select=id,name`);
+  const tMap = {};
+  teams.forEach(t=>tMap[t.id]=t.name);
+  const isFinals = phase === 'finals';
+
+  document.getElementById('rm-match-id').value = matchId;
+  document.getElementById('rm-phase').value = phase;
+  document.getElementById('record-match-title').textContent = isFinals ? 'Record Finals Match' : 'Record Round Robin Match';
+  document.getElementById('record-match-body').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px;margin-bottom:16px;">
+      <div style="background:var(--blue-pale);border-radius:var(--radius-sm);padding:14px;text-align:center;">
+        <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--blue);margin-bottom:6px;">Team A</div>
+        <div style="font-size:13px;font-weight:700;margin-bottom:10px;">${tMap[match.team_a_id]||'TBD'}</div>
+        <input type="number" min="0" id="rm-score-a" value="${match.score_a??''}" placeholder="Score"
+          style="width:80px;text-align:center;font-size:20px;font-weight:800;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:6px;">
+      </div>
+      <div style="font-size:16px;font-weight:800;color:var(--text-muted);">VS</div>
+      <div style="background:var(--teal-light);border-radius:var(--radius-sm);padding:14px;text-align:center;">
+        <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--teal);margin-bottom:6px;">Team B</div>
+        <div style="font-size:13px;font-weight:700;margin-bottom:10px;">${tMap[match.team_b_id]||'TBD'}</div>
+        <input type="number" min="0" id="rm-score-b" value="${match.score_b??''}" placeholder="Score"
+          style="width:80px;text-align:center;font-size:20px;font-weight:800;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:6px;">
+      </div>
+    </div>
+    ${isFinals?`<div style="font-size:12px;color:var(--text-muted);font-weight:500;text-align:center;padding:8px;background:var(--bg);border-radius:var(--radius-sm);">
+      Finals: play to 11, <strong>win by 2</strong>
+    </div>`:`<div style="font-size:12px;color:var(--text-muted);font-weight:500;text-align:center;padding:8px;background:var(--bg);border-radius:var(--radius-sm);">
+      Round robin: play to 11, win by 1
+    </div>`}
+  `;
+  document.getElementById('record-match-modal').classList.add('open');
+};
+
+const saveRecordMatch = async (e) => {
+  e.preventDefault();
+  const matchId = document.getElementById('rm-match-id').value;
+  const scoreA = parseInt(document.getElementById('rm-score-a').value);
+  const scoreB = parseInt(document.getElementById('rm-score-b').value);
+  if (isNaN(scoreA)||isNaN(scoreB)) { toast('Please enter both scores.', true); return; }
+
+  const match = (await api(`tournament_matches?id=eq.${matchId}&select=*`))[0];
+  const winnerId = scoreA > scoreB ? match.team_a_id : match.team_b_id;
+
+  try {
+    await api(`tournament_matches?id=eq.${matchId}`,'PATCH',{
+      score_a: scoreA, score_b: scoreB,
+      winner_team_id: winnerId, status: 'completed'
+    });
+
+    // If finals top4: update next round teams based on results
+    if (document.getElementById('rm-phase').value === 'finals') {
+      await updateFinalsProgression(matchId, match, winnerId, scoreA, scoreB);
+    }
+
+    toast('Match result saved!');
+    document.getElementById('record-match-modal').classList.remove('open');
+    renderTournamentDetail();
+  } catch(e) { toast(`Error: ${e.message}`, true); }
+};
+
+const updateFinalsProgression = async (matchId, match, winnerId, scoreA, scoreB) => {
+  // After semifinals (round 1), populate 3rd place and final
+  if (match.round !== 1) return;
+  const loserId = winnerId === match.team_a_id ? match.team_b_id : match.team_a_id;
+  const allSemis = await api(`tournament_matches?tournament_id=eq.${currentTournamentId}&phase=eq.finals&round=eq.1&select=*`);
+  const completedSemis = allSemis.filter(m=>m.status==='completed');
+  if (completedSemis.length < 2) return;
+
+  const winners = completedSemis.map(m=>m.winner_team_id);
+  const losers = completedSemis.map(m=>m.winner_team_id===m.team_a_id?m.team_b_id:m.team_a_id);
+
+  const thirdMatch = await api(`tournament_matches?tournament_id=eq.${currentTournamentId}&phase=eq.finals&round=eq.2&select=*`);
+  const finalMatch = await api(`tournament_matches?tournament_id=eq.${currentTournamentId}&phase=eq.finals&round=eq.3&select=*`);
+
+  if (thirdMatch.length) await api(`tournament_matches?id=eq.${thirdMatch[0].id}`,'PATCH',{team_a_id:losers[0],team_b_id:losers[1]});
+  if (finalMatch.length) await api(`tournament_matches?id=eq.${finalMatch[0].id}`,'PATCH',{team_a_id:winners[0],team_b_id:winners[1]});
+};
 

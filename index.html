@@ -207,6 +207,7 @@ const checkPassword = async () => {
   <button data-action="showPage" data-page="players">Players</button>
   <button data-action="showPage" data-page="add-player">Add Player</button>
   <button data-action="showPage" data-page="ladders">Ladders</button>
+  <button data-action="showPage" data-page="tournaments">Tournaments</button>
   <button data-action="showPage" data-page="share">Share</button>
 </div>
 
@@ -381,6 +382,44 @@ const checkPassword = async () => {
     </div>
   </div>
 
+  <!-- TOURNAMENTS LIST PAGE -->
+  <div id="page-tournaments" class="page">
+    <div class="card">
+      <div class="card-title">Create New Tournament</div>
+      <form id="create-tournament-form">
+        <div class="form-group"><label>Tournament name</label><input type="text" id="tn-name" required placeholder="e.g. Spring Tournament 2026"></div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Category</label>
+            <select id="tn-category">
+              <option value="mixed_doubles">Mixed Doubles</option>
+              <option value="mens_doubles">Men's Doubles</option>
+              <option value="womens_doubles">Women's Doubles</option>
+              <option value="team_challenge">Team Challenge (2M+2W)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Date</label>
+            <input type="date" id="tn-date">
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary">Create tournament</button>
+      </form>
+    </div>
+    <div class="card">
+      <div class="card-title">All Tournaments</div>
+      <div id="tournaments-list"><div class="loading">Loading tournaments...</div></div>
+    </div>
+  </div>
+
+  <!-- TOURNAMENT DETAIL PAGE -->
+  <div id="page-tournament-detail" class="page">
+    <div style="margin-bottom:16px;">
+      <button class="btn btn-outline btn-sm" data-action="backToTournaments">← Back to tournaments</button>
+    </div>
+    <div id="tournament-detail-content"></div>
+  </div>
+
   <!-- SHARE PAGE -->
   <div id="page-share" class="page">
     <div class="card">
@@ -509,6 +548,74 @@ const checkPassword = async () => {
       <div class="modal-actions">
         <button type="button" class="btn btn-danger btn-sm" data-action="closeEditSessionModal">Cancel</button>
         <button type="submit" class="btn btn-primary btn-sm" id="es-save-btn">Save changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Edit tournament modal -->
+<div class="modal-bg" id="edit-tournament-modal">
+  <div class="modal">
+    <div class="modal-title">Edit Tournament</div>
+    <form id="edit-tournament-form">
+      <input type="hidden" id="edit-tn-id">
+      <div class="form-group"><label>Name</label><input type="text" id="edit-tn-name" required></div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Category</label>
+          <select id="edit-tn-category">
+            <option value="mixed_doubles">Mixed Doubles</option>
+            <option value="mens_doubles">Men's Doubles</option>
+            <option value="womens_doubles">Women's Doubles</option>
+            <option value="team_challenge">Team Challenge (2M+2W)</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Date</label><input type="date" id="edit-tn-date"></div>
+      </div>
+      <div class="form-group">
+        <label>Status</label>
+        <select id="edit-tn-status">
+          <option value="draft">Draft</option>
+          <option value="active">Active</option>
+          <option value="completed">Completed</option>
+        </select>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-danger btn-sm" data-action="closeEditTournamentModal">Cancel</button>
+        <button type="submit" class="btn btn-primary btn-sm">Save changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Add team modal -->
+<div class="modal-bg" id="add-team-modal">
+  <div class="modal">
+    <div class="modal-title" id="add-team-title">Add Team</div>
+    <form id="add-team-form">
+      <input type="hidden" id="at-tournament-id">
+      <input type="hidden" id="at-category">
+      <div class="form-group"><label>Team name</label><input type="text" id="at-name" required placeholder="e.g. Team Thunder"></div>
+      <div id="at-players-fields"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-danger btn-sm" data-action="closeAddTeamModal">Cancel</button>
+        <button type="submit" class="btn btn-primary btn-sm">Add team</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Record match modal -->
+<div class="modal-bg" id="record-match-modal">
+  <div class="modal">
+    <div class="modal-title" id="record-match-title">Record Match Result</div>
+    <form id="record-match-form">
+      <input type="hidden" id="rm-match-id">
+      <input type="hidden" id="rm-phase">
+      <div id="record-match-body"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-danger btn-sm" data-action="closeRecordMatchModal">Cancel</button>
+        <button type="submit" class="btn btn-primary btn-sm">Save result</button>
       </div>
     </form>
   </div>
