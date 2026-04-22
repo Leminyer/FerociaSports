@@ -167,8 +167,8 @@ const showPage=(name,btn)=>{
   if(name==='ladders')loadLaddersPage();
   if(name==='add-player')initAddPlayer();
   if(name==='share')loadSharePage();
-  if(name==='promotions')loadPromotionsPage();
-  if(name==='tournaments')loadTournamentsPage();
+  if(name==='promotions'){if(typeof loadPromotionsPage!=='undefined')loadPromotionsPage();}
+  if(name==='tournaments'){if(typeof loadTournamentsPage!=='undefined')loadTournamentsPage();}
   // Ensure management pages always have the management subnav visible
   const mgmtPages=['players','add-player','ladders','tournaments','share'];
   if(mgmtPages.includes(name)){
@@ -1284,8 +1284,8 @@ document.addEventListener('click', e=>{
   if(action==='closeEditGameModal') document.getElementById('edit-game-modal').classList.remove('open');
   if(action==='openNotifyPlayers') openNotifyPlayers();
   if(action==='closeNotifyModal') document.getElementById('notify-modal').classList.remove('open');
-  if(action==='generateQR') generateQR();
-  if(action==='openSendPromo') openSendPromo();
+  if(action==='generateQR'){if(typeof generateQR!=='undefined')generateQR();}
+  if(action==='openSendPromo'){if(typeof openSendPromo!=='undefined')openSendPromo();}
   if(action==='closePromoModal') document.getElementById('promo-modal').classList.remove('open');
   if(action==='closeEditSessionModal') document.getElementById('edit-session-modal').classList.remove('open');
   if(action==='addToLadder') addToLadder();
@@ -1388,7 +1388,7 @@ const CATEGORY_LABELS = {
 
 let currentTournamentId = null;
 
-const loadTournamentsPage = async () => {
+async function loadTournamentsPage() {
   // Make sure management subnav is visible and tournaments page is active
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.getElementById('page-tournaments').classList.add('active');
@@ -1425,7 +1425,7 @@ const getCheckedCategories=(prefix)=>{
   return cats.map(c=>document.getElementById(`${prefix}-cat-${c}`)?.checked?document.getElementById(`${prefix}-cat-${c}`).value:null).filter(Boolean);
 };
 
-const createTournament = async (e) => {
+async function createTournament(e) {
   e.preventDefault();
   e.stopPropagation();
   console.log('createTournament called');
@@ -1449,7 +1449,7 @@ const createTournament = async (e) => {
   }
 };
 
-const openEditTournament = (btn) => {
+function openEditTournament(btn) {
   const tid = btn.dataset.tid;
   api(`tournaments?id=eq.${tid}&select=*`).then(rows => {
     if (!rows.length) return;
@@ -1469,7 +1469,7 @@ const openEditTournament = (btn) => {
   });
 };
 
-const saveEditTournament = async (e) => {
+async function saveEditTournament(e) {
   e.preventDefault();
   const id = document.getElementById('edit-tn-id').value;
   const categories = getCheckedCategories('edit-tn');
@@ -1488,7 +1488,7 @@ const saveEditTournament = async (e) => {
   } catch(e) { toast(`Error: ${e.message}`, true); }
 };
 
-const deleteTournament = async (btn) => {
+async function deleteTournament(btn) {
   const tid = btn.dataset.tid;
   const name = btn.dataset.tname;
   if (!confirm(`Delete tournament "${name}"?\n\nThis will delete all teams and matches. This cannot be undone.`)) return;
@@ -1505,18 +1505,18 @@ const deleteTournament = async (btn) => {
 
 // ─── TOURNAMENT DETAIL ────────────────────────────────────────────────────────
 
-const openTournamentDetail = async (btn) => {
+async function openTournamentDetail(btn) {
   currentTournamentId = parseInt(btn.dataset.tid);
   showPage('tournament-detail', null);
   await renderTournamentDetail();
 };
 
-const backToTournaments = () => {
+function backToTournaments() {
   currentTournamentId = null;
   showPage('tournaments', document.querySelector('#subnav-management button[data-page="tournaments"]'));
 };
 
-const renderTournamentDetail = async () => {
+async function renderTournamentDetail() {
   const [tArr, teams, matches] = await Promise.all([
     api(`tournaments?id=eq.${currentTournamentId}&select=*`),
     api(`tournament_teams?tournament_id=eq.${currentTournamentId}&select=*`),
@@ -1723,7 +1723,7 @@ const renderFinalsSection = (finalsMatches, teams, tournament, standings) => {
 
 // ─── TEAM MANAGEMENT ──────────────────────────────────────────────────────────
 
-const openAddTeam = (btn) => {
+function openAddTeam(btn) {
   const tid = btn.dataset.tid;
   const category = btn.dataset.category;
   document.getElementById('at-tournament-id').value = tid;
@@ -1750,7 +1750,7 @@ const openAddTeam = (btn) => {
   document.getElementById('add-team-modal').classList.add('open');
 };
 
-const saveAddTeam = async (e) => {
+async function saveAddTeam(e) {
   e.preventDefault();
   const tid = document.getElementById('at-tournament-id').value;
   const category = document.getElementById('at-category').value;
@@ -1771,7 +1771,7 @@ const saveAddTeam = async (e) => {
   } catch(e) { toast(`Error: ${e.message}`, true); }
 };
 
-const deleteTeam = async (btn) => {
+async function deleteTeam(btn) {
   if (!confirm('Remove this team? This cannot be undone.')) return;
   await api(`tournament_teams?id=eq.${btn.dataset.teamid}`,'DELETE');
   toast('Team removed.');
@@ -1780,7 +1780,7 @@ const deleteTeam = async (btn) => {
 
 // ─── ROUND ROBIN GENERATION ───────────────────────────────────────────────────
 
-const generateRoundRobin = async (btn) => {
+async function generateRoundRobin(btn) {
   const tid = btn.dataset.tid;
   const category = btn.dataset.category;
   const teams = await api(`tournament_teams?tournament_id=eq.${tid}&category=eq.${category}&select=id,name`);
@@ -1806,7 +1806,7 @@ const generateRoundRobin = async (btn) => {
 // Store finals format per category in memory (keyed by tournamentId_category)
 const finalsFormatMap = {};
 
-const setFinalsFormat = async (btn) => {
+async function setFinalsFormat(btn) {
   const tid = btn.dataset.tid;
   const format = btn.dataset.format;
   const category = btn.dataset.category;
@@ -1815,7 +1815,7 @@ const setFinalsFormat = async (btn) => {
   renderTournamentDetail();
 };
 
-const generateFinals = async (btn) => {
+async function generateFinals(btn) {
   const tid = btn.dataset.tid;
   const format = btn.dataset.format;
   const category = btn.dataset.category;
@@ -1850,7 +1850,7 @@ const generateFinals = async (btn) => {
 
 // ─── RECORD MATCH ─────────────────────────────────────────────────────────────
 
-const openRecordMatch = async (btn) => {
+async function openRecordMatch(btn) {
   const matchId = btn.dataset.matchid;
   const phase = btn.dataset.phase;
   const match = (await api(`tournament_matches?id=eq.${matchId}&select=*`))[0];
@@ -1889,7 +1889,7 @@ const openRecordMatch = async (btn) => {
   document.getElementById('record-match-modal').classList.add('open');
 };
 
-const saveRecordMatch = async (e) => {
+async function saveRecordMatch(e) {
   e.preventDefault();
   const matchId = document.getElementById('rm-match-id').value;
   const scoreA = parseInt(document.getElementById('rm-score-a').value);
@@ -1916,7 +1916,7 @@ const saveRecordMatch = async (e) => {
   } catch(e) { toast(`Error: ${e.message}`, true); }
 };
 
-const updateFinalsProgression = async (matchId, match, winnerId, scoreA, scoreB) => {
+async function updateFinalsProgression(matchId, match, winnerId, scoreA, scoreB) {
   // After semifinals (round 1), populate 3rd place and final
   if (match.round !== 1) return;
   const loserId = winnerId === match.team_a_id ? match.team_b_id : match.team_a_id;
@@ -2036,7 +2036,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
   }
 };
 
-const openNotifyPlayers = () => {
+function openNotifyPlayers() {
   if (!currentLadder) { toast('Please select a ladder first.', true); return; }
   const emailPlayers = ladderPlayers.filter(p => p.email && p.ladder_status === 'active');
   if (!emailPlayers.length) { toast('No active players with email addresses found.', true); return; }
@@ -2049,14 +2049,14 @@ const openNotifyPlayers = () => {
   document.getElementById('notify-modal').classList.add('open');
 };
 
-const setNotifyTemplate = (type) => {
+function setNotifyTemplate(type) {
   const ladderName = currentLadder?.name || 'Ferocia Ladder';
   const tmpl = NOTIFY_TEMPLATES[type];
   document.getElementById('notify-subject').value = tmpl.subject.replace('{{ladder}}', ladderName);
   document.getElementById('notify-message').value = tmpl.message.replace(/{{ladder}}/g, ladderName);
 };
 
-const sendNotifications = async (e) => {
+async function sendNotifications(e) {
   e.preventDefault();
   if (!currentLadder) return;
 
@@ -2110,15 +2110,12 @@ const sendNotifications = async (e) => {
   }
 };
 document.getElementById('notify-form').addEventListener('submit', sendNotifications);
-document.getElementById('promo-form').addEventListener('submit', sendPromoEmail);
-document.getElementById('sub-status-filter')?.addEventListener('change', loadSubscribers);
-document.getElementById('sub-search')?.addEventListener('input', loadSubscribers);
 
 // ─── PROMOTIONS ───────────────────────────────────────────────────────────────
 
 const EMAILJS_PROMO_TEMPLATE = 'template_bi5i16p';
 
-const loadPromotionsPage = async () => {
+async function loadPromotionsPage() {
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.getElementById('page-promotions').classList.add('active');
   document.getElementById('subnav-management').style.display='flex';
@@ -2127,7 +2124,7 @@ const loadPromotionsPage = async () => {
   await loadSubscribers();
 };
 
-const loadSubscribers = async () => {
+async function loadSubscribers() {
   const filter = document.getElementById('sub-status-filter')?.value || 'all';
   const search = document.getElementById('sub-search')?.value.toLowerCase().trim() || '';
   let query = 'subscribers?select=*&order=subscribed_at.desc';
@@ -2153,7 +2150,7 @@ const loadSubscribers = async () => {
     </table>` : '<div class="empty">No subscribers found.</div>';
 };
 
-const generateQR = async () => {
+async function generateQR() {
   const baseUrl = window.location.origin + window.location.pathname.replace('index.html','') + 'subscribe.html';
   document.getElementById('subscribe-url-display').textContent = baseUrl;
   document.getElementById('qr-container').style.display = 'block';
@@ -2165,7 +2162,7 @@ const generateQR = async () => {
   });
 };
 
-const openSendPromo = async () => {
+async function openSendPromo() {
   const subs = await api('subscribers?status=eq.active&select=id');
   document.getElementById('promo-recipient-count').innerHTML =
     `<span style="color:var(--teal);font-weight:700;">${subs.length} active subscribers</span> will receive this email.`;
@@ -2174,7 +2171,7 @@ const openSendPromo = async () => {
   document.getElementById('promo-modal').classList.add('open');
 };
 
-const sendPromoEmail = async (e) => {
+async function sendPromoEmail(e) {
   e.preventDefault();
   const subject = document.getElementById('promo-subject').value.trim();
   const message = document.getElementById('promo-message').value.trim();
@@ -2211,4 +2208,6 @@ const sendPromoEmail = async (e) => {
   document.getElementById('promo-modal').classList.remove('open');
   toast(failed === 0 ? `✅ ${sent} promotional emails sent!` : `Sent ${sent}, failed ${failed}.`, failed > 0);
 };
-
+document.getElementById('promo-form').addEventListener('submit', sendPromoEmail);
+document.getElementById('sub-status-filter')?.addEventListener('change', loadSubscribers);
+document.getElementById('sub-search')?.addEventListener('input', loadSubscribers);
