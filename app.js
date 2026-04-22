@@ -167,6 +167,7 @@ const showPage=(name,btn)=>{
   if(name==='ladders')loadLaddersPage();
   if(name==='add-player')initAddPlayer();
   if(name==='share')loadSharePage();
+  if(name==='promotions')loadPromotionsPage();
   if(name==='tournaments')loadTournamentsPage();
   // Ensure management pages always have the management subnav visible
   const mgmtPages=['players','add-player','ladders','tournaments','share'];
@@ -1283,6 +1284,9 @@ document.addEventListener('click', e=>{
   if(action==='closeEditGameModal') document.getElementById('edit-game-modal').classList.remove('open');
   if(action==='openNotifyPlayers') openNotifyPlayers();
   if(action==='closeNotifyModal') document.getElementById('notify-modal').classList.remove('open');
+  if(action==='generateQR') generateQR();
+  if(action==='openSendPromo') openSendPromo();
+  if(action==='closePromoModal') document.getElementById('promo-modal').classList.remove('open');
   if(action==='closeEditSessionModal') document.getElementById('edit-session-modal').classList.remove('open');
   if(action==='addToLadder') addToLadder();
   if(action==='closeLpModal') closeLpModal();
@@ -2106,3 +2110,105 @@ const sendNotifications = async (e) => {
   }
 };
 document.getElementById('notify-form').addEventListener('submit', sendNotifications);
+document.getElementById('promo-form').addEventListener('submit', sendPromoEmail);
+document.getElementById('sub-status-filter')?.addEventListener('change', loadSubscribers);
+document.getElementById('sub-search')?.addEventListener('input', loadSubscribers);
+
+// ─── PROMOTIONS ───────────────────────────────────────────────────────────────
+
+const EMAILJS_PROMO_TEMPLATE = 'template_bi5i16p';
+
+const loadPromotionsPage = async () => {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-promotions').classList.add('active');
+  document.getElementById('subnav-management').style.display='flex';
+  document.getElementById('tab-home').classList.remove('active');
+  document.querySelectorAll('#subnav-management button').forEach(b=>b.classList.toggle('active',b.dataset.page==='promotions'));
+  await loadSubscribers();
+};
+
+const loadSubscribers = async () => {
+  const filter = document.getElementById('sub-status-filter')?.value || 'all';
+  const search = document.getElementById('sub-search')?.value.toLowerCase().trim() || '';
+  let query = 'subscribers?select=*&order=subscribed_at.desc';
+  if (filter !== 'all') query += `&status=eq.${filter}`;
+  const subs = await api(query);
+  const filtered = subs.filter(s => {
+    if (!search) return true;
+    return `${s.first_name} ${s.last_name} ${s.email}`.toLowerCase().includes(search);
+  });
+  document.getElementById('sub-count').textContent = `${filtered.length}`;
+  const statusColors = { active:'var(--teal)', pending:'var(--orange)', unsubscribed:'var(--text-muted)' };
+  document.getElementById('subscribers-table').innerHTML = filtered.length ? `
+    <table>
+      <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Skill</th><th>Status</th><th>Joined</th></tr></thead>
+      <tbody>${filtered.map(s=>`<tr>
+        <td style="font-weight:700;">${s.first_name} ${s.last_name}</td>
+        <td style="font-size:12px;">${s.email}</td>
+        <td style="font-size:12px;">${s.phone||'—'}</td>
+        <td style="font-size:12px;text-transform:capitalize;">${s.skill_level||'—'}</td>
+        <td><span style="font-size:10px;font-weight:800;text-transform:uppercase;color:${statusColors[s.status]||'var(--text-muted)'};">${s.status}</span></td>
+        <td style="font-size:12px;color:var(--text-muted);">${s.subscribed_at?new Date(s.subscribed_at+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—'}</td>
+      </tr>`).join('')}</tbody>
+    </table>` : '<div class="empty">No subscribers found.</div>';
+};
+
+const generateQR = async () => {
+  const baseUrl = window.location.origin + window.location.pathname.replace('index.html','') + 'subscribe.html';
+  document.getElementById('subscribe-url-display').textContent = baseUrl;
+  document.getElementById('qr-container').style.display = 'block';
+  const qrEl = document.getElementById('qr-code');
+  qrEl.innerHTML = '';
+  QRCode.toCanvas(document.createElement('canvas'), baseUrl, { width:160, margin:1 }, (err, canvas) => {
+    if (err) { toast('Could not generate QR code.', true); return; }
+    qrEl.appendChild(canvas);
+  });
+};
+
+const openSendPromo = async () => {
+  const subs = await api('subscribers?status=eq.active&select=id');
+  document.getElementById('promo-recipient-count').innerHTML =
+    `<span style="color:var(--teal);font-weight:700;">${subs.length} active subscribers</span> will receive this email.`;
+  document.getElementById('promo-subject').value = '';
+  document.getElementById('promo-message').value = '';
+  document.getElementById('promo-modal').classList.add('open');
+};
+
+const sendPromoEmail = async (e) => {
+  e.preventDefault();
+  const subject = document.getElementById('promo-subject').value.trim();
+  const message = document.getElementById('promo-message').value.trim();
+  if (!subject || !message) { toast('Please fill in subject and message.', true); return; }
+
+  const subs = await api('subscribers?status=eq.active&select=*');
+  if (!subs.length) { toast('No active subscribers to send to.', true); return; }
+
+  const sendBtn = document.getElementById('promo-send-btn');
+  sendBtn.disabled = true; sendBtn.textContent = 'Sending...';
+
+  const baseUrl = window.location.origin + window.location.pathname.replace('index.html','');
+  let sent = 0, failed = 0;
+
+  for (const sub of subs) {
+    try {
+      const unsubUrl = `${baseUrl}unsubscribe.html?t=${sub.unsubscribe_token}`;
+      await emailjs.send(EMAILJS_SERVICE, EMAILJS_PROMO_TEMPLATE, {
+        player_name: `${sub.first_name} ${sub.last_name}`,
+        player_email: sub.email,
+        subject: subject,
+        message: message,
+        unsubscribe_url: unsubUrl
+      });
+      sent++;
+      sendBtn.textContent = `Sending... ${sent}/${subs.length}`;
+    } catch(err) {
+      console.error(`Failed: ${sub.email}`, err);
+      failed++;
+    }
+  }
+
+  sendBtn.disabled = false; sendBtn.textContent = 'Send emails';
+  document.getElementById('promo-modal').classList.remove('open');
+  toast(failed === 0 ? `✅ ${sent} promotional emails sent!` : `Sent ${sent}, failed ${failed}.`, failed > 0);
+};
+

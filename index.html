@@ -6,6 +6,7 @@
 <title>Ferocia Pickleball Ladder</title>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 <style>
   :root {
     --blue:#174CCC;--blue-light:#9CE3FF;--blue-pale:#e8f0ff;
@@ -225,6 +226,7 @@ const checkPassword = async () => {
   <button data-action="showPage" data-page="add-player">Add Player</button>
   <button data-action="showPage" data-page="ladders">Ladders</button>
   <button data-action="showPage" data-page="tournaments">Tournaments</button>
+  <button data-action="showPage" data-page="promotions">Promotions</button>
   <button data-action="showPage" data-page="share">Share</button>
 </div>
 
@@ -288,7 +290,7 @@ const checkPassword = async () => {
       <div class="section-header">
         <h2>Season Standings</h2>
         <div style="display:flex;gap:8px;align-items:center;">
-          <button class="btn btn-outline btn-sm" data-action="openNotifyPlayers" style="border-color:var(--teal);color:var(--teal);">✉️ Notify</button>
+          <button class="btn btn-sm" data-action="openNotifyPlayers" style="background:var(--teal);color:white;border:none;">Notify Players</button>
           <select id="gender-filter" onchange="renderLadder()" style="font-size:12px;padding:5px 10px;width:auto;font-family:'Montserrat',sans-serif;font-weight:600;">
             <option value="all">All players</option>
             <option value="Male">Men</option>
@@ -490,6 +492,51 @@ const checkPassword = async () => {
   <!-- TOURNAMENT VIEW PAGE (Programs) -->
   <div id="page-tournament-view" class="page">
     <div id="tournament-view-content"><div class="empty">Select a tournament to view details.</div></div>
+  </div>
+
+  <!-- PROMOTIONS PAGE -->
+  <div id="page-promotions" class="page">
+
+    <!-- QR Code card -->
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+        <div class="card-title" style="margin:0;">Subscribe QR Code</div>
+        <button class="btn btn-primary btn-sm" data-action="generateQR">Generate QR</button>
+      </div>
+      <div style="font-size:12px;color:var(--text-muted);font-weight:500;margin-bottom:12px;">
+        Show this QR code to anyone who wants to join your promotional list. They'll be taken directly to the registration form.
+      </div>
+      <div id="qr-container" style="display:none;">
+        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+          <div id="qr-code" style="background:white;padding:12px;border-radius:8px;border:1px solid var(--border);"></div>
+          <div>
+            <div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">Subscription URL</div>
+            <div style="font-size:12px;color:var(--blue);font-weight:600;word-break:break-all;" id="subscribe-url-display"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Subscribers list -->
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <div class="card-title" style="margin:0;">Subscribers <span id="sub-count" style="font-size:11px;background:var(--gray);padding:2px 8px;border-radius:99px;font-weight:700;color:var(--text-muted);margin-left:6px;"></span></div>
+        <div style="display:flex;gap:8px;">
+          <select id="sub-status-filter" style="font-size:12px;padding:5px 10px;font-family:'Montserrat',sans-serif;font-weight:600;border:0.5px solid var(--border);border-radius:var(--radius-sm);">
+            <option value="all">All</option>
+            <option value="active">Active</option>
+            <option value="pending">Pending</option>
+            <option value="unsubscribed">Unsubscribed</option>
+          </select>
+          <button class="btn btn-primary btn-sm" data-action="openSendPromo">✉️ Send Promo</button>
+        </div>
+      </div>
+      <div style="margin-bottom:14px;">
+        <input type="text" id="sub-search" placeholder="Search by name or email..."
+          style="width:100%;padding:10px 14px;font-size:13px;border:0.5px solid var(--border);border-radius:var(--radius-sm);font-family:'Montserrat',sans-serif;">
+      </div>
+      <div id="subscribers-table"><div class="loading">Loading subscribers...</div></div>
+    </div>
   </div>
 
   <!-- SHARE PAGE -->
@@ -721,6 +768,28 @@ const checkPassword = async () => {
       <div class="modal-actions">
         <button type="button" class="btn btn-outline btn-sm" data-action="closeNotifyModal">Cancel</button>
         <button type="submit" class="btn btn-primary btn-sm" id="notify-send-btn">Send emails</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Send Promo Modal -->
+<div class="modal-bg" id="promo-modal">
+  <div class="modal" style="max-width:560px;">
+    <div class="modal-title">✉️ Send Promotional Email</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:16px;font-weight:500;" id="promo-recipient-count"></div>
+    <form id="promo-form">
+      <div class="form-group">
+        <label>Subject</label>
+        <input type="text" id="promo-subject" placeholder="e.g. New Ladder Starting Soon!" style="width:100%;">
+      </div>
+      <div class="form-group">
+        <label>Message</label>
+        <textarea id="promo-message" style="width:100%;min-height:160px;resize:vertical;font-family:Montserrat,sans-serif;font-size:13px;padding:10px 12px;border:0.5px solid var(--border);border-radius:var(--radius-sm);outline:none;" placeholder="Write your promotional message here..."></textarea>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-outline btn-sm" data-action="closePromoModal">Cancel</button>
+        <button type="submit" class="btn btn-primary btn-sm" id="promo-send-btn">Send emails</button>
       </div>
     </form>
   </div>
