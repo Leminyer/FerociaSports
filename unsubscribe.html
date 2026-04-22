@@ -58,8 +58,8 @@ const doUnsubscribe=async()=>{
   btn.disabled=true;btn.textContent='Processing...';
   try{
     await api(`subscribers?unsubscribe_token=eq.${token}`,'PATCH',{status:'unsubscribed'});
-    document.getElementById('title').textContent='You've been unsubscribed';
-    document.getElementById('msg').textContent='You have been successfully removed from our mailing list. We're sorry to see you go! If you change your mind, you can always subscribe again at ferociasports.com';
+    document.getElementById('title').textContent="You've been unsubscribed";
+    document.getElementById('msg').textContent="You have been successfully removed from our mailing list. We're sorry to see you go! If you change your mind, you can always subscribe again at ferociasports.com";
     btn.style.display='none';
   }catch(err){
     btn.disabled=false;btn.textContent='Yes, unsubscribe me';

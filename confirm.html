@@ -75,8 +75,8 @@ const api=async(path,method='GET',body=null)=>{
     await api(`subscribers?confirm_token=eq.${token}`,'PATCH',{status:'active',confirm_token:null});
     document.getElementById('icon').textContent='🎉';
     document.getElementById('icon').className='icon success';
-    document.getElementById('title').textContent='You're subscribed!';
-    document.getElementById('msg').textContent='Your email has been confirmed. Welcome to the Ferocia Sports community! You'll now receive updates about new ladders, tournaments, and events.';
+    document.getElementById('title').textContent="You're subscribed!";
+    document.getElementById('msg').textContent="Your email has been confirmed. Welcome to the Ferocia Sports community! You'll now receive updates about new ladders, tournaments, and events.";
   }catch(err){
     document.getElementById('icon').textContent='❌';
     document.getElementById('icon').className='icon error';
