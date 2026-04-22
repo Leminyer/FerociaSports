@@ -1946,6 +1946,74 @@ const EMAILJS_TEMPLATE = 'template_whqzhfb';
 const EMAILJS_KEY = '6_1uofjtAIBjdqqrn';
 
 const NOTIFY_TEMPLATES = {
+  welcome: {
+    subject: `🏓 Welcome to the {{ladder}} — Guidelines & Schedule`,
+    message: `I hope this message finds you well.
+
+I'm excited to share that our upcoming Pickleball Ladder will officially begin on Saturday, April 18, 2026, with sessions taking place every Saturday from 1:30 PM to 3:00 PM for six consecutive weeks.
+
+Saturday April, 18 2026 (1:30 pm to 3:00 pm)
+Saturday April, 25 2026 (1:30 pm to 3:00 pm)
+Saturday May, 2 2026 (1:30 pm to 3:00 pm)
+Saturday May, 9 2026 (1:30 pm to 3:00 pm)
+Saturday May, 16 2026 (1:30 pm to 3:00 pm)
+Saturday May, 23 2026 (1:30 pm to 3:00 pm)
+
+🏓 Ladder Structure Overview
+
+Format: Players will be randomly organized into groups of 4 or 5 for the first week. Starting from week 2, players will be organized based on their performance and points earned.
+
+Match Style: Round-robin format within each group. Players will partner with and against everyone in their group.
+
+Scoring: Games are played to 11 points (WIN BY 1).
+
+Ranking Updates: Player rankings will be updated weekly according to total points earned.
+
+Co-ed Participation: All players are welcome, regardless of gender.
+
+Attendance: If you are unable to attend on a given week, please notify the organizer by the app (TeamReach) or by texting or calling to 786-241-7035 (Leminyer Zapata).
+
+🧮 New Ladder Scoring System
+
+✅ Win a match: +4 points
+🤝🏼 Lose by 1-2 points (11-10, 11-9): +3 points
+🎯 Lose by 3-4 points (11-8, 11-7): +2 points
+🎁 Lose by 5-8 points (11-6 to 11-3): +1 points
+🚫 Lose by 9-11 points (11-2, 11-1, 11-0): 0 points
+⚠️ Default / No-Show: –1 points per match (applies if the player does not notify the organizer at least 24 hours before the time the ladder starts).
+
+This new system is designed to reward not just wins but also competitive performance and tight matches.
+
+📋 Additional Guidelines
+
+Court Etiquette: Please be respectful and avoid interrupting play on adjacent courts.
+
+Punctuality: Matches start promptly at 1:30 PM. Late arrivals may result in forfeits. You can get to the park earlier (around 1:00 pm).
+
+Sportsmanship: Great sportsmanship is expected from all. Let's keep it friendly, fun, and welcoming!
+
+Disputes, questions or concerns: Any issues should be reported directly to the organizer immediately. His decision will be final.
+
+Line Calls: Are made by the team on the side the ball lands. Let's be fair and respectful.
+
+Warnings/Penalties: Use of profanity is not allowed. Throwing paddles, aggressive behavior, or any form of violence will not be tolerated. Any player who engages in these actions will receive a warning for the first offense; a second offense will result in a one-week suspension. If the behavior persists, the player will be removed from the ladder.
+
+Bring Your Own Balls 🏓
+Stay Hydrated! Don't forget your water bottle! 💧
+
+Conduct Policy — Profanity & Unsportsmanlike Behavior
+
+Profanity, verbal abuse, aggressive behavior, and throwing paddles or other equipment are strictly prohibited.
+
+Penalties:
+• First offense: Formal warning
+• Second offense: Match forfeiture
+• Further offenses: Removal from the ladder
+
+If you have any questions please feel free to reach out.
+
+I'm looking forward to an amazing season of friendly competition and good vibes on the courts! 🎾🔥`
+  },
   scores: {
     subject: `🏆 Scores Updated — {{ladder}}`,
     message: `The scores for the {{ladder}} ladder have just been updated!\n\nCheck the latest standings and see where you stand on the leaderboard.`
@@ -1973,7 +2041,7 @@ const openNotifyPlayers = () => {
     `<span style="color:var(--teal);font-weight:700;">${emailPlayers.length} players</span> will receive this email (active players with email addresses).`;
 
   // Set default template
-  setNotifyTemplate('scores');
+  setNotifyTemplate('welcome');
   document.getElementById('notify-modal').classList.add('open');
 };
 
