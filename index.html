@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Ferocia Pickleball Ladder</title>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <style>
   :root {
     --blue:#174CCC;--blue-light:#9CE3FF;--blue-pale:#e8f0ff;
@@ -286,11 +287,14 @@ const checkPassword = async () => {
     <div class="card">
       <div class="section-header">
         <h2>Season Standings</h2>
-        <select id="gender-filter" onchange="renderLadder()" style="font-size:12px;padding:5px 10px;width:auto;font-family:'Montserrat',sans-serif;font-weight:600;">
-          <option value="all">All players</option>
-          <option value="Male">Men</option>
-          <option value="Female">Women</option>
-        </select>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <button class="btn btn-outline btn-sm" data-action="openNotifyPlayers" style="border-color:var(--teal);color:var(--teal);">✉️ Notify</button>
+          <select id="gender-filter" onchange="renderLadder()" style="font-size:12px;padding:5px 10px;width:auto;font-family:'Montserrat',sans-serif;font-weight:600;">
+            <option value="all">All players</option>
+            <option value="Male">Men</option>
+            <option value="Female">Women</option>
+          </select>
+        </div>
       </div>
       <div id="ladder-table"><div class="loading">Loading standings...</div></div>
     </div>
@@ -682,6 +686,40 @@ const checkPassword = async () => {
       <div class="modal-actions">
         <button type="button" class="btn btn-danger btn-sm" data-action="closeRecordMatchModal">Cancel</button>
         <button type="submit" class="btn btn-primary btn-sm">Save result</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Notify Players Modal -->
+<div class="modal-bg" id="notify-modal">
+  <div class="modal" style="max-width:560px;">
+    <div class="modal-title">✉️ Notify Players</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:16px;font-weight:500;" id="notify-recipient-count"></div>
+    <form id="notify-form">
+      <div class="form-group">
+        <label>Notification type</label>
+        <select id="notify-type" style="width:100%;">
+          <option value="scores">📊 Scores Updated</option>
+          <option value="reminder">⏰ Session Reminder</option>
+          <option value="end">🏆 End of Ladder</option>
+          <option value="custom">✏️ Custom Message</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Subject</label>
+        <input type="text" id="notify-subject" style="width:100%;">
+      </div>
+      <div class="form-group">
+        <label>Message</label>
+        <textarea id="notify-message" style="width:100%;min-height:140px;resize:vertical;font-family:Montserrat,sans-serif;font-size:13px;padding:10px 12px;border:0.5px solid var(--border);border-radius:var(--radius-sm);outline:none;"></textarea>
+      </div>
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;font-weight:500;">
+        The leaderboard link will be automatically included in every email.
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-outline btn-sm" data-action="closeNotifyModal">Cancel</button>
+        <button type="submit" class="btn btn-primary btn-sm" id="notify-send-btn">Send emails</button>
       </div>
     </form>
   </div>

@@ -1281,6 +1281,8 @@ document.addEventListener('click', e=>{
   if(action==='closeEditLadderModal') closeEditLadderModal();
   if(action==='closeModal') closeModal();
   if(action==='closeEditGameModal') document.getElementById('edit-game-modal').classList.remove('open');
+  if(action==='openNotifyPlayers') openNotifyPlayers();
+  if(action==='closeNotifyModal') document.getElementById('notify-modal').classList.remove('open');
   if(action==='closeEditSessionModal') document.getElementById('edit-session-modal').classList.remove('open');
   if(action==='addToLadder') addToLadder();
   if(action==='closeLpModal') closeLpModal();
@@ -1307,6 +1309,7 @@ document.addEventListener('change', e=>{
   const el=e.target;
   if(el.dataset.action==='lpChangeStatus'){lpChangeStatus(el);return;}
   if(el.name==='noshow-penalty'){noShowPenalty=parseInt(el.value);return;}
+  if(el.id==='notify-type'){setNotifyTemplate(el.value);return;}
 });
 
 document.addEventListener('input', e=>{
@@ -1935,3 +1938,103 @@ document.getElementById('create-tournament-form').addEventListener('submit',crea
 document.getElementById('edit-tournament-form').addEventListener('submit',saveEditTournament);
 document.getElementById('add-team-form').addEventListener('submit',saveAddTeam);
 document.getElementById('record-match-form').addEventListener('submit',saveRecordMatch);
+
+// ─── EMAIL NOTIFICATIONS ──────────────────────────────────────────────────────
+
+const EMAILJS_SERVICE = 'service_b9yh0p3';
+const EMAILJS_TEMPLATE = 'template_whqzhfb';
+const EMAILJS_KEY = '6_1uofjtAIBjdqqrn';
+
+const NOTIFY_TEMPLATES = {
+  scores: {
+    subject: `🏆 Scores Updated — {{ladder}}`,
+    message: `The scores for the {{ladder}} ladder have just been updated!\n\nCheck the latest standings and see where you stand on the leaderboard.`
+  },
+  reminder: {
+    subject: `⏰ Session Reminder — {{ladder}}`,
+    message: `This is a friendly reminder that your next pickleball session for the {{ladder}} ladder is coming up soon.\n\nMake sure you're ready to play your best game!`
+  },
+  end: {
+    subject: `🏆 {{ladder}} Ladder — Final Results`,
+    message: `The {{ladder}} ladder has officially ended!\n\nThank you so much for your participation, dedication, and competitive spirit throughout this season. It was a fantastic ladder and we hope to see you again in the next one!\n\nCheck out the final standings below.`
+  },
+  custom: {
+    subject: `Ferocia Pickleball — {{ladder}}`,
+    message: ``
+  }
+};
+
+const openNotifyPlayers = () => {
+  if (!currentLadder) { toast('Please select a ladder first.', true); return; }
+  const emailPlayers = ladderPlayers.filter(p => p.email && p.ladder_status === 'active');
+  if (!emailPlayers.length) { toast('No active players with email addresses found.', true); return; }
+
+  document.getElementById('notify-recipient-count').innerHTML =
+    `<span style="color:var(--teal);font-weight:700;">${emailPlayers.length} players</span> will receive this email (active players with email addresses).`;
+
+  // Set default template
+  setNotifyTemplate('scores');
+  document.getElementById('notify-modal').classList.add('open');
+};
+
+const setNotifyTemplate = (type) => {
+  const ladderName = currentLadder?.name || 'Ferocia Ladder';
+  const tmpl = NOTIFY_TEMPLATES[type];
+  document.getElementById('notify-subject').value = tmpl.subject.replace('{{ladder}}', ladderName);
+  document.getElementById('notify-message').value = tmpl.message.replace(/{{ladder}}/g, ladderName);
+};
+
+const sendNotifications = async (e) => {
+  e.preventDefault();
+  if (!currentLadder) return;
+
+  const subject = document.getElementById('notify-subject').value.trim();
+  const message = document.getElementById('notify-message').value.trim();
+  if (!subject || !message) { toast('Please fill in subject and message.', true); return; }
+
+  const emailPlayers = ladderPlayers.filter(p => p.email && p.ladder_status === 'active');
+  if (!emailPlayers.length) { toast('No players to notify.', true); return; }
+
+  // Build leaderboard URL
+  const encoded = btoa(String(currentLadder.id));
+  const baseUrl = window.location.origin + window.location.pathname.replace('index.html','') + 'players.html';
+  const leaderboardUrl = `${baseUrl}?l=${encoded}`;
+
+  const sendBtn = document.getElementById('notify-send-btn');
+  sendBtn.disabled = true;
+  sendBtn.textContent = 'Sending...';
+
+  // Init EmailJS
+  emailjs.init(EMAILJS_KEY);
+
+  let sent = 0;
+  let failed = 0;
+
+  for (const player of emailPlayers) {
+    try {
+      await emailjs.send(EMAILJS_SERVICE, EMAILJS_TEMPLATE, {
+        player_name: `${player.first_name} ${player.last_name}`,
+        player_email: player.email,
+        subject: subject,
+        message: message,
+        leaderboard_url: leaderboardUrl
+      });
+      sent++;
+      sendBtn.textContent = `Sending... ${sent}/${emailPlayers.length}`;
+    } catch(err) {
+      console.error(`Failed to send to ${player.email}:`, err);
+      failed++;
+    }
+  }
+
+  sendBtn.disabled = false;
+  sendBtn.textContent = 'Send emails';
+  document.getElementById('notify-modal').classList.remove('open');
+
+  if (failed === 0) {
+    toast(`✅ ${sent} emails sent successfully!`);
+  } else {
+    toast(`Sent ${sent} emails. ${failed} failed.`, failed > 0);
+  }
+};
+document.getElementById('notify-form').addEventListener('submit', sendNotifications);
