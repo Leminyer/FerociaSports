@@ -2077,7 +2077,7 @@ async function sendNotifications(e) {
   sendBtn.textContent = 'Sending...';
 
   // Init EmailJS
-  emailjs.init(EMAILJS_KEY);
+  emailjs.init({publicKey: EMAILJS_KEY});
   // Append leaderboard URL directly into the message for score/end types
   let sent = 0;
   let failed = 0;
@@ -2156,11 +2156,15 @@ async function generateQR() {
   document.getElementById('qr-container').style.display = 'block';
   const qrEl = document.getElementById('qr-code');
   qrEl.innerHTML = '';
-  QRCode.toCanvas(document.createElement('canvas'), baseUrl, { width:160, margin:1 }, (err, canvas) => {
-    if (err) { toast('Could not generate QR code.', true); return; }
-    qrEl.appendChild(canvas);
+  new QRCode(qrEl, {
+    text: baseUrl,
+    width: 160,
+    height: 160,
+    colorDark: '#174CCC',
+    colorLight: '#ffffff',
+    correctLevel: QRCode.CorrectLevel.H
   });
-};
+}
 
 async function openSendPromo() {
   const subs = await api('subscribers?status=eq.active&select=id');
@@ -2183,6 +2187,7 @@ async function sendPromoEmail(e) {
   const sendBtn = document.getElementById('promo-send-btn');
   sendBtn.disabled = true; sendBtn.textContent = 'Sending...';
 
+  emailjs.init({publicKey: EMAILJS_KEY});
   const baseUrl = window.location.origin + window.location.pathname.replace('index.html','');
   let sent = 0, failed = 0;
 
