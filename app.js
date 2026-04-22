@@ -2075,6 +2075,8 @@ const sendNotifications = async (e) => {
   // Init EmailJS
   emailjs.init(EMAILJS_KEY);
 
+  const notifyType = document.getElementById('notify-type').value;
+  const includeUrl = ['scores','end'].includes(notifyType);
   let sent = 0;
   let failed = 0;
 
@@ -2085,7 +2087,7 @@ const sendNotifications = async (e) => {
         player_email: player.email,
         subject: subject,
         message: message,
-        leaderboard_url: leaderboardUrl
+        leaderboard_url: includeUrl ? leaderboardUrl : ''
       });
       sent++;
       sendBtn.textContent = `Sending... ${sent}/${emailPlayers.length}`;
