@@ -2077,6 +2077,10 @@ const sendNotifications = async (e) => {
 
   const notifyType = document.getElementById('notify-type').value;
   const includeUrl = ['scores','end'].includes(notifyType);
+  // Append leaderboard URL directly into the message for score/end types
+  const fullMessage = includeUrl
+    ? message + `\n\n🔗 View the leaderboard here:\n${leaderboardUrl}`
+    : message;
   let sent = 0;
   let failed = 0;
 
@@ -2086,8 +2090,8 @@ const sendNotifications = async (e) => {
         player_name: `${player.first_name} ${player.last_name}`,
         player_email: player.email,
         subject: subject,
-        message: message,
-        leaderboard_url: includeUrl ? leaderboardUrl : ''
+        message: fullMessage,
+        leaderboard_url: includeUrl ? leaderboardUrl : 'none'
       });
       sent++;
       sendBtn.textContent = `Sending... ${sent}/${emailPlayers.length}`;
