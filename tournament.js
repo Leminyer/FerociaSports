@@ -417,11 +417,9 @@ async function createTournament(e) {
 
 // ─── DELETE TOURNAMENT ──────────────────────────────────────
 async function deleteTournament(id, name) {
-  if (!confirm(`Delete tournament "${name}"?
+  if (!confirm(`Are you sure you want to delete tournament "${name}"?
 
-This will permanently delete all categories, teams and matches for this tournament.
-
-This action cannot be undone.`)) return;
+All categories, teams and matches will be permanently removed.`)) return;
   try {
     // Get all categories
     const categories = await tApi(`tournament_categories?tournament_id=eq.${id}&select=id`);
@@ -807,8 +805,11 @@ async function saveTeam(e, catId) {
     });
     tToast(`Team "${name}" added!`);
     closeTModal();
-    loadCategory(catId, { id: tCurrentTournamentId, status: 'draft' });
-    openTournament(tCurrentTournamentId);
+    // Stay on current category - don't reset to first category
+    tCurrentCategoryId = catId;
+    const [t] = await tApi(`tournaments?id=eq.${tCurrentTournamentId}&select=*`);
+    const categories = await tApi(`tournament_categories?tournament_id=eq.${tCurrentTournamentId}&select=*&order=id`);
+    renderTournamentDetail(t, categories);
   } catch(err) { tToast(`Error: ${err.message}`, true); }
 }
 
