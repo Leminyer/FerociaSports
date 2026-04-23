@@ -358,21 +358,17 @@ function showCreateTournament() {
           <label class="t-label">Tournament name *</label>
           <input class="t-input" type="text" id="t-name" required placeholder="e.g. Spring Open 2026">
         </div>
-        <div class="t-form-row">
-          <div class="t-form-group">
-            <label class="t-label">Date</label>
-            <input class="t-input" type="date" id="t-date">
-          </div>
+        <div class="t-form-group">
+          <label class="t-label">Date</label>
+          <input class="t-input" type="date" id="t-date">
         </div>
         <div class="t-form-group">
-          <label class="t-label">Categories (select all that apply) *</label>
-          <div class="t-checkbox-group">
-            <label class="t-checkbox-label"><input type="checkbox" value="mixed_doubles"> Mixed Doubles</label>
-            <label class="t-checkbox-label"><input type="checkbox" value="mens_doubles"> Men's Doubles</label>
-            <label class="t-checkbox-label"><input type="checkbox" value="womens_doubles"> Women's Doubles</label>
-            <label class="t-checkbox-label"><input type="checkbox" value="team_challenge"> Team Challenge</label>
-            <label class="t-checkbox-label"><input type="checkbox" value="singles"> Singles</label>
+          <label class="t-label">Categories *</label>
+          <div style="font-size:11px;color:#6b7a99;font-weight:500;margin-bottom:10px;">
+            Add one or more categories. Use custom names for specific groups (e.g. "Group A Mixed 3.5-4.25").
           </div>
+          <div id="t-categories-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px;"></div>
+          <button type="button" class="t-btn t-btn-ghost t-btn-sm" onclick="addCategoryField()">+ Add Category</button>
         </div>
         <div class="t-form-actions">
           <button type="button" class="t-btn t-btn-ghost" onclick="renderTournamentList()">Cancel</button>
@@ -381,15 +377,31 @@ function showCreateTournament() {
       </form>
     </div>
   `;
+  // Add two default category fields
+  addCategoryField();
+}
+
+function addCategoryField() {
+  const list = document.getElementById('t-categories-list');
+  const idx = list.children.length;
+  const div = document.createElement('div');
+  div.style.cssText = 'display:flex;gap:8px;align-items:center;';
+  div.innerHTML = `
+    <input class="t-input t-category-input" type="text" placeholder="e.g. Group A Mixed Doubles 3.5-4.25" style="flex:1;">
+    <button type="button" class="t-btn t-btn-danger t-btn-sm" onclick="this.parentElement.remove()" style="flex-shrink:0;">×</button>
+  `;
+  list.appendChild(div);
+  div.querySelector('input').focus();
 }
 
 async function createTournament(e) {
   e.preventDefault();
   const name = document.getElementById('t-name').value.trim();
   const date = document.getElementById('t-date').value || null;
-  const categories = [...document.querySelectorAll('#t-create-form input[type=checkbox]:checked')].map(cb => cb.value);
+  const categories = [...document.querySelectorAll('.t-category-input')]
+    .map(i => i.value.trim()).filter(Boolean);
   if (!name) { tToast('Please enter a tournament name.', true); return; }
-  if (!categories.length) { tToast('Please select at least one category.', true); return; }
+  if (!categories.length) { tToast('Please add at least one category.', true); return; }
   try {
     const [t] = await tApi('tournaments', 'POST', { name, date, status: 'draft' });
     for (const cat of categories) {
@@ -431,7 +443,7 @@ function renderTournamentDetail(t, categories) {
       ${categories.map(cat => `
         <button class="t-category-tab ${cat.id === tCurrentCategoryId ? 'active' : ''}"
           onclick="switchCategory(${cat.id}, ${t.id})">
-          ${T_CATEGORY_LABELS[cat.name] || cat.name}
+          ${cat.name}
           <span class="t-cat-status-dot t-dot-${cat.status}"></span>
         </button>
       `).join('')}
@@ -589,7 +601,7 @@ function renderRRRounds(matches, tMap, tournament) {
             return `
               <div class="t-match-row ${isDone ? 't-match-done' : 't-match-pending'}"
                 onclick="${tournament.status !== 'completed' ? `openScoreModal('rr', ${m.id}, ${m.team_a_id}, ${m.team_b_id}, ${m.category_id})` : ''}">
-                <div class="t-match-court">C${m.court}</div>
+                <div class="t-match-court" title="Court ${m.court || '?'}">${m.court ? 'C'+m.court : '—'}</div>
                 <div class="t-match-teams">
                   <span class="t-match-team ${winA ? 't-winner' : ''}">${teamA?.name || '?'}</span>
                   <span class="t-match-vs">vs</span>
@@ -698,6 +710,7 @@ function renderBracket(matches, tMap, tournament) {
         return `
           <div class="t-bracket-match ${isDone ? 't-bracket-done' : ''}"
             onclick="${tournament.status !== 'completed' ? `openScoreModal('bracket', ${m.id}, ${m.team_a_id||0}, ${m.team_b_id||0}, ${m.category_id})` : ''}">
+            ${m.court ? `<div style="font-size:9px;font-weight:800;letter-spacing:1px;color:#6b7a99;padding:4px 14px;background:#f4f6fc;border-bottom:1px solid #d6dff5;">COURT ${m.court}</div>` : ''}
             <div class="t-bracket-team ${winA ? 't-bracket-winner' : ''} ${!m.team_a_id ? 't-bracket-tbd' : ''}">
               <span>${teamA?.name || 'TBD'}</span>
               ${isDone ? `<span class="t-bracket-score ${winA ? 't-bracket-score-win' : ''}">${m.score_a}</span>` : ''}
@@ -731,7 +744,7 @@ function showAddTeam(catId, catName) {
     </div>
   `).join('');
 
-  document.getElementById('t-modal-title').textContent = `Add Team — ${T_CATEGORY_LABELS[catName] || catName}`;
+  document.getElementById('t-modal-title').textContent = `Add Team — ${catName}`;
   document.getElementById('t-modal-body').innerHTML = `
     <form id="t-add-team-form" onsubmit="saveTeam(event, ${catId})">
       <div class="t-form-group">
@@ -887,6 +900,10 @@ async function openScoreModal(type, matchId, teamAId, teamBId, catId) {
   document.getElementById('t-modal-body').innerHTML = `
     <div class="t-score-modal">
       <div class="t-score-rule">${isFinals ? '🏆 Finals: Play to 11, win by 2' : '🏓 Round Robin: Play to 11, win by 1'}</div>
+      <div class="t-form-group" style="margin-bottom:16px;">
+        <label class="t-label">Court number</label>
+        <input class="t-input" type="number" min="1" id="t-court-num" value="${match.court || ''}" placeholder="e.g. 5" style="max-width:120px;">
+      </div>
       <div class="t-score-teams">
         <div class="t-score-team">
           <div class="t-score-team-name">${teamA?.name || '?'}</div>
@@ -927,13 +944,16 @@ async function saveScore(type, matchId, teamAId, teamBId, catId) {
   const winnerId = sa > sb ? teamAId : teamBId;
 
   try {
+    const courtNum = parseInt(document.getElementById('t-court-num')?.value) || null;
     if (type === 'rr') {
       await tApi(`tournament_rr_matches?id=eq.${matchId}`, 'PATCH', {
-        score_a: sa, score_b: sb, winner_id: winnerId, status: 'completed'
+        score_a: sa, score_b: sb, winner_id: winnerId, status: 'completed',
+        ...(courtNum ? {court: courtNum} : {})
       });
     } else {
       await tApi(`tournament_bracket_matches?id=eq.${matchId}`, 'PATCH', {
-        score_a: sa, score_b: sb, winner_id: winnerId, status: 'completed'
+        score_a: sa, score_b: sb, winner_id: winnerId, status: 'completed',
+        ...(courtNum ? {court: courtNum} : {})
       });
       await advanceBracket(matchId, winnerId, teamAId === winnerId ? teamBId : teamAId, catId);
     }
