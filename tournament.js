@@ -333,8 +333,11 @@ async function renderTournamentList() {
     ${tournaments.length ? `
       <div class="t-card-grid">
         ${tournaments.map(t => `
-          <div class="t-tournament-card" onclick="openTournament(${t.id})">
-            <div class="t-tournament-card-status t-status-${t.status}">${t.status}</div>
+          <div class="t-tournament-card" onclick="openTournament(${t.id})" style="position:relative;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+              <div class="t-tournament-card-status t-status-${t.status}" style="margin:0;">${t.status}</div>
+              ${t.status === 'draft' ? `<button type="button" class="t-btn t-btn-danger t-btn-sm" onclick="event.stopPropagation();deleteTournament(${t.id},'${t.name.replace(/'/g,"\'")}')" style="font-size:10px;padding:4px 10px;">Delete</button>` : ''}
+            </div>
             <div class="t-tournament-card-name">${t.name}</div>
             <div class="t-tournament-card-date">${t.date ? new Date(t.date + 'T12:00:00').toLocaleDateString('en-US', {weekday:'short',month:'short',day:'numeric',year:'numeric'}) : 'No date set'}</div>
           </div>
@@ -409,6 +412,32 @@ async function createTournament(e) {
     }
     tToast(`Tournament "${name}" created!`);
     openTournament(t.id);
+  } catch(err) { tToast(`Error: ${err.message}`, true); }
+}
+
+// ─── DELETE TOURNAMENT ──────────────────────────────────────
+async function deleteTournament(id, name) {
+  if (!confirm(`Delete tournament "${name}"?
+
+This will permanently delete all categories, teams and matches for this tournament.
+
+This action cannot be undone.`)) return;
+  try {
+    // Get all categories
+    const categories = await tApi(`tournament_categories?tournament_id=eq.${id}&select=id`);
+    for (const cat of categories) {
+      // Delete all matches for each category
+      await tApi(`tournament_rr_matches?category_id=eq.${cat.id}`, 'DELETE');
+      await tApi(`tournament_bracket_matches?category_id=eq.${cat.id}`, 'DELETE');
+      // Delete all teams for each category
+      await tApi(`tournament_teams?category_id=eq.${cat.id}`, 'DELETE');
+    }
+    // Delete all categories
+    await tApi(`tournament_categories?tournament_id=eq.${id}`, 'DELETE');
+    // Delete the tournament itself
+    await tApi(`tournaments?id=eq.${id}`, 'DELETE');
+    tToast(`Tournament "${name}" deleted.`);
+    renderTournamentList();
   } catch(err) { tToast(`Error: ${err.message}`, true); }
 }
 
