@@ -276,6 +276,34 @@ var tCurrentTournamentId = null;
 var tCurrentCategoryId = null;
 var tAllPlayers = [];
 
+const T_FORMATS = {
+  'play11_win1': 'Play to 11, win by 1',
+  'play11_win2': 'Play to 11, win by 2',
+  'play15_win1': 'Play to 15, win by 1',
+  'play15_win2': 'Play to 15, win by 2',
+  'play21_win1': 'Play to 21, win by 1',
+  'play21_win2': 'Play to 21, win by 2',
+};
+
+const RR_FORMAT_OPTIONS = `
+  <option value="play11_win1">Play to 11, win by 1</option>
+  <option value="play11_win2">Play to 11, win by 2</option>
+  <option value="play15_win1">Play to 15, win by 1</option>
+  <option value="play15_win2">Play to 15, win by 2</option>
+  <option value="play21_win1">Play to 21, win by 1</option>
+  <option value="play21_win2">Play to 21, win by 2</option>
+`;
+
+const FINALS_FORMAT_OPTIONS = `
+  <option value="play11_win2">Play to 11, win by 2</option>
+  <option value="play11_win1">Play to 11, win by 1</option>
+  <option value="play15_win2">Play to 15, win by 2</option>
+  <option value="play15_win1">Play to 15, win by 1</option>
+  <option value="play21_win2">Play to 21, win by 2</option>
+  <option value="play21_win1">Play to 21, win by 1</option>
+`;
+
+
 // ─── STANDINGS CALCULATION ──────────────────────────────────
 function tCalcStandings(teams, matches) {
   const stats = {};
@@ -530,7 +558,7 @@ function renderCategory(cat, teams, rrMatches, bracketMatches, tournament) {
                   <div class="t-team-name">${team.name}</div>
                   <div class="t-team-players">${players.join(' & ')}</div>
                 </div>
-                ${tournament.status === 'draft' ? `<button class="t-btn-icon t-btn-danger-icon" onclick="deleteTeam(${team.id}, ${cat.id}, '${cat.name}')">×</button>` : ''}
+                ${tournament.status === 'draft' ? `<button class="t-btn-icon t-btn-danger-icon" onclick="deleteTeam(${team.id}, '${team.name.replace(/'/g,String.fromCharCode(39))}', ${cat.id})">×</button>` : ''}
               </div>
             `;
           }).join('')}
@@ -552,7 +580,7 @@ function renderCategory(cat, teams, rrMatches, bracketMatches, tournament) {
           ${rrMatches.length > 0 ? `<span class="t-progress-label">${rrDone}/${rrTotal} matches</span>` : ''}
         </div>
         ${teams.length >= 3 && rrMatches.length === 0 && tournament.status !== 'draft' ?
-          `<button class="t-btn t-btn-sm t-btn-primary" onclick="generateRR(${cat.id})">Generate Schedule</button>` : ''}
+          `<button class="t-btn t-btn-sm t-btn-primary" onclick="showRRFormatModal(${cat.id})">Generate Schedule</button>` : ''}
         ${teams.length >= 3 && rrMatches.length === 0 && tournament.status === 'draft' ?
           `<span class="t-hint">Start tournament first</span>` : ''}
       </div>
@@ -580,9 +608,17 @@ function renderCategory(cat, teams, rrMatches, bracketMatches, tournament) {
                 <option value="4" selected>Top 4</option>
                 <option value="8">Top 8</option>
               </select>
-              <select id="finals-format-${cat.id}" class="t-select-sm">
-                <option value="single">Single Elimination</option>
-                <option value="double">Double Elimination</option>
+              <select id="finals-elim-${cat.id}" class="t-select-sm">
+                <option value="single">Single Elim</option>
+                <option value="double">Double Elim</option>
+              </select>
+              <select id="finals-score-format-${cat.id}" class="t-select-sm">
+                <option value="play11_win2">11, win by 2</option>
+                <option value="play11_win1">11, win by 1</option>
+                <option value="play15_win2">15, win by 2</option>
+                <option value="play15_win1">15, win by 1</option>
+                <option value="play21_win2">21, win by 2</option>
+                <option value="play21_win1">21, win by 1</option>
               </select>
               <button class="t-btn t-btn-sm t-btn-primary" onclick="generateBracket(${cat.id}, ${cat.tournament_id})">Generate Bracket</button>
             </div>
@@ -813,15 +849,58 @@ async function saveTeam(e, catId) {
   } catch(err) { tToast(`Error: ${err.message}`, true); }
 }
 
-async function deleteTeam(teamId, catId, catName) {
-  if (!confirm('Remove this team?')) return;
-  await tApi(`tournament_teams?id=eq.${teamId}`, 'DELETE');
-  tToast('Team removed.');
-  openTournament(tCurrentTournamentId);
+async function deleteTeam(teamId, teamName, catId) {
+  document.getElementById('t-modal-title').textContent = 'Remove Team';
+  document.getElementById('t-modal-body').innerHTML = `
+    <div style="padding:8px 0 24px;">
+      <p style="font-size:14px;color:#0d1f4a;line-height:1.6;">
+        Are you sure you want to remove <strong>${teamName}</strong> from this category?
+        This cannot be undone.
+      </p>
+    </div>
+    <div class="t-form-actions">
+      <button type="button" class="t-btn t-btn-ghost" onclick="closeTModal()">Cancel</button>
+      <button type="button" class="t-btn t-btn-danger" onclick="confirmDeleteTeam(${teamId}, ${catId})">Remove</button>
+    </div>
+  `;
+  openTModal();
+}
+
+async function confirmDeleteTeam(teamId, catId) {
+  try {
+    await tApi(`tournament_teams?id=eq.${teamId}`, 'DELETE');
+    closeTModal();
+    tToast('Team removed.');
+    tCurrentCategoryId = catId;
+    const [t] = await tApi(`tournaments?id=eq.${tCurrentTournamentId}&select=*`);
+    const categories = await tApi(`tournament_categories?tournament_id=eq.${tCurrentTournamentId}&select=*&order=id`);
+    renderTournamentDetail(t, categories);
+  } catch(err) { tToast(`Error: ${err.message}`, true); }
 }
 
 // ─── GENERATE ROUND ROBIN ───────────────────────────────────
+function showRRFormatModal(catId) {
+  document.getElementById('t-modal-title').textContent = 'Round Robin Format';
+  document.getElementById('t-modal-body').innerHTML = `
+    <div class="t-form-group">
+      <label class="t-label">Match format</label>
+      <select class="t-input" id="t-rr-format">${RR_FORMAT_OPTIONS}</select>
+    </div>
+    <p style="font-size:12px;color:#6b7a99;margin-bottom:20px;">
+      This format will apply to all round robin matches in this category.
+      Finals format is set separately when generating the bracket.
+    </p>
+    <div class="t-form-actions">
+      <button type="button" class="t-btn t-btn-ghost" onclick="closeTModal()">Cancel</button>
+      <button type="button" class="t-btn t-btn-primary" onclick="generateRR(${catId})">Generate Schedule</button>
+    </div>
+  `;
+  openTModal();
+}
+
 async function generateRR(catId) {
+  const formatEl = document.getElementById('t-rr-format');
+  const format = formatEl ? formatEl.value : 'play11_win1';
   const teams = await tApi(`tournament_teams?category_id=eq.${catId}&select=*&order=id`);
   const n = teams.length;
   if (n < 3 || n > 20) { tToast(`Round robin supports 3-20 teams. You have ${n}.`, true); return; }
@@ -852,22 +931,29 @@ async function generateRR(catId) {
     });
   });
 
+  // Save format to category
+  await tApi(`tournament_categories?id=eq.${catId}`, 'PATCH', { rr_format: format });
   await tApi('tournament_rr_matches', 'POST', rows);
+  closeTModal();
   tToast(`Schedule generated! ${rows.filter(r => r.status === 'pending').length} matches ready.`);
-  openTournament(tCurrentTournamentId);
+  tCurrentCategoryId = catId;
+  const [t] = await tApi(`tournaments?id=eq.${tCurrentTournamentId}&select=*`);
+  const categories = await tApi(`tournament_categories?tournament_id=eq.${tCurrentTournamentId}&select=*&order=id`);
+  renderTournamentDetail(t, categories);
 }
 
 // ─── GENERATE BRACKET ───────────────────────────────────────
 async function generateBracket(catId, tournamentId) {
   const size = parseInt(document.getElementById(`finals-size-${catId}`).value);
-  const format = document.getElementById(`finals-format-${catId}`).value;
+  const format = document.getElementById(`finals-elim-${catId}`).value;
+  const scoreFormat = document.getElementById(`finals-score-format-${catId}`)?.value || 'play11_win2';
 
   const teams = await tApi(`tournament_teams?category_id=eq.${catId}&select=*`);
   const rrMatches = await tApi(`tournament_rr_matches?category_id=eq.${catId}&select=*`);
   const standings = tCalcStandings(teams, rrMatches);
   const advancing = standings.slice(0, size);
 
-  await tApi(`tournament_categories?id=eq.${catId}`, 'PATCH', { finals_format: format, finals_size: size });
+  await tApi(`tournament_categories?id=eq.${catId}`, 'PATCH', { finals_format: format, finals_size: size, finals_format_score: scoreFormat });
 
   const bracketMatches = buildBracketMatches(advancing, catId, format);
   if (bracketMatches.length) {
@@ -920,6 +1006,7 @@ async function openScoreModal(type, matchId, teamAId, teamBId, catId) {
   } else {
     [match] = await tApi(`tournament_bracket_matches?id=eq.${matchId}&select=*`);
   }
+  const [cat] = await tApi(`tournament_categories?id=eq.${catId}&select=*`);
   const teams = await tApi(`tournament_teams?category_id=eq.${catId}&select=*`);
   const tMap = {}; teams.forEach(t => tMap[t.id] = t);
   const teamA = tMap[teamAId];
@@ -929,7 +1016,7 @@ async function openScoreModal(type, matchId, teamAId, teamBId, catId) {
   document.getElementById('t-modal-title').textContent = isFinals ? `Finals — ${match.round_name}` : `Round ${match.round} — Court ${match.court}`;
   document.getElementById('t-modal-body').innerHTML = `
     <div class="t-score-modal">
-      <div class="t-score-rule">${isFinals ? '🏆 Finals: Play to 11, win by 2' : '🏓 Round Robin: Play to 11, win by 1'}</div>
+      <div class="t-score-rule">${isFinals ? '🏆 Finals: ' + (T_FORMATS[cat.finals_format_score] || 'Play to 11, win by 2') : '🏓 Round Robin: ' + (T_FORMATS[cat.rr_format] || 'Play to 11, win by 1')}</div>
       <div class="t-form-group" style="margin-bottom:16px;">
         <label class="t-label">Court number</label>
         <input class="t-input" type="number" min="1" id="t-court-num" value="${match.court || ''}" placeholder="e.g. 5" style="max-width:120px;">
