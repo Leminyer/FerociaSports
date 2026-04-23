@@ -272,9 +272,9 @@ const T_CATEGORY_LABELS = {
 };
 
 // ─── STATE ──────────────────────────────────────────────────
-let tCurrentTournamentId = null;
-let tCurrentCategoryId = null;
-let tAllPlayers = [];
+var tCurrentTournamentId = null;
+var tCurrentCategoryId = null;
+var tAllPlayers = [];
 
 // ─── STANDINGS CALCULATION ──────────────────────────────────
 function tCalcStandings(teams, matches) {
@@ -522,7 +522,7 @@ function renderCategory(cat, teams, rrMatches, bracketMatches, tournament) {
         <div class="t-rr-grid">
           ${renderRRRounds(rrMatches, tMap, tournament)}
         </div>
-        ${rrDone > 0 ? renderStandingsTable(standings) : ''}
+        ${rrDone > 0 ? tRenderStandings(standings) : ''}
       ` : teams.length < 3 ? `<div class="t-empty-sm">Add at least 3 teams first.</div>` : `<div class="t-empty-sm">Generate the schedule to start round robin play.</div>`}
     </div>
   `;
@@ -616,7 +616,7 @@ function renderRRRounds(matches, tMap, tournament) {
   }).join('');
 }
 
-function renderStandingsTable(standings) {
+function tRenderStandings(standings) {
   return `
     <div class="t-standings-table">
       <div class="t-standings-title">Standings</div>
