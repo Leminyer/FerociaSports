@@ -168,6 +168,7 @@ const showPage=(name,btn)=>{
   if(name==='add-player')initAddPlayer();
   if(name==='share')loadSharePage();
   if(name==='promotions'){if(typeof loadPromotionsPage!=='undefined')loadPromotionsPage();}
+  if(name==='t-tournaments'){if(typeof loadTournamentModule!=='undefined')loadTournamentModule();}
   if(name==='tournaments'){if(typeof loadTournamentsPage!=='undefined')loadTournamentsPage();}
   // Ensure management pages always have the management subnav visible
   const mgmtPages=['players','add-player','ladders','tournaments','share'];

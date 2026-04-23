@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Ferocia Pickleball Ladder</title>
+<link rel="stylesheet" href="tournament.css">
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
@@ -225,7 +226,7 @@ const checkPassword = async () => {
   <button data-action="showPage" data-page="players">Players</button>
   <button data-action="showPage" data-page="add-player">Add Player</button>
   <button data-action="showPage" data-page="ladders">Ladders</button>
-  <button data-action="showPage" data-page="tournaments">Tournaments</button>
+  <button data-action="showPage" data-page="t-tournaments">Tournaments</button>
   <button data-action="showPage" data-page="promotions">Promotions</button>
   <button data-action="showPage" data-page="share">Share</button>
 </div>
@@ -539,6 +540,19 @@ const checkPassword = async () => {
     </div>
   </div>
 
+  <!-- TOURNAMENT MODULE PAGE -->
+  <div id="page-t-tournaments" class="page">
+    <div id="t-content"><div class="loading">Loading tournaments...</div></div>
+  </div>
+
+  <!-- TOURNAMENT MODAL -->
+  <div class="t-modal-bg" id="t-modal">
+    <div class="t-modal">
+      <div class="t-modal-title" id="t-modal-title">Modal</div>
+      <div id="t-modal-body"></div>
+    </div>
+  </div>
+
   <!-- SHARE PAGE -->
   <div id="page-share" class="page">
     <div class="card">
@@ -829,5 +843,6 @@ const checkPassword = async () => {
   </div>
 </div>
 <script src="app.js"></script>
+<script src="tournament.js"></script>
 </body>
 </html>
