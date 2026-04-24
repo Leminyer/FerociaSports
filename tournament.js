@@ -576,7 +576,10 @@ function renderCategory(cat, teams, rrMatches, bracketMatches, tournament) {
                   <div class="t-team-name">${team.name}</div>
                   <div class="t-team-players">${players.join(' & ')}</div>
                 </div>
-                ${tournament.status === 'draft' ? `<button class="t-btn-icon t-btn-danger-icon" onclick="deleteTeam(${team.id}, '${team.name.replace(/'/g,"\'")}', ${cat.id})">×</button>` : ''}
+                ${tournament.status !== 'completed' ? `
+                  <button class="t-btn-icon" onclick="editTeam(${team.id}, ${cat.id})" style="color:#174CCC;font-size:14px;background:none;border:none;cursor:pointer;" title="Edit">✏️</button>
+                  <button class="t-btn-icon t-btn-danger-icon" onclick="deleteTeam(${team.id}, '${team.name.replace(/'/g,"\'")}', ${cat.id})">×</button>
+                ` : ''}
               </div>`;
           }).join('')}
         </div>
@@ -751,7 +754,7 @@ function renderBracket(matches, tMap, tournament) {
           <div class="t-podium-crown">👑</div>
           <div class="t-podium-medal">🥇</div>
           <div class="t-podium-team t-champion">${champion?.name || '—'}</div>
-          <div class="t-podium-players t-champion-players">${getTeamPlayerNames(champion)}</div>
+          <div class="t-podium-players">${getTeamPlayerNames(champion)}</div>
           <div class="t-podium-label">Champion</div>
           <div class="t-podium-bar t-bar-gold"></div>
         </div>

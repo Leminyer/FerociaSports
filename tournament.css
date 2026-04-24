@@ -231,8 +231,7 @@
 .t-podium-team  { font-size:14px; font-weight:800; text-align:center; color:#0d1f4a; }
 .t-champion     { color:#174CCC; font-size:16px; }
 .t-podium-label { font-size:11px; font-weight:700; color:#6b7a99; text-transform:uppercase; letter-spacing:.5px; }
-.t-podium-players { font-size:11px; font-weight:600; color:#6b7a99; text-align:center; line-height:1.4; max-width:140px; }
-.t-champion-players { color:#C6F221; font-weight:700; }
+.t-podium-players { font-size:11px; font-weight:600; color:rgba(255,255,255,0.6); text-align:center; line-height:1.4; max-width:140px; }
 .t-podium-bar   { width:100%; border-radius:8px 8px 0 0; }
 .t-bar-gold   { background:linear-gradient(180deg,rgba(255,215,0,.3),rgba(255,215,0,.05)); border:1.5px solid rgba(255,215,0,.5); height:80px; }
 .t-bar-silver { background:linear-gradient(180deg,rgba(192,192,192,.3),rgba(192,192,192,.05)); border:1.5px solid rgba(192,192,192,.4); height:60px; }
