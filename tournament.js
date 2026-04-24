@@ -10,10 +10,12 @@ const T_KEY = 'sb_publishable_Lhc3oHL90kL7O0vO3kJQgQ_BqQfc4Il';
 function getTeamPlayerNames(team) {
   if (!team) return '';
   const ids = [team.player1_id, team.player2_id, team.player3_id, team.player4_id].filter(Boolean);
-  return ids.map(id => {
+  if (!ids.length) return '';
+  const names = ids.map(id => {
     const p = tAllPlayers.find(x => x.id === id);
-    return p ? `${p.first_name} ${p.last_name}` : '';
-  }).filter(Boolean).join(' & ');
+    return p ? `${p.first_name} ${p.last_name}` : null;
+  }).filter(Boolean);
+  return names.join(' & ');
 }
 
 const tApi = async (path, method = 'GET', body = null) => {
