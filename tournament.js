@@ -1102,11 +1102,17 @@ async function openScoreModal(type, matchId, teamAId, teamBId, catId) {
         <div class="t-score-team">
           <div class="t-score-team-name">${teamA?.name || '?'}</div>
           <input class="t-score-input" type="number" min="0" max="25" id="t-score-a" value="${match.score_a ?? ''}" placeholder="0">
+          <label class="t-forfeit-check-label">
+            <input type="checkbox" id="t-forfeit-a" onchange="onForfeitCheck('a','b')"> Forfeit
+          </label>
         </div>
         <div class="t-score-divider">VS</div>
         <div class="t-score-team">
           <div class="t-score-team-name">${teamB?.name || '?'}</div>
           <input class="t-score-input" type="number" min="0" max="25" id="t-score-b" value="${match.score_b ?? ''}" placeholder="0">
+          <label class="t-forfeit-check-label">
+            <input type="checkbox" id="t-forfeit-b" onchange="onForfeitCheck('b','a')"> Forfeit
+          </label>
         </div>
       </div>
       <div id="t-score-preview" class="t-score-preview"></div>
@@ -1114,10 +1120,9 @@ async function openScoreModal(type, matchId, teamAId, teamBId, catId) {
     <div class="t-form-actions">
       <button type="button" class="t-btn t-btn-ghost" onclick="closeTModal()">Cancel</button>
       <button type="button" class="t-btn t-btn-primary" onclick="saveScore('${type}', ${matchId}, ${teamAId}, ${teamBId}, ${catId})">Save Result</button>
-      <button type="button" class="t-btn t-btn-danger" onclick="openForfeitModal('${type}', ${matchId}, ${teamAId}, ${teamBId}, ${catId}, '${teamA?.name||'Team A'}', '${teamB?.name||'Team B'}')">Forfeit</button>
     </div>
   `;
-  // Live score preview
+    // Live score preview
   ['t-score-a', 't-score-b'].forEach(id => {
     document.getElementById(id)?.addEventListener('input', () => {
       const sa = parseInt(document.getElementById('t-score-a').value);
