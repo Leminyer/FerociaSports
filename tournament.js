@@ -320,7 +320,11 @@ function tCalcStandings(teams, matches) {
   const stats = {};
   teams.forEach(t => stats[t.id] = {
     id: t.id, name: t.name, w: 0, l: 0, bye: 0,
-    pts_for: 0, pts_against: 0, played: 0
+    pts_for: 0, pts_against: 0, played: 0, forfeited: false
+  });
+  // Track which teams have forfeited (full withdrawal)
+  matches.filter(m => m.forfeit_team_id).forEach(m => {
+    if (stats[m.forfeit_team_id]) stats[m.forfeit_team_id].forfeited = true;
   });
   matches.filter(m => m.status === 'completed').forEach(m => {
     if (!stats[m.team_a_id] || !stats[m.team_b_id]) return;
@@ -338,16 +342,19 @@ function tCalcStandings(teams, matches) {
       stats[m.team_a_id].l++;
     }
   });
-  // Byes count as played but no win/loss
   matches.filter(m => m.status === 'bye').forEach(m => {
     const tid = m.team_a_id;
     if (stats[tid]) stats[tid].bye++;
   });
+  // Sort: total pts_for → diff → wins → losses (forfeited always last)
   return Object.values(stats).sort((a, b) => {
-    if (b.w !== a.w) return b.w - a.w;
+    if (a.forfeited !== b.forfeited) return a.forfeited ? 1 : -1;
+    if (b.pts_for !== a.pts_for) return b.pts_for - a.pts_for;
     const diffA = a.pts_for - a.pts_against;
     const diffB = b.pts_for - b.pts_against;
-    return diffB - diffA;
+    if (diffB !== diffA) return diffB - diffA;
+    if (b.w !== a.w) return b.w - a.w;
+    return a.l - b.l;
   });
 }
 
@@ -580,6 +587,8 @@ function renderCategory(cat, teams, rrMatches, bracketMatches, tournament) {
                 </div>
                 ${tournament.status !== 'completed' ? `
                   <button class="t-btn-icon" onclick="editTeam(${team.id}, ${cat.id})" style="color:#174CCC;font-size:14px;background:none;border:none;cursor:pointer;" title="Edit">✏️</button>
+                ` : ''}
+                ${tournament.status === 'draft' ? `
                   <button class="t-btn-icon t-btn-danger-icon" onclick="deleteTeam(${team.id}, '${team.name.replace(/'/g,"\'")}', ${cat.id})">×</button>
                 ` : ''}
               </div>`;
@@ -690,7 +699,8 @@ function renderRRRounds(matches, tMap, tournament) {
                 <div class="t-match-score">
                   ${isDone ? `<span class="t-score ${winA ? 't-score-win' : ''}">${m.score_a}</span>
                     <span class="t-score-sep">-</span>
-                    <span class="t-score ${winB ? 't-score-win' : ''}">${m.score_b}</span>` :
+                    <span class="t-score ${winB ? 't-score-win' : ''}">${m.score_b}</span>
+                    ${m.forfeit_team_id ? `<span class="t-forfeit-badge" style="margin-left:4px;">FF</span>` : ''}` :
                     `<span class="t-score-pending">—</span>`}
                 </div>
               </div>`;
@@ -715,7 +725,10 @@ function tRenderStandings(standings) {
           ${standings.map((s, i) => `
             <tr class="${i < 4 ? 't-row-qualify' : ''}">
               <td><span class="t-rank ${i===0?'t-rank-1':i===1?'t-rank-2':i===2?'t-rank-3':''}">${i + 1}</span></td>
-              <td class="t-team-cell">${s.name}</td>
+              <td class="t-team-cell">
+                ${s.name}
+                ${s.forfeited ? '<span class="t-forfeit-badge">FORFEIT</span>' : ''}
+              </td>
               <td class="t-win-cell">${s.w}</td>
               <td class="t-loss-cell">${s.l}</td>
               <td style="font-weight:700;color:#174CCC;">${s.pts_for}</td>
@@ -1015,7 +1028,7 @@ async function generateBracket(catId, tournamentId) {
   const teams = await tApi(`tournament_teams?category_id=eq.${catId}&select=*`);
   const rrMatches = await tApi(`tournament_rr_matches?category_id=eq.${catId}&select=*`);
   const standings = tCalcStandings(teams, rrMatches);
-  const advancing = standings.slice(0, size);
+  const advancing = standings.filter(s => !s.forfeited).slice(0, size);
 
   await tApi(`tournament_categories?id=eq.${catId}`, 'PATCH', { finals_format: format, finals_size: size, finals_format_score: scoreFormat });
 
@@ -1101,6 +1114,7 @@ async function openScoreModal(type, matchId, teamAId, teamBId, catId) {
     <div class="t-form-actions">
       <button type="button" class="t-btn t-btn-ghost" onclick="closeTModal()">Cancel</button>
       <button type="button" class="t-btn t-btn-primary" onclick="saveScore('${type}', ${matchId}, ${teamAId}, ${teamBId}, ${catId})">Save Result</button>
+      <button type="button" class="t-btn t-btn-danger" onclick="openForfeitModal('${type}', ${matchId}, ${teamAId}, ${teamBId}, ${catId}, '${teamA?.name||'Team A'}', '${teamB?.name||'Team B'}')">Forfeit</button>
     </div>
   `;
   // Live score preview
@@ -1238,6 +1252,100 @@ async function confirmCompleteTournament(id) {
   closeTModal();
   tToast('Tournament completed! 🏆');
   openTournament(id);
+}
+
+// ─── FORFEIT ─────────────────────────────────────────────────
+function openForfeitModal(type, matchId, teamAId, teamBId, catId, teamAName, teamBName) {
+  document.getElementById('t-modal-title').textContent = 'Record Forfeit';
+  document.getElementById('t-modal-body').innerHTML = `
+    <div style="padding:8px 0 16px;">
+      <p style="font-size:13px;color:#0d1f4a;line-height:1.6;margin-bottom:16px;">
+        A forfeit means the team <strong>withdraws from the entire tournament</strong>.
+        All their remaining matches will be scored automatically.
+        Select which team is forfeiting:
+      </p>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <button type="button" class="t-btn t-btn-danger" style="width:100%;"
+          onclick="processForfeit('${type}', ${matchId}, ${teamAId}, ${teamBId}, ${catId}, ${teamAId})">
+          ${teamAName} forfeits
+        </button>
+        <button type="button" class="t-btn t-btn-danger" style="width:100%;"
+          onclick="processForfeit('${type}', ${matchId}, ${teamAId}, ${teamBId}, ${catId}, ${teamBId})">
+          ${teamBName} forfeits
+        </button>
+      </div>
+      <div style="margin-top:14px;">
+        <button type="button" class="t-btn t-btn-ghost" style="width:100%;" onclick="closeTModal()">Cancel</button>
+      </div>
+    </div>
+  `;
+}
+
+async function processForfeit(type, matchId, teamAId, teamBId, catId, forfeitTeamId) {
+  // Get category to know the play-to score
+  const [cat] = await tApi(`tournament_categories?id=eq.${catId}&select=*`);
+  const rrFormat = cat.rr_format || 'play11_win1';
+  const playTo = rrFormat.includes('15') ? 15 : rrFormat.includes('21') ? 21 : 11;
+  const winnerId = forfeitTeamId === teamAId ? teamBId : teamAId;
+  const scoreA = forfeitTeamId === teamAId ? 0 : playTo;
+  const scoreB = forfeitTeamId === teamBId ? 0 : playTo;
+
+  try {
+    // Save this match as forfeited
+    if (type === 'rr') {
+      await tApi(`tournament_rr_matches?id=eq.${matchId}`, 'PATCH', {
+        score_a: scoreA, score_b: scoreB,
+        winner_id: winnerId, status: 'completed',
+        forfeit_team_id: forfeitTeamId
+      });
+    } else {
+      await tApi(`tournament_bracket_matches?id=eq.${matchId}`, 'PATCH', {
+        score_a: scoreA, score_b: scoreB,
+        winner_id: winnerId, status: 'completed',
+        forfeit_team_id: forfeitTeamId
+      });
+      await advanceBracket(matchId, winnerId, forfeitTeamId, catId);
+    }
+
+    // Auto-score ALL remaining pending matches for the forfeiting team
+    const pendingRR = await tApi(
+      `tournament_rr_matches?category_id=eq.${catId}&status=eq.pending&select=*`
+    );
+    for (const m of pendingRR) {
+      if (m.team_a_id === forfeitTeamId || m.team_b_id === forfeitTeamId) {
+        const win = m.team_a_id === forfeitTeamId ? m.team_b_id : m.team_a_id;
+        const sA = m.team_a_id === forfeitTeamId ? 0 : playTo;
+        const sB = m.team_b_id === forfeitTeamId ? 0 : playTo;
+        await tApi(`tournament_rr_matches?id=eq.${m.id}`, 'PATCH', {
+          score_a: sA, score_b: sB, winner_id: win,
+          status: 'completed', forfeit_team_id: forfeitTeamId
+        });
+      }
+    }
+
+    const pendingBracket = await tApi(
+      `tournament_bracket_matches?category_id=eq.${catId}&status=eq.pending&select=*`
+    );
+    for (const m of pendingBracket) {
+      if (m.team_a_id === forfeitTeamId || m.team_b_id === forfeitTeamId) {
+        const win = m.team_a_id === forfeitTeamId ? m.team_b_id : m.team_a_id;
+        const sA = m.team_a_id === forfeitTeamId ? 0 : playTo;
+        const sB = m.team_b_id === forfeitTeamId ? 0 : playTo;
+        await tApi(`tournament_bracket_matches?id=eq.${m.id}`, 'PATCH', {
+          score_a: sA, score_b: sB, winner_id: win,
+          status: 'completed', forfeit_team_id: forfeitTeamId
+        });
+        await advanceBracket(m.id, win, forfeitTeamId, catId);
+      }
+    }
+
+    closeTModal();
+    tToast('Forfeit recorded. All remaining matches updated.');
+    tCurrentCategoryId = catId;
+    const [t] = await tApi(`tournaments?id=eq.${tCurrentTournamentId}&select=*`);
+    const categories = await tApi(`tournament_categories?tournament_id=eq.${tCurrentTournamentId}&select=*&order=id`);
+    renderTournamentDetail(t, categories);
+  } catch(err) { tToast(`Error: ${err.message}`, true); }
 }
 
 // ─── MODAL HELPERS ──────────────────────────────────────────

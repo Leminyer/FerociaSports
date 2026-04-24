@@ -279,6 +279,13 @@
 }
 .t-modal-title { font-size:16px; font-weight:800; color:#0d1f4a; margin-bottom:20px; }
 
+/* ─── FORFEIT ─────────────────────────────────────────────── */
+.t-forfeit-badge {
+  display:inline-block; font-size:9px; font-weight:800; letter-spacing:1px;
+  text-transform:uppercase; padding:2px 6px; border-radius:4px;
+  background:#fde8d8; color:#F26024; margin-left:6px; vertical-align:middle;
+}
+
 /* ─── RESPONSIVE ──────────────────────────────────────────── */
 @media (max-width:600px) {
   .t-score-teams { grid-template-columns:1fr; }
