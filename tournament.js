@@ -485,6 +485,47 @@ async function confirmDeleteTournament(id) {
     renderTournamentList();
   } catch(err) { tToast(`Error: ${err.message}`, true); }
 }
+
+// ─── OPEN TOURNAMENT ────────────────────────────────────────
+async function openTournament(id) {
+  tCurrentTournamentId = id;
+  const el = document.getElementById('t-content');
+  el.innerHTML = `<div class="t-loading">Loading tournament...</div>`;
+  const [t] = await tApi(`tournaments?id=eq.${id}&select=*`);
+  const categories = await tApi(`tournament_categories?tournament_id=eq.${id}&select=*&order=id`);
+  tCurrentCategoryId = tCurrentCategoryId || categories[0]?.id || null;
+  renderTournamentDetail(t, categories);
+}
+
+function renderTournamentDetail(t, categories) {
+  const el = document.getElementById('t-content');
+  const date = t.date ? new Date(t.date + 'T12:00:00').toLocaleDateString('en-US', {weekday:'long',month:'long',day:'numeric',year:'numeric'}) : 'No date set';
+  el.innerHTML = `
+    <div class="t-header-bar">
+      <button class="t-btn t-btn-ghost" onclick="renderTournamentList()">← Tournaments</button>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <span class="t-status-badge t-status-${t.status}">${t.status}</span>
+        ${t.status === 'draft' ? `<button class="t-btn t-btn-success" onclick="startTournament(${t.id})">▶ Start Tournament</button>` : ''}
+        ${t.status === 'active' ? `<button class="t-btn t-btn-danger" onclick="completeTournament(${t.id})">Complete</button>` : ''}
+      </div>
+    </div>
+    <div class="t-tournament-hero">
+      <div class="t-tournament-hero-name">${t.name}</div>
+      <div class="t-tournament-hero-date">📅 ${date}</div>
+    </div>
+    <div class="t-category-tabs">
+      ${categories.map(cat => `
+        <button class="t-category-tab ${cat.id === tCurrentCategoryId ? 'active' : ''}"
+          onclick="switchCategory(${cat.id}, ${t.id})">
+          ${cat.name}
+          <span class="t-cat-status-dot t-dot-${cat.status}"></span>
+        </button>
+      `).join('')}
+    </div>
+    <div id="t-category-content">Loading category...</div>
+  `;
+  if (tCurrentCategoryId) loadCategory(tCurrentCategoryId, t);
+}
 async function confirmDeleteTeam(teamId, catId) {
   try {
     await tApi(`tournament_teams?id=eq.${teamId}`, 'DELETE');
