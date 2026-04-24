@@ -705,7 +705,7 @@ function tRenderStandings(standings) {
     <div class="t-standings-table">
       <div class="t-standings-title">Standings</div>
       <table class="t-table">
-        <thead><tr><th>#</th><th>Team</th><th>Wins</th><th>Losses</th><th>Diff</th></tr></thead>
+        <thead><tr><th>#</th><th>Team</th><th>Wins</th><th>Losses</th><th>Pts For</th><th>Diff</th></tr></thead>
         <tbody>
           ${standings.map((s, i) => `
             <tr class="${i < 4 ? 't-row-qualify' : ''}">
@@ -713,6 +713,7 @@ function tRenderStandings(standings) {
               <td class="t-team-cell">${s.name}</td>
               <td class="t-win-cell">${s.w}</td>
               <td class="t-loss-cell">${s.l}</td>
+              <td style="font-weight:700;color:#174CCC;">${s.pts_for}</td>
               <td class="t-diff-cell ${s.pts_for - s.pts_against >= 0 ? 't-diff-pos' : 't-diff-neg'}">${s.pts_for - s.pts_against > 0 ? '+' : ''}${s.pts_for - s.pts_against}</td>
             </tr>`).join('')}
         </tbody>
@@ -742,6 +743,7 @@ function renderBracket(matches, tMap, tournament) {
         <div class="t-podium-slot t-podium-silver">
           <div class="t-podium-medal">🥈</div>
           <div class="t-podium-team">${runnerUp?.name || '—'}</div>
+          <div class="t-podium-players">${getTeamPlayerNames(runnerUp)}</div>
           <div class="t-podium-label">2nd Place</div>
           <div class="t-podium-bar t-bar-silver"></div>
         </div>
@@ -749,12 +751,14 @@ function renderBracket(matches, tMap, tournament) {
           <div class="t-podium-crown">👑</div>
           <div class="t-podium-medal">🥇</div>
           <div class="t-podium-team t-champion">${champion?.name || '—'}</div>
+          <div class="t-podium-players t-champion-players">${getTeamPlayerNames(champion)}</div>
           <div class="t-podium-label">Champion</div>
           <div class="t-podium-bar t-bar-gold"></div>
         </div>
         ${third ? `<div class="t-podium-slot t-podium-bronze">
           <div class="t-podium-medal">🥉</div>
           <div class="t-podium-team">${third.name}</div>
+          <div class="t-podium-players">${getTeamPlayerNames(third)}</div>
           <div class="t-podium-label">3rd Place</div>
           <div class="t-podium-bar t-bar-bronze"></div>
         </div>` : ''}
@@ -839,6 +843,65 @@ async function saveTeam(e, catId) {
       player4_id: playerIds[3] || null,
     });
     tToast(`Team "${name}" added!`);
+    closeTModal();
+    tCurrentCategoryId = catId;
+    const [t] = await tApi(`tournaments?id=eq.${tCurrentTournamentId}&select=*`);
+    const categories = await tApi(`tournament_categories?tournament_id=eq.${tCurrentTournamentId}&select=*&order=id`);
+    renderTournamentDetail(t, categories);
+  } catch(err) { tToast(`Error: ${err.message}`, true); }
+}
+
+async function editTeam(teamId, catId) {
+  const [team] = await tApi(`tournament_teams?id=eq.${teamId}&select=*`);
+  const [cat] = await tApi(`tournament_categories?id=eq.${catId}&select=*`);
+  if (!team || !cat) return;
+  const playersPerTeam = cat.name === 'team_challenge' ? 4 : cat.name === 'singles' ? 1 : 2;
+  const playerOpts = tAllPlayers.filter(p => p.status !== 'inactive')
+    .map(p => `<option value="${p.id}">${p.first_name} ${p.last_name}</option>`).join('');
+  const playerIds = [team.player1_id, team.player2_id, team.player3_id, team.player4_id];
+  const playerFields = Array.from({length: playersPerTeam}, (_, i) => `
+    <div class="t-form-group">
+      <label class="t-label">Player ${i + 1}</label>
+      <select class="t-input t-player-select" id="t-edit-player-${i+1}">
+        <option value="">-- Select player --</option>${playerOpts}
+      </select>
+    </div>`).join('');
+  document.getElementById('t-modal-title').textContent = 'Edit Team';
+  document.getElementById('t-modal-body').innerHTML = `
+    <form id="t-edit-team-form" onsubmit="saveEditTeam(event, ${teamId}, ${catId})">
+      <div class="t-form-group">
+        <label class="t-label">Team name *</label>
+        <input class="t-input" type="text" id="t-edit-team-name" required value="${team.name}">
+      </div>
+      ${playerFields}
+      <div class="t-form-actions">
+        <button type="button" class="t-btn t-btn-ghost" onclick="closeTModal()">Cancel</button>
+        <button type="submit" class="t-btn t-btn-primary">Save Changes</button>
+      </div>
+    </form>`;
+  openTModal();
+  // Set current values
+  playerIds.forEach((id, i) => {
+    const sel = document.getElementById(`t-edit-player-${i+1}`);
+    if (sel && id) sel.value = id;
+  });
+}
+
+async function saveEditTeam(e, teamId, catId) {
+  e.preventDefault();
+  const name = document.getElementById('t-edit-team-name').value.trim();
+  if (!name) { tToast('Please enter a team name.', true); return; }
+  const playerSelects = document.querySelectorAll('.t-player-select');
+  const playerIds = [...playerSelects].map(s => parseInt(s.value) || null);
+  try {
+    await tApi(`tournament_teams?id=eq.${teamId}`, 'PATCH', {
+      name,
+      player1_id: playerIds[0] || null,
+      player2_id: playerIds[1] || null,
+      player3_id: playerIds[2] || null,
+      player4_id: playerIds[3] || null,
+    });
+    tToast('Team updated!');
     closeTModal();
     tCurrentCategoryId = catId;
     const [t] = await tApi(`tournaments?id=eq.${tCurrentTournamentId}&select=*`);
@@ -1118,9 +1181,57 @@ async function startTournament(id) {
 }
 
 async function completeTournament(id) {
-  if (!confirm('Mark this tournament as completed?')) return;
+  // Validate all teams have players and all matches have scores
+  const categories = await tApi(`tournament_categories?tournament_id=eq.${id}&select=id,name`);
+  const errors = [];
+  for (const cat of categories) {
+    const teams = await tApi(`tournament_teams?category_id=eq.${cat.id}&select=*`);
+    const teamsWithoutPlayers = teams.filter(t => !t.player1_id);
+    if (teamsWithoutPlayers.length) {
+      errors.push(`"${cat.name}": ${teamsWithoutPlayers.length} team(s) have no players registered.`);
+    }
+    const rrMatches = await tApi(`tournament_rr_matches?category_id=eq.${cat.id}&status=eq.pending&select=id`);
+    if (rrMatches.length) {
+      errors.push(`"${cat.name}": ${rrMatches.length} round robin match(es) have no scores.`);
+    }
+    const bracketMatches = await tApi(`tournament_bracket_matches?category_id=eq.${cat.id}&status=eq.pending&select=id`);
+    if (bracketMatches.length) {
+      errors.push(`"${cat.name}": ${bracketMatches.length} finals match(es) have no scores.`);
+    }
+  }
+  if (errors.length) {
+    document.getElementById('t-modal-title').textContent = 'Cannot Complete Tournament';
+    document.getElementById('t-modal-body').innerHTML = `
+      <div style="padding:8px 0 16px;">
+        <p style="font-size:13px;color:#0d1f4a;margin-bottom:14px;font-weight:600;">Please fix the following before completing:</p>
+        <ul style="list-style:none;display:flex;flex-direction:column;gap:8px;">
+          ${errors.map(e => `<li style="font-size:13px;color:#F26024;padding:8px 12px;background:#fde8d8;border-radius:6px;">⚠️ ${e}</li>`).join('')}
+        </ul>
+      </div>
+      <div class="t-form-actions">
+        <button type="button" class="t-btn t-btn-primary" onclick="closeTModal()">OK</button>
+      </div>`;
+    openTModal();
+    return;
+  }
+  document.getElementById('t-modal-title').textContent = 'Complete Tournament';
+  document.getElementById('t-modal-body').innerHTML = `
+    <div style="padding:8px 0 24px;">
+      <p style="font-size:14px;color:#0d1f4a;line-height:1.6;">
+        Mark this tournament as completed? No further edits will be possible.
+      </p>
+    </div>
+    <div class="t-form-actions">
+      <button type="button" class="t-btn t-btn-ghost" onclick="closeTModal()">Cancel</button>
+      <button type="button" class="t-btn t-btn-success" onclick="confirmCompleteTournament(${id})">Complete</button>
+    </div>`;
+  openTModal();
+}
+
+async function confirmCompleteTournament(id) {
   await tApi(`tournaments?id=eq.${id}`, 'PATCH', { status: 'completed' });
-  tToast('Tournament completed!');
+  closeTModal();
+  tToast('Tournament completed! 🏆');
   openTournament(id);
 }
 
