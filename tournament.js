@@ -1148,10 +1148,6 @@ async function saveScore(type, matchId, teamAId, teamBId, catId) {
     const tMap = {}; teams.forEach(t => tMap[t.id] = t);
     const forfeitTeamName = tMap[forfeitTeamId]?.name || 'This team';
 
-    // Show professional confirmation modal
-    const currentTitle = document.getElementById('t-modal-title').textContent;
-    const currentBody = document.getElementById('t-modal-body').innerHTML;
-
     document.getElementById('t-modal-title').textContent = 'Confirm Forfeit';
     document.getElementById('t-modal-body').innerHTML = `
       <div style="padding:8px 0 20px;">
@@ -1168,7 +1164,7 @@ async function saveScore(type, matchId, teamAId, teamBId, catId) {
         </p>
       </div>
       <div class="t-form-actions">
-        <button type="button" class="t-btn t-btn-ghost" onclick="restoreScoreModal(\`${currentTitle}\`, \`${currentBody}\`)">Go Back</button>
+        <button type="button" class="t-btn t-btn-ghost" onclick="openScoreModal('${type}', ${matchId}, ${teamAId}, ${teamBId}, ${catId})">Go Back</button>
         <button type="button" class="t-btn t-btn-danger" onclick="processForfeit('${type}', ${matchId}, ${teamAId}, ${teamBId}, ${catId}, ${forfeitTeamId})">Confirm Forfeit</button>
       </div>
     `;
