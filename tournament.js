@@ -1133,6 +1133,43 @@ async function openScoreModal(type, matchId, teamAId, teamBId, catId) {
 }
 
 async function saveScore(type, matchId, teamAId, teamBId, catId) {
+  // Check if forfeit is selected
+  const forfeitA = document.getElementById('t-forfeit-a')?.checked;
+  const forfeitB = document.getElementById('t-forfeit-b')?.checked;
+
+  if (forfeitA || forfeitB) {
+    const forfeitTeamId = forfeitA ? teamAId : teamBId;
+    const teams = await tApi(`tournament_teams?category_id=eq.${catId}&select=id,name`);
+    const tMap = {}; teams.forEach(t => tMap[t.id] = t);
+    const forfeitTeamName = tMap[forfeitTeamId]?.name || 'This team';
+
+    // Show professional confirmation modal
+    const currentTitle = document.getElementById('t-modal-title').textContent;
+    const currentBody = document.getElementById('t-modal-body').innerHTML;
+
+    document.getElementById('t-modal-title').textContent = 'Confirm Forfeit';
+    document.getElementById('t-modal-body').innerHTML = `
+      <div style="padding:8px 0 20px;">
+        <div style="background:#fde8d8;border-left:4px solid #F26024;border-radius:0 8px 8px 0;padding:14px 16px;margin-bottom:16px;">
+          <div style="font-size:13px;font-weight:800;color:#F26024;margin-bottom:4px;">⚠️ Forfeit — Full Withdrawal</div>
+          <div style="font-size:13px;color:#0d1f4a;line-height:1.6;">
+            <strong>${forfeitTeamName}</strong> will be marked as forfeited and withdrawn from this tournament.
+            All their remaining matches will be automatically scored in favor of their opponents.
+            This action cannot be undone.
+          </div>
+        </div>
+        <p style="font-size:13px;color:#6b7a99;line-height:1.6;">
+          Are you sure you want to proceed with the forfeit for <strong>${forfeitTeamName}</strong>?
+        </p>
+      </div>
+      <div class="t-form-actions">
+        <button type="button" class="t-btn t-btn-ghost" onclick="restoreScoreModal(\`${currentTitle}\`, \`${currentBody}\`)">Go Back</button>
+        <button type="button" class="t-btn t-btn-danger" onclick="processForfeit('${type}', ${matchId}, ${teamAId}, ${teamBId}, ${catId}, ${forfeitTeamId})">Confirm Forfeit</button>
+      </div>
+    `;
+    return;
+  }
+
   const sa = parseInt(document.getElementById('t-score-a').value);
   const sb = parseInt(document.getElementById('t-score-b').value);
   if (isNaN(sa) || isNaN(sb)) { tToast('Please enter both scores.', true); return; }
@@ -1346,6 +1383,16 @@ async function processForfeit(type, matchId, teamAId, teamBId, catId, forfeitTea
     const categories = await tApi(`tournament_categories?tournament_id=eq.${tCurrentTournamentId}&select=*&order=id`);
     renderTournamentDetail(t, categories);
   } catch(err) { tToast(`Error: ${err.message}`, true); }
+}
+
+function onForfeitCheck(checked, other) {
+  const otherCb = document.getElementById('t-forfeit-' + other);
+  if (otherCb && otherCb.checked) otherCb.checked = false;
+}
+
+function restoreScoreModal(title, body) {
+  document.getElementById('t-modal-title').textContent = title;
+  document.getElementById('t-modal-body').innerHTML = body;
 }
 
 // ─── MODAL HELPERS ──────────────────────────────────────────
