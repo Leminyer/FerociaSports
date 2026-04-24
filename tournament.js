@@ -526,6 +526,342 @@ function renderTournamentDetail(t, categories) {
   `;
   if (tCurrentCategoryId) loadCategory(tCurrentCategoryId, t);
 }
+async function switchCategory(catId, tId) {
+  tCurrentCategoryId = catId;
+  document.querySelectorAll('.t-category-tab').forEach(b => b.classList.remove('active'));
+  event.target.closest('.t-category-tab').classList.add('active');
+  document.getElementById('t-category-content').innerHTML = '<div class="t-loading">Loading...</div>';
+  const [t] = await tApi(`tournaments?id=eq.${tId}&select=*`);
+  loadCategory(catId, t);
+}
+
+async function loadCategory(catId, t) {
+  const [cat] = await tApi(`tournament_categories?id=eq.${catId}&select=*`);
+  const teams = await tApi(`tournament_teams?category_id=eq.${catId}&select=*&order=id`);
+  const rrMatches = await tApi(`tournament_rr_matches?category_id=eq.${catId}&select=*&order=round,court`);
+  const bracketMatches = await tApi(`tournament_bracket_matches?category_id=eq.${catId}&select=*&order=id`);
+  renderCategory(cat, teams, rrMatches, bracketMatches, t);
+}
+
+function renderCategory(cat, teams, rrMatches, bracketMatches, tournament) {
+  const el = document.getElementById('t-category-content');
+  const standings = tCalcStandings(teams, rrMatches);
+  const rrComplete = rrMatches.length > 0 && rrMatches.filter(m => m.status === 'pending').length === 0;
+  const tMap = {}; teams.forEach(t => tMap[t.id] = t);
+
+  let html = '';
+
+  // PHASE 1: TEAMS
+  html += `
+    <div class="t-phase-card">
+      <div class="t-phase-header">
+        <div class="t-phase-title">
+          <span class="t-phase-num">1</span> Teams
+          <span class="t-team-count">${teams.length} team${teams.length !== 1 ? 's' : ''}</span>
+        </div>
+        ${tournament.status !== 'completed' ? `<button class="t-btn t-btn-sm t-btn-primary" onclick="showAddTeam(${cat.id}, '${cat.name.replace(/'/g,"\'")}')">+ Add Team</button>` : ''}
+      </div>
+      ${teams.length ? `
+        <div class="t-teams-grid">
+          ${teams.map((team, i) => {
+            const players = [team.player1_id, team.player2_id, team.player3_id, team.player4_id]
+              .filter(Boolean).map(id => {
+                const p = tAllPlayers.find(x => x.id === id);
+                return p ? `${p.first_name} ${p.last_name}` : '?';
+              });
+            return `
+              <div class="t-team-chip">
+                <div class="t-team-seed">${i + 1}</div>
+                <div class="t-team-info">
+                  <div class="t-team-name">${team.name}</div>
+                  <div class="t-team-players">${players.join(' & ')}</div>
+                </div>
+                ${tournament.status === 'draft' ? `<button class="t-btn-icon t-btn-danger-icon" onclick="deleteTeam(${team.id}, '${team.name.replace(/'/g,"\'")}', ${cat.id})">×</button>` : ''}
+              </div>`;
+          }).join('')}
+        </div>
+      ` : `<div class="t-empty-sm">No teams yet. Add teams to get started.</div>`}
+    </div>`;
+
+  // PHASE 2: ROUND ROBIN
+  const rrTotal = rrMatches.filter(m => m.status !== 'bye').length;
+  const rrDone = rrMatches.filter(m => m.status === 'completed').length;
+  const rrPct = rrTotal > 0 ? Math.round((rrDone / rrTotal) * 100) : 0;
+
+  html += `
+    <div class="t-phase-card ${teams.length < 3 ? 't-phase-disabled' : ''}">
+      <div class="t-phase-header">
+        <div class="t-phase-title">
+          <span class="t-phase-num">2</span> Round Robin
+          ${rrMatches.length > 0 ? `<span class="t-progress-label">${rrDone}/${rrTotal} matches</span>` : ''}
+        </div>
+        ${teams.length >= 3 && rrMatches.length === 0 && tournament.status !== 'draft' ?
+          `<button class="t-btn t-btn-sm t-btn-primary" onclick="showRRFormatModal(${cat.id})">Generate Schedule</button>` : ''}
+        ${teams.length >= 3 && rrMatches.length === 0 && tournament.status === 'draft' ?
+          `<span class="t-hint">Start tournament first</span>` : ''}
+      </div>
+      ${rrMatches.length > 0 ? `
+        ${rrTotal > 0 ? `<div class="t-progress-bar"><div class="t-progress-fill" style="width:${rrPct}%"></div></div>` : ''}
+        <div class="t-rr-grid">
+          ${renderRRRounds(rrMatches, tMap, tournament)}
+        </div>
+        ${rrDone > 0 ? tRenderStandings(standings) : ''}
+      ` : teams.length < 3 ? `<div class="t-empty-sm">Add at least 3 teams first.</div>` :
+        `<div class="t-empty-sm">Generate the schedule to start round robin play.</div>`}
+    </div>`;
+
+  // PHASE 3: FINALS
+  if (rrComplete || bracketMatches.length > 0) {
+    html += `
+      <div class="t-phase-card">
+        <div class="t-phase-header">
+          <div class="t-phase-title"><span class="t-phase-num">3</span> Finals</div>
+          ${bracketMatches.length === 0 ? `
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+              <select id="finals-size-${cat.id}" class="t-select-sm">
+                <option value="2">Top 2</option>
+                <option value="3">Top 3</option>
+                <option value="4" selected>Top 4</option>
+                <option value="8">Top 8</option>
+              </select>
+              <select id="finals-elim-${cat.id}" class="t-select-sm">
+                <option value="single">Single Elim</option>
+                <option value="double">Double Elim</option>
+              </select>
+              <select id="finals-score-format-${cat.id}" class="t-select-sm">
+                <option value="play11_win2">11, win by 2</option>
+                <option value="play11_win1">11, win by 1</option>
+                <option value="play15_win2">15, win by 2</option>
+                <option value="play15_win1">15, win by 1</option>
+                <option value="play21_win2">21, win by 2</option>
+                <option value="play21_win1">21, win by 1</option>
+              </select>
+              <button class="t-btn t-btn-sm t-btn-primary" onclick="generateBracket(${cat.id}, ${cat.tournament_id})">Generate Bracket</button>
+            </div>` : ''}
+        </div>
+        ${bracketMatches.length > 0 ? renderBracket(bracketMatches, tMap, tournament) : `
+          <div class="t-standings-preview">
+            <div class="t-empty-sm">Choose how many teams advance and generate the bracket.</div>
+            <div style="margin-top:12px;">
+              ${standings.slice(0, 8).map((s, i) => `
+                <div class="t-standing-preview-row">
+                  <span class="t-seed-badge">${i + 1}</span>
+                  <span class="t-standing-name">${s.name}</span>
+                  <span class="t-standing-record">${s.w}W ${s.l}L ${s.pts_for - s.pts_against > 0 ? '+' : ''}${s.pts_for - s.pts_against}</span>
+                </div>`).join('')}
+            </div>
+          </div>`}
+      </div>`;
+  }
+
+  el.innerHTML = html;
+}
+
+function renderRRRounds(matches, tMap, tournament) {
+  const rounds = [...new Set(matches.map(m => m.round))].sort((a, b) => a - b);
+  return rounds.map(round => {
+    const roundMatches = matches.filter(m => m.round === round);
+    const byes = roundMatches.filter(m => m.status === 'bye');
+    const games = roundMatches.filter(m => m.status !== 'bye');
+    return `
+      <div class="t-round-block">
+        <div class="t-round-label">Round ${round}</div>
+        <div class="t-round-matches">
+          ${games.map(m => {
+            const teamA = tMap[m.team_a_id];
+            const teamB = tMap[m.team_b_id];
+            const isDone = m.status === 'completed';
+            const winA = isDone && m.winner_id === m.team_a_id;
+            const winB = isDone && m.winner_id === m.team_b_id;
+            return `
+              <div class="t-match-row ${isDone ? 't-match-done' : 't-match-pending'}"
+                onclick="${tournament.status !== 'completed' ? `openScoreModal('rr',${m.id},${m.team_a_id},${m.team_b_id},${m.category_id})` : ''}">
+                <div class="t-match-court" title="Court ${m.court || '?'}">${m.court ? 'C'+m.court : '—'}</div>
+                <div class="t-match-teams">
+                  <span class="t-match-team ${winA ? 't-winner' : ''}">${teamA?.name || '?'}</span>
+                  <span class="t-match-vs">vs</span>
+                  <span class="t-match-team ${winB ? 't-winner' : ''}">${teamB?.name || '?'}</span>
+                </div>
+                <div class="t-match-score">
+                  ${isDone ? `<span class="t-score ${winA ? 't-score-win' : ''}">${m.score_a}</span>
+                    <span class="t-score-sep">-</span>
+                    <span class="t-score ${winB ? 't-score-win' : ''}">${m.score_b}</span>` :
+                    `<span class="t-score-pending">—</span>`}
+                </div>
+              </div>`;
+          }).join('')}
+          ${byes.map(m => `
+            <div class="t-bye-row">
+              <span class="t-bye-label">BYE</span>
+              <span class="t-bye-team">${tMap[m.team_a_id]?.name || '?'}</span>
+            </div>`).join('')}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function tRenderStandings(standings) {
+  return `
+    <div class="t-standings-table">
+      <div class="t-standings-title">Standings</div>
+      <table class="t-table">
+        <thead><tr><th>#</th><th>Team</th><th>Wins</th><th>Losses</th><th>Diff</th></tr></thead>
+        <tbody>
+          ${standings.map((s, i) => `
+            <tr class="${i < 4 ? 't-row-qualify' : ''}">
+              <td><span class="t-rank ${i===0?'t-rank-1':i===1?'t-rank-2':i===2?'t-rank-3':''}">${i + 1}</span></td>
+              <td class="t-team-cell">${s.name}</td>
+              <td class="t-win-cell">${s.w}</td>
+              <td class="t-loss-cell">${s.l}</td>
+              <td class="t-diff-cell ${s.pts_for - s.pts_against >= 0 ? 't-diff-pos' : 't-diff-neg'}">${s.pts_for - s.pts_against > 0 ? '+' : ''}${s.pts_for - s.pts_against}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+function renderBracket(matches, tMap, tournament) {
+  const roundOrder = ['QF','Semifinals','3rd Place','Final'];
+  const grouped = {};
+  matches.forEach(m => {
+    if (!grouped[m.round_name]) grouped[m.round_name] = [];
+    grouped[m.round_name].push(m);
+  });
+  const orderedRounds = roundOrder.filter(r => grouped[r]);
+  const isComplete = matches.every(m => m.status === 'completed');
+  const finalMatch = matches.find(m => m.round_name === 'Final' && m.status === 'completed');
+
+  let html = `<div class="t-bracket">`;
+  if (isComplete && finalMatch) {
+    const champion = tMap[finalMatch.winner_id];
+    const runnerUp = tMap[finalMatch.winner_id === finalMatch.team_a_id ? finalMatch.team_b_id : finalMatch.team_a_id];
+    const thirdMatch = matches.find(m => m.round_name === '3rd Place' && m.status === 'completed');
+    const third = thirdMatch ? tMap[thirdMatch.winner_id] : null;
+    html += `
+      <div class="t-podium">
+        <div class="t-podium-slot t-podium-silver">
+          <div class="t-podium-medal">🥈</div>
+          <div class="t-podium-team">${runnerUp?.name || '—'}</div>
+          <div class="t-podium-label">2nd Place</div>
+          <div class="t-podium-bar t-bar-silver"></div>
+        </div>
+        <div class="t-podium-slot t-podium-gold">
+          <div class="t-podium-crown">👑</div>
+          <div class="t-podium-medal">🥇</div>
+          <div class="t-podium-team t-champion">${champion?.name || '—'}</div>
+          <div class="t-podium-label">Champion</div>
+          <div class="t-podium-bar t-bar-gold"></div>
+        </div>
+        ${third ? `<div class="t-podium-slot t-podium-bronze">
+          <div class="t-podium-medal">🥉</div>
+          <div class="t-podium-team">${third.name}</div>
+          <div class="t-podium-label">3rd Place</div>
+          <div class="t-podium-bar t-bar-bronze"></div>
+        </div>` : ''}
+      </div>`;
+  }
+  html += `<div class="t-bracket-rounds">`;
+  orderedRounds.forEach(roundName => {
+    html += `<div class="t-bracket-col">
+      <div class="t-bracket-round-label">${roundName}</div>
+      ${grouped[roundName].map(m => {
+        const teamA = tMap[m.team_a_id];
+        const teamB = tMap[m.team_b_id];
+        const isDone = m.status === 'completed';
+        const winA = isDone && m.winner_id === m.team_a_id;
+        const winB = isDone && m.winner_id === m.team_b_id;
+        return `
+          <div class="t-bracket-match ${isDone ? 't-bracket-done' : ''}"
+            onclick="${tournament.status !== 'completed' ? `openScoreModal('bracket',${m.id},${m.team_a_id||0},${m.team_b_id||0},${m.category_id})` : ''}">
+            ${m.court ? `<div style="font-size:9px;font-weight:800;letter-spacing:1px;color:#6b7a99;padding:4px 14px;background:#f4f6fc;border-bottom:1px solid #d6dff5;">COURT ${m.court}</div>` : ''}
+            <div class="t-bracket-team ${winA ? 't-bracket-winner' : ''} ${!m.team_a_id ? 't-bracket-tbd' : ''}">
+              <div style="flex:1;">
+                <div style="font-weight:700;">${teamA?.name || 'TBD'}</div>
+                ${teamA ? `<div style="font-size:10px;color:#6b7a99;font-weight:500;margin-top:1px;">${getTeamPlayerNames(teamA)}</div>` : ''}
+              </div>
+              ${isDone ? `<span class="t-bracket-score ${winA ? 't-bracket-score-win' : ''}">${m.score_a}</span>` : ''}
+            </div>
+            <div class="t-bracket-divider"></div>
+            <div class="t-bracket-team ${winB ? 't-bracket-winner' : ''} ${!m.team_b_id ? 't-bracket-tbd' : ''}">
+              <div style="flex:1;">
+                <div style="font-weight:700;">${teamB?.name || 'TBD'}</div>
+                ${teamB ? `<div style="font-size:10px;color:#6b7a99;font-weight:500;margin-top:1px;">${getTeamPlayerNames(teamB)}</div>` : ''}
+              </div>
+              ${isDone ? `<span class="t-bracket-score ${winB ? 't-bracket-score-win' : ''}">${m.score_b}</span>` : ''}
+            </div>
+          </div>`;
+      }).join('')}
+    </div>`;
+  });
+  html += `</div></div>`;
+  return html;
+}
+
+function showAddTeam(catId, catName) {
+  const playersPerTeam = catName === 'team_challenge' ? 4 : catName === 'singles' ? 1 : 2;
+  const playerOpts = tAllPlayers.filter(p => p.status !== 'inactive')
+    .map(p => `<option value="${p.id}">${p.first_name} ${p.last_name}</option>`).join('');
+  const playerFields = Array.from({length: playersPerTeam}, (_, i) => `
+    <div class="t-form-group">
+      <label class="t-label">Player ${i + 1}</label>
+      <select class="t-input t-player-select" id="t-player-${i+1}">
+        <option value="">-- Select player --</option>${playerOpts}
+      </select>
+    </div>`).join('');
+  document.getElementById('t-modal-title').textContent = `Add Team — ${catName}`;
+  document.getElementById('t-modal-body').innerHTML = `
+    <form id="t-add-team-form" onsubmit="saveTeam(event, ${catId})">
+      <div class="t-form-group">
+        <label class="t-label">Team name *</label>
+        <input class="t-input" type="text" id="t-team-name" required placeholder="e.g. Team Thunder">
+      </div>
+      ${playerFields}
+      <div class="t-form-actions">
+        <button type="button" class="t-btn t-btn-ghost" onclick="closeTModal()">Cancel</button>
+        <button type="submit" class="t-btn t-btn-primary">Add Team</button>
+      </div>
+    </form>`;
+  openTModal();
+}
+
+async function saveTeam(e, catId) {
+  e.preventDefault();
+  const name = document.getElementById('t-team-name').value.trim();
+  if (!name) { tToast('Please enter a team name.', true); return; }
+  const playerSelects = document.querySelectorAll('.t-player-select');
+  const playerIds = [...playerSelects].map(s => parseInt(s.value) || null);
+  try {
+    await tApi('tournament_teams', 'POST', {
+      category_id: catId, name,
+      player1_id: playerIds[0] || null,
+      player2_id: playerIds[1] || null,
+      player3_id: playerIds[2] || null,
+      player4_id: playerIds[3] || null,
+    });
+    tToast(`Team "${name}" added!`);
+    closeTModal();
+    tCurrentCategoryId = catId;
+    const [t] = await tApi(`tournaments?id=eq.${tCurrentTournamentId}&select=*`);
+    const categories = await tApi(`tournament_categories?tournament_id=eq.${tCurrentTournamentId}&select=*&order=id`);
+    renderTournamentDetail(t, categories);
+  } catch(err) { tToast(`Error: ${err.message}`, true); }
+}
+
+async function deleteTeam(teamId, teamName, catId) {
+  document.getElementById('t-modal-title').textContent = 'Remove Team';
+  document.getElementById('t-modal-body').innerHTML = `
+    <div style="padding:8px 0 24px;">
+      <p style="font-size:14px;color:#0d1f4a;line-height:1.6;">
+        Are you sure you want to remove <strong>${teamName}</strong> from this category? This cannot be undone.
+      </p>
+    </div>
+    <div class="t-form-actions">
+      <button type="button" class="t-btn t-btn-ghost" onclick="closeTModal()">Cancel</button>
+      <button type="button" class="t-btn t-btn-danger" onclick="confirmDeleteTeam(${teamId}, ${catId})">Remove</button>
+    </div>`;
+  openTModal();
+}
+
 async function confirmDeleteTeam(teamId, catId) {
   try {
     await tApi(`tournament_teams?id=eq.${teamId}`, 'DELETE');

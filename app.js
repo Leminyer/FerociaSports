@@ -116,43 +116,28 @@ const onTournamentChange=async()=>{
 
 const renderTournamentViewReadOnly=async()=>{
   const el=document.getElementById('tournament-view-content');
+  if(!currentTournamentId){el.innerHTML='<div class="empty">Select a tournament to view details.</div>';return;}
   el.innerHTML='<div class="loading">Loading tournament...</div>';
-  const [tArr,teams,matches]=await Promise.all([
-    api(`tournaments?id=eq.${currentTournamentId}&select=*`),
-    api(`tournament_teams?tournament_id=eq.${currentTournamentId}&select=*`),
-    api(`tournament_matches?tournament_id=eq.${currentTournamentId}&select=*&order=round,id`)
-  ]);
-  const t=tArr[0]; if(!t)return;
-  const categoryLabel=CATEGORY_LABELS[t.category]||t.category;
-  const date=t.date?new Date(t.date+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'long',day:'numeric',year:'numeric'}):'No date set';
-  const rrMatches=matches.filter(m=>m.phase==='round_robin');
-  const finalsMatches=matches.filter(m=>m.phase==='finals');
-  const standings=calcTournamentStandings(teams,rrMatches);
-  const tMap={};teams.forEach(t=>tMap[t.id]=t.name);
-
-  let html=`
-    <div class="card">
-      <div style="font-size:18px;font-weight:800;">${t.name}</div>
-      <div style="font-size:12px;color:var(--text-muted);margin-top:4px;font-weight:600;">${categoryLabel} · ${date}</div>
-    </div>`;
-
-  // Standings
-  if(standings.length){
-    html+=`<div class="card"><div class="card-title">Standings</div>${renderStandingsTable(standings)}</div>`;
-  }
-
-  // Round robin matches
-  if(rrMatches.length){
-    html+=`<div class="card"><div class="card-title">Round Robin Results</div>${renderRRMatchTable(rrMatches,teams)}</div>`;
-  }
-
-  // Finals
-  if(finalsMatches.length&&t.finals_format){
-    html+=`<div class="card"><div class="card-title">Finals</div>${renderFinalsSection(finalsMatches,teams,t,standings)}</div>`;
-  }
-
-  el.innerHTML=html||'<div class="empty">No data yet for this tournament.</div>';
-};
+  try{
+    const [tArr,categories]=await Promise.all([
+      api(`tournaments?id=eq.${currentTournamentId}&select=*`),
+      api(`tournament_categories?tournament_id=eq.${currentTournamentId}&select=*&order=id`)
+    ]);
+    const t=tArr[0]; if(!t){el.innerHTML='<div class="empty">Tournament not found.</div>';return;}
+    const date=t.date?new Date(t.date+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'}):'No date set';
+    el.innerHTML=`
+      <div class="card">
+        <div style="font-size:18px;font-weight:800;">${t.name}</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:4px;font-weight:600;">${date}</div>
+        <div style="margin-top:12px;font-size:13px;color:var(--text-muted);">
+          ${categories.length} categor${categories.length!==1?'ies':'y'}: ${categories.map(c=>c.name).join(' · ')}
+        </div>
+        <div style="margin-top:16px;padding:14px;background:var(--blue-pale);border-radius:var(--radius-sm);font-size:13px;color:var(--blue);font-weight:600;">
+          To manage this tournament go to <strong>Management → Tournaments</strong>
+        </div>
+      </div>`;
+  }catch(e){el.innerHTML=`<div class="empty">Error: ${e.message}</div>`;}
+};;
 
 const showPage=(name,btn)=>{
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
@@ -1494,10 +1479,7 @@ async function deleteTournament(btn) {
   const name = btn.dataset.tname;
   if (!confirm(`Delete tournament "${name}"?\n\nThis will delete all teams and matches. This cannot be undone.`)) return;
   try {
-    const teams = await api(`tournament_teams?tournament_id=eq.${tid}&select=id`);
-    for (const t of teams) await api(`tournament_matches?team_a_id=eq.${t.id}`, 'DELETE');
-    await api(`tournament_teams?tournament_id=eq.${tid}`, 'DELETE');
-    await api(`tournament_matches?tournament_id=eq.${tid}`, 'DELETE');
+    // Deletion handled by tournament.js - skip old delete logic
     await api(`tournaments?id=eq.${tid}`, 'DELETE');
     toast(`Tournament "${name}" deleted.`);
     loadTournamentsPage();
@@ -1520,7 +1502,7 @@ function backToTournaments() {
 async function renderTournamentDetail() {
   const [tArr, teams, matches] = await Promise.all([
     api(`tournaments?id=eq.${currentTournamentId}&select=*`),
-    api(`tournament_teams?tournament_id=eq.${currentTournamentId}&select=*`),
+    api(`tournament_categories?tournament_id=eq.${currentTournamentId}&select=*`),
     api(`tournament_matches?tournament_id=eq.${currentTournamentId}&select=*&order=round,id`)
   ]);
   const t = tArr[0];
@@ -1784,7 +1766,7 @@ async function deleteTeam(btn) {
 async function generateRoundRobin(btn) {
   const tid = btn.dataset.tid;
   const category = btn.dataset.category;
-  const teams = await api(`tournament_teams?tournament_id=eq.${tid}&category=eq.${category}&select=id,name`);
+  const teams = await api(`tournament_teams?category_id=eq.${category}&select=id,name`);
   if (teams.length < 2) { toast('Need at least 2 teams to generate matches.', true); return; }
   const matches = [];
   let round = 1;
@@ -1820,8 +1802,8 @@ async function generateFinals(btn) {
   const tid = btn.dataset.tid;
   const format = btn.dataset.format;
   const category = btn.dataset.category;
-  const teams = await api(`tournament_teams?tournament_id=eq.${tid}&category=eq.${category}&select=id`);
-  const matches = await api(`tournament_matches?tournament_id=eq.${tid}&phase=eq.round_robin&category=eq.${category}&select=*`);
+  const teams = await api(`tournament_teams?category_id=eq.${category}&select=id`);
+  const matches = await api(`tournament_rr_matches?category_id=eq.${category}&select=*`);
   const standings = calcTournamentStandings(teams, matches);
 
   let finalsMatches = [];
@@ -1857,7 +1839,7 @@ async function openRecordMatch(btn) {
   const match = (await api(`tournament_matches?id=eq.${matchId}&select=*`))[0];
   if (!match) return;
 
-  const teams = await api(`tournament_teams?tournament_id=eq.${currentTournamentId}&select=id,name`);
+  const teams = await api(`tournament_teams?category_id=eq.${currentTournamentId}&select=id,name`);
   const tMap = {};
   teams.forEach(t=>tMap[t.id]=t.name);
   const isFinals = phase === 'finals';
