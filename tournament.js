@@ -580,15 +580,18 @@ function renderCategory(cat, teams, rrMatches, bracketMatches, tournament) {
 
   let html = '';
 
-  // PHASE 1: TEAMS
+  // PHASE 1: TEAMS / PLAYERS
+  const singlesMode = isSingles(cat.name);
+  const entityCap = singlesMode ? 'Player' : 'Team';
+  const entityLow = singlesMode ? 'player' : 'team';
   html += `
     <div class="t-phase-card">
       <div class="t-phase-header">
         <div class="t-phase-title">
-          <span class="t-phase-num">1</span> Teams
-          <span class="t-team-count">${teams.length} team${teams.length !== 1 ? 's' : ''}</span>
+          <span class="t-phase-num">1</span> ${singlesMode ? 'Players' : 'Teams'}
+          <span class="t-team-count">${teams.length} ${teams.length !== 1 ? (singlesMode ? 'players' : 'teams') : entityLow}</span>
         </div>
-        ${tournament.status !== 'completed' ? `<button class="t-btn t-btn-sm t-btn-primary" onclick="showAddTeam(${cat.id}, '${cat.name.replace(/'/g,"\'")}')">+ Add Team</button>` : ''}
+        ${tournament.status === 'draft' ? `<button class="t-btn t-btn-sm t-btn-primary" onclick="showAddTeam(${cat.id}, '${cat.name.replace(/'/g,"\'")}')">+ Add ${entityCap}</button>` : ''}
       </div>
       ${teams.length ? `
         <div class="t-teams-grid">
@@ -603,7 +606,7 @@ function renderCategory(cat, teams, rrMatches, bracketMatches, tournament) {
                 <div class="t-team-seed">${i + 1}</div>
                 <div class="t-team-info">
                   <div class="t-team-name">${team.name}</div>
-                  <div class="t-team-players">${players.join(' & ')}</div>
+                  ${!singlesMode ? `<div class="t-team-players">${players.join(' & ')}</div>` : ''}
                 </div>
                 ${tournament.status !== 'completed' ? `
                   <button class="t-btn-icon" onclick="editTeam(${team.id}, ${cat.id})" style="color:#174CCC;font-size:14px;background:none;border:none;cursor:pointer;" title="Edit">✏️</button>
@@ -614,7 +617,7 @@ function renderCategory(cat, teams, rrMatches, bracketMatches, tournament) {
               </div>`;
           }).join('')}
         </div>
-      ` : `<div class="t-empty-sm">No teams yet. Add teams to get started.</div>`}
+      ` : `<div class="t-empty-sm">No ${singlesMode ? 'players' : 'teams'} yet. Add ${singlesMode ? 'players' : 'teams'} to get started.</div>`}
     </div>`;
 
   // PHASE 2: ROUND ROBIN
@@ -639,7 +642,7 @@ function renderCategory(cat, teams, rrMatches, bracketMatches, tournament) {
         <div class="t-rr-grid">
           ${renderRRRounds(rrMatches, tMap, tournament)}
         </div>
-        ${rrDone > 0 ? tRenderStandings(standings) : ''}
+        ${rrDone > 0 ? tRenderStandings(standings, cat.name) : ''}
       ` : teams.length < 3 ? `<div class="t-empty-sm">Add at least 3 teams first.</div>` :
         `<div class="t-empty-sm">Generate the schedule to start round robin play.</div>`}
     </div>`;
@@ -735,12 +738,13 @@ function renderRRRounds(matches, tMap, tournament) {
   }).join('');
 }
 
-function tRenderStandings(standings) {
+function tRenderStandings(standings, catName) {
+  const singlesMode = isSingles(catName);
   return `
     <div class="t-standings-table">
       <div class="t-standings-title">Standings</div>
       <table class="t-table">
-        <thead><tr><th>#</th><th>Team</th><th>Wins</th><th>Losses</th><th>Pts For</th><th>Diff</th></tr></thead>
+        <thead><tr><th>#</th><th>${singlesMode ? 'Player' : 'Team'}</th><th>Wins</th><th>Losses</th><th>Pts For</th><th>Diff</th></tr></thead>
         <tbody>
           ${standings.map((s, i) => `
             <tr class="${i < 4 ? 't-row-qualify' : ''}">
@@ -840,27 +844,30 @@ function renderBracket(matches, tMap, tournament) {
 }
 
 function showAddTeam(catId, catName) {
-  const playersPerTeam = catName === 'team_challenge' ? 4 : catName === 'singles' ? 1 : 2;
+  const singles = isSingles(catName);
+  const playersPerTeam = catName.toLowerCase().includes('team_challenge') ? 4 : singles ? 1 : 2;
   const playerOpts = tAllPlayers.filter(p => p.status !== 'inactive')
     .map(p => `<option value="${p.id}">${p.first_name} ${p.last_name}</option>`).join('');
   const playerFields = Array.from({length: playersPerTeam}, (_, i) => `
     <div class="t-form-group">
-      <label class="t-label">Player ${i + 1}</label>
+      <label class="t-label">Player ${playersPerTeam > 1 ? i + 1 : ''}</label>
       <select class="t-input t-player-select" id="t-player-${i+1}">
         <option value="">-- Select player --</option>${playerOpts}
       </select>
     </div>`).join('');
-  document.getElementById('t-modal-title').textContent = `Add Team — ${catName}`;
+  const modalTitle = singles ? 'Add Player' : `Add Team`;
+  document.getElementById('t-modal-title').textContent = modalTitle;
   document.getElementById('t-modal-body').innerHTML = `
     <form id="t-add-team-form" onsubmit="saveTeam(event, ${catId})">
+      ${!singles ? `
       <div class="t-form-group">
         <label class="t-label">Team name *</label>
         <input class="t-input" type="text" id="t-team-name" required placeholder="e.g. Team Thunder">
-      </div>
+      </div>` : `<input type="hidden" id="t-team-name" value="singles_auto">`}
       ${playerFields}
       <div class="t-form-actions">
         <button type="button" class="t-btn t-btn-ghost" onclick="closeTModal()">Cancel</button>
-        <button type="submit" class="t-btn t-btn-primary">Add Team</button>
+        <button type="submit" class="t-btn t-btn-primary">${singles ? 'Add Player' : 'Add Team'}</button>
       </div>
     </form>`;
   openTModal();
@@ -868,10 +875,19 @@ function showAddTeam(catId, catName) {
 
 async function saveTeam(e, catId) {
   e.preventDefault();
-  const name = document.getElementById('t-team-name').value.trim();
-  if (!name) { tToast('Please enter a team name.', true); return; }
+  const [cat] = await tApi(`tournament_categories?id=eq.${catId}&select=name`);
+  const singles = isSingles(cat.name);
   const playerSelects = document.querySelectorAll('.t-player-select');
   const playerIds = [...playerSelects].map(s => parseInt(s.value) || null);
+  let name = document.getElementById('t-team-name').value.trim();
+  if (singles) {
+    // For singles, name = player's full name from DB
+    const p1 = tAllPlayers.find(x => x.id === playerIds[0]);
+    if (!p1) { tToast('Please select a player.', true); return; }
+    name = `${p1.first_name} ${p1.last_name}`;
+  } else {
+    if (!name) { tToast('Please enter a team name.', true); return; }
+  }
   try {
     await tApi('tournament_teams', 'POST', {
       category_id: catId, name,
@@ -880,7 +896,7 @@ async function saveTeam(e, catId) {
       player3_id: playerIds[2] || null,
       player4_id: playerIds[3] || null,
     });
-    tToast(`Team "${name}" added!`);
+    tToast(`${singles ? 'Player' : 'Team'} "${name}" added!`);
     closeTModal();
     tCurrentCategoryId = catId;
     const [t] = await tApi(`tournaments?id=eq.${tCurrentTournamentId}&select=*`);
@@ -893,24 +909,26 @@ async function editTeam(teamId, catId) {
   const [team] = await tApi(`tournament_teams?id=eq.${teamId}&select=*`);
   const [cat] = await tApi(`tournament_categories?id=eq.${catId}&select=*`);
   if (!team || !cat) return;
-  const playersPerTeam = cat.name === 'team_challenge' ? 4 : cat.name === 'singles' ? 1 : 2;
+  const singles = isSingles(cat.name);
+  const playersPerTeam = cat.name.toLowerCase().includes('team_challenge') ? 4 : singles ? 1 : 2;
   const playerOpts = tAllPlayers.filter(p => p.status !== 'inactive')
     .map(p => `<option value="${p.id}">${p.first_name} ${p.last_name}</option>`).join('');
   const playerIds = [team.player1_id, team.player2_id, team.player3_id, team.player4_id];
   const playerFields = Array.from({length: playersPerTeam}, (_, i) => `
     <div class="t-form-group">
-      <label class="t-label">Player ${i + 1}</label>
+      <label class="t-label">Player ${playersPerTeam > 1 ? i + 1 : ''}</label>
       <select class="t-input t-player-select" id="t-edit-player-${i+1}">
         <option value="">-- Select player --</option>${playerOpts}
       </select>
     </div>`).join('');
-  document.getElementById('t-modal-title').textContent = 'Edit Team';
+  document.getElementById('t-modal-title').textContent = singles ? 'Edit Player' : 'Edit Team';
   document.getElementById('t-modal-body').innerHTML = `
     <form id="t-edit-team-form" onsubmit="saveEditTeam(event, ${teamId}, ${catId})">
+      ${!singles ? `
       <div class="t-form-group">
         <label class="t-label">Team name *</label>
         <input class="t-input" type="text" id="t-edit-team-name" required value="${team.name}">
-      </div>
+      </div>` : `<input type="hidden" id="t-edit-team-name" value="">`}
       ${playerFields}
       <div class="t-form-actions">
         <button type="button" class="t-btn t-btn-ghost" onclick="closeTModal()">Cancel</button>
@@ -918,7 +936,6 @@ async function editTeam(teamId, catId) {
       </div>
     </form>`;
   openTModal();
-  // Set current values
   playerIds.forEach((id, i) => {
     const sel = document.getElementById(`t-edit-player-${i+1}`);
     if (sel && id) sel.value = id;
@@ -927,10 +944,18 @@ async function editTeam(teamId, catId) {
 
 async function saveEditTeam(e, teamId, catId) {
   e.preventDefault();
-  const name = document.getElementById('t-edit-team-name').value.trim();
-  if (!name) { tToast('Please enter a team name.', true); return; }
+  const [cat] = await tApi(`tournament_categories?id=eq.${catId}&select=name`);
+  const singles = isSingles(cat.name);
   const playerSelects = document.querySelectorAll('.t-player-select');
   const playerIds = [...playerSelects].map(s => parseInt(s.value) || null);
+  let name = document.getElementById('t-edit-team-name').value.trim();
+  if (singles) {
+    const p1 = tAllPlayers.find(x => x.id === playerIds[0]);
+    if (!p1) { tToast('Please select a player.', true); return; }
+    name = `${p1.first_name} ${p1.last_name}`;
+  } else {
+    if (!name) { tToast('Please enter a team name.', true); return; }
+  }
   try {
     await tApi(`tournament_teams?id=eq.${teamId}`, 'PATCH', {
       name,
@@ -939,7 +964,7 @@ async function saveEditTeam(e, teamId, catId) {
       player3_id: playerIds[2] || null,
       player4_id: playerIds[3] || null,
     });
-    tToast('Team updated!');
+    tToast(`${singles ? 'Player' : 'Team'} updated!`);
     closeTModal();
     tCurrentCategoryId = catId;
     const [t] = await tApi(`tournaments?id=eq.${tCurrentTournamentId}&select=*`);
@@ -976,13 +1001,24 @@ async function confirmDeleteTeam(teamId, catId) {
 }
 
 // ─── GENERATE ROUND ROBIN ───────────────────────────────────
-function showRRFormatModal(catId) {
+async function showRRFormatModal(catId) {
+  const [cat] = await tApi(`tournament_categories?id=eq.${catId}&select=name`);
+  const singles = isSingles(cat.name);
   document.getElementById('t-modal-title').textContent = 'Round Robin Format';
   document.getElementById('t-modal-body').innerHTML = `
     <div class="t-form-group">
-      <label class="t-label">Match format</label>
+      <label class="t-label">Score format (per game)</label>
       <select class="t-input" id="t-rr-format">${RR_FORMAT_OPTIONS}</select>
     </div>
+    ${singles ? `
+    <div class="t-form-group">
+      <label class="t-label">Match format</label>
+      <select class="t-input" id="t-rr-best-of">
+        <option value="1">Single game (1 game per match)</option>
+        <option value="3">Best of 3 (first to win 2)</option>
+        <option value="5">Best of 5 (first to win 3)</option>
+      </select>
+    </div>` : ''}
     <p style="font-size:12px;color:#6b7a99;margin-bottom:20px;">
       This format will apply to all round robin matches in this category.
       Finals format is set separately when generating the bracket.
@@ -998,6 +1034,8 @@ function showRRFormatModal(catId) {
 async function generateRR(catId) {
   const formatEl = document.getElementById('t-rr-format');
   const format = formatEl ? formatEl.value : 'play11_win1';
+  const bestOfEl = document.getElementById('t-rr-best-of');
+  const bestOf = bestOfEl ? parseInt(bestOfEl.value) : 1;
   const teams = await tApi(`tournament_teams?category_id=eq.${catId}&select=*&order=id`);
   const n = teams.length;
   if (n < 3 || n > 20) { tToast(`Round robin supports 3-20 teams. You have ${n}.`, true); return; }
@@ -1028,8 +1066,8 @@ async function generateRR(catId) {
     });
   });
 
-  // Save format to category
-  await tApi(`tournament_categories?id=eq.${catId}`, 'PATCH', { rr_format: format });
+  // Save format and best_of to category
+  await tApi(`tournament_categories?id=eq.${catId}`, 'PATCH', { rr_format: format, best_of: bestOf });
   await tApi('tournament_rr_matches', 'POST', rows);
   closeTModal();
   tToast(`Schedule generated! ${rows.filter(r => r.status === 'pending').length} matches ready.`);
@@ -1111,13 +1149,27 @@ async function openScoreModal(type, matchId, teamAId, teamBId, catId) {
   const isFinals = type === 'bracket';
 
   document.getElementById('t-modal-title').textContent = isFinals ? `Finals — ${match.round_name}` : `Round ${match.round} — Court ${match.court}`;
+  const bestOf = cat.best_of || 1;
+  const singlesMatch = isSingles(cat.name) && bestOf > 1;
+  const existingGames = match.games || [];
   document.getElementById('t-modal-body').innerHTML = `
     <div class="t-score-modal">
-      <div class="t-score-rule">${isFinals ? '🏆 Finals: ' + (T_FORMATS[cat.finals_format_score] || 'Play to 11, win by 2') : '🏓 Round Robin: ' + (T_FORMATS[cat.rr_format] || 'Play to 11, win by 1')}</div>
+      <div class="t-score-rule">${isFinals ? '🏆 Finals: ' + (T_FORMATS[cat.finals_format_score] || 'Play to 11, win by 2') : '🏓 Round Robin: ' + (T_FORMATS[cat.rr_format] || 'Play to 11, win by 1')}${singlesMatch ? ' · Best of ' + bestOf : ''}</div>
       <div class="t-form-group" style="margin-bottom:16px;">
         <label class="t-label">Court number</label>
         <input class="t-input" type="number" min="1" id="t-court-num" value="${match.court || ''}" placeholder="e.g. 5" style="max-width:120px;">
       </div>
+      ${singlesMatch ? `
+      <div class="t-singles-header">
+        <span class="t-singles-player-col">${teamA?.name || '?'}</span>
+        <span></span>
+        <span class="t-singles-player-col">${teamB?.name || '?'}</span>
+      </div>
+      <div id="t-games-container">
+        ${buildGameRows(bestOf, teamA?.name || '?', teamB?.name || '?', existingGames)}
+      </div>
+      <div id="t-score-preview" class="t-score-preview" style="margin-top:12px;"></div>
+      ` : `
       <div class="t-score-teams">
         <div class="t-score-team">
           <div class="t-score-team-name">${teamA?.name || '?'}</div>
@@ -1136,6 +1188,7 @@ async function openScoreModal(type, matchId, teamAId, teamBId, catId) {
         </div>
       </div>
       <div id="t-score-preview" class="t-score-preview"></div>
+      `}
     </div>
     <div class="t-form-actions">
       <button type="button" class="t-btn t-btn-ghost" onclick="closeTModal()">Cancel</button>
@@ -1191,22 +1244,46 @@ async function saveScore(type, matchId, teamAId, teamBId, catId) {
     return;
   }
 
-  const sa = parseInt(document.getElementById('t-score-a').value);
-  const sb = parseInt(document.getElementById('t-score-b').value);
-  if (isNaN(sa) || isNaN(sb)) { tToast('Please enter both scores.', true); return; }
-  const winnerId = sa > sb ? teamAId : teamBId;
+  // Check if singles best-of mode
+  const [catCheck] = await tApi(`tournament_categories?id=eq.${catId}&select=name,best_of`);
+  const bestOf = catCheck?.best_of || 1;
+  const singlesMode = isSingles(catCheck?.name) && bestOf > 1;
+
+  let sa, sb, winnerId, gamesToSave = null;
+  if (singlesMode) {
+    const gameScores = [];
+    for (let i = 0; i < bestOf; i++) {
+      const ga = parseInt(document.getElementById(`t-game-a-${i}`)?.value);
+      const gb = parseInt(document.getElementById(`t-game-b-${i}`)?.value);
+      if (!isNaN(ga) && !isNaN(gb)) gameScores.push({score_a: ga, score_b: gb});
+    }
+    if (!gameScores.length) { tToast('Please enter at least one game score.', true); return; }
+    const result = calcBestOfWinner(bestOf, teamAId, teamBId, gameScores);
+    if (!result.winnerId) { tToast('Match not complete yet — keep entering games.', true); return; }
+    winnerId = result.winnerId;
+    sa = result.winsA;   // store games won as score_a/score_b
+    sb = result.winsB;
+    gamesToSave = gameScores;
+  } else {
+    sa = parseInt(document.getElementById('t-score-a').value);
+    sb = parseInt(document.getElementById('t-score-b').value);
+    if (isNaN(sa) || isNaN(sb)) { tToast('Please enter both scores.', true); return; }
+    winnerId = sa > sb ? teamAId : teamBId;
+  }
 
   try {
     const courtNum = parseInt(document.getElementById('t-court-num')?.value) || null;
     if (type === 'rr') {
       await tApi(`tournament_rr_matches?id=eq.${matchId}`, 'PATCH', {
         score_a: sa, score_b: sb, winner_id: winnerId, status: 'completed',
-        ...(courtNum ? {court: courtNum} : {})
+        ...(courtNum ? {court: courtNum} : {}),
+        ...(gamesToSave ? {games: gamesToSave} : {})
       });
     } else {
       await tApi(`tournament_bracket_matches?id=eq.${matchId}`, 'PATCH', {
         score_a: sa, score_b: sb, winner_id: winnerId, status: 'completed',
-        ...(courtNum ? {court: courtNum} : {})
+        ...(courtNum ? {court: courtNum} : {}),
+        ...(gamesToSave ? {games: gamesToSave} : {})
       });
       await advanceBracket(matchId, winnerId, teamAId === winnerId ? teamBId : teamAId, catId);
     }
@@ -1423,4 +1500,46 @@ function tToast(msg, err = false) {
   // Reuse main app toast if available
   if (typeof toast === 'function') { toast(msg, err); return; }
   alert(msg);
+}
+
+// ─── SINGLES HELPERS ────────────────────────────────────────
+function isSingles(catName) {
+  return catName && catName.toLowerCase().includes('singles');
+}
+
+function entityLabel(catName, cap = true) {
+  // Returns 'Player'/'Team' or 'player'/'team' based on category
+  const single = isSingles(catName);
+  if (cap) return single ? 'Player' : 'Team';
+  return single ? 'player' : 'team';
+}
+
+// Build game-by-game score entry rows for singles best-of-3 or best-of-5
+function buildGameRows(bestOf, nameA, nameB, existingGames) {
+  const games = existingGames || [];
+  return Array.from({length: bestOf}, (_, i) => {
+    const g = games[i] || {};
+    return `
+      <div class="t-game-row">
+        <span class="t-game-label">Game ${i + 1}</span>
+        <input class="t-game-score" type="number" min="0" max="30"
+          id="t-game-a-${i}" value="${g.score_a ?? ''}" placeholder="0">
+        <span class="t-game-sep">–</span>
+        <input class="t-game-score" type="number" min="0" max="30"
+          id="t-game-b-${i}" value="${g.score_b ?? ''}" placeholder="0">
+      </div>`;
+  }).join('');
+}
+
+function calcBestOfWinner(bestOf, teamAId, teamBId, gameScores) {
+  // gameScores = [{score_a, score_b}, ...]
+  let winsA = 0, winsB = 0;
+  const needed = Math.ceil(bestOf / 2);
+  gameScores.forEach(g => {
+    if (g.score_a > g.score_b) winsA++;
+    else if (g.score_b > g.score_a) winsB++;
+  });
+  if (winsA >= needed) return { winnerId: teamAId, winsA, winsB };
+  if (winsB >= needed) return { winnerId: teamBId, winsA, winsB };
+  return { winnerId: null, winsA, winsB };
 }

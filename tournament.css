@@ -279,6 +279,33 @@
 }
 .t-modal-title { font-size:16px; font-weight:800; color:#0d1f4a; margin-bottom:20px; }
 
+/* ─── SINGLES GAME ROWS ───────────────────────────────────── */
+.t-singles-header {
+  display:grid; grid-template-columns:1fr auto 1fr;
+  gap:8px; align-items:center; margin-bottom:8px;
+}
+.t-singles-player-col {
+  font-size:13px; font-weight:800; color:#0d1f4a; text-align:center;
+}
+.t-game-row {
+  display:grid; grid-template-columns:60px 1fr auto 1fr;
+  gap:8px; align-items:center; margin-bottom:8px;
+}
+.t-game-label {
+  font-size:10px; font-weight:800; letter-spacing:.5px;
+  text-transform:uppercase; color:#6b7a99;
+}
+.t-game-score {
+  text-align:center; font-size:20px; font-weight:800;
+  border:2px solid #d6dff5; border-radius:8px; padding:8px 4px;
+  font-family:'Montserrat',sans-serif; color:#174CCC; outline:none; width:100%;
+  transition:border-color .15s;
+}
+.t-game-score:focus { border-color:#174CCC; }
+.t-game-sep {
+  font-size:14px; font-weight:700; color:#6b7a99; text-align:center;
+}
+
 /* ─── FORFEIT ─────────────────────────────────────────────── */
 .t-forfeit-check-label {
   display:flex; align-items:center; gap:6px; cursor:pointer;
