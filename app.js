@@ -1435,37 +1435,85 @@
   const filterPlayers = () => {
     const q = document.getElementById('player-search').value.toLowerCase().trim();
     const statusFilter = document.getElementById('player-status-filter')?.value || 'all';
+    let lastVisible = null;
     document.querySelectorAll('#players-table tbody tr').forEach((row) => {
+      // The inline reason rows piggy-back the visibility of the player row above them.
+      if (row.classList.contains('reason-row')) {
+        row.style.display = lastVisible === '' ? '' : 'none';
+        return;
+      }
       const name = row.querySelector('td')?.textContent.toLowerCase() || '';
       const statusCell = row.querySelectorAll('td')[4]?.textContent.toLowerCase() || '';
       const nameMatch = name.includes(q);
       const statusMatch = statusFilter === 'all' || statusCell.includes(statusFilter);
-      row.style.display = nameMatch && statusMatch ? '' : 'none';
+      const display = nameMatch && statusMatch ? '' : 'none';
+      row.style.display = display;
+      lastVisible = display;
     });
   };
 
   const loadPlayers = async () => {
     try {
-      allPlayers = await api('players?select=*&order=first_name');
+      // Fetch players + status history in parallel.
+      // History query: only inactivation events (new_status='inactive') so we
+      // can build "latest reason per player". Sorted desc so the first entry
+      // we encounter for each player_id is the most recent.
+      const [players, history] = await Promise.all([
+        api('players?select=*&order=first_name'),
+        api(
+          'player_status_history?new_status=eq.inactive&select=player_id,reason,changed_at&order=changed_at.desc',
+        ),
+      ]);
+      allPlayers = players;
+
+      // Build "latest reason per player" map and "history count per player" map
+      latestInactivationReasons = {};
+      historyCountByPlayer = {};
+      (history || []).forEach((h) => {
+        if (!latestInactivationReasons[h.player_id]) {
+          latestInactivationReasons[h.player_id] = {
+            reason: h.reason,
+            changed_at: h.changed_at,
+          };
+        }
+        historyCountByPlayer[h.player_id] = (historyCountByPlayer[h.player_id] || 0) + 1;
+      });
+
       if (!allPlayers.length) {
         document.getElementById('players-table').innerHTML =
           '<div class="empty">No players yet.</div>';
         return;
       }
+
       const rows = allPlayers
-        .map(
-          (p) => `
-        <tr>
-          <td class="text-bold">${esc(p.first_name)} ${esc(p.last_name)}</td>
-          <td class="text-muted-12">${esc(p.gender || '-')}</td>
-          <td class="text-muted-12">${esc(p.email || '-')}</td>
-          <td class="text-muted-12">${esc(p.phone || '-')}</td>
-          <td><span class="badge badge-${esc(p.status)}">${esc(p.status)}</span></td>
-          <td class="text-muted-12">${fmtDate(p.date_joined) || '-'}</td>
-          <td><button class="btn btn-outline btn-sm" data-action="openEdit" data-pid="${p.id}">Edit</button></td>
-        </tr>`,
-        )
+        .map((p) => {
+          const isInactive = p.status === 'inactive';
+          const recent = latestInactivationReasons[p.id];
+          // Inline reason preview — only for inactive players that have a reason recorded
+          const reasonRow =
+            isInactive && recent && recent.reason
+              ? `<tr class="reason-row">
+                  <td colspan="7" style="padding:4px 12px 12px;border-bottom:0.5px solid var(--border);">
+                    <div style="font-size:11px;color:var(--orange);font-weight:600;">
+                      <span class="text-uppercase" style="letter-spacing:.5px;">Reason:</span>
+                      <span style="font-style:italic;font-weight:500;color:var(--text-muted);">${esc(recent.reason)}</span>
+                    </div>
+                  </td>
+                </tr>`
+              : '';
+          return `
+            <tr>
+              <td class="text-bold">${esc(p.first_name)} ${esc(p.last_name)}</td>
+              <td class="text-muted-12">${esc(p.gender || '-')}</td>
+              <td class="text-muted-12">${esc(p.email || '-')}</td>
+              <td class="text-muted-12">${esc(p.phone || '-')}</td>
+              <td><span class="badge badge-${esc(p.status)}">${esc(p.status)}</span></td>
+              <td class="text-muted-12">${fmtDate(p.date_joined) || '-'}</td>
+              <td><button class="btn btn-outline btn-sm" data-action="openEdit" data-pid="${p.id}">Edit</button></td>
+            </tr>${reasonRow}`;
+        })
         .join('');
+
       document.getElementById('players-count').textContent =
         `${allPlayers.length} player${allPlayers.length !== 1 ? 's' : ''}`;
       document.getElementById('players-table').innerHTML = `
@@ -1503,16 +1551,55 @@
     }
   };
 
-  const openEdit = (id) => {
+  // Cache of "most recent inactivation reason per player_id" — populated by loadPlayers()
+  // Used both for the inline preview under inactive players, and for prefilling the
+  // edit modal when opening an already-inactive player.
+  let latestInactivationReasons = {}; // { [player_id]: { reason, changed_at } }
+  let historyCountByPlayer = {};       // { [player_id]: number } — for the View History button label
+
+  // Toggle the inactivation-reason textarea based on the dropdown's value.
+  const updateReasonVisibility = () => {
+    const status = document.getElementById('edit-status').value;
+    const wrap = document.getElementById('edit-reason-group');
+    if (!wrap) return;
+    wrap.style.display = status === 'inactive' ? '' : 'none';
+  };
+
+  const openEdit = async (id) => {
     const p = allPlayers.find((x) => x.id === id);
     if (!p) return;
     document.getElementById('edit-id').value = p.id;
+    document.getElementById('edit-original-status').value = p.status || 'active';
     document.getElementById('edit-first').value = p.first_name;
     document.getElementById('edit-last').value = p.last_name;
     document.getElementById('edit-email').value = p.email || '';
     document.getElementById('edit-phone').value = p.phone || '';
     document.getElementById('edit-gender').value = p.gender || '';
     document.getElementById('edit-status').value = p.status || 'active';
+
+    // Reset reason field state
+    const reasonEl = document.getElementById('edit-reason');
+    const errEl = document.getElementById('edit-reason-error');
+    if (reasonEl) reasonEl.value = '';
+    if (errEl) errEl.style.display = 'none';
+
+    // Prefill the reason textarea with the most recent stored reason
+    // when the player is currently inactive (so admin can see/edit it).
+    if ((p.status || 'active') === 'inactive') {
+      const recent = latestInactivationReasons[p.id];
+      if (recent && reasonEl) reasonEl.value = recent.reason || '';
+    }
+
+    // Show/hide reason wrap based on current status
+    updateReasonVisibility();
+
+    // History link — show button + count if there is any history at all
+    const histWrap = document.getElementById('edit-history-link-wrap');
+    const histCountEl = document.getElementById('edit-history-count');
+    const count = historyCountByPlayer[p.id] || 0;
+    if (histWrap) histWrap.style.display = count > 0 ? '' : 'none';
+    if (histCountEl) histCountEl.textContent = String(count);
+
     document.getElementById('edit-modal').classList.add('open');
   };
 
@@ -1520,25 +1607,125 @@
 
   const saveEditPlayer = async (e) => {
     e.preventDefault();
-    const id = document.getElementById('edit-id').value;
+    const id = parseInt(document.getElementById('edit-id').value, 10);
+    const originalStatus = document.getElementById('edit-original-status').value;
+    const newStatus = document.getElementById('edit-status').value;
+    const reasonInputEl = document.getElementById('edit-reason');
+    const reasonErrEl = document.getElementById('edit-reason-error');
+    const reasonInput = (reasonInputEl?.value || '').trim();
+
+    // Decide whether we need a new history entry, and whether reason is required:
+    //   - status changed to 'inactive'   → history required, reason required
+    //   - status was already 'inactive' AND reason text changed → history (reason edit), reason required (cannot blank it)
+    //   - status changed FROM inactive → active → no history, no reason needed
+    //   - everything else → no history, no reason needed
+    const becomingInactive = newStatus === 'inactive' && originalStatus !== 'inactive';
+    const stayingInactive = newStatus === 'inactive' && originalStatus === 'inactive';
+    const previousReason = (latestInactivationReasons[id]?.reason || '').trim();
+    const reasonChangedWhileInactive = stayingInactive && reasonInput !== previousReason;
+    const needsHistoryRow = becomingInactive || reasonChangedWhileInactive;
+    const reasonRequired = newStatus === 'inactive' && (becomingInactive || reasonChangedWhileInactive);
+
+    if (reasonRequired && !reasonInput) {
+      if (reasonErrEl) reasonErrEl.style.display = 'block';
+      reasonInputEl?.focus();
+      return;
+    }
+    if (reasonErrEl) reasonErrEl.style.display = 'none';
+
     const body = {
       first_name: document.getElementById('edit-first').value.trim(),
       last_name: document.getElementById('edit-last').value.trim(),
       email: document.getElementById('edit-email').value.trim() || null,
       phone: document.getElementById('edit-phone').value.trim() || null,
       gender: document.getElementById('edit-gender').value || null,
-      status: document.getElementById('edit-status').value,
+      status: newStatus,
     };
+
     try {
       await api(`players?id=eq.${id}`, 'PATCH', body);
+
+      // Record history if needed. We do this AFTER the player update so
+      // we don't end up with an orphan history row if the update fails.
+      if (needsHistoryRow) {
+        const session = await window.auth.getSession();
+        const changedBy = session?.user?.id || null;
+        await api('player_status_history', 'POST', {
+          player_id: id,
+          old_status: originalStatus,
+          new_status: newStatus,
+          reason: reasonInput,
+          changed_by: changedBy,
+        });
+      }
+
       toast('Player updated!');
       closeModal();
-      loadPlayers();
+      // Force a reload so the inline reason preview reflects the new value
       allPlayers = [];
+      loadPlayers();
     } catch (err) {
       toast(`Error: ${err.message}`, true);
     }
   };
+
+  /* ─── PLAYER STATUS HISTORY MODAL ──────────────────────── */
+
+  const openPlayerHistory = async () => {
+    const id = parseInt(document.getElementById('edit-id').value, 10);
+    if (!id) return;
+    const player = allPlayers.find((x) => x.id === id);
+    const titleEl = document.getElementById('player-history-title');
+    if (titleEl && player) {
+      titleEl.textContent = `Status history — ${player.first_name} ${player.last_name}`;
+    }
+    const contentEl = document.getElementById('player-history-content');
+    if (contentEl) {
+      contentEl.innerHTML =
+        '<div class="loading" style="padding:24px;text-align:center;color:var(--text-muted);">Loading...</div>';
+    }
+    document.getElementById('player-history-modal').classList.add('open');
+
+    try {
+      const rows = await api(
+        `player_status_history?player_id=eq.${id}&select=*&order=changed_at.desc`,
+      );
+      if (!rows || !rows.length) {
+        contentEl.innerHTML =
+          '<div class="empty" style="padding:24px;text-align:center;color:var(--text-muted);">No history yet.</div>';
+        return;
+      }
+      contentEl.innerHTML = rows
+        .map((r) => {
+          const when = fmtDate(r.changed_at?.split('T')[0], {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+          });
+          // Time portion (HH:MM, 24h)
+          const time = r.changed_at
+            ? new Date(r.changed_at).toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit',
+              })
+            : '';
+          const transition = `${esc(r.old_status || '?')} → ${esc(r.new_status)}`;
+          return `<div style="padding:12px 0;border-bottom:0.5px solid var(--border);">
+            <div class="row-between gap-6">
+              <div class="text-bold" style="font-size:13px;">${esc(when)} ${esc(time)}</div>
+              <div class="text-muted-12">${transition}</div>
+            </div>
+            <div class="text-13 mt-4" style="white-space:pre-wrap;line-height:1.5;">${esc(r.reason || '(no reason recorded)')}</div>
+          </div>`;
+        })
+        .join('');
+    } catch (err) {
+      contentEl.innerHTML = `<div class="empty" style="padding:24px;text-align:center;color:var(--orange);">Error: ${esc(err.message)}</div>`;
+    }
+  };
+
+  const closePlayerHistory = () =>
+    document.getElementById('player-history-modal').classList.remove('open');
 
   /* ─── SHARE PAGE ───────────────────────────────────────── */
 
@@ -1990,6 +2177,8 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     // Players
     openEdit: (btn) => openEdit(parseInt(btn.dataset.pid, 10)),
     closeModal: () => closeModal(),
+    openPlayerHistory: () => openPlayerHistory(),
+    closePlayerHistory: () => closePlayerHistory(),
     // Modals
     closeEditLadderModal: () => closeEditLadderModal(),
     closeEditGameModal: () =>
@@ -2039,6 +2228,14 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     }
     if (el.id === 'gender-filter') {
       renderLadder();
+      return;
+    }
+    if (el.id === 'edit-status') {
+      // Toggle the inactivation-reason textarea when admin changes status in Edit modal
+      updateReasonVisibility();
+      // Hide any stale required-field error when user navigates back to active
+      const errEl = document.getElementById('edit-reason-error');
+      if (errEl) errEl.style.display = 'none';
       return;
     }
   });

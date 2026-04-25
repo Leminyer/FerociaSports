@@ -543,6 +543,7 @@
     <div class="modal-title">Edit Player</div>
     <form id="edit-player-form">
       <input type="hidden" id="edit-id">
+      <input type="hidden" id="edit-original-status">
       <div class="form-row">
         <div class="form-group"><label>First name</label><input type="text" id="edit-first" required></div>
         <div class="form-group"><label>Last name</label><input type="text" id="edit-last" required></div>
@@ -558,7 +559,6 @@
             <option value="">-- Select --</option>
             <option value="Male">Male</option>
             <option value="Female">Female</option>
-            
           </select>
         </div>
         <div class="form-group">
@@ -569,11 +569,41 @@
           </select>
         </div>
       </div>
+
+      <!-- Inactivation reason — shown only when status is/becomes 'inactive' -->
+      <div class="form-group" id="edit-reason-group" style="display:none;">
+        <label>Reason for inactivating <span style="color:var(--orange);">*</span></label>
+        <textarea id="edit-reason" rows="3" placeholder="Why is this player inactive? (required)"
+          style="padding:9px 12px;border:0.5px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:'Montserrat',sans-serif;color:var(--text);background:var(--white);outline:none;resize:vertical;"></textarea>
+        <div id="edit-reason-error" class="text-muted-12" style="display:none;color:var(--orange);font-weight:600;margin-top:4px;">Please enter a reason.</div>
+      </div>
+
+      <!-- History trigger — shown only when there's at least one entry -->
+      <div id="edit-history-link-wrap" style="display:none;">
+        <button type="button" class="btn btn-outline btn-sm" data-action="openPlayerHistory" id="edit-history-link"
+          style="font-size:11px;">
+          📋 View status history (<span id="edit-history-count">0</span>)
+        </button>
+      </div>
+
       <div class="modal-actions">
         <button type="button" class="btn btn-danger btn-sm" data-action="closeModal">Cancel</button>
         <button type="submit" class="btn btn-primary btn-sm">Save changes</button>
       </div>
     </form>
+  </div>
+</div>
+
+<!-- Player status history modal -->
+<div class="modal-bg" id="player-history-modal">
+  <div class="modal" style="max-width:560px;">
+    <div class="modal-title" id="player-history-title">Status history</div>
+    <div id="player-history-content" style="max-height:60vh;overflow-y:auto;font-size:13px;">
+      <div class="loading" style="padding:24px;text-align:center;color:var(--text-muted);">Loading...</div>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-outline btn-sm" data-action="closePlayerHistory">Close</button>
+    </div>
   </div>
 </div>
 
