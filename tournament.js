@@ -452,6 +452,18 @@ async function createTournament(e) {
   if (!name) { tToast('Please enter a tournament name.', true); return; }
   if (!categories.length) { tToast('Please add at least one category.', true); return; }
   try {
+    // Validate no duplicate name + date combination
+    let dupQuery = `tournaments?name=eq.${encodeURIComponent(name)}&select=id,name,date`;
+    const existing = await tApi(dupQuery);
+    const duplicate = existing.find(t => {
+      if (!date && !t.date) return true;       // both have no date
+      if (date && t.date && t.date === date) return true; // same date
+      return false;
+    });
+    if (duplicate) {
+      tToast(`A tournament named "${name}" ${date ? 'on this date ' : ''}already exists.`, true);
+      return;
+    }
     const [t] = await tApi('tournaments', 'POST', { name, date, status: 'draft' });
     for (const cat of categories) {
       await tApi('tournament_categories', 'POST', { tournament_id: t.id, name: cat, status: 'setup' });
@@ -497,12 +509,20 @@ async function confirmDeleteTournament(id) {
 
 // ─── OPEN TOURNAMENT ────────────────────────────────────────
 async function openTournament(id) {
+  // Only preserve tCurrentCategoryId if it belongs to THIS tournament
+  if (tCurrentTournamentId !== id) {
+    tCurrentCategoryId = null;
+  }
   tCurrentTournamentId = id;
   const el = document.getElementById('t-content');
   el.innerHTML = `<div class="t-loading">Loading tournament...</div>`;
   const [t] = await tApi(`tournaments?id=eq.${id}&select=*`);
   const categories = await tApi(`tournament_categories?tournament_id=eq.${id}&select=*&order=id`);
-  tCurrentCategoryId = tCurrentCategoryId || categories[0]?.id || null;
+  // Validate tCurrentCategoryId belongs to this tournament's categories
+  const validCatIds = categories.map(c => c.id);
+  if (!tCurrentCategoryId || !validCatIds.includes(tCurrentCategoryId)) {
+    tCurrentCategoryId = categories[0]?.id || null;
+  }
   renderTournamentDetail(t, categories);
 }
 
