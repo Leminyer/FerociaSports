@@ -609,7 +609,7 @@ function renderCategory(cat, teams, rrMatches, bracketMatches, tournament) {
                   <div class="t-team-name">${team.name}</div>
                   ${!singlesMode ? `<div class="t-team-players">${players.join(' & ')}</div>` : ''}
                 </div>
-                ${tournament.status !== 'completed' ? `
+                ${tournament.status !== 'completed' && !singlesMode ? `
                   <button class="t-btn-icon" onclick="editTeam(${team.id}, ${cat.id})" style="color:#174CCC;font-size:14px;background:none;border:none;cursor:pointer;" title="Edit">✏️</button>
                 ` : ''}
                 ${tournament.status === 'draft' ? `
@@ -853,44 +853,37 @@ async function showAddTeam(catId, catName) {
     const enrolledIds = existingTeams.map(t => t.player1_id).filter(Boolean);
     const activePlayers = tAllPlayers.filter(p => p.status !== 'inactive');
 
+    // Build player rows as a string (avoid nested template literal issues)
+    let playerRows = '';
+    activePlayers.forEach(p => {
+      const alreadyIn = enrolledIds.includes(p.id);
+      const opacity = alreadyIn ? 'opacity:0.4;pointer-events:none;' : '';
+      const disabled = alreadyIn ? 'disabled' : '';
+      const tag = alreadyIn ? '<span style="font-size:10px;color:#6b7a99;margin-left:6px;">already added</span>' : '';
+      playerRows += '<div class="t-lp-row" data-name="' + (p.first_name+' '+p.last_name).toLowerCase() + '" style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:0.5px solid #d6dff5;' + opacity + '">'
+        + '<input type="checkbox" id="t-pcb-' + p.id + '" data-pid="' + p.id + '" ' + disabled + ' style="width:16px;height:16px;cursor:pointer;" onchange="tUpdatePlayerCount()">'
+        + '<label for="t-pcb-' + p.id + '" style="font-size:13px;font-weight:600;cursor:pointer;flex:1;">' + p.first_name + ' ' + p.last_name + tag + '</label>'
+        + '</div>';
+    });
+
     document.getElementById('t-modal-title').textContent = 'Add Players';
-    document.getElementById('t-modal-body').innerHTML = `
-      <div style="margin-bottom:12px;font-size:13px;color:#6b7a99;font-weight:500;">
-        Check players to add them to this category. Already enrolled players are greyed out.
-      </div>
-      <div style="border:0.5px solid #d6dff5;border-radius:8px;overflow:hidden;margin-bottom:16px;">
-        <div style="padding:8px 12px;background:#f4f6fc;border-bottom:0.5px solid #d6dff5;">
-          <input type="text" id="t-player-search" placeholder="Search player..."
-            autocomplete="off" oninput="tFilterPlayers()"
-            style="width:100%;border:none;background:transparent;font-size:13px;font-family:Montserrat,sans-serif;outline:none;color:#0d1f4a;">
-        </div>
-        <div style="max-height:50vh;overflow-y:auto;" id="t-player-list">
-          <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:2px solid #d6dff5;background:#e8f0ff;position:sticky;top:0;z-index:1;">
-            <input type="checkbox" id="t-select-all-players" style="width:16px;height:16px;cursor:pointer;" onchange="tToggleAllPlayers()">
-            <label for="t-select-all-players" style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;cursor:pointer;color:#174CCC;">Select all</label>
-            <span style="margin-left:auto;font-size:12px;font-weight:700;color:#174CCC;" id="t-player-count">0 selected</span>
-          </div>
-          ${activePlayers.map(p => {
-            const alreadyIn = enrolledIds.includes(p.id);
-            return `
-              <div class="t-lp-row" data-name="${(p.first_name+' '+p.last_name).toLowerCase()}"
-                style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:0.5px solid #d6dff5;${alreadyIn ? 'opacity:0.4;pointer-events:none;' : ''}">
-                <input type="checkbox" id="t-pcb-${p.id}" data-pid="${p.id}"
-                  ${alreadyIn ? 'disabled' : ''}
-                  style="width:16px;height:16px;cursor:pointer;" onchange="tUpdatePlayerCount()">
-                <label for="t-pcb-${p.id}" style="font-size:13px;font-weight:600;cursor:pointer;flex:1;">
-                  ${p.first_name} ${p.last_name}
-                  ${alreadyIn ? '<span style="font-size:10px;color:#6b7a99;margin-left:6px;">already added</span>' : ''}
-                </label>
-              </div>`;
-          }).join('')}
-        </div>
-      </div>
-      <div class="t-form-actions">
-        <button type="button" class="t-btn t-btn-ghost" onclick="closeTModal()">Cancel</button>
-        <button type="button" class="t-btn t-btn-primary" onclick="saveMultiplePlayers(${catId})">Add Players</button>
-      </div>
-    `;
+    document.getElementById('t-modal-body').innerHTML =
+      '<div style="margin-bottom:12px;font-size:13px;color:#6b7a99;font-weight:500;">Check players to add. Already enrolled players are greyed out.</div>'
+      + '<div style="border:0.5px solid #d6dff5;border-radius:8px;overflow:hidden;margin-bottom:16px;">'
+      + '<div style="padding:8px 12px;background:#f4f6fc;border-bottom:0.5px solid #d6dff5;">'
+      + '<input type="text" id="t-player-search" placeholder="Search player..." autocomplete="off" oninput="tFilterPlayers()" style="width:100%;border:none;background:transparent;font-size:13px;font-family:Montserrat,sans-serif;outline:none;color:#0d1f4a;"></div>'
+      + '<div style="max-height:50vh;overflow-y:auto;" id="t-player-list">'
+      + '<div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:2px solid #d6dff5;background:#e8f0ff;position:sticky;top:0;z-index:1;">'
+      + '<input type="checkbox" id="t-select-all-players" style="width:16px;height:16px;cursor:pointer;" onchange="tToggleAllPlayers()">'
+      + '<label for="t-select-all-players" style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;cursor:pointer;color:#174CCC;">Select all</label>'
+      + '<span style="margin-left:auto;font-size:12px;font-weight:700;color:#174CCC;" id="t-player-count">0 selected</span>'
+      + '</div>'
+      + playerRows
+      + '</div></div>'
+      + '<div class="t-form-actions">'
+      + '<button type="button" class="t-btn t-btn-ghost" onclick="closeTModal()">Cancel</button>'
+      + '<button type="button" class="t-btn t-btn-primary" onclick="saveMultiplePlayers(' + catId + ')">Add Players</button>'
+      + '</div>';
     openTModal();
     document.getElementById('t-player-search').focus();
     return;
