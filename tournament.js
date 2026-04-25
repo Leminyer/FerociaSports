@@ -565,7 +565,7 @@ async function switchCategory(catId, tId) {
   loadCategory(catId, t);
 }
 
-async async function loadCategory(catId, t) {
+async function loadCategory(catId, t) {
   const [cat] = await tApi(`tournament_categories?id=eq.${catId}&select=*`);
   const teams = await tApi(`tournament_teams?category_id=eq.${catId}&select=*&order=id`);
   const rrMatches = await tApi(`tournament_rr_matches?category_id=eq.${catId}&select=*&order=round,court`);
@@ -1002,7 +1002,7 @@ async function confirmDeleteTeam(teamId, catId) {
 }
 
 // ─── GENERATE ROUND ROBIN ───────────────────────────────────
-async async function showRRFormatModal(catId) {
+async function showRRFormatModal(catId) {
   const [cat] = await tApi(`tournament_categories?id=eq.${catId}&select=name`);
   const singles = isSingles(cat.name);
   document.getElementById('t-modal-title').textContent = 'Round Robin Format';
