@@ -541,7 +541,7 @@ function renderTournamentDetail(t, categories) {
     <div class="t-tournament-hero" style="position:relative;">
       <div class="t-tournament-hero-name">${t.name}</div>
       <div class="t-tournament-hero-date">📅 ${date}</div>
-      ${t.status !== 'completed' ? `<button type="button" class="t-btn t-btn-sm" onclick="openEditTournament(${t.id}, '${t.name.replace(/'/g,"\'")}', '${t.date||''}')" style="position:absolute;top:0;right:0;background:rgba(255,255,255,0.15);color:#fff;border:1.5px solid rgba(255,255,255,0.3);">✏️ Edit</button>` : ''}
+      ${t.status !== 'completed' ? `<button type="button" class="t-btn t-btn-sm" onclick="openEditTournament(${t.id})" style="position:absolute;top:0;right:0;background:rgba(255,255,255,0.15);color:#fff;border:1.5px solid rgba(255,255,255,0.3);">✏️ Edit</button>` : ''}
     </div>
     <div class="t-category-tabs">
       ${categories.map(cat => `
@@ -1211,6 +1211,10 @@ async function openScoreModal(type, matchId, teamAId, teamBId, catId) {
       <div id="t-games-container">
         ${buildGameRows(bestOf, teamA?.name || '?', teamB?.name || '?', existingGames)}
       </div>
+      <div style="display:flex;justify-content:space-around;margin-top:12px;">
+        <label class="t-forfeit-check-label"><input type="checkbox" id="t-forfeit-a" onchange="onForfeitCheck('a','b')"> ${teamA?.name || '?'} Forfeit</label>
+        <label class="t-forfeit-check-label"><input type="checkbox" id="t-forfeit-b" onchange="onForfeitCheck('b','a')"> ${teamB?.name || '?'} Forfeit</label>
+      </div>
       <div id="t-score-preview" class="t-score-preview" style="margin-top:12px;"></div>
       ` : `
       <div class="t-score-teams">
@@ -1531,24 +1535,20 @@ function onForfeitCheck(checked, other) {
   if (otherCb && otherCb.checked) otherCb.checked = false;
 }
 
-function openEditTournament(id, name, date) {
+async function openEditTournament(id) {
+  const [t] = await tApi(`tournaments?id=eq.${id}&select=*`);
+  if (!t) return;
   document.getElementById('t-modal-title').textContent = 'Edit Tournament';
-  document.getElementById('t-modal-body').innerHTML = `
-    <form id="t-edit-tournament-form" onsubmit="saveEditTournament(event, ${id})">
-      <div class="t-form-group">
-        <label class="t-label">Tournament name *</label>
-        <input class="t-input" type="text" id="t-edit-t-name" required value="${name}">
-      </div>
-      <div class="t-form-group">
-        <label class="t-label">Date</label>
-        <input class="t-input" type="date" id="t-edit-t-date" value="${date}">
-      </div>
-      <div class="t-form-actions">
-        <button type="button" class="t-btn t-btn-ghost" onclick="closeTModal()">Cancel</button>
-        <button type="submit" class="t-btn t-btn-primary">Save Changes</button>
-      </div>
-    </form>
-  `;
+  document.getElementById('t-modal-body').innerHTML =
+    '<form id="t-edit-tournament-form" onsubmit="saveEditTournament(event,' + id + ')">'
+    + '<div class="t-form-group"><label class="t-label">Tournament name *</label>'
+    + '<input class="t-input" type="text" id="t-edit-t-name" required value="' + (t.name||'').replace(/"/g,'&quot;') + '"></div>'
+    + '<div class="t-form-group"><label class="t-label">Date</label>'
+    + '<input class="t-input" type="date" id="t-edit-t-date" value="' + (t.date||'') + '"></div>'
+    + '<div class="t-form-actions">'
+    + '<button type="button" class="t-btn t-btn-ghost" onclick="closeTModal()">Cancel</button>'
+    + '<button type="submit" class="t-btn t-btn-primary">Save Changes</button>'
+    + '</div></form>';
   openTModal();
 }
 
