@@ -844,31 +844,80 @@ function renderBracket(matches, tMap, tournament) {
   return html;
 }
 
-function showAddTeam(catId, catName) {
+async function showAddTeam(catId, catName) {
   const singles = isSingles(catName);
-  const playersPerTeam = catName.toLowerCase().includes('team_challenge') ? 4 : singles ? 1 : 2;
+
+  if (singles) {
+    // Multi-select player picker for singles — same UX as ladder modal
+    const existingTeams = await tApi(`tournament_teams?category_id=eq.${catId}&select=player1_id`);
+    const enrolledIds = existingTeams.map(t => t.player1_id).filter(Boolean);
+    const activePlayers = tAllPlayers.filter(p => p.status !== 'inactive');
+
+    document.getElementById('t-modal-title').textContent = 'Add Players';
+    document.getElementById('t-modal-body').innerHTML = `
+      <div style="margin-bottom:12px;font-size:13px;color:#6b7a99;font-weight:500;">
+        Check players to add them to this category. Already enrolled players are greyed out.
+      </div>
+      <div style="border:0.5px solid #d6dff5;border-radius:8px;overflow:hidden;margin-bottom:16px;">
+        <div style="padding:8px 12px;background:#f4f6fc;border-bottom:0.5px solid #d6dff5;">
+          <input type="text" id="t-player-search" placeholder="Search player..."
+            autocomplete="off" oninput="tFilterPlayers()"
+            style="width:100%;border:none;background:transparent;font-size:13px;font-family:Montserrat,sans-serif;outline:none;color:#0d1f4a;">
+        </div>
+        <div style="max-height:50vh;overflow-y:auto;" id="t-player-list">
+          <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:2px solid #d6dff5;background:#e8f0ff;position:sticky;top:0;z-index:1;">
+            <input type="checkbox" id="t-select-all-players" style="width:16px;height:16px;cursor:pointer;" onchange="tToggleAllPlayers()">
+            <label for="t-select-all-players" style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;cursor:pointer;color:#174CCC;">Select all</label>
+            <span style="margin-left:auto;font-size:12px;font-weight:700;color:#174CCC;" id="t-player-count">0 selected</span>
+          </div>
+          ${activePlayers.map(p => {
+            const alreadyIn = enrolledIds.includes(p.id);
+            return `
+              <div class="t-lp-row" data-name="${(p.first_name+' '+p.last_name).toLowerCase()}"
+                style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:0.5px solid #d6dff5;${alreadyIn ? 'opacity:0.4;pointer-events:none;' : ''}">
+                <input type="checkbox" id="t-pcb-${p.id}" data-pid="${p.id}"
+                  ${alreadyIn ? 'disabled' : ''}
+                  style="width:16px;height:16px;cursor:pointer;" onchange="tUpdatePlayerCount()">
+                <label for="t-pcb-${p.id}" style="font-size:13px;font-weight:600;cursor:pointer;flex:1;">
+                  ${p.first_name} ${p.last_name}
+                  ${alreadyIn ? '<span style="font-size:10px;color:#6b7a99;margin-left:6px;">already added</span>' : ''}
+                </label>
+              </div>`;
+          }).join('')}
+        </div>
+      </div>
+      <div class="t-form-actions">
+        <button type="button" class="t-btn t-btn-ghost" onclick="closeTModal()">Cancel</button>
+        <button type="button" class="t-btn t-btn-primary" onclick="saveMultiplePlayers(${catId})">Add Players</button>
+      </div>
+    `;
+    openTModal();
+    document.getElementById('t-player-search').focus();
+    return;
+  }
+
+  // Non-singles: original team form
+  const playersPerTeam = catName.toLowerCase().includes('team_challenge') ? 4 : 2;
   const playerOpts = tAllPlayers.filter(p => p.status !== 'inactive')
     .map(p => `<option value="${p.id}">${p.first_name} ${p.last_name}</option>`).join('');
   const playerFields = Array.from({length: playersPerTeam}, (_, i) => `
     <div class="t-form-group">
-      <label class="t-label">Player ${playersPerTeam > 1 ? i + 1 : ''}</label>
+      <label class="t-label">Player ${i + 1}</label>
       <select class="t-input t-player-select" id="t-player-${i+1}">
         <option value="">-- Select player --</option>${playerOpts}
       </select>
     </div>`).join('');
-  const modalTitle = singles ? 'Add Player' : `Add Team`;
-  document.getElementById('t-modal-title').textContent = modalTitle;
+  document.getElementById('t-modal-title').textContent = 'Add Team';
   document.getElementById('t-modal-body').innerHTML = `
     <form id="t-add-team-form" onsubmit="saveTeam(event, ${catId})">
-      ${!singles ? `
       <div class="t-form-group">
         <label class="t-label">Team name *</label>
         <input class="t-input" type="text" id="t-team-name" required placeholder="e.g. Team Thunder">
-      </div>` : `<input type="hidden" id="t-team-name" value="singles_auto">`}
+      </div>
       ${playerFields}
       <div class="t-form-actions">
         <button type="button" class="t-btn t-btn-ghost" onclick="closeTModal()">Cancel</button>
-        <button type="submit" class="t-btn t-btn-primary">${singles ? 'Add Player' : 'Add Team'}</button>
+        <button type="submit" class="t-btn t-btn-primary">Add Team</button>
       </div>
     </form>`;
   openTModal();
@@ -1538,6 +1587,60 @@ function tToast(msg, err = false) {
 }
 
 // ─── SINGLES HELPERS ────────────────────────────────────────
+
+function tFilterPlayers() {
+  const q = document.getElementById('t-player-search')?.value.toLowerCase().trim() || '';
+  document.querySelectorAll('.t-lp-row').forEach(row => {
+    const name = row.dataset.name || '';
+    row.style.display = name.includes(q) ? '' : 'none';
+  });
+}
+
+function tToggleAllPlayers() {
+  const allCb = document.getElementById('t-select-all-players');
+  document.querySelectorAll('#t-player-list input[data-pid]:not(:disabled)').forEach(cb => {
+    cb.checked = allCb.checked;
+  });
+  tUpdatePlayerCount();
+}
+
+function tUpdatePlayerCount() {
+  const checked = document.querySelectorAll('#t-player-list input[data-pid]:checked').length;
+  const countEl = document.getElementById('t-player-count');
+  if (countEl) countEl.textContent = `${checked} selected`;
+  // Update select-all state
+  const total = document.querySelectorAll('#t-player-list input[data-pid]:not(:disabled)').length;
+  const allCb = document.getElementById('t-select-all-players');
+  if (allCb) allCb.checked = checked > 0 && checked === total;
+}
+
+async function saveMultiplePlayers(catId) {
+  const checked = [...document.querySelectorAll('#t-player-list input[data-pid]:checked')];
+  if (!checked.length) { tToast('Please select at least one player.', true); return; }
+  const btn = document.querySelector('.t-modal .t-btn-primary');
+  if (btn) { btn.disabled = true; btn.textContent = 'Adding...'; }
+  try {
+    for (const cb of checked) {
+      const pid = parseInt(cb.dataset.pid);
+      const p = tAllPlayers.find(x => x.id === pid);
+      if (!p) continue;
+      const name = `${p.first_name} ${p.last_name}`;
+      await tApi('tournament_teams', 'POST', {
+        category_id: catId,
+        name,
+        player1_id: pid,
+        player2_id: null, player3_id: null, player4_id: null
+      });
+    }
+    tToast(`${checked.length} player${checked.length !== 1 ? 's' : ''} added!`);
+    closeTModal();
+    tCurrentCategoryId = catId;
+    const [t] = await tApi(`tournaments?id=eq.${tCurrentTournamentId}&select=*`);
+    const categories = await tApi(`tournament_categories?tournament_id=eq.${tCurrentTournamentId}&select=*&order=id`);
+    renderTournamentDetail(t, categories);
+  } catch(err) { tToast(`Error: ${err.message}`, true); }
+}
+
 function isSingles(catName) {
   return catName && catName.toLowerCase().includes('singles');
 }
