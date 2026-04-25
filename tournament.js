@@ -538,9 +538,10 @@ function renderTournamentDetail(t, categories) {
         ${t.status === 'active' ? `<button class="t-btn t-btn-danger" onclick="completeTournament(${t.id})">Complete</button>` : ''}
       </div>
     </div>
-    <div class="t-tournament-hero">
+    <div class="t-tournament-hero" style="position:relative;">
       <div class="t-tournament-hero-name">${t.name}</div>
       <div class="t-tournament-hero-date">📅 ${date}</div>
+      ${t.status !== 'completed' ? `<button type="button" class="t-btn t-btn-sm" onclick="openEditTournament(${t.id}, '${t.name.replace(/'/g,"\'")}', '${t.date||''}')" style="position:absolute;top:0;right:0;background:rgba(255,255,255,0.15);color:#fff;border:1.5px solid rgba(255,255,255,0.3);">✏️ Edit</button>` : ''}
     </div>
     <div class="t-category-tabs">
       ${categories.map(cat => `
@@ -564,7 +565,7 @@ async function switchCategory(catId, tId) {
   loadCategory(catId, t);
 }
 
-async function loadCategory(catId, t) {
+async async function loadCategory(catId, t) {
   const [cat] = await tApi(`tournament_categories?id=eq.${catId}&select=*`);
   const teams = await tApi(`tournament_teams?category_id=eq.${catId}&select=*&order=id`);
   const rrMatches = await tApi(`tournament_rr_matches?category_id=eq.${catId}&select=*&order=round,court`);
@@ -1001,7 +1002,7 @@ async function confirmDeleteTeam(teamId, catId) {
 }
 
 // ─── GENERATE ROUND ROBIN ───────────────────────────────────
-async function showRRFormatModal(catId) {
+async async function showRRFormatModal(catId) {
   const [cat] = await tApi(`tournament_categories?id=eq.${catId}&select=name`);
   const singles = isSingles(cat.name);
   document.getElementById('t-modal-title').textContent = 'Round Robin Format';
@@ -1486,6 +1487,40 @@ async function processForfeit(type, matchId, teamAId, teamBId, catId, forfeitTea
 function onForfeitCheck(checked, other) {
   const otherCb = document.getElementById('t-forfeit-' + other);
   if (otherCb && otherCb.checked) otherCb.checked = false;
+}
+
+function openEditTournament(id, name, date) {
+  document.getElementById('t-modal-title').textContent = 'Edit Tournament';
+  document.getElementById('t-modal-body').innerHTML = `
+    <form id="t-edit-tournament-form" onsubmit="saveEditTournament(event, ${id})">
+      <div class="t-form-group">
+        <label class="t-label">Tournament name *</label>
+        <input class="t-input" type="text" id="t-edit-t-name" required value="${name}">
+      </div>
+      <div class="t-form-group">
+        <label class="t-label">Date</label>
+        <input class="t-input" type="date" id="t-edit-t-date" value="${date}">
+      </div>
+      <div class="t-form-actions">
+        <button type="button" class="t-btn t-btn-ghost" onclick="closeTModal()">Cancel</button>
+        <button type="submit" class="t-btn t-btn-primary">Save Changes</button>
+      </div>
+    </form>
+  `;
+  openTModal();
+}
+
+async function saveEditTournament(e, id) {
+  e.preventDefault();
+  const name = document.getElementById('t-edit-t-name').value.trim();
+  const date = document.getElementById('t-edit-t-date').value || null;
+  if (!name) { tToast('Please enter a tournament name.', true); return; }
+  try {
+    await tApi(`tournaments?id=eq.${id}`, 'PATCH', { name, date });
+    tToast('Tournament updated!');
+    closeTModal();
+    openTournament(id);
+  } catch(err) { tToast(`Error: ${err.message}`, true); }
 }
 
 function restoreScoreModal(title, body) {
