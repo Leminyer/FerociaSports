@@ -783,12 +783,15 @@ function renderBracket(matches, tMap, tournament) {
     const runnerUp = tMap[finalMatch.winner_id === finalMatch.team_a_id ? finalMatch.team_b_id : finalMatch.team_a_id];
     const thirdMatch = matches.find(m => m.round_name === '3rd Place' && m.status === 'completed');
     const third = thirdMatch ? tMap[thirdMatch.winner_id] : null;
+    const runnerUpPlayers = getTeamPlayerNames(runnerUp);
+    const championPlayers = getTeamPlayerNames(champion);
+    const thirdPlayers = third ? getTeamPlayerNames(third) : '';
     html += `
       <div class="t-podium">
         <div class="t-podium-slot t-podium-silver">
           <div class="t-podium-medal">🥈</div>
           <div class="t-podium-team">${runnerUp?.name || '—'}</div>
-          <div class="t-podium-players">${getTeamPlayerNames(runnerUp)}</div>
+          ${runnerUpPlayers && runnerUpPlayers !== (runnerUp?.name || '') ? `<div class="t-podium-players">${runnerUpPlayers}</div>` : ''}
           <div class="t-podium-label">2nd Place</div>
           <div class="t-podium-bar t-bar-silver"></div>
         </div>
@@ -796,14 +799,14 @@ function renderBracket(matches, tMap, tournament) {
           <div class="t-podium-crown">👑</div>
           <div class="t-podium-medal">🥇</div>
           <div class="t-podium-team t-champion">${champion?.name || '—'}</div>
-          <div class="t-podium-players">${getTeamPlayerNames(champion)}</div>
+          ${championPlayers && championPlayers !== (champion?.name || '') ? `<div class="t-podium-players">${championPlayers}</div>` : ''}
           <div class="t-podium-label">Champion</div>
           <div class="t-podium-bar t-bar-gold"></div>
         </div>
         ${third ? `<div class="t-podium-slot t-podium-bronze">
           <div class="t-podium-medal">🥉</div>
           <div class="t-podium-team">${third.name}</div>
-          <div class="t-podium-players">${getTeamPlayerNames(third)}</div>
+          ${thirdPlayers && thirdPlayers !== third.name ? `<div class="t-podium-players">${thirdPlayers}</div>` : ''}
           <div class="t-podium-label">3rd Place</div>
           <div class="t-podium-bar t-bar-bronze"></div>
         </div>` : ''}
