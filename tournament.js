@@ -382,7 +382,7 @@ async function renderTournamentList() {
           <div class="t-tournament-card" onclick="openTournament(${t.id})" style="position:relative;">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
               <div class="t-tournament-card-status t-status-${t.status}" style="margin:0;">${t.status}</div>
-              ${t.status === 'draft' ? `<button type="button" class="t-btn t-btn-danger t-btn-sm" onclick="event.stopPropagation();deleteTournament(${t.id},'${t.name.replace(/'/g,"\'")}')" style="font-size:10px;padding:4px 10px;">Delete</button>` : ''}
+              ${t.status === 'draft' ? `<button type="button" class="t-btn t-btn-danger t-btn-sm" onclick="deleteTournament(${t.id})" data-tname="${t.name.replace(/"/g,'&quot;')}" style="font-size:10px;padding:4px 10px;">Delete</button>` : ''}
             </div>
             <div class="t-tournament-card-name">${t.name}</div>
             <div class="t-tournament-card-date">${t.date ? new Date(t.date + 'T12:00:00').toLocaleDateString('en-US', {weekday:'short',month:'short',day:'numeric',year:'numeric'}) : 'No date set'}</div>
@@ -474,20 +474,18 @@ async function createTournament(e) {
 }
 
 // ─── DELETE TOURNAMENT ──────────────────────────────────────
-async function deleteTournament(id, name) {
+async function deleteTournament(id) {
+  const [t] = await tApi(`tournaments?id=eq.${id}&select=name`);
+  const name = t?.name || 'this tournament';
   document.getElementById('t-modal-title').textContent = 'Delete Tournament';
-  document.getElementById('t-modal-body').innerHTML = `
-    <div style="padding:8px 0 24px;">
-      <p style="font-size:14px;color:#0d1f4a;line-height:1.6;">
-        Are you sure you want to delete tournament <strong>${name}</strong>?
-        All categories, teams and matches will be permanently removed.
-      </p>
-    </div>
-    <div class="t-form-actions">
-      <button type="button" class="t-btn t-btn-ghost" onclick="closeTModal()">Cancel</button>
-      <button type="button" class="t-btn t-btn-danger" onclick="confirmDeleteTournament(${id})">Delete</button>
-    </div>
-  `;
+  document.getElementById('t-modal-body').innerHTML =
+    '<div style="padding:8px 0 24px;">'
+    + '<p style="font-size:14px;color:#0d1f4a;line-height:1.6;">Are you sure you want to delete tournament <strong>'
+    + name + '</strong>? All categories, teams and matches will be permanently removed.</p></div>'
+    + '<div class="t-form-actions">'
+    + '<button type="button" class="t-btn t-btn-ghost" onclick="closeTModal()">Cancel</button>'
+    + '<button type="button" class="t-btn t-btn-danger" onclick="confirmDeleteTournament(' + id + ')">Delete</button>'
+    + '</div>';
   openTModal();
 }
 
@@ -592,7 +590,7 @@ function renderCategory(cat, teams, rrMatches, bracketMatches, tournament) {
           <span class="t-phase-num">1</span> ${singlesMode ? 'Players' : 'Teams'}
           <span class="t-team-count">${teams.length} ${teams.length !== 1 ? (singlesMode ? 'players' : 'teams') : entityLow}</span>
         </div>
-        ${tournament.status === 'draft' ? `<button class="t-btn t-btn-sm t-btn-primary" onclick="showAddTeam(${cat.id}, '${cat.name.replace(/'/g,"\'")}')">+ Add ${entityCap}</button>` : ''}
+        ${tournament.status === 'draft' ? `<button class="t-btn t-btn-sm t-btn-primary" onclick="showAddTeam(${cat.id})">+ Add ${entityCap}</button>` : ''}
       </div>
       ${teams.length ? `
         <div class="t-teams-grid">
@@ -613,7 +611,7 @@ function renderCategory(cat, teams, rrMatches, bracketMatches, tournament) {
                   <button class="t-btn-icon" onclick="editTeam(${team.id}, ${cat.id})" style="color:#174CCC;font-size:14px;background:none;border:none;cursor:pointer;" title="Edit">✏️</button>
                 ` : ''}
                 ${tournament.status === 'draft' ? `
-                  <button class="t-btn-icon t-btn-danger-icon" onclick="deleteTeam(${team.id}, '${team.name.replace(/'/g,"\'")}', ${cat.id})">×</button>
+                  <button class="t-btn-icon t-btn-danger-icon" onclick="deleteTeam(${team.id}, ${cat.id})" data-tname="${team.name.replace(/"/g,'&quot;')}">×</button>
                 ` : ''}
               </div>`;
           }).join('')}
@@ -844,7 +842,9 @@ function renderBracket(matches, tMap, tournament) {
   return html;
 }
 
-async function showAddTeam(catId, catName) {
+async function showAddTeam(catId) {
+  const [cat] = await tApi(`tournament_categories?id=eq.${catId}&select=*`);
+  const catName = cat.name;
   const singles = isSingles(catName);
 
   if (singles) {
@@ -1016,18 +1016,18 @@ async function saveEditTeam(e, teamId, catId) {
   } catch(err) { tToast(`Error: ${err.message}`, true); }
 }
 
-async function deleteTeam(teamId, teamName, catId) {
+async function deleteTeam(teamId, catId) {
+  const [team] = await tApi(`tournament_teams?id=eq.${teamId}&select=name`);
+  const teamName = team?.name || 'this player/team';
   document.getElementById('t-modal-title').textContent = 'Remove Team';
-  document.getElementById('t-modal-body').innerHTML = `
-    <div style="padding:8px 0 24px;">
-      <p style="font-size:14px;color:#0d1f4a;line-height:1.6;">
-        Are you sure you want to remove <strong>${teamName}</strong> from this category? This cannot be undone.
-      </p>
-    </div>
-    <div class="t-form-actions">
-      <button type="button" class="t-btn t-btn-ghost" onclick="closeTModal()">Cancel</button>
-      <button type="button" class="t-btn t-btn-danger" onclick="confirmDeleteTeam(${teamId}, ${catId})">Remove</button>
-    </div>`;
+  document.getElementById('t-modal-body').innerHTML =
+    '<div style="padding:8px 0 24px;">'
+    + '<p style="font-size:14px;color:#0d1f4a;line-height:1.6;">Are you sure you want to remove <strong>'
+    + teamName + '</strong> from this category? This cannot be undone.</p></div>'
+    + '<div class="t-form-actions">'
+    + '<button type="button" class="t-btn t-btn-ghost" onclick="closeTModal()">Cancel</button>'
+    + '<button type="button" class="t-btn t-btn-danger" onclick="confirmDeleteTeam(' + teamId + ',' + catId + ')">Remove</button>'
+    + '</div>';
   openTModal();
 }
 
