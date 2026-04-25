@@ -1,11 +1,21 @@
 // ============================================================
 // FEROCIA SPORTS CENTER — TOURNAMENT MODULE
-// Completely separate from app.js — safe to load independently
+// Depends on: config.js, db.js (loaded before this file)
+// Globals consumed: api, esc, escapeHtml, fmtDate, confirmModal
 // ============================================================
 
-// ─── SUPABASE CONFIG (same as main app) ─────────────────────
-const T_URL = 'https://yyocceadorckkfbgnbqk.supabase.co';
-const T_KEY = 'sb_publishable_Lhc3oHL90kL7O0vO3kJQgQ_BqQfc4Il';
+// Aliases — keep tApi/tEsc names so we don't have to rename 100+ call sites.
+const tApi = window.api;
+const tEsc = window.esc;
+const tFmtDate = window.fmtDate;
+const tConfirm = window.confirmModal;
+
+function tToast(msg, isError = false) {
+  // Use the shared toast if available; otherwise fall back to native alert.
+  if (typeof window.toast === 'function') return window.toast(msg, isError);
+  // Tournament module had its own toast() — fall back if shared isn't loaded.
+  alert(msg);
+}
 
 function getTeamPlayerNames(team) {
   if (!team) return '';
@@ -17,21 +27,6 @@ function getTeamPlayerNames(team) {
   }).filter(Boolean);
   return names.join(' & ');
 }
-
-const tApi = async (path, method = 'GET', body = null) => {
-  const res = await fetch(`${T_URL}/rest/v1/${path}`, {
-    method,
-    headers: {
-      'apikey': T_KEY,
-      'Authorization': `Bearer ${T_KEY}`,
-      'Content-Type': 'application/json',
-      'Prefer': method === 'POST' ? 'return=representation' : method === 'PATCH' ? 'return=representation' : ''
-    },
-    body: body ? JSON.stringify(body) : null
-  });
-  if (!res.ok) { const e = await res.json(); throw new Error(e.message || 'API Error'); }
-  const t = await res.text(); return t ? JSON.parse(t) : null;
-};
 
 // ─── ROUND ROBIN SCHEDULE LOOKUP TABLE ──────────────────────
 // Based exactly on the provided charts. Index = 0-based team numbers.
@@ -383,10 +378,10 @@ async function renderTournamentList() {
         ${tournaments.map(t => `
           <div class="t-tournament-card" onclick="openTournament(${t.id})" style="position:relative;">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-              <div class="t-tournament-card-status t-status-${t.status}" style="margin:0;">${t.status}</div>
-              ${t.status === 'draft' ? `<button type="button" class="t-btn t-btn-danger t-btn-sm" onclick="deleteTournament(${t.id})" data-tname="${t.name.replace(/"/g,'&quot;')}" style="font-size:10px;padding:4px 10px;">Delete</button>` : ''}
+              <div class="t-tournament-card-status t-status-${tEsc(t.status)}" style="margin:0;">${tEsc(t.status)}</div>
+              ${t.status === 'draft' ? `<button type="button" class="t-btn t-btn-danger t-btn-sm" onclick="deleteTournament(${t.id})" data-tname="${tEsc(t.name)}" style="font-size:10px;padding:4px 10px;">Delete</button>` : ''}
             </div>
-            <div class="t-tournament-card-name">${t.name}</div>
+            <div class="t-tournament-card-name">${tEsc(t.name)}</div>
             <div class="t-tournament-card-date">${t.date ? new Date(t.date + 'T12:00:00').toLocaleDateString('en-US', {weekday:'short',month:'short',day:'numeric',year:'numeric'}) : 'No date set'}</div>
           </div>
         `).join('')}
@@ -467,8 +462,11 @@ async function createTournament(e) {
       return;
     }
     const [t] = await tApi('tournaments', 'POST', { name, date, status: 'draft' });
-    for (const cat of categories) {
-      await tApi('tournament_categories', 'POST', { tournament_id: t.id, name: cat, status: 'setup' });
+    if (categories.length) {
+      // Bulk insert all categories in a single POST
+      await tApi('tournament_categories', 'POST',
+        categories.map(cat => ({ tournament_id: t.id, name: cat, status: 'setup' }))
+      );
     }
     tToast(`Tournament "${name}" created!`);
     openTournament(t.id);
@@ -494,10 +492,14 @@ async function deleteTournament(id) {
 async function confirmDeleteTournament(id) {
   try {
     const categories = await tApi(`tournament_categories?tournament_id=eq.${id}&select=id`);
-    for (const cat of categories) {
-      await tApi(`tournament_rr_matches?category_id=eq.${cat.id}`, 'DELETE');
-      await tApi(`tournament_bracket_matches?category_id=eq.${cat.id}`, 'DELETE');
-      await tApi(`tournament_teams?category_id=eq.${cat.id}`, 'DELETE');
+    if (categories.length) {
+      const catIds = categories.map(c => c.id).join(',');
+      // Bulk delete each child table for ALL categories in parallel — 3 calls instead of 3*N
+      await Promise.all([
+        tApi(`tournament_rr_matches?category_id=in.(${catIds})`, 'DELETE'),
+        tApi(`tournament_bracket_matches?category_id=in.(${catIds})`, 'DELETE'),
+        tApi(`tournament_teams?category_id=in.(${catIds})`, 'DELETE'),
+      ]);
     }
     await tApi(`tournament_categories?tournament_id=eq.${id}`, 'DELETE');
     await tApi(`tournaments?id=eq.${id}`, 'DELETE');
@@ -533,13 +535,13 @@ function renderTournamentDetail(t, categories) {
     <div class="t-header-bar">
       <button class="t-btn t-btn-ghost" onclick="renderTournamentList()">← Tournaments</button>
       <div style="display:flex;gap:8px;align-items:center;">
-        <span class="t-status-badge t-status-${t.status}">${t.status}</span>
+        <span class="t-status-badge t-status-${tEsc(t.status)}">${tEsc(t.status)}</span>
         ${t.status === 'draft' ? `<button class="t-btn t-btn-success" onclick="startTournament(${t.id})">▶ Start Tournament</button>` : ''}
         ${t.status === 'active' ? `<button class="t-btn t-btn-danger" onclick="completeTournament(${t.id})">Complete</button>` : ''}
       </div>
     </div>
     <div class="t-tournament-hero" style="position:relative;">
-      <div class="t-tournament-hero-name">${t.name}</div>
+      <div class="t-tournament-hero-name">${tEsc(t.name)}</div>
       <div class="t-tournament-hero-date">📅 ${date}</div>
       ${t.status !== 'completed' ? `<button type="button" class="t-btn t-btn-sm" onclick="openEditTournament(${t.id})" style="position:absolute;top:0;right:0;background:rgba(255,255,255,0.15);color:#fff;border:1.5px solid rgba(255,255,255,0.3);">✏️ Edit</button>` : ''}
     </div>
@@ -547,8 +549,8 @@ function renderTournamentDetail(t, categories) {
       ${categories.map(cat => `
         <button class="t-category-tab ${cat.id === tCurrentCategoryId ? 'active' : ''}"
           onclick="switchCategory(${cat.id}, ${t.id})">
-          ${cat.name}
-          <span class="t-cat-status-dot t-dot-${cat.status}"></span>
+          ${tEsc(cat.name)}
+          <span class="t-cat-status-dot t-dot-${tEsc(cat.status)}"></span>
         </button>
       `).join('')}
     </div>
@@ -606,14 +608,14 @@ function renderCategory(cat, teams, rrMatches, bracketMatches, tournament) {
               <div class="t-team-chip">
                 <div class="t-team-seed">${i + 1}</div>
                 <div class="t-team-info">
-                  <div class="t-team-name">${team.name}</div>
+                  <div class="t-team-name">${tEsc(team.name)}</div>
                   ${!singlesMode ? `<div class="t-team-players">${players.join(' & ')}</div>` : ''}
                 </div>
                 ${tournament.status !== 'completed' && !singlesMode ? `
                   <button class="t-btn-icon" onclick="editTeam(${team.id}, ${cat.id})" style="color:#174CCC;font-size:14px;background:none;border:none;cursor:pointer;" title="Edit">✏️</button>
                 ` : ''}
                 ${tournament.status === 'draft' ? `
-                  <button class="t-btn-icon t-btn-danger-icon" onclick="deleteTeam(${team.id}, ${cat.id})" data-tname="${team.name.replace(/"/g,'&quot;')}">×</button>
+                  <button class="t-btn-icon t-btn-danger-icon" onclick="deleteTeam(${team.id}, ${cat.id})" data-tname="${tEsc(team.name)}">×</button>
                 ` : ''}
               </div>`;
           }).join('')}
@@ -686,7 +688,7 @@ function renderCategory(cat, teams, rrMatches, bracketMatches, tournament) {
               ${standings.slice(0, 8).map((s, i) => `
                 <div class="t-standing-preview-row">
                   <span class="t-seed-badge">${i + 1}</span>
-                  <span class="t-standing-name">${s.name}</span>
+                  <span class="t-standing-name">${tEsc(s.name)}</span>
                   <span class="t-standing-record">${s.w}W ${s.l}L ${s.pts_for - s.pts_against > 0 ? '+' : ''}${s.pts_for - s.pts_against}</span>
                 </div>`).join('')}
             </div>
@@ -718,9 +720,9 @@ function renderRRRounds(matches, tMap, tournament) {
                 onclick="${tournament.status !== 'completed' ? `openScoreModal('rr',${m.id},${m.team_a_id},${m.team_b_id},${m.category_id})` : ''}">
                 <div class="t-match-court" title="Court ${m.court || '?'}">${m.court ? 'C'+m.court : '—'}</div>
                 <div class="t-match-teams">
-                  <span class="t-match-team ${winA ? 't-winner' : ''}">${teamA?.name || '?'}</span>
+                  <span class="t-match-team ${winA ? 't-winner' : ''}">${tEsc(teamA?.name || '?')}</span>
                   <span class="t-match-vs">vs</span>
-                  <span class="t-match-team ${winB ? 't-winner' : ''}">${teamB?.name || '?'}</span>
+                  <span class="t-match-team ${winB ? 't-winner' : ''}">${tEsc(teamB?.name || '?')}</span>
                 </div>
                 <div class="t-match-score">
                   ${isDone ? `<span class="t-score ${winA ? 't-score-win' : ''}">${m.score_a}</span>
@@ -734,7 +736,7 @@ function renderRRRounds(matches, tMap, tournament) {
           ${byes.map(m => `
             <div class="t-bye-row">
               <span class="t-bye-label">BYE</span>
-              <span class="t-bye-team">${tMap[m.team_a_id]?.name || '?'}</span>
+              <span class="t-bye-team">${tEsc(tMap[m.team_a_id]?.name || '?')}</span>
             </div>`).join('')}
         </div>
       </div>`;
@@ -753,7 +755,7 @@ function tRenderStandings(standings, catName) {
             <tr class="${i < 4 ? 't-row-qualify' : ''}">
               <td><span class="t-rank ${i===0?'t-rank-1':i===1?'t-rank-2':i===2?'t-rank-3':''}">${i + 1}</span></td>
               <td class="t-team-cell">
-                ${s.name}
+                ${tEsc(s.name)}
                 ${s.forfeited ? '<span class="t-forfeit-badge">FORFEIT</span>' : ''}
               </td>
               <td class="t-win-cell">${s.w}</td>
@@ -790,23 +792,23 @@ function renderBracket(matches, tMap, tournament) {
       <div class="t-podium">
         <div class="t-podium-slot t-podium-silver">
           <div class="t-podium-medal">🥈</div>
-          <div class="t-podium-team">${runnerUp?.name || '—'}</div>
-          ${runnerUpPlayers && runnerUpPlayers !== (runnerUp?.name || '') ? `<div class="t-podium-players">${runnerUpPlayers}</div>` : ''}
+          <div class="t-podium-team">${tEsc(runnerUp?.name || '—')}</div>
+          ${runnerUpPlayers && runnerUpPlayers !== (runnerUp?.name || '') ? `<div class="t-podium-players">${tEsc(runnerUpPlayers)}</div>` : ''}
           <div class="t-podium-label">2nd Place</div>
           <div class="t-podium-bar t-bar-silver"></div>
         </div>
         <div class="t-podium-slot t-podium-gold">
           <div class="t-podium-crown">👑</div>
           <div class="t-podium-medal">🥇</div>
-          <div class="t-podium-team t-champion">${champion?.name || '—'}</div>
-          ${championPlayers && championPlayers !== (champion?.name || '') ? `<div class="t-podium-players">${championPlayers}</div>` : ''}
+          <div class="t-podium-team t-champion">${tEsc(champion?.name || '—')}</div>
+          ${championPlayers && championPlayers !== (champion?.name || '') ? `<div class="t-podium-players">${tEsc(championPlayers)}</div>` : ''}
           <div class="t-podium-label">Champion</div>
           <div class="t-podium-bar t-bar-gold"></div>
         </div>
         ${third ? `<div class="t-podium-slot t-podium-bronze">
           <div class="t-podium-medal">🥉</div>
-          <div class="t-podium-team">${third.name}</div>
-          ${thirdPlayers && thirdPlayers !== third.name ? `<div class="t-podium-players">${thirdPlayers}</div>` : ''}
+          <div class="t-podium-team">${tEsc(third.name)}</div>
+          ${thirdPlayers && thirdPlayers !== third.name ? `<div class="t-podium-players">${tEsc(thirdPlayers)}</div>` : ''}
           <div class="t-podium-label">3rd Place</div>
           <div class="t-podium-bar t-bar-bronze"></div>
         </div>` : ''}
@@ -828,7 +830,7 @@ function renderBracket(matches, tMap, tournament) {
             ${m.court ? `<div style="font-size:9px;font-weight:800;letter-spacing:1px;color:#6b7a99;padding:4px 14px;background:#f4f6fc;border-bottom:1px solid #d6dff5;">COURT ${m.court}</div>` : ''}
             <div class="t-bracket-team ${winA ? 't-bracket-winner' : ''} ${!m.team_a_id ? 't-bracket-tbd' : ''}">
               <div style="flex:1;">
-                <div style="font-weight:700;">${teamA?.name || 'TBD'}</div>
+                <div style="font-weight:700;">${tEsc(teamA?.name || 'TBD')}</div>
                 ${teamA ? `<div style="font-size:10px;color:#6b7a99;font-weight:500;margin-top:1px;">${getTeamPlayerNames(teamA)}</div>` : ''}
               </div>
               ${isDone ? `<span class="t-bracket-score ${winA ? 't-bracket-score-win' : ''}">${m.score_a}</span>` : ''}
@@ -836,7 +838,7 @@ function renderBracket(matches, tMap, tournament) {
             <div class="t-bracket-divider"></div>
             <div class="t-bracket-team ${winB ? 't-bracket-winner' : ''} ${!m.team_b_id ? 't-bracket-tbd' : ''}">
               <div style="flex:1;">
-                <div style="font-weight:700;">${teamB?.name || 'TBD'}</div>
+                <div style="font-weight:700;">${tEsc(teamB?.name || 'TBD')}</div>
                 ${teamB ? `<div style="font-size:10px;color:#6b7a99;font-weight:500;margin-top:1px;">${getTeamPlayerNames(teamB)}</div>` : ''}
               </div>
               ${isDone ? `<span class="t-bracket-score ${winB ? 't-bracket-score-win' : ''}">${m.score_b}</span>` : ''}
@@ -867,9 +869,10 @@ async function showAddTeam(catId) {
       const opacity = alreadyIn ? 'opacity:0.4;pointer-events:none;' : '';
       const disabled = alreadyIn ? 'disabled' : '';
       const tag = alreadyIn ? '<span style="font-size:10px;color:#6b7a99;margin-left:6px;">already added</span>' : '';
-      playerRows += '<div class="t-lp-row" data-name="' + (p.first_name+' '+p.last_name).toLowerCase() + '" style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:0.5px solid #d6dff5;' + opacity + '">'
+      const nameLower = (p.first_name + ' ' + p.last_name).toLowerCase();
+      playerRows += '<div class="t-lp-row" data-name="' + tEsc(nameLower) + '" style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:0.5px solid #d6dff5;' + opacity + '">'
         + '<input type="checkbox" id="t-pcb-' + p.id + '" data-pid="' + p.id + '" ' + disabled + ' style="width:16px;height:16px;cursor:pointer;" onchange="tUpdatePlayerCount()">'
-        + '<label for="t-pcb-' + p.id + '" style="font-size:13px;font-weight:600;cursor:pointer;flex:1;">' + p.first_name + ' ' + p.last_name + tag + '</label>'
+        + '<label for="t-pcb-' + p.id + '" style="font-size:13px;font-weight:600;cursor:pointer;flex:1;">' + tEsc(p.first_name) + ' ' + tEsc(p.last_name) + tag + '</label>'
         + '</div>';
     });
 
@@ -899,7 +902,7 @@ async function showAddTeam(catId) {
   // Non-singles: original team form
   const playersPerTeam = catName.toLowerCase().includes('team_challenge') ? 4 : 2;
   const playerOpts = tAllPlayers.filter(p => p.status !== 'inactive')
-    .map(p => `<option value="${p.id}">${p.first_name} ${p.last_name}</option>`).join('');
+    .map(p => `<option value="${p.id}">${tEsc(p.first_name)} ${tEsc(p.last_name)}</option>`).join('');
   const playerFields = Array.from({length: playersPerTeam}, (_, i) => `
     <div class="t-form-group">
       <label class="t-label">Player ${i + 1}</label>
@@ -962,7 +965,7 @@ async function editTeam(teamId, catId) {
   const singles = isSingles(cat.name);
   const playersPerTeam = cat.name.toLowerCase().includes('team_challenge') ? 4 : singles ? 1 : 2;
   const playerOpts = tAllPlayers.filter(p => p.status !== 'inactive')
-    .map(p => `<option value="${p.id}">${p.first_name} ${p.last_name}</option>`).join('');
+    .map(p => `<option value="${p.id}">${tEsc(p.first_name)} ${tEsc(p.last_name)}</option>`).join('');
   const playerIds = [team.player1_id, team.player2_id, team.player3_id, team.player4_id];
   const playerFields = Array.from({length: playersPerTeam}, (_, i) => `
     <div class="t-form-group">
@@ -977,7 +980,7 @@ async function editTeam(teamId, catId) {
       ${!singles ? `
       <div class="t-form-group">
         <label class="t-label">Team name *</label>
-        <input class="t-input" type="text" id="t-edit-team-name" required value="${team.name}">
+        <input class="t-input" type="text" id="t-edit-team-name" required value="${tEsc(team.name)}">
       </div>` : `<input type="hidden" id="t-edit-team-name" value="">`}
       ${playerFields}
       <div class="t-form-actions">
@@ -1208,22 +1211,22 @@ async function openScoreModal(type, matchId, teamAId, teamBId, catId) {
       </div>
       ${singlesMatch ? `
       <div class="t-singles-header">
-        <span class="t-singles-player-col">${teamA?.name || '?'}</span>
+        <span class="t-singles-player-col">${tEsc(teamA?.name || '?')}</span>
         <span></span>
-        <span class="t-singles-player-col">${teamB?.name || '?'}</span>
+        <span class="t-singles-player-col">${tEsc(teamB?.name || '?')}</span>
       </div>
       <div id="t-games-container">
         ${buildGameRows(bestOf, teamA?.name || '?', teamB?.name || '?', existingGames)}
       </div>
       <div style="display:flex;justify-content:space-around;margin-top:12px;">
-        <label class="t-forfeit-check-label"><input type="checkbox" id="t-forfeit-a" onchange="onForfeitCheck('a','b')"> ${teamA?.name || '?'} Forfeit</label>
-        <label class="t-forfeit-check-label"><input type="checkbox" id="t-forfeit-b" onchange="onForfeitCheck('b','a')"> ${teamB?.name || '?'} Forfeit</label>
+        <label class="t-forfeit-check-label"><input type="checkbox" id="t-forfeit-a" onchange="onForfeitCheck('a','b')"> ${tEsc(teamA?.name || '?')} Forfeit</label>
+        <label class="t-forfeit-check-label"><input type="checkbox" id="t-forfeit-b" onchange="onForfeitCheck('b','a')"> ${tEsc(teamB?.name || '?')} Forfeit</label>
       </div>
       <div id="t-score-preview" class="t-score-preview" style="margin-top:12px;"></div>
       ` : `
       <div class="t-score-teams">
         <div class="t-score-team">
-          <div class="t-score-team-name">${teamA?.name || '?'}</div>
+          <div class="t-score-team-name">${tEsc(teamA?.name || '?')}</div>
           <input class="t-score-input" type="number" min="0" max="25" id="t-score-a" value="${match.score_a ?? ''}" placeholder="0">
           <label class="t-forfeit-check-label">
             <input type="checkbox" id="t-forfeit-a" onchange="onForfeitCheck('a','b')"> Forfeit
@@ -1231,7 +1234,7 @@ async function openScoreModal(type, matchId, teamAId, teamBId, catId) {
         </div>
         <div class="t-score-divider">VS</div>
         <div class="t-score-team">
-          <div class="t-score-team-name">${teamB?.name || '?'}</div>
+          <div class="t-score-team-name">${tEsc(teamB?.name || '?')}</div>
           <input class="t-score-input" type="number" min="0" max="25" id="t-score-b" value="${match.score_b ?? ''}" placeholder="0">
           <label class="t-forfeit-check-label">
             <input type="checkbox" id="t-forfeit-b" onchange="onForfeitCheck('b','a')"> Forfeit
@@ -1389,17 +1392,23 @@ async function completeTournament(id) {
   // Validate all teams have players and all matches have scores
   const categories = await tApi(`tournament_categories?tournament_id=eq.${id}&select=id,name`);
   const errors = [];
-  for (const cat of categories) {
-    const teams = await tApi(`tournament_teams?category_id=eq.${cat.id}&select=*`);
+  // Fetch all per-category data in parallel — N×3 queries become 3 round-trips total
+  const validations = await Promise.all(categories.map(async (cat) => {
+    const [teams, rrMatches, bracketMatches] = await Promise.all([
+      tApi(`tournament_teams?category_id=eq.${cat.id}&select=*`),
+      tApi(`tournament_rr_matches?category_id=eq.${cat.id}&status=eq.pending&select=id`),
+      tApi(`tournament_bracket_matches?category_id=eq.${cat.id}&status=eq.pending&select=id`),
+    ]);
+    return { cat, teams, rrMatches, bracketMatches };
+  }));
+  for (const { cat, teams, rrMatches, bracketMatches } of validations) {
     const teamsWithoutPlayers = teams.filter(t => !t.player1_id);
     if (teamsWithoutPlayers.length) {
       errors.push(`"${cat.name}": ${teamsWithoutPlayers.length} team(s) have no players registered.`);
     }
-    const rrMatches = await tApi(`tournament_rr_matches?category_id=eq.${cat.id}&status=eq.pending&select=id`);
     if (rrMatches.length) {
       errors.push(`"${cat.name}": ${rrMatches.length} round robin match(es) have no scores.`);
     }
-    const bracketMatches = await tApi(`tournament_bracket_matches?category_id=eq.${cat.id}&status=eq.pending&select=id`);
     if (bracketMatches.length) {
       errors.push(`"${cat.name}": ${bracketMatches.length} finals match(es) have no scores.`);
     }
@@ -1497,32 +1506,39 @@ async function processForfeit(type, matchId, teamAId, teamBId, catId, forfeitTea
     const pendingRR = await tApi(
       `tournament_rr_matches?category_id=eq.${catId}&status=eq.pending&select=*`
     );
-    for (const m of pendingRR) {
-      if (m.team_a_id === forfeitTeamId || m.team_b_id === forfeitTeamId) {
-        const win = m.team_a_id === forfeitTeamId ? m.team_b_id : m.team_a_id;
-        const sA = m.team_a_id === forfeitTeamId ? 0 : playTo;
-        const sB = m.team_b_id === forfeitTeamId ? 0 : playTo;
-        await tApi(`tournament_rr_matches?id=eq.${m.id}`, 'PATCH', {
-          score_a: sA, score_b: sB, winner_id: win,
-          status: 'completed', forfeit_team_id: forfeitTeamId
-        });
-      }
-    }
+    const rrToForfeit = pendingRR.filter(
+      m => m.team_a_id === forfeitTeamId || m.team_b_id === forfeitTeamId
+    );
+    await Promise.all(rrToForfeit.map((m) => {
+      const win = m.team_a_id === forfeitTeamId ? m.team_b_id : m.team_a_id;
+      const sA = m.team_a_id === forfeitTeamId ? 0 : playTo;
+      const sB = m.team_b_id === forfeitTeamId ? 0 : playTo;
+      return tApi(`tournament_rr_matches?id=eq.${m.id}`, 'PATCH', {
+        score_a: sA, score_b: sB, winner_id: win,
+        status: 'completed', forfeit_team_id: forfeitTeamId
+      });
+    }));
 
     const pendingBracket = await tApi(
       `tournament_bracket_matches?category_id=eq.${catId}&status=eq.pending&select=*`
     );
-    for (const m of pendingBracket) {
-      if (m.team_a_id === forfeitTeamId || m.team_b_id === forfeitTeamId) {
-        const win = m.team_a_id === forfeitTeamId ? m.team_b_id : m.team_a_id;
-        const sA = m.team_a_id === forfeitTeamId ? 0 : playTo;
-        const sB = m.team_b_id === forfeitTeamId ? 0 : playTo;
-        await tApi(`tournament_bracket_matches?id=eq.${m.id}`, 'PATCH', {
-          score_a: sA, score_b: sB, winner_id: win,
-          status: 'completed', forfeit_team_id: forfeitTeamId
-        });
-        await advanceBracket(m.id, win, forfeitTeamId, catId);
-      }
+    const bracketToForfeit = pendingBracket.filter(
+      m => m.team_a_id === forfeitTeamId || m.team_b_id === forfeitTeamId
+    );
+    // Each bracket forfeit must propagate via advanceBracket; PATCH them in parallel,
+    // then advanceBracket sequentially to keep deterministic chained updates.
+    await Promise.all(bracketToForfeit.map((m) => {
+      const win = m.team_a_id === forfeitTeamId ? m.team_b_id : m.team_a_id;
+      const sA = m.team_a_id === forfeitTeamId ? 0 : playTo;
+      const sB = m.team_b_id === forfeitTeamId ? 0 : playTo;
+      return tApi(`tournament_bracket_matches?id=eq.${m.id}`, 'PATCH', {
+        score_a: sA, score_b: sB, winner_id: win,
+        status: 'completed', forfeit_team_id: forfeitTeamId
+      });
+    }));
+    for (const m of bracketToForfeit) {
+      const win = m.team_a_id === forfeitTeamId ? m.team_b_id : m.team_a_id;
+      await advanceBracket(m.id, win, forfeitTeamId, catId);
     }
 
     closeTModal();
@@ -1577,11 +1593,7 @@ function restoreScoreModal(title, body) {
 // ─── MODAL HELPERS ──────────────────────────────────────────
 function openTModal() { document.getElementById('t-modal').classList.add('t-modal-open'); }
 function closeTModal() { document.getElementById('t-modal').classList.remove('t-modal-open'); }
-function tToast(msg, err = false) {
-  // Reuse main app toast if available
-  if (typeof toast === 'function') { toast(msg, err); return; }
-  alert(msg);
-}
+// (tToast is defined at the top of this file as a shim around the shared toast.)
 
 // ─── SINGLES HELPERS ────────────────────────────────────────
 
@@ -1617,23 +1629,28 @@ async function saveMultiplePlayers(catId) {
   const btn = document.querySelector('.t-modal .t-btn-primary');
   if (btn) { btn.disabled = true; btn.textContent = 'Adding...'; }
   try {
-    for (const cb of checked) {
+    // Build all rows, then send a single bulk POST
+    const rows = checked.map(cb => {
       const pid = parseInt(cb.dataset.pid);
       const p = tAllPlayers.find(x => x.id === pid);
-      if (!p) continue;
-      const name = `${p.first_name} ${p.last_name}`;
-      await tApi('tournament_teams', 'POST', {
+      if (!p) return null;
+      return {
         category_id: catId,
-        name,
+        name: `${p.first_name} ${p.last_name}`,
         player1_id: pid,
-        player2_id: null, player3_id: null, player4_id: null
-      });
+        player2_id: null, player3_id: null, player4_id: null,
+      };
+    }).filter(Boolean);
+    if (rows.length) {
+      await tApi('tournament_teams', 'POST', rows);
     }
-    tToast(`${checked.length} player${checked.length !== 1 ? 's' : ''} added!`);
+    tToast(`${rows.length} player${rows.length !== 1 ? 's' : ''} added!`);
     closeTModal();
     tCurrentCategoryId = catId;
-    const [t] = await tApi(`tournaments?id=eq.${tCurrentTournamentId}&select=*`);
-    const categories = await tApi(`tournament_categories?tournament_id=eq.${tCurrentTournamentId}&select=*&order=id`);
+    const [t, categories] = await Promise.all([
+      tApi(`tournaments?id=eq.${tCurrentTournamentId}&select=*`).then(r => r[0]),
+      tApi(`tournament_categories?tournament_id=eq.${tCurrentTournamentId}&select=*&order=id`),
+    ]);
     renderTournamentDetail(t, categories);
   } catch(err) { tToast(`Error: ${err.message}`, true); }
 }

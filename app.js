@@ -1,1941 +1,1609 @@
+/* ============================================================
+   FEROCIA SPORTS CENTER — MAIN APP (admin index.html)
+   Depends on: config.js, db.js, assets.js, app.css, tournament.css
+   Globals provided: api, escapeHtml/esc, fmtDate, sleep, todayISO,
+                     toast, confirmModal, FEROCIA_CONFIG
+   ============================================================ */
 
-const SUPABASE_URL='https://yyocceadorckkfbgnbqk.supabase.co';
-const SUPABASE_KEY='sb_publishable_Lhc3oHL90kL7O0vO3kJQgQ_BqQfc4Il';
+(function () {
+  'use strict';
 
-const api=async(path,method='GET',body=null)=>{
-  const res=await fetch(`${SUPABASE_URL}/rest/v1/${path}`,{
-    method,
-    headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`,'Content-Type':'application/json','Prefer':(method==='POST'||method==='PATCH')?'return=representation':''},
-    body:body?JSON.stringify(body):null
-  });
-  if(!res.ok){const e=await res.json();throw new Error(e.message||'API error');}
-  if(method==='DELETE'||method==='PATCH'){const t=await res.text();return t?JSON.parse(t):null;}
-  return res.json();
-};
-
-let allPlayers=[];
-let allLadders=[];
-let currentLadder=null;
-let ladderPlayers=[];
-let courtPlayers=[];
-let noShowPlayer=null;
-let noShowPenalty=-4;
-let gameCount=0;
-let extraGameCount=0;
-let extraGames=[];
-
-const toast=(msg,err=false)=>{
-  const bannerId=err?'error-banner':'success-banner';
-  const msgId=err?'error-banner-msg':'success-banner-msg';
-  const other=err?'success-banner':'error-banner';
-  document.getElementById(other).style.display='none';
-  document.getElementById(msgId).textContent=msg;
-  document.getElementById(bannerId).style.display='block';
-  clearTimeout(window._toastTimer);
-  window._toastTimer=setTimeout(()=>{
-    document.getElementById(bannerId).style.display='none';
-  },4000);
-};
-
-const goHome=()=>{
-  // Reset all navs and show home page
-  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  document.getElementById('page-home').classList.add('active');
-  document.getElementById('subnav-programs').style.display='none';
-  document.getElementById('subnav-management').style.display='none';
-  document.getElementById('subnav-ladder-options').style.display='none';
-  document.getElementById('subnav-tournament-options').style.display='none';
-  document.getElementById('tab-home').classList.add('active');
-};
-
-const switchMainTab=(tab)=>{
-  // Hide home page
-  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  document.getElementById('tab-home').classList.remove('active');
-
-  const ladderOpts=document.getElementById('subnav-ladder-options');
-  const tournOpts=document.getElementById('subnav-tournament-options');
-
-  if(tab==='programs'){
-    document.getElementById('subnav-programs').style.display='flex';
-    document.getElementById('subnav-management').style.display='none';
-    if(ladderOpts) ladderOpts.style.display='none';
-    if(tournOpts) tournOpts.style.display='none';
-    document.getElementById('prog-tab-ladder').classList.remove('active');
-    document.getElementById('prog-tab-tournament').classList.remove('active');
-    // Show Programs landing page
-    document.getElementById('page-programs-home').classList.add('active');
-  } else if(tab==='management'){
-    document.getElementById('subnav-programs').style.display='none';
-    document.getElementById('subnav-management').style.display='flex';
-    if(ladderOpts) ladderOpts.style.display='none';
-    if(tournOpts) tournOpts.style.display='none';
-    const activeBtn=document.querySelector('#subnav-management button.active');
-    if(activeBtn) showPage(activeBtn.dataset.page,activeBtn);
-    else showPage('players',document.querySelector('#subnav-management button'));
+  const CFG = window.FEROCIA_CONFIG;
+  if (!CFG) {
+    console.error('[Ferocia] config.js must load before app.js');
+    return;
   }
-};
 
-const switchProgramTab=(tab)=>{
-  const ladderOpts=document.getElementById('subnav-ladder-options');
-  const tournOpts=document.getElementById('subnav-tournament-options');
-  // Hide programs home landing
-  document.getElementById('page-programs-home').classList.remove('active');
-  document.getElementById('prog-tab-ladder').classList.toggle('active',tab==='ladder');
-  document.getElementById('prog-tab-tournament').classList.toggle('active',tab==='tournament');
-  ladderOpts.style.display=tab==='ladder'?'flex':'none';
-  tournOpts.style.display=tab==='tournament'?'flex':'none';
-  if(tab==='ladder'){
-    const standingsBtn=document.querySelector('#subnav-ladder-options button[data-page="ladder"]');
-    loadLadderSelector().then(()=>{
-      if(currentLadder) showPage('ladder',standingsBtn);
-      else{
-        document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  /* ─── STATE ────────────────────────────────────────────── */
+
+  let allPlayers = [];
+  let allLadders = [];
+  let currentLadder = null;
+  let ladderPlayers = [];
+  let courtPlayers = [];
+  let noShowPlayer = null;
+  let noShowPenalty = -4;
+  let gameCount = 0;
+  let extraGameCount = 0;
+  let extraGames = [];
+  let modalLadderId = null;
+  let currentTournamentId = null; // used by the read-only tournament selector
+
+  /* ─── NAVIGATION ───────────────────────────────────────── */
+
+  const goHome = () => {
+    document.querySelectorAll('.page').forEach((p) => p.classList.remove('active'));
+    document.getElementById('page-home').classList.add('active');
+    document.getElementById('subnav-programs').style.display = 'none';
+    document.getElementById('subnav-management').style.display = 'none';
+    document.getElementById('subnav-ladder-options').style.display = 'none';
+    document.getElementById('subnav-tournament-options').style.display = 'none';
+    document.getElementById('tab-home').classList.add('active');
+  };
+
+  const switchMainTab = (tab) => {
+    document.querySelectorAll('.page').forEach((p) => p.classList.remove('active'));
+    document.getElementById('tab-home').classList.remove('active');
+
+    const ladderOpts = document.getElementById('subnav-ladder-options');
+    const tournOpts = document.getElementById('subnav-tournament-options');
+
+    if (tab === 'programs') {
+      document.getElementById('subnav-programs').style.display = 'flex';
+      document.getElementById('subnav-management').style.display = 'none';
+      if (ladderOpts) ladderOpts.style.display = 'none';
+      if (tournOpts) tournOpts.style.display = 'none';
+      document.getElementById('prog-tab-ladder').classList.remove('active');
+      document.getElementById('prog-tab-tournament').classList.remove('active');
+      document.getElementById('page-programs-home').classList.add('active');
+    } else if (tab === 'management') {
+      document.getElementById('subnav-programs').style.display = 'none';
+      document.getElementById('subnav-management').style.display = 'flex';
+      if (ladderOpts) ladderOpts.style.display = 'none';
+      if (tournOpts) tournOpts.style.display = 'none';
+      const activeBtn = document.querySelector('#subnav-management button.active');
+      if (activeBtn) showPage(activeBtn.dataset.page, activeBtn);
+      else showPage('players', document.querySelector('#subnav-management button'));
+    }
+  };
+
+  const switchProgramTab = (tab) => {
+    const ladderOpts = document.getElementById('subnav-ladder-options');
+    const tournOpts = document.getElementById('subnav-tournament-options');
+    document.getElementById('page-programs-home').classList.remove('active');
+    document.getElementById('prog-tab-ladder').classList.toggle('active', tab === 'ladder');
+    document.getElementById('prog-tab-tournament').classList.toggle('active', tab === 'tournament');
+    ladderOpts.style.display = tab === 'ladder' ? 'flex' : 'none';
+    tournOpts.style.display = tab === 'tournament' ? 'flex' : 'none';
+    if (tab === 'ladder') {
+      const standingsBtn = document.querySelector('#subnav-ladder-options button[data-page="ladder"]');
+      loadLadderSelector().then(() => {
+        if (currentLadder) showPage('ladder', standingsBtn);
+        else document.querySelectorAll('.page').forEach((p) => p.classList.remove('active'));
+      });
+    } else {
+      loadTournamentSelector();
+      const tvBtn = document.querySelector('#subnav-tournament-options button[data-page="tournament-view"]');
+      showPage('tournament-view', tvBtn);
+    }
+  };
+
+  const loadTournamentSelector = async () => {
+    const sel = document.getElementById('tournament-selector');
+    if (!sel) return;
+    try {
+      const tournaments = await api('tournaments?select=*&order=id.desc');
+      sel.innerHTML =
+        '<option value="">-- Select a tournament --</option>' +
+        tournaments
+          .map(
+            (t) =>
+              `<option value="${t.id}">${esc(t.name)}${t.status === 'completed' ? ' (completed)' : ''}</option>`,
+          )
+          .join('');
+    } catch (e) {
+      toast(`Error loading tournaments: ${e.message}`, true);
+    }
+  };
+
+  const onTournamentChange = async () => {
+    const tid = document.getElementById('tournament-selector').value;
+    const el = document.getElementById('tournament-view-content');
+    if (!tid) {
+      el.innerHTML = '<div class="empty">Select a tournament to view details.</div>';
+      return;
+    }
+    currentTournamentId = parseInt(tid, 10);
+    await renderTournamentViewReadOnly();
+  };
+
+  const renderTournamentViewReadOnly = async () => {
+    const el = document.getElementById('tournament-view-content');
+    if (!currentTournamentId) {
+      el.innerHTML = '<div class="empty">Select a tournament to view details.</div>';
+      return;
+    }
+    el.innerHTML = '<div class="loading">Loading tournament...</div>';
+    try {
+      const [tArr, categories] = await Promise.all([
+        api(`tournaments?id=eq.${currentTournamentId}&select=*`),
+        api(`tournament_categories?tournament_id=eq.${currentTournamentId}&select=*&order=id`),
+      ]);
+      const t = tArr[0];
+      if (!t) {
+        el.innerHTML = '<div class="empty">Tournament not found.</div>';
+        return;
       }
-    });
-  } else {
-    loadTournamentSelector();
-    showPage('tournament-view',document.querySelector('#subnav-tournament-options button[data-page="tournament-view"]'));
-  }
-};
+      const dateStr = t.date
+        ? fmtDate(t.date, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
+        : 'No date set';
+      el.innerHTML = `
+        <div class="card">
+          <div class="text-bolder" style="font-size:18px;">${esc(t.name)}</div>
+          <div class="text-muted-sm mt-4">${dateStr}</div>
+          <div class="text-muted-13 mt-12">
+            ${categories.length} categor${categories.length !== 1 ? 'ies' : 'y'}: ${categories.map((c) => esc(c.name)).join(' · ')}
+          </div>
+          <div class="bg-pale color-blue mt-16 text-bold" style="padding:14px;border-radius:var(--radius-sm);font-size:13px;">
+            To manage this tournament go to <strong>Management → Tournaments</strong>
+          </div>
+        </div>`;
+    } catch (e) {
+      el.innerHTML = `<div class="empty">Error: ${esc(e.message)}</div>`;
+    }
+  };
 
-const loadTournamentSelector=async()=>{
-  const sel=document.getElementById('tournament-selector');
-  if(!sel)return;
-  const tournaments=await api('tournaments?select=*&order=id.desc');
-  sel.innerHTML='<option value="">-- Select a tournament --</option>'+
-    tournaments.map(t=>`<option value="${t.id}">${t.name}${t.status==='completed'?' (completed)':''}</option>`).join('');
-};
+  const showPage = (name, btn) => {
+    document.querySelectorAll('.page').forEach((p) => p.classList.remove('active'));
+    document
+      .querySelectorAll('.sub-nav:not([style*="display:none"]):not([style*="display: none"]) button')
+      .forEach((b) => b.classList.remove('active'));
+    document.getElementById(`page-${name}`).classList.add('active');
+    if (btn) btn.classList.add('active');
+    if (name === 'ladder') loadLadder();
+    if (name === 'sessions') loadSessions();
+    if (name === 'players') loadPlayers();
+    if (name === 'entry') initEntry();
+    if (name === 'ladders') loadLaddersPage();
+    if (name === 'add-player') initAddPlayer();
+    if (name === 'share') loadSharePage();
+    if (name === 'promotions' && typeof loadPromotionsPage !== 'undefined') loadPromotionsPage();
+    if (name === 't-tournaments' && typeof loadTournamentModule !== 'undefined') loadTournamentModule();
+    // Management pages: ensure correct subnav is visible
+    const mgmtPages = ['players', 'add-player', 'ladders', 't-tournaments', 'promotions', 'share'];
+    if (mgmtPages.includes(name)) {
+      document.getElementById('subnav-management').style.display = 'flex';
+      document.getElementById('subnav-programs').style.display = 'none';
+      document.getElementById('subnav-ladder-options').style.display = 'none';
+      document.getElementById('subnav-tournament-options').style.display = 'none';
+      document.getElementById('page-home').classList.remove('active');
+      document.getElementById('page-programs-home').classList.remove('active');
+      document.getElementById('tab-home').classList.remove('active');
+    }
+    if (name === 'tournament-view') {
+      const el = document.getElementById('tournament-view-content');
+      if (el && !currentTournamentId) {
+        el.innerHTML = '<div class="empty">Select a tournament from the dropdown above.</div>';
+      }
+    }
+  };
 
-const onTournamentChange=async()=>{
-  const tid=document.getElementById('tournament-selector').value;
-  if(!tid){document.getElementById('tournament-view-content').innerHTML='<div class="empty">Select a tournament to view details.</div>';return;}
-  currentTournamentId=parseInt(tid);
-  await renderTournamentViewReadOnly();
-};
+  /* ─── LADDER SELECTOR ──────────────────────────────────── */
 
-const renderTournamentViewReadOnly=async()=>{
-  const el=document.getElementById('tournament-view-content');
-  if(!currentTournamentId){el.innerHTML='<div class="empty">Select a tournament to view details.</div>';return;}
-  el.innerHTML='<div class="loading">Loading tournament...</div>';
-  try{
-    const [tArr,categories]=await Promise.all([
-      api(`tournaments?id=eq.${currentTournamentId}&select=*`),
-      api(`tournament_categories?tournament_id=eq.${currentTournamentId}&select=*&order=id`)
-    ]);
-    const t=tArr[0]; if(!t){el.innerHTML='<div class="empty">Tournament not found.</div>';return;}
-    const date=t.date?new Date(t.date+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'}):'No date set';
-    el.innerHTML=`
-      <div class="card">
-        <div style="font-size:18px;font-weight:800;">${t.name}</div>
-        <div style="font-size:12px;color:var(--text-muted);margin-top:4px;font-weight:600;">${date}</div>
-        <div style="margin-top:12px;font-size:13px;color:var(--text-muted);">
-          ${categories.length} categor${categories.length!==1?'ies':'y'}: ${categories.map(c=>c.name).join(' · ')}
-        </div>
-        <div style="margin-top:16px;padding:14px;background:var(--blue-pale);border-radius:var(--radius-sm);font-size:13px;color:var(--blue);font-weight:600;">
-          To manage this tournament go to <strong>Management → Tournaments</strong>
-        </div>
-      </div>`;
-  }catch(e){el.innerHTML=`<div class="empty">Error: ${e.message}</div>`;}
-};;
+  const loadLadderSelector = async () => {
+    try {
+      allLadders = await api('ladders?select=*&order=id.desc');
+    } catch (e) {
+      toast(`Error loading ladders: ${e.message}`, true);
+      return;
+    }
+    const sel = document.getElementById('ladder-selector');
+    if (!sel) return;
+    if (!allLadders.length) {
+      sel.innerHTML = '<option value="">-- No ladders yet --</option>';
+      currentLadder = null;
+      return;
+    }
+    sel.innerHTML =
+      '<option value="">-- Select a ladder --</option>' +
+      allLadders
+        .map(
+          (l) =>
+            `<option value="${l.id}">${esc(l.name)}${l.status === 'closed' ? ' (closed)' : ''}</option>`,
+        )
+        .join('');
+    sel.value = '';
+    currentLadder = null;
+  };
 
-const showPage=(name,btn)=>{
-  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  // Only deactivate buttons in visible subnavs, not all subnavs
-  document.querySelectorAll('.sub-nav:not([style*="display:none"]):not([style*="display: none"]) button').forEach(b=>b.classList.remove('active'));
-  document.getElementById(`page-${name}`).classList.add('active');
-  if(btn)btn.classList.add('active');
-  if(name==='ladder')loadLadder();
-  if(name==='sessions')loadSessions();
-  if(name==='players')loadPlayers();
-  if(name==='entry')initEntry();
-  if(name==='ladders')loadLaddersPage();
-  if(name==='add-player')initAddPlayer();
-  if(name==='share')loadSharePage();
-  if(name==='promotions'){if(typeof loadPromotionsPage!=='undefined')loadPromotionsPage();}
-  if(name==='t-tournaments'){if(typeof loadTournamentModule!=='undefined')loadTournamentModule();}
-  if(name==='tournaments'){if(typeof loadTournamentsPage!=='undefined')loadTournamentsPage();}
-  // Ensure management pages always have the management subnav visible
-  const mgmtPages=['players','add-player','ladders','tournaments','share'];
-  if(mgmtPages.includes(name)){
-    document.getElementById('subnav-management').style.display='flex';
-    document.getElementById('subnav-programs').style.display='none';
-    document.getElementById('subnav-ladder-options').style.display='none';
-    document.getElementById('subnav-tournament-options').style.display='none';
+  const onLadderChange = async () => {
+    const id = parseInt(document.getElementById('ladder-selector').value, 10);
+    currentLadder = allLadders.find((l) => l.id === id) || null;
+    updateLadderBanner();
+    await loadLadderPlayers();
     document.getElementById('page-home').classList.remove('active');
     document.getElementById('page-programs-home').classList.remove('active');
     document.getElementById('tab-home').classList.remove('active');
-  }
-  if(name==='tournament-view'){const el=document.getElementById('tournament-view-content');if(el&&!currentTournamentId)el.innerHTML='<div class="empty">Select a tournament from the dropdown above.</div>';}
-};
-
-// ─── LADDER SELECTOR ────────────────────────────────────────────────
-const loadLadderSelector=async()=>{
-  allLadders=await api('ladders?select=*&order=id.desc');
-  const sel=document.getElementById('ladder-selector');
-  if(!sel)return;
-  if(!allLadders.length){
-    sel.innerHTML='<option value="">-- No ladders yet --</option>';
-    currentLadder=null;
-    return;
-  }
-  sel.innerHTML='<option value="">-- Select a ladder --</option>'+
-    allLadders.map(l=>`<option value="${l.id}">${l.name}${l.status==='closed'?' (closed)':''}</option>`).join('');
-  sel.value='';
-  currentLadder=null;
-  // Do NOT navigate or call updateLadderBanner here — user hasn't clicked anything yet
-};
-
-const onLadderChange=async()=>{
-  const id=parseInt(document.getElementById('ladder-selector').value);
-  currentLadder=allLadders.find(l=>l.id===id)||null;
-  updateLadderBanner();
-  await loadLadderPlayers();
-  // Hide home pages, show ladder content
-  document.getElementById('page-home').classList.remove('active');
-  document.getElementById('page-programs-home').classList.remove('active');
-  document.getElementById('tab-home').classList.remove('active');
-  document.getElementById('subnav-programs').style.display='flex';
-  document.getElementById('subnav-management').style.display='none';
-  document.getElementById('prog-tab-ladder').classList.add('active');
-  document.getElementById('prog-tab-tournament').classList.remove('active');
-  document.getElementById('subnav-ladder-options').style.display='flex';
-  document.getElementById('subnav-tournament-options').style.display='none';
-  // Show standings
-  const standingsBtn=document.querySelector('#subnav-ladder-options button[data-page="ladder"]');
-  showPage('ladder', standingsBtn);
-};
-
-const updateLadderBanner=()=>{
-  const ladderPages=['ladder','sessions','entry'];
-  const ladderNavBtns=document.querySelectorAll('#subnav-ladder-options button[data-page]');
-  if(!currentLadder){
-    ladderNavBtns.forEach(b=>{if(ladderPages.includes(b.dataset.page))b.disabled=true;});
-    ladderPages.forEach(p=>{const el=document.getElementById(`page-${p}`);if(el)el.classList.add('page-disabled');});
-    document.getElementById('subnav-ladder-options')?.querySelectorAll('button[data-page]').forEach(b=>{if(ladderPages.includes(b.dataset.page))b.disabled=true;});
-    return;
-  }
-  ladderNavBtns.forEach(b=>b.disabled=false);
-  ladderPages.forEach(p=>{const el=document.getElementById(`page-${p}`);if(el)el.classList.remove('page-disabled');});
-};
-
-const loadLadderPlayers=async()=>{
-  if(!currentLadder){ladderPlayers=[];return;}
-  const rows=await api(`ladder_players?select=*,players(*)&ladder_id=eq.${currentLadder.id}`);
-  ladderPlayers=rows.map(r=>({
-    ...r.players,
-    ladder_status: r.status||'active'
-  })).filter(Boolean);
-};
-
-// ─── LADDER MANAGEMENT PAGE ─────────────────────────────────────────
-const loadLaddersPage=async()=>{
-  allLadders=await api('ladders?select=*&order=id.desc');
-  const el=document.getElementById('ladders-list');
-  if(!allLadders.length){el.innerHTML='<div class="empty">No ladders yet. Create your first one!</div>';return;}
-  el.innerHTML=allLadders.map(l=>`
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:0.5px solid var(--border);">
-      <div>
-        <div style="font-weight:700;font-size:14px;">${l.name}</div>
-        <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">
-          ${l.start_date?'Started: '+new Date(l.start_date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'No start date'}
-          ${l.end_date?' · Ends: '+new Date(l.end_date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):''}
-        </div>
-      </div>
-      <div style="display:flex;align-items:center;gap:8px;">
-        <span class="badge badge-${l.status==='active'?'active':'inactive'}">${l.status}</span>
-        <button class="btn btn-outline btn-sm" onclick="openLadderPlayers(${l.id},'${l.name.replace(/'/g,"\\'")}')">Players</button>
-        <button class="btn btn-outline btn-sm" onclick="openEditLadder(${l.id})">Edit</button>
-        <button class="btn btn-outline btn-sm" onclick="toggleLadderStatus(${l.id},'${l.status}')">${l.status==='active'?'Close':'Reopen'}</button>
-        <button class="btn btn-danger btn-sm" onclick="deleteLadder(${l.id},this.dataset.name)" data-name="${l.name}">Delete</button>
-      </div>
-    </div>`).join('');
-};
-
-const createLadder=async(e)=>{
-  e.preventDefault();
-  const name=document.getElementById('new-ladder-name').value.trim();
-  const start=document.getElementById('new-ladder-start').value||null;
-  const end=document.getElementById('new-ladder-end').value||null;
-  if(!name){toast('Please enter a ladder name.',true);return;}
-  try{
-    await api('ladders','POST',{name,status:'active',start_date:start,end_date:end});
-    toast(`Ladder "${name}" created!`);
-    document.getElementById('create-ladder-form').reset();
-    await loadLadderSelector();
-    loadLaddersPage();
-  }catch(e){toast(`Error: ${e.message}`,true);}
-};
-
-const toggleLadderStatus=async(id,current)=>{
-  const newStatus=current==='active'?'closed':'active';
-  try{
-    await api(`ladders?id=eq.${id}`,'PATCH',{status:newStatus});
-    toast(`Ladder ${newStatus==='closed'?'closed':'reopened'}!`);
-    await loadLadderSelector();
-    loadLaddersPage();
-  }catch(e){toast(`Error: ${e.message}`,true);}
-};
-
-const openEditLadder=(id)=>{
-  const l=allLadders.find(x=>x.id===id);if(!l)return;
-  document.getElementById('edit-ladder-id').value=l.id;
-  document.getElementById('edit-ladder-name').value=l.name;
-  document.getElementById('edit-ladder-start').value=l.start_date||'';
-  document.getElementById('edit-ladder-end').value=l.end_date||'';
-  document.getElementById('edit-ladder-status').value=l.status||'active';
-  document.getElementById('edit-ladder-modal').classList.add('open');
-};
-
-const closeEditLadderModal=()=>document.getElementById('edit-ladder-modal').classList.remove('open');
-
-const saveEditLadder=async(e)=>{
-  e.preventDefault();
-  const id=document.getElementById('edit-ladder-id').value;
-  const body={
-    name:document.getElementById('edit-ladder-name').value.trim(),
-    start_date:document.getElementById('edit-ladder-start').value||null,
-    end_date:document.getElementById('edit-ladder-end').value||null,
-    status:document.getElementById('edit-ladder-status').value
+    document.getElementById('subnav-programs').style.display = 'flex';
+    document.getElementById('subnav-management').style.display = 'none';
+    document.getElementById('prog-tab-ladder').classList.add('active');
+    document.getElementById('prog-tab-tournament').classList.remove('active');
+    document.getElementById('subnav-ladder-options').style.display = 'flex';
+    document.getElementById('subnav-tournament-options').style.display = 'none';
+    const standingsBtn = document.querySelector('#subnav-ladder-options button[data-page="ladder"]');
+    showPage('ladder', standingsBtn);
   };
-  try{
-    await api(`ladders?id=eq.${id}`,'PATCH',body);
-    toast('Ladder updated!');
-    closeEditLadderModal();
-    await loadLadderSelector();
-    loadLaddersPage();
-  }catch(e){toast(`Error: ${e.message}`,true);}
-};
 
-const deleteLadder=async(id,name)=>{
-  if(!confirm(`Delete ladder "${name}"?\n\nThis will also delete all sessions and match records linked to it. This cannot be undone.`))return;
-  try{
-    await api(`matches?ladder_id=eq.${id}`,'DELETE');
-    await api(`ladder_players?ladder_id=eq.${id}`,'DELETE');
-    await api(`ladders?id=eq.${id}`,'DELETE');
-    if(currentLadder&&currentLadder.id===id)currentLadder=null;
-    toast(`Ladder "${name}" deleted.`);
-    await loadLadderSelector();
-    loadLaddersPage();
-    updateLadderBanner();
-  }catch(e){toast(`Error: ${e.message}`,true);}
-};
-
-// ─── LADDER PLAYERS MODAL ────────────────────────────────────────────
-let modalLadderId=null;
-const openLadderPlayers=async(ladderId,ladderName)=>{
-  modalLadderId=ladderId;
-  document.getElementById('lp-modal-title').textContent=`Players — ${ladderName}`;
-  document.getElementById('lp-modal').classList.add('open');
-  const searchEl=document.getElementById('lp-search');
-  if(searchEl)searchEl.value='';
-  await refreshLadderPlayersModal();
-};
-
-const refreshLadderPlayersModal=async()=>{
-  const [allP, enrolled] = await Promise.all([
-    api('players?select=*&order=first_name'),
-    api(`ladder_players?select=ladder_id,player_id,status&ladder_id=eq.${modalLadderId}`)
-  ]);
-  allPlayers = allP;
-  const enrolledIds = enrolled.map(r=>Number(r.player_id));
-  const activePlayers = allPlayers.filter(p=>p.status!=='inactive');
-
-  // Build checkbox list for all active players
-  const listEl = document.getElementById('lp-enrolled');
-  const allChecked = activePlayers.every(p=>enrolledIds.includes(Number(p.id)));
-
-  // Store enrolled IDs for save comparison
-  listEl.dataset.enrolledIds = enrolledIds.join(',');
-
-  listEl.innerHTML = `
-    <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:2px solid var(--border);background:var(--blue-pale);position:sticky;top:0;z-index:1;">
-      <input type="checkbox" id="lp-select-all" ${allChecked?'checked':''} style="width:16px;height:16px;cursor:pointer;" data-action="lpToggleAll">
-      <label for="lp-select-all" style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;cursor:pointer;color:var(--blue);">Select all</label>
-      <span style="margin-left:auto;font-size:12px;font-weight:700;color:var(--blue);">${enrolledIds.length} / ${activePlayers.length} enrolled</span>
-    </div>
-    ${activePlayers.map(p=>{
-      const isEnrolled=enrolledIds.includes(Number(p.id));
-      const enrolledRow=enrolled.find(r=>Number(r.player_id)===Number(p.id));
-      const ladderStatus=(enrolledRow&&enrolledRow.status)?enrolledRow.status:'active';
-      return `<div class="lp-player-row" data-name="${(p.first_name+' '+p.last_name).toLowerCase()}"
-        style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:0.5px solid var(--border);">
-        <input type="checkbox" id="lp-cb-${p.id}" ${isEnrolled?'checked':''} style="width:16px;height:16px;cursor:pointer;"
-          data-pid="${p.id}">
-        <label for="lp-cb-${p.id}" style="font-size:13px;font-weight:600;cursor:pointer;flex:1;">
-          ${p.first_name} ${p.last_name}
-          <span class="badge badge-${p.status}" style="margin-left:6px;">${p.status}</span>
-        </label>
-        ${isEnrolled?`<select data-action="lpChangeStatus" data-pid="${p.id}"
-          style="font-size:11px;font-weight:700;padding:3px 8px;border:0.5px solid var(--border);border-radius:99px;font-family:Montserrat,sans-serif;background:${ladderStatus==='active'?'var(--teal-light)':'var(--orange-light)'};color:${ladderStatus==='active'?'var(--teal)':'var(--orange)'};cursor:pointer;">
-          <option value="active" ${ladderStatus==='active'?'selected':''}>Active</option>
-          <option value="sub" ${ladderStatus==='sub'?'selected':''}>Sub</option>
-        </select>`:''}
-      </div>`;
-    }).join('')}`;
-};
-
-const lpChangeStatus=async(sel)=>{
-  const pid=parseInt(sel.dataset.pid);
-  const newStatus=sel.value;
-  sel.disabled=true;
-  try{
-    await api(`ladder_players?ladder_id=eq.${modalLadderId}&player_id=eq.${pid}`,'PATCH',{status:newStatus});
-    sel.style.background=newStatus==='active'?'var(--teal-light)':'var(--orange-light)';
-    sel.style.color=newStatus==='active'?'var(--teal)':'var(--orange)';
-    // Update in-memory ladderPlayers so standings reflect change immediately
-    const p=ladderPlayers.find(x=>x.id===pid);
-    if(p) p.ladder_status=newStatus;
-    toast(`Status updated to ${newStatus}.`);
-  }catch(e){toast(`Error: ${e.message}`,true);}
-  finally{sel.disabled=false;}
-};
-
-const lpSaveChanges=async()=>{
-  const listEl=document.getElementById('lp-enrolled');
-  const prevEnrolledIds=(listEl.dataset.enrolledIds||'').split(',').filter(Boolean).map(Number);
-  const checkboxes=document.querySelectorAll('#lp-enrolled input[type="checkbox"][data-pid]');
-  const nowCheckedIds=[...checkboxes].filter(cb=>cb.checked).map(cb=>parseInt(cb.dataset.pid));
-
-  const toAdd=nowCheckedIds.filter(id=>!prevEnrolledIds.includes(id));
-  const toRemove=prevEnrolledIds.filter(id=>!nowCheckedIds.includes(id));
-
-  if(!toAdd.length&&!toRemove.length){
-    toast('No changes to save.');
-    return;
-  }
-  const saveBtn=document.getElementById('lp-save-btn');
-  if(saveBtn){saveBtn.disabled=true;saveBtn.textContent='Saving...';}
-  try{
-    if(toAdd.length) await api('ladder_players','POST',toAdd.map(pid=>({ladder_id:parseInt(modalLadderId),player_id:pid})));
-    for(const pid of toRemove) await api(`ladder_players?ladder_id=eq.${modalLadderId}&player_id=eq.${pid}`,'DELETE');
-    toast(`Saved! ${toAdd.length} added, ${toRemove.length} removed.`);
-    await loadLadderPlayers();
-    document.getElementById('lp-modal').classList.remove('open');
-  }catch(e){
-    toast(`Error: ${e.message}`,true);
-  }finally{
-    if(saveBtn){saveBtn.disabled=false;saveBtn.textContent='Save changes';}
-  }
-};
-
-const lpToggleAll=(btn)=>{
-  const selectAll=btn.checked;
-  document.querySelectorAll('#lp-enrolled input[type="checkbox"][data-pid]').forEach(cb=>{
-    cb.checked=selectAll;
-  });
-};
-
-const addToLadder=async()=>{
-  const sel=document.getElementById('lp-add-select');
-  const pid=parseInt(sel.value);
-  if(!pid||isNaN(pid)){toast('Please select a player.',true);return;}
-  const addBtn=document.querySelector('#lp-modal .btn-primary');
-  if(addBtn)addBtn.disabled=true;
-  sel.value='';
-  const payload={ladder_id:parseInt(modalLadderId),player_id:pid,joined_at:new Date().toISOString().split('T')[0]};
-  console.log('Adding to ladder:', payload);
-  try{
-    await api('ladder_players','POST',payload);
-    toast('Player added to ladder!');
-    await refreshLadderPlayersModal();
-    await loadLadderPlayers();
-  }catch(e){
-    const msg = e.message||'';
-    if(msg.includes('409')||msg.toLowerCase().includes('duplicate')||msg.toLowerCase().includes('conflict')){
-      toast('This player is already in the ladder.',true);
-      await refreshLadderPlayersModal();
-    } else {
-      toast(`Error: ${msg}`,true);
-    }
-  } finally {
-    if(addBtn)addBtn.disabled=false;
-  }
-};
-
-const removeFromLadder=async(ladderId,playerId)=>{
-  try{
-    await api(`ladder_players?ladder_id=eq.${ladderId}&player_id=eq.${playerId}`,'DELETE');
-    toast('Player removed from ladder.');
-    await refreshLadderPlayersModal();
-    await loadLadderPlayers();
-  }catch(e){toast(`Error: ${e.message}`,true);}
-};
-
-const closeLpModal=()=>document.getElementById('lp-modal').classList.remove('open');
-
-// ─── LADDER STANDINGS ────────────────────────────────────────────────
-const loadLadder=async()=>{
-  if(!currentLadder){
-    document.getElementById('ladder-stats').innerHTML='';
-    document.getElementById('ladder-table').innerHTML='<div class="empty">Please select or create a ladder first.</div>';
-    return;
-  }
-  try{
-    if(!allPlayers.length)allPlayers=await api('players?select=*&order=id');
-    const matches=await api(`matches?select=*&ladder_id=eq.${currentLadder.id}`);
-    const pm={};
-    ladderPlayers.forEach(p=>pm[p.id]=0);
-    matches.forEach(m=>{if(pm[m.player_id]!==undefined)pm[m.player_id]+=(m.points_earned||0);});
-    const ranked=[...ladderPlayers].filter(p=>p.ladder_status==='active').sort((a,b)=>(pm[b.id]||0)-(pm[a.id]||0));
-    ranked.forEach((p,i)=>{p._rank=i+1;p._points=pm[p.id]||0;});
-    allPlayers._ranked=ranked;
-    const sessions=[...new Set(matches.map(m=>m.session_date))];
-    const uniqueGames=new Set(matches.map(m=>`${m.session_date}__${m.court_group}__${m.game_number}`)).size;
-    document.getElementById('ladder-stats').innerHTML=`
-      <div class="stat"><div class="stat-label">Players</div><div class="stat-value">${ladderPlayers.length}</div></div>
-      <div class="stat"><div class="stat-label">Sessions</div><div class="stat-value">${sessions.length}</div></div>
-      <div class="stat"><div class="stat-label">Games</div><div class="stat-value">${uniqueGames}</div></div>
-      <div class="stat lime"><div class="stat-label">Leader</div><div class="stat-value">${ranked[0]?ranked[0].first_name+' '+ranked[0].last_name:'-'}</div></div>`;
-    renderLadder();
-  }catch(e){document.getElementById('ladder-table').innerHTML=`<div class="empty">Error: ${e.message}</div>`;}
-};
-
-const renderLadder=()=>{
-  const filter=document.getElementById('gender-filter').value;
-  const players=(allPlayers._ranked||[]).filter(p=>filter==='all'||p.gender===filter);
-  if(!players.length){document.getElementById('ladder-table').innerHTML='<div class="empty">No players in this ladder yet.</div>';return;}
-  const rows=players.map((p,i)=>{
-    const rc=i===0?'top1':i===1?'top2':i===2?'top3':'';
-    return `<tr>
-      <td><span class="rank-badge ${rc}">${i+1}</span></td>
-      <td style="font-weight:700">${p.first_name} ${p.last_name}</td>
-      <td style="color:var(--text-muted)">${p.gender||'-'}</td>
-      <td><span class="points-pill">${p._points} pts</span></td>
-    </tr>`;
-  }).join('');
-  document.getElementById('ladder-table').innerHTML=`
-    <table>
-      <thead><tr><th>Rank</th><th>Player</th><th>Gender</th><th>Points</th></tr></thead>
-      <tbody>${rows}</tbody>
-    </table>`;
-};
-
-// ─── SESSIONS ────────────────────────────────────────────────────────
-const loadSessions=async()=>{
-  if(!currentLadder){document.getElementById('sessions-list').innerHTML='<div class="empty">Please select a ladder first.</div>';return;}
-  try{
-    const matches=await api(`matches?select=*,players(first_name,last_name)&ladder_id=eq.${currentLadder.id}&order=session_date.desc,court_group,game_number`);
-    if(!matches.length){document.getElementById('sessions-list').innerHTML='<div class="empty">No sessions recorded yet.</div>';return;}
-    const grouped={};
-    matches.forEach(m=>{
-      const key=`${m.session_date}__${m.court_group}`;
-      if(!grouped[key])grouped[key]={date:m.session_date,group:m.court_group,games:{}};
-      if(!grouped[key].games[m.game_number])grouped[key].games[m.game_number]=[];
-      grouped[key].games[m.game_number].push(m);
-    });
-    let html='';
-    Object.values(grouped).forEach(s=>{
-      const date=new Date(s.date+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',year:'numeric',month:'short',day:'numeric'});
-      const sessionKey=`${s.date}__${s.court_group}`;
-      const sessionMatchIds=Object.values(s.games).flat().map(m=>m.id).join(',');
-      html+=`<div style="margin-bottom:24px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-          <div style="font-size:11px;font-weight:800;color:var(--blue);text-transform:uppercase;letter-spacing:1px">${date} — Court ${s.group}</div>
-          <div style="display:flex;gap:6px;">
-            <button class="btn btn-outline btn-sm" data-action="editSession" data-matchids="${sessionMatchIds}" data-date="${s.date}" data-court="${s.group}">Edit session</button>
-            <button class="btn btn-danger btn-sm" data-action="deleteSession" data-matchids="${sessionMatchIds}" data-date="${s.date}" data-court="${s.group}">Delete session</button>
-          </div>
-        </div>`;
-      Object.entries(s.games).forEach(([gnum,players])=>{
-        const gameIds=players.map(p=>p.id).join(',');
-        html+=`<div style="margin-bottom:6px;padding:10px 12px;background:var(--bg);border-radius:var(--radius-sm);font-size:13px;border-left:3px solid var(--lime);">
-          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;">
-            <div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px;">
-              <span style="font-weight:800;color:var(--text-muted);font-size:11px;text-transform:uppercase;letter-spacing:.5px;margin-right:4px;">Game ${gnum}</span>`;
-        players.forEach(p=>{
-          const name=p.players?`${p.players.first_name} ${p.players.last_name}`:'Unknown';
-          const score=p.score_for!==null?`${p.score_for}-${p.score_against}`:'-';
-          const pts=p.default_no_show?'-1':`+${p.points_earned}`;
-          const color=p.default_no_show?'var(--orange)':p.is_sub?'var(--text-muted)':'var(--teal)';
-          const subTag=p.is_sub?'<span style="font-size:9px;font-weight:800;background:var(--orange-light);color:var(--orange);padding:1px 5px;border-radius:99px;margin-left:3px;">SUB</span>':'';
-          html+=`<span style="margin-right:10px;font-weight:500">${name}${subTag} <span style="color:${color};font-weight:700">${score}/${pts}pts</span></span>`;
-        });
-        html+=`</div>
-            <div style="display:flex;gap:6px;flex-shrink:0;">
-              <button class="btn btn-outline btn-sm" data-action="editGame" data-gameids="${gameIds}" data-gnum="${gnum}" data-date="${s.date}" data-court="${s.group}">Edit</button>
-            </div>
-          </div>
-        </div>`;
+  const updateLadderBanner = () => {
+    const ladderPages = ['ladder', 'sessions', 'entry'];
+    const ladderNavBtns = document.querySelectorAll('#subnav-ladder-options button[data-page]');
+    if (!currentLadder) {
+      ladderNavBtns.forEach((b) => {
+        if (ladderPages.includes(b.dataset.page)) b.disabled = true;
       });
-      html+=`</div>`;
-    });
-    document.getElementById('sessions-list').innerHTML=html;
-  }catch(e){document.getElementById('sessions-list').innerHTML=`<div class="empty">Error: ${e.message}</div>`;}
-};
-
-const editSession=(btn)=>{
-  const ids=btn.dataset.matchids.split(',').filter(Boolean);
-  const date=btn.dataset.date;
-  const court=btn.dataset.court;
-  document.getElementById('es-ids').value=ids.join(',');
-  document.getElementById('es-date').value=date;
-  document.getElementById('es-court').value=court;
-  document.getElementById('es-orig-date').value=date;
-  document.getElementById('es-orig-court').value=court;
-  document.getElementById('edit-session-modal').classList.add('open');
-};
-
-const saveEditSession=async(e)=>{
-  e.preventDefault();
-  const ids=document.getElementById('es-ids').value.split(',').filter(Boolean);
-  const newDate=document.getElementById('es-date').value;
-  const newCourt=document.getElementById('es-court').value;
-  const origDate=document.getElementById('es-orig-date').value;
-  const origCourt=document.getElementById('es-orig-court').value;
-
-  if(!newDate||!newCourt){toast('Please fill in both date and court number.',true);return;}
-
-  // Check uniqueness only if date or court changed
-  if(newDate!==origDate||newCourt!==origCourt){
-    const existing=await api(`matches?session_date=eq.${newDate}&court_group=eq.${newCourt}&ladder_id=eq.${currentLadder.id}&limit=1`);
-    if(existing.length){
-      const d=new Date(newDate+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'});
-      toast(`A session already exists for Court ${newCourt} on ${d}. Please choose a different date or court.`,true);
+      ladderPages.forEach((p) => {
+        const el = document.getElementById(`page-${p}`);
+        if (el) el.classList.add('page-disabled');
+      });
       return;
     }
-  }
+    ladderNavBtns.forEach((b) => (b.disabled = false));
+    ladderPages.forEach((p) => {
+      const el = document.getElementById(`page-${p}`);
+      if (el) el.classList.remove('page-disabled');
+    });
+  };
 
-  const saveBtn=document.getElementById('es-save-btn');
-  if(saveBtn){saveBtn.disabled=true;saveBtn.textContent='Saving...';}
-  try{
-    for(const id of ids){
-      await api(`matches?id=eq.${id}`,'PATCH',{session_date:newDate,court_group:parseInt(newCourt)});
-    }
-    toast('Session updated!');
-    document.getElementById('edit-session-modal').classList.remove('open');
-    loadSessions();
-  }catch(e){toast(`Error: ${e.message}`,true);}
-  finally{
-    if(saveBtn){saveBtn.disabled=false;saveBtn.textContent='Save changes';}
-  }
-};
-
-const deleteSession=async(btn)=>{
-  const ids=btn.dataset.matchids.split(',').filter(Boolean);
-  const date=new Date(btn.dataset.date+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'});
-  const court=btn.dataset.court;
-  if(!confirm(`Delete entire session for ${date} — Court ${court}?\n\nThis will remove all ${ids.length} game records. This cannot be undone.`))return;
-  try{
-    for(const id of ids) await api(`matches?id=eq.${id}`,'DELETE');
-    toast(`Session deleted — ${ids.length} records removed.`);
-    loadSessions();
-  }catch(e){toast(`Error: ${e.message}`,true);}
-};
-
-const deleteGame=async(btn)=>{
-  const ids=btn.dataset.gameids.split(',').filter(Boolean);
-  const gnum=btn.dataset.gnum;
-  const date=new Date(btn.dataset.date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
-  if(!confirm(`Delete Game ${gnum} from ${date}? This cannot be undone.`))return;
-  try{
-    for(const id of ids) await api(`matches?id=eq.${id}`,'DELETE');
-    toast(`Game ${gnum} deleted.`);
-    loadSessions();
-  }catch(e){toast(`Error: ${e.message}`,true);}
-};
-
-const editGame=async(btn)=>{
-  const ids=btn.dataset.gameids.split(',').filter(Boolean);
-  const gnum=btn.dataset.gnum;
-  const date=btn.dataset.date;
-  const court=btn.dataset.court;
-  const rows=await api(`matches?id=in.(${ids.join(',')})&select=*,players(first_name,last_name)`);
-  if(!rows.length){toast('Could not load game data.',true);return;}
-  const isVoided=rows[0].score_for===null;
-  const modalBody=document.getElementById('edit-game-body');
-  modalBody.innerHTML=`
-    <div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:1px;">
-      Game ${gnum} — ${new Date(date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})} — Court ${court}
-    </div>
-    <label style="display:flex;align-items:center;gap:8px;margin-bottom:16px;cursor:pointer;padding:10px 14px;background:var(--orange-light);border-radius:var(--radius-sm);font-size:13px;font-weight:700;color:var(--orange);">
-      <input type="checkbox" id="eg-void-game" ${isVoided?'checked':''} onchange="toggleEditGameVoid()"> Void this game (0 points for all players)
-    </label>
-    <div id="eg-scores-section" style="${isVoided?'opacity:0.4;pointer-events:none;':''}">
-      <div style="font-size:11px;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Scores per player</div>
-      ${rows.map(r=>`
-        <div style="padding:10px 0;border-bottom:0.5px solid var(--border);">
-          <div style="font-weight:700;font-size:13px;margin-bottom:8px;">${r.players?r.players.first_name+' '+r.players.last_name:'Unknown'}</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
-            <div class="form-group">
-              <label>Score for</label>
-              <input type="number" min="0" max="11" id="eg-sf-${r.id}" value="${r.score_for!==null?r.score_for:''}" placeholder="0" data-egrid="${r.id}" data-egtype="sf">
-            </div>
-            <div class="form-group">
-              <label>Score against</label>
-              <input type="number" min="0" max="11" id="eg-sa-${r.id}" value="${r.score_against!==null?r.score_against:''}" placeholder="0" data-egrid="${r.id}" data-egtype="sa">
-            </div>
-            <div class="form-group">
-              <label>Points earned <span style="font-size:9px;color:var(--teal);">(auto)</span></label>
-              <input type="number" min="-1" max="4" id="eg-pts-${r.id}" value="${r.points_earned!==null?r.points_earned:0}" placeholder="0" style="background:var(--bg);" readonly>
-            </div>
-          </div>
-        </div>`).join('')}
-    </div>
-    <input type="hidden" id="eg-ids" value="${ids.join(',')}">
-  `;
-  document.getElementById('edit-game-modal').classList.add('open');
-};
-
-const toggleEditGameVoid=()=>{
-  const isVoid=document.getElementById('eg-void-game').checked;
-  const section=document.getElementById('eg-scores-section');
-  section.style.opacity=isVoid?'0.4':'1';
-  section.style.pointerEvents=isVoid?'none':'auto';
-};
-
-const saveEditGame=async(e)=>{
-  e.preventDefault();
-  const ids=document.getElementById('eg-ids').value.split(',').filter(Boolean);
-  const isVoid=document.getElementById('eg-void-game').checked;
-  try{
-    for(const id of ids){
-      const sf=document.getElementById(`eg-sf-${id}`);
-      const sa=document.getElementById(`eg-sa-${id}`);
-      const pts=document.getElementById(`eg-pts-${id}`);
-      const body={
-        score_for:isVoid?null:(sf&&sf.value!==''?parseInt(sf.value):null),
-        score_against:isVoid?null:(sa&&sa.value!==''?parseInt(sa.value):null),
-        points_earned:isVoid?0:(pts&&pts.value!==''?parseInt(pts.value):0),
-      };
-      await api(`matches?id=eq.${id}`,'PATCH',body);
-    }
-    toast('Game updated successfully!');
-    document.getElementById('edit-game-modal').classList.remove('open');
-    loadSessions();
-  }catch(e){toast(`Error: ${e.message}`,true);}
-};
-
-// ─── RECORD SESSION ──────────────────────────────────────────────────
-const calcPoints=(sf,sa)=>{
-  if(sf>sa)return 4;
-  const d=sa-sf;
-  if(d<=2)return 3;if(d<=4)return 2;if(d<=8)return 1;return 0;
-};
-
-const initEntry=async()=>{
-  courtPlayers=[];noShowPlayer=null;noShowPenalty=-4;gameCount=0;extraGameCount=0;extraGames=[];
-  document.getElementById('session-date').value=new Date().toISOString().split('T')[0];
-  document.getElementById('court-number').value='';
-  document.getElementById('court-players-list').innerHTML='';
-  document.getElementById('games-container').innerHTML='';
-  document.getElementById('games-setup-card').style.display='none';
-  document.getElementById('save-btn-wrap').style.display='none';
-  document.getElementById('player-search-entry').value='';
-  const psl=document.getElementById('player-dropdown-list');
-  if(psl)psl.innerHTML='';
-  if(!currentLadder){
-    document.getElementById('entry-no-ladder').style.display='block';
-    document.getElementById('entry-form').style.display='none';
-  } else {
-    document.getElementById('entry-no-ladder').style.display='none';
-    document.getElementById('entry-form').style.display='block';
-    if(!allPlayers.length)allPlayers=await api('players?select=*&order=first_name');
-    if(!ladderPlayers.length)await loadLadderPlayers();
-    renderPlayerDropdown('');
-  }
-};
-
-const renderPlayerDropdown=(filter='')=>{
-  const list=document.getElementById('player-dropdown-list');
-  if(!list)return;
-  const matches=ladderPlayers
-    .filter(p=>!courtPlayers.find(cp=>cp.id===p.id))
-    .filter(p=>!filter||`${p.first_name} ${p.last_name}`.toLowerCase().includes(filter.toLowerCase()));
-  if(!matches.length){
-    list.innerHTML=`<div style="padding:12px 14px;font-size:13px;color:var(--text-muted);text-align:center;">${filter?'No players found':'All players added'}</div>`;
-    return;
-  }
-  list.innerHTML=matches.map(p=>`
-    <div data-action="addCourtPlayerBtn" data-pid="${p.id}"
-      style="padding:10px 14px;cursor:pointer;font-size:13px;font-weight:600;border-bottom:0.5px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
-      <span>${p.first_name} ${p.last_name}</span>
-      ${p.status==='sub'?'<span style="font-size:10px;font-weight:700;background:var(--orange-light);color:var(--orange);padding:2px 7px;border-radius:99px;">Sub</span>':''}
-    </div>`).join('');
-};
-
-const searchPlayersEntry=()=>{
-  const q=document.getElementById('player-search-entry').value;
-  renderPlayerDropdown(q);
-};
-
-const addCourtPlayer=(id)=>{
-  if(courtPlayers.length>=6){toast('Maximum 6 players per court.',true);return;}
-  const p=ladderPlayers.find(x=>x.id===id);
-  if(!p||courtPlayers.find(cp=>cp.id===id))return;
-  courtPlayers.push(p);
-  document.getElementById('player-search-entry').value='';
-  renderPlayerDropdown('');
-  renderCourtPlayers();
-};
-
-const removeCourtPlayer=(id)=>{
-  if(noShowPlayer&&noShowPlayer.id===id) noShowPlayer=null;
-  courtPlayers=courtPlayers.filter(p=>p.id!==id);
-  renderPlayerDropdown(document.getElementById('player-search-entry')?.value||'');
-  renderCourtPlayers();
-  if(courtPlayers.filter(p=>!noShowPlayer||p.id!==noShowPlayer.id).length<4){
-    document.getElementById('games-setup-card').style.display='none';
-    document.getElementById('save-btn-wrap').style.display='none';
-  }
-};
-
-const markNoShow=(pid)=>{
-  noShowPlayer=courtPlayers.find(p=>p.id===parseInt(pid))||null;
-  noShowPenalty=-4;
-  renderPlayerDropdown(document.getElementById('player-search-entry')?.value||'');
-  renderCourtPlayers();
-};
-
-const cancelNoShow=()=>{
-  noShowPlayer=null;
-  noShowPenalty=-4;
-  renderCourtPlayers();
-};
-
-const renderCourtPlayers=()=>{
-  const el=document.getElementById('court-players-list');
-  if(!courtPlayers.length){el.innerHTML='';return;}
-  el.innerHTML=`<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
-    ${courtPlayers.map((p,i)=>{
-      const isNoShow=noShowPlayer&&noShowPlayer.id===p.id;
-      const bg=isNoShow?'var(--orange-light)':'var(--blue-pale)';
-      const border=isNoShow?'1.5px solid var(--orange)':'0.5px solid var(--border)';
-      const numBg=isNoShow?'var(--orange)':'var(--blue)';
-      return `<div style="display:flex;align-items:center;gap:8px;background:${bg};border:${border};border-radius:var(--radius-sm);padding:7px 12px;">
-        <span style="width:22px;height:22px;background:${numBg};border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:white;">${i+1}</span>
-        <span style="font-size:13px;font-weight:600;">${p.first_name} ${p.last_name}</span>
-        ${isNoShow
-          ?`<span style="font-size:9px;font-weight:800;background:var(--orange);color:white;padding:2px 6px;border-radius:99px;letter-spacing:.5px;">NO-SHOW</span>
-            <button data-action="cancelNoShow" style="background:none;border:none;cursor:pointer;color:var(--orange);font-size:12px;font-weight:700;padding:0 2px;">undo</button>`
-          :`<button data-action="markNoShow" data-pid="${p.id}" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:10px;font-weight:700;padding:2px 6px;border:0.5px solid var(--border);border-radius:99px;">No-show</button>
-            <button data-action="removeCourtPlayerBtn" data-pid="${p.id}" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:16px;line-height:1;padding:0 2px;">&times;</button>`
-        }
-      </div>`;
-    }).join('')}
-  </div>
-  ${noShowPlayer?`<div style="background:var(--orange-light);border:1.5px solid var(--orange);border-radius:var(--radius-sm);padding:12px 16px;margin-bottom:10px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-    <span style="font-size:13px;font-weight:700;color:var(--orange);">${noShowPlayer.first_name} ${noShowPlayer.last_name} did not show up.</span>
-    <span style="font-size:12px;color:var(--text-muted);font-weight:500;">Assign penalty:</span>
-    <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:13px;font-weight:700;color:var(--orange);">
-      <input type="radio" name="noshow-penalty" id="ns-penalty" value="-4" ${noShowPenalty===-4?'checked':''}> -4 pts (penalty)
-    </label>
-    <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:13px;font-weight:700;color:var(--text-muted);">
-      <input type="radio" name="noshow-penalty" id="ns-excused" value="0" ${noShowPenalty===0?'checked':''}> 0 pts (excused)
-    </label>
-  </div>`:''}`;
-  const activePlayers=courtPlayers.filter(p=>!noShowPlayer||p.id!==noShowPlayer.id);
-  if(activePlayers.length>=4)buildGames(activePlayers);
-  else{
-    document.getElementById('games-setup-card').style.display='none';
-    document.getElementById('save-btn-wrap').style.display='none';
-  }
-};
-
-const getRoundRobinMatchups=(n)=>{
-  if(n===4)return[
-    {teamA:[0,1],teamB:[2,3],sit:null},  // R1: 1&2 vs 3&4
-    {teamA:[0,3],teamB:[1,2],sit:null},  // R2: 1&4 vs 2&3
-    {teamA:[1,3],teamB:[0,2],sit:null},  // R3: 2&4 vs 1&3
-  ];
-  if(n===5)return[
-    {teamA:[0,1],teamB:[2,3],sit:4},  // R1: 1&2 vs 3&4, bye=5
-    {teamA:[0,4],teamB:[1,2],sit:3},  // R2: 1&5 vs 2&3, bye=4
-    {teamA:[3,4],teamB:[0,2],sit:1},  // R3: 4&5 vs 1&3, bye=2
-    {teamA:[1,3],teamB:[2,4],sit:0},  // R4: 2&4 vs 3&5, bye=1
-    {teamA:[0,3],teamB:[1,4],sit:2},  // R5: 1&4 vs 2&5, bye=3
-  ];
-  if(n===6)return[
-    {teamA:[0,1],teamB:[2,3],sit:[4,5]},  // R1: 1&2 vs 3&4, bye=5,6
-    {teamA:[1,5],teamB:[0,4],sit:[2,3]},  // R2: 2&6 vs 1&5, bye=3,4
-    {teamA:[3,4],teamB:[2,5],sit:[0,1]},  // R3: 4&5 vs 3&6, bye=1,2
-    {teamA:[0,2],teamB:[1,4],sit:[3,5]},  // R4: 1&3 vs 2&5, bye=4,6
-    {teamA:[3,5],teamB:[1,2],sit:[0,4]},  // R5: 4&6 vs 2&3, bye=1,5
-    {teamA:[0,3],teamB:[4,5],sit:[1,2]},  // R6: 1&4 vs 5&6, bye=2,3
-  ];
-  return[];
-};
-
-const buildGames=(activePlayers)=>{
-  const players=activePlayers||courtPlayers;
-  const matchups=getRoundRobinMatchups(players.length);
-  gameCount=matchups.length;
-  extraGameCount=0;extraGames=[];
-  const container=document.getElementById('games-container');
-  container.innerHTML='';
-  matchups.forEach((m,i)=>renderGameCard(i+1,m,false,players));
-  if(players.length===4){
-    const g4=document.createElement('div');
-    g4.id='game-card-4';
-    g4.style.cssText='border:2px solid var(--lime);border-radius:var(--radius-sm);margin-bottom:12px;overflow:hidden;';
-    g4.innerHTML=`
-      <div style="background:var(--lime);padding:10px 14px;display:flex;align-items:center;justify-content:space-between;">
-        <span style="font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--lime-dark);">Game 4 — Closest scores</span>
-        <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:11px;color:var(--lime-dark);font-weight:700;text-transform:uppercase;letter-spacing:.5px;">
-          <input type="checkbox" id="void-4" onchange="toggleVoid(4)"> Void
-        </label>
-      </div>
-      <div style="padding:10px 14px;background:var(--bg);font-size:12px;color:var(--text-muted);font-weight:500;">
-        After the 3 games, match the 2 players with the closest total scores on each team.
-      </div>
-      <div id="game-body-4" style="padding:14px;">
-        <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:start;gap:12px;">
-          <div style="background:var(--blue-pale);border-radius:var(--radius-sm);padding:12px;">
-            <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--blue);margin-bottom:8px;">Team A</div>
-            <select id="extraA1-4" style="width:100%;margin-bottom:6px;font-size:12px;font-family:Montserrat,sans-serif;"><option value="">Player 1</option>${players.map(p=>`<option value="${p.id}">${p.first_name} ${p.last_name}</option>`).join('')}</select>
-            <select id="extraA2-4" style="width:100%;margin-bottom:8px;font-size:12px;font-family:Montserrat,sans-serif;"><option value="">Player 2</option>${players.map(p=>`<option value="${p.id}">${p.first_name} ${p.last_name}</option>`).join('')}</select>
-            <input type="number" min="0" max="11" placeholder="Score" id="scoreA-4" data-egame="4" data-eteam="A" style="width:100%;text-align:center;font-size:18px;font-weight:800;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:6px;">
-          </div>
-          <div style="font-size:16px;font-weight:800;color:var(--text-muted);padding-top:40px;">VS</div>
-          <div style="background:var(--teal-light);border-radius:var(--radius-sm);padding:12px;">
-            <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--teal);margin-bottom:8px;">Team B</div>
-            <select id="extraB1-4" style="width:100%;margin-bottom:6px;font-size:12px;font-family:Montserrat,sans-serif;"><option value="">Player 1</option>${players.map(p=>`<option value="${p.id}">${p.first_name} ${p.last_name}</option>`).join('')}</select>
-            <select id="extraB2-4" style="width:100%;margin-bottom:8px;font-size:12px;font-family:Montserrat,sans-serif;"><option value="">Player 2</option>${players.map(p=>`<option value="${p.id}">${p.first_name} ${p.last_name}</option>`).join('')}</select>
-            <input type="number" min="0" max="11" placeholder="Score" id="scoreB-4" data-egame="4" data-eteam="B" style="width:100%;text-align:center;font-size:18px;font-weight:800;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:6px;">
-          </div>
-        </div>
-        <div id="pts-preview-4" style="margin-top:10px;font-size:12px;color:var(--text-muted);text-align:center;font-weight:500;"></div>
-        <input type="hidden" id="teamA-ids-4" value=""><input type="hidden" id="teamB-ids-4" value="">
-      </div>`;
-    container.appendChild(g4);
-    gameCount=3;extraGames=[4];
-  }
-  document.getElementById('games-setup-card').style.display='block';
-  document.getElementById('save-btn-wrap').style.display='block';
-};
-
-const renderGameCard=(gameNum,matchup,isExtra,players)=>{
-  const activePl=players||(noShowPlayer?courtPlayers.filter(p=>p.id!==noShowPlayer.id):courtPlayers);
-  const container=document.getElementById('games-container');
-  const div=document.createElement('div');
-  div.id=`game-card-${gameNum}`;
-  div.style.cssText='border:0.5px solid var(--border);border-radius:var(--radius-sm);margin-bottom:12px;overflow:hidden;';
-  const tA=matchup?matchup.teamA.map(i=>activePl[i]):[];
-  const tB=matchup?matchup.teamB.map(i=>activePl[i]):[];
-  const sitRaw=matchup?matchup.sit:null;
-  const sitting=sitRaw===null?null:Array.isArray(sitRaw)?sitRaw.map(i=>activePl[i]).filter(Boolean):[activePl[sitRaw]].filter(Boolean);
-  const teamANames=tA.map(p=>`${p.first_name} ${p.last_name}`).join(' & ')||'Team A';
-  const teamBNames=tB.map(p=>`${p.first_name} ${p.last_name}`).join(' & ')||'Team B';
-  const teamAIds=tA.map(p=>p.id);
-  const teamBIds=tB.map(p=>p.id);
-  div.innerHTML=`
-    <div style="background:var(--blue);padding:10px 14px;display:flex;align-items:center;justify-content:space-between;">
-      <span style="font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--lime);">Game ${gameNum}${isExtra?' (extra)':''}</span>
-      <div style="display:flex;align-items:center;gap:12px;">
-        ${sitting&&sitting.length?`<span style="font-size:11px;color:var(--blue-light);font-weight:500;">Sitting out: <strong style="color:white;">${sitting.map(p=>p.first_name+' '+p.last_name).join(', ')}</strong></span>`:''}
-        <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:11px;color:var(--orange-light);font-weight:700;text-transform:uppercase;letter-spacing:.5px;">
-          <input type="checkbox" id="void-${gameNum}" onchange="toggleVoid(${gameNum})"> Void
-        </label>
-        ${isExtra?`<button class="btn btn-danger btn-sm" onclick="removeExtraGame(${gameNum})">Remove</button>`:''}
-      </div>
-    </div>
-    <div id="game-body-${gameNum}" style="padding:14px;">
-      <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px;">
-        <div style="background:var(--blue-pale);border-radius:var(--radius-sm);padding:12px;text-align:center;">
-          <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--blue);margin-bottom:6px;">Team A</div>
-          <div style="font-size:13px;font-weight:700;margin-bottom:10px;min-height:36px;">${teamANames}</div>
-          <input type="number" min="0" max="11" placeholder="Score" id="scoreA-${gameNum}" oninput="autoCalcGame(${gameNum})" style="width:80px;text-align:center;font-size:18px;font-weight:800;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:6px;">
-        </div>
-        <div style="font-size:16px;font-weight:800;color:var(--text-muted);">VS</div>
-        <div style="background:var(--teal-light);border-radius:var(--radius-sm);padding:12px;text-align:center;">
-          <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--teal);margin-bottom:6px;">Team B</div>
-          <div style="font-size:13px;font-weight:700;margin-bottom:10px;min-height:36px;">${teamBNames}</div>
-          <input type="number" min="0" max="11" placeholder="Score" id="scoreB-${gameNum}" oninput="autoCalcGame(${gameNum})" style="width:80px;text-align:center;font-size:18px;font-weight:800;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:6px;">
-        </div>
-      </div>
-      <div id="pts-preview-${gameNum}" style="margin-top:10px;font-size:12px;color:var(--text-muted);text-align:center;font-weight:500;"></div>
-    </div>
-    <input type="hidden" id="teamA-ids-${gameNum}" value="${teamAIds.join(',')}">
-    <input type="hidden" id="teamB-ids-${gameNum}" value="${teamBIds.join(',')}">`;
-  container.appendChild(div);
-};
-
-const toggleVoid=(gameNum)=>{
-  const isVoided=document.getElementById(`void-${gameNum}`).checked;
-  const body=document.getElementById(`game-body-${gameNum}`);
-  if(isVoided){
-    body.style.opacity='0.4';body.style.pointerEvents='none';
-    document.getElementById(`pts-preview-${gameNum}`).innerHTML='<span style="color:var(--orange);font-weight:700;">Game voided — 0 points for both teams</span>';
-  }else{body.style.opacity='1';body.style.pointerEvents='auto';autoCalcGame(gameNum);}
-};
-
-const autoCalcGame=(gameNum)=>{
-  const sA=document.getElementById(`scoreA-${gameNum}`);
-  const sB=document.getElementById(`scoreB-${gameNum}`);
-  const preview=document.getElementById(`pts-preview-${gameNum}`);
-  if(!sA||!sB||sA.value===''||sB.value===''){preview.textContent='';return;}
-  const a=parseInt(sA.value),b=parseInt(sB.value);
-  const ptA=calcPoints(a,b),ptB=calcPoints(b,a);
-  const tAIds=document.getElementById(`teamA-ids-${gameNum}`).value.split(',').filter(Boolean);
-  const tBIds=document.getElementById(`teamB-ids-${gameNum}`).value.split(',').filter(Boolean);
-  const tANames=tAIds.map(id=>allPlayers.find(p=>p.id==id)).filter(Boolean).map(p=>p.first_name).join(' & ');
-  const tBNames=tBIds.map(id=>allPlayers.find(p=>p.id==id)).filter(Boolean).map(p=>p.first_name).join(' & ');
-  const aColor=ptA>ptB?'var(--teal)':'var(--orange)';
-  const bColor=ptB>ptA?'var(--teal)':'var(--orange)';
-  preview.innerHTML=`<span style="color:${aColor};font-weight:700;">${tANames||'Team A'}: ${ptA>0?'+':''}${ptA} pts</span> &nbsp;|&nbsp; <span style="color:${bColor};font-weight:700;">${tBNames||'Team B'}: ${ptB>0?'+':''}${ptB} pts</span>`;
-};
-
-const autoCalcExtraGame=(gameNum)=>{
-  const sA=document.getElementById(`scoreA-${gameNum}`);
-  const sB=document.getElementById(`scoreB-${gameNum}`);
-  const preview=document.getElementById(`pts-preview-${gameNum}`);
-  if(!sA||!sB||sA.value===''||sB.value===''){preview.textContent='';return;}
-  const a=parseInt(sA.value),b=parseInt(sB.value);
-  const ptA=calcPoints(a,b),ptB=calcPoints(b,a);
-  const aColor=ptA>ptB?'var(--teal)':'var(--orange)';
-  const bColor=ptB>ptA?'var(--teal)':'var(--orange)';
-  preview.innerHTML=`<span style="color:${aColor};font-weight:700;">Team A: ${ptA>0?'+':''}${ptA} pts</span> &nbsp;|&nbsp; <span style="color:${bColor};font-weight:700;">Team B: ${ptB>0?'+':''}${ptB} pts</span>`;
-};
-
-const addExtraGame=()=>{
-  extraGameCount++;
-  const gameNum=100+extraGameCount;
-  extraGames.push(gameNum);
-  const container=document.getElementById('games-container');
-  const div=document.createElement('div');
-  div.id=`game-card-${gameNum}`;
-  div.style.cssText='border:0.5px solid var(--border);border-radius:var(--radius-sm);margin-bottom:12px;overflow:hidden;';
-  div.innerHTML=`
-    <div style="background:var(--blue);padding:10px 14px;display:flex;align-items:center;justify-content:space-between;">
-      <span style="font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--lime);">Extra game</span>
-      <div style="display:flex;gap:8px;align-items:center;">
-        <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:11px;color:var(--orange-light);font-weight:700;text-transform:uppercase;letter-spacing:.5px;">
-          <input type="checkbox" id="void-${gameNum}" onchange="toggleVoid(${gameNum})"> Void
-        </label>
-        <button class="btn btn-danger btn-sm" onclick="removeExtraGame(${gameNum})">Remove</button>
-      </div>
-    </div>
-    <div id="game-body-${gameNum}" style="padding:14px;">
-      <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:start;gap:12px;">
-        <div style="background:var(--blue-pale);border-radius:var(--radius-sm);padding:12px;">
-          <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--blue);margin-bottom:8px;">Team A</div>
-          <select id="extraA1-${gameNum}" style="width:100%;margin-bottom:6px;font-size:12px;font-family:Montserrat,sans-serif;"><option value="">Player 1</option>${courtPlayers.filter(p=>!noShowPlayer||p.id!==noShowPlayer.id).map(p=>`<option value="${p.id}">${p.first_name} ${p.last_name}</option>`).join('')}</select>
-          <select id="extraA2-${gameNum}" style="width:100%;margin-bottom:8px;font-size:12px;font-family:Montserrat,sans-serif;"><option value="">Player 2</option>${courtPlayers.filter(p=>!noShowPlayer||p.id!==noShowPlayer.id).map(p=>`<option value="${p.id}">${p.first_name} ${p.last_name}</option>`).join('')}</select>
-          <input type="number" min="0" max="11" placeholder="Score" id="scoreA-${gameNum}" data-egame="${gameNum}" data-eteam="A" style="width:100%;text-align:center;font-size:18px;font-weight:800;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:6px;">
-        </div>
-        <div style="font-size:16px;font-weight:800;color:var(--text-muted);padding-top:36px;">VS</div>
-        <div style="background:var(--teal-light);border-radius:var(--radius-sm);padding:12px;">
-          <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--teal);margin-bottom:8px;">Team B</div>
-          <select id="extraB1-${gameNum}" style="width:100%;margin-bottom:6px;font-size:12px;font-family:Montserrat,sans-serif;"><option value="">Player 1</option>${courtPlayers.filter(p=>!noShowPlayer||p.id!==noShowPlayer.id).map(p=>`<option value="${p.id}">${p.first_name} ${p.last_name}</option>`).join('')}</select>
-          <select id="extraB2-${gameNum}" style="width:100%;margin-bottom:8px;font-size:12px;font-family:Montserrat,sans-serif;"><option value="">Player 2</option>${courtPlayers.filter(p=>!noShowPlayer||p.id!==noShowPlayer.id).map(p=>`<option value="${p.id}">${p.first_name} ${p.last_name}</option>`).join('')}</select>
-          <input type="number" min="0" max="11" placeholder="Score" id="scoreB-${gameNum}" data-egame="${gameNum}" data-eteam="B" style="width:100%;text-align:center;font-size:18px;font-weight:800;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:6px;">
-        </div>
-      </div>
-      <div id="pts-preview-${gameNum}" style="margin-top:10px;font-size:12px;color:var(--text-muted);text-align:center;font-weight:500;"></div>
-      <input type="hidden" id="teamA-ids-${gameNum}" value=""><input type="hidden" id="teamB-ids-${gameNum}" value="">
-    </div>`;
-  container.appendChild(div);
-};
-
-const removeExtraGame=(gameNum)=>{
-  document.getElementById(`game-card-${gameNum}`).remove();
-  extraGames=extraGames.filter(g=>g!==gameNum);
-};
-
-const submitSession=async()=>{
-  if(!currentLadder){toast('Please select a ladder first.',true);return;}
-  const date=document.getElementById('session-date').value;
-  const courtNum=document.getElementById('court-number').value;
-  if(!date||!courtNum){toast('Please fill in session date and court number.',true);return;}
-  if(!courtPlayers.length){toast('Please add players to the court.',true);return;}
-  const rows=[];
-  // Renumber extra games sequentially after regular games
-  const extraGameNumbers=extraGames.map((g,i)=>({original:g,display:gameCount+1+i}));
-  // Map extra game IDs (101, 102...) to sequential display numbers (4, 5...)
-  const extraGameMap={};
-  extraGames.forEach((g,i)=>{extraGameMap[g]=gameCount+1+i;});
-  const allGameNums=[...Array(gameCount).keys()].map(i=>i+1).concat(extraGames);
-
-  // Validate date + court combination is unique
-  const existing=await api(`matches?session_date=eq.${date}&court_group=eq.${courtNum}&ladder_id=eq.${currentLadder.id}&limit=1`);
-  if(existing.length){
-    const existingDate=new Date(date+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'});
-    toast(`A session for Court ${courtNum} on ${existingDate} already exists. Please edit the existing session or choose a different court/date.`,true);
-    return;
-  }
-
-  // Validate game 4 (4-player closest scores) has all players selected
-  if(courtPlayers.length===4){
-    const a1=document.getElementById('extraA1-4')?.value;
-    const a2=document.getElementById('extraA2-4')?.value;
-    const b1=document.getElementById('extraB1-4')?.value;
-    const b2=document.getElementById('extraB2-4')?.value;
-    const isVoided4=document.getElementById('void-4')?.checked||false;
-    if(!isVoided4&&(!a1||!a2||!b1||!b2)){
-      toast('Game 4: Please select all 4 players or mark the game as void.',true);
+  const loadLadderPlayers = async () => {
+    if (!currentLadder) {
+      ladderPlayers = [];
       return;
     }
-  }
-
-  // Validate all scores are entered unless game is voided
-  const missingScores=[];
-  for(const gameNum of allGameNums){
-    const isVoided=document.getElementById(`void-${gameNum}`)?.checked||false;
-    if(isVoided)continue;
-    const sA=document.getElementById(`scoreA-${gameNum}`);
-    const sB=document.getElementById(`scoreB-${gameNum}`);
-    if(!sA||sA.value===''||!sB||sB.value===''){
-      missingScores.push(gameNum);
+    try {
+      const rows = await api(
+        `ladder_players?select=*,players(*)&ladder_id=eq.${currentLadder.id}`,
+      );
+      ladderPlayers = rows
+        .filter((r) => r.players)
+        .map((r) => ({ ...r.players, ladder_status: r.status || 'active' }));
+    } catch (e) {
+      toast(`Error loading ladder players: ${e.message}`, true);
+      ladderPlayers = [];
     }
-  }
-  if(missingScores.length){
-    toast(`Please enter scores for Game${missingScores.length>1?'s':''} ${missingScores.join(', ')} or mark ${missingScores.length>1?'them':'it'} as void.`,true);
-    return;
-  }
+  };
 
-  for(const gameNum of allGameNums){
-    const sA=document.getElementById(`scoreA-${gameNum}`);
-    const sB=document.getElementById(`scoreB-${gameNum}`);
-    if(!sA||sA.value==='')continue;
-    const scoreA=parseInt(sA.value);
-    const scoreB=parseInt(sB?.value||0);
-    const isVoided=document.getElementById(`void-${gameNum}`)?.checked||false;
-    const ptA=isVoided?0:calcPoints(scoreA,scoreB);
-    const ptB=isVoided?0:calcPoints(scoreB,scoreA);
-    let tAIds,tBIds;
-    const isExtraGame=gameNum>100||(gameNum===4&&courtPlayers.length===4);
-    if(isExtraGame){
-      tAIds=[document.getElementById(`extraA1-${gameNum}`)?.value,document.getElementById(`extraA2-${gameNum}`)?.value].filter(Boolean).map(Number);
-      tBIds=[document.getElementById(`extraB1-${gameNum}`)?.value,document.getElementById(`extraB2-${gameNum}`)?.value].filter(Boolean).map(Number);
-    }else{
-      tAIds=document.getElementById(`teamA-ids-${gameNum}`)?.value.split(',').filter(Boolean).map(Number)||[];
-      tBIds=document.getElementById(`teamB-ids-${gameNum}`)?.value.split(',').filter(Boolean).map(Number)||[];
+  /* ─── LADDER MANAGEMENT PAGE ───────────────────────────── */
+
+  const loadLaddersPage = async () => {
+    try {
+      allLadders = await api('ladders?select=*&order=id.desc');
+    } catch (e) {
+      document.getElementById('ladders-list').innerHTML =
+        `<div class="empty">Error: ${esc(e.message)}</div>`;
+      return;
     }
-    tAIds.forEach(pid=>{if(!pid)return;
-      const pA=ladderPlayers.find(p=>p.id===pid);
-      const isSubA=pA?.ladder_status==='sub';
-      rows.push({session_date:date,court_group:parseInt(courtNum),player_id:pid,game_number:(extraGameMap[gameNum]||gameNum),score_for:isVoided?null:scoreA,score_against:isVoided?null:scoreB,points_earned:isSubA?0:ptA,is_sub:isSubA,default_no_show:false,ladder_id:currentLadder.id});});
-    tBIds.forEach(pid=>{if(!pid)return;
-      const pB=ladderPlayers.find(p=>p.id===pid);
-      const isSubB=pB?.ladder_status==='sub';
-      rows.push({session_date:date,court_group:parseInt(courtNum),player_id:pid,game_number:(extraGameMap[gameNum]||gameNum),score_for:isVoided?null:scoreB,score_against:isVoided?null:scoreA,points_earned:isSubB?0:ptB,is_sub:isSubB,default_no_show:false,ladder_id:currentLadder.id});});
-  }
-  // Add no-show player record
-  if(noShowPlayer){
-    rows.push({
-      session_date:date,
-      court_group:parseInt(courtNum),
-      player_id:noShowPlayer.id,
-      game_number:1,
-      score_for:null,
-      score_against:null,
-      points_earned:noShowPenalty,
-      is_sub:noShowPlayer.ladder_status==='sub',
-      default_no_show:true,
-      ladder_id:currentLadder.id
+    const el = document.getElementById('ladders-list');
+    if (!allLadders.length) {
+      el.innerHTML = '<div class="empty">No ladders yet. Create your first one!</div>';
+      return;
+    }
+    el.innerHTML = allLadders
+      .map((l) => {
+        const dates =
+          (l.start_date ? `Started: ${fmtDate(l.start_date)}` : 'No start date') +
+          (l.end_date ? ` · Ends: ${fmtDate(l.end_date)}` : '');
+        return `
+          <div class="list-row-flex">
+            <div>
+              <div class="text-bold text-14">${esc(l.name)}</div>
+              <div class="text-muted-12 mt-4">${dates}</div>
+            </div>
+            <div class="row-wrap">
+              <span class="badge badge-${l.status === 'active' ? 'active' : 'inactive'}">${esc(l.status)}</span>
+              <button class="btn btn-outline btn-sm" data-action="openLadderPlayers" data-lid="${l.id}" data-lname="${esc(l.name)}">Players</button>
+              <button class="btn btn-outline btn-sm" data-action="openEditLadder" data-lid="${l.id}">Edit</button>
+              <button class="btn btn-outline btn-sm" data-action="toggleLadderStatus" data-lid="${l.id}" data-lstatus="${esc(l.status)}">${l.status === 'active' ? 'Close' : 'Reopen'}</button>
+              <button class="btn btn-danger btn-sm" data-action="deleteLadder" data-lid="${l.id}" data-lname="${esc(l.name)}">Delete</button>
+            </div>
+          </div>`;
+      })
+      .join('');
+  };
+
+  const createLadder = async (e) => {
+    e.preventDefault();
+    const name = document.getElementById('new-ladder-name').value.trim();
+    const start = document.getElementById('new-ladder-start').value || null;
+    const end = document.getElementById('new-ladder-end').value || null;
+    if (!name) {
+      toast('Please enter a ladder name.', true);
+      return;
+    }
+    try {
+      await api('ladders', 'POST', { name, status: 'active', start_date: start, end_date: end });
+      toast(`Ladder "${name}" created!`);
+      document.getElementById('create-ladder-form').reset();
+      await loadLadderSelector();
+      loadLaddersPage();
+    } catch (err) {
+      toast(`Error: ${err.message}`, true);
+    }
+  };
+
+  const toggleLadderStatus = async (id, current) => {
+    const newStatus = current === 'active' ? 'closed' : 'active';
+    try {
+      await api(`ladders?id=eq.${id}`, 'PATCH', { status: newStatus });
+      toast(`Ladder ${newStatus === 'closed' ? 'closed' : 'reopened'}!`);
+      await loadLadderSelector();
+      loadLaddersPage();
+    } catch (e) {
+      toast(`Error: ${e.message}`, true);
+    }
+  };
+
+  const openEditLadder = (id) => {
+    const l = allLadders.find((x) => x.id === id);
+    if (!l) return;
+    document.getElementById('edit-ladder-id').value = l.id;
+    document.getElementById('edit-ladder-name').value = l.name;
+    document.getElementById('edit-ladder-start').value = l.start_date || '';
+    document.getElementById('edit-ladder-end').value = l.end_date || '';
+    document.getElementById('edit-ladder-status').value = l.status || 'active';
+    document.getElementById('edit-ladder-modal').classList.add('open');
+  };
+
+  const closeEditLadderModal = () =>
+    document.getElementById('edit-ladder-modal').classList.remove('open');
+
+  const saveEditLadder = async (e) => {
+    e.preventDefault();
+    const id = document.getElementById('edit-ladder-id').value;
+    const body = {
+      name: document.getElementById('edit-ladder-name').value.trim(),
+      start_date: document.getElementById('edit-ladder-start').value || null,
+      end_date: document.getElementById('edit-ladder-end').value || null,
+      status: document.getElementById('edit-ladder-status').value,
+    };
+    try {
+      await api(`ladders?id=eq.${id}`, 'PATCH', body);
+      toast('Ladder updated!');
+      closeEditLadderModal();
+      await loadLadderSelector();
+      loadLaddersPage();
+    } catch (err) {
+      toast(`Error: ${err.message}`, true);
+    }
+  };
+
+  const deleteLadder = async (id, name) => {
+    const ok = await confirmModal({
+      title: 'Delete ladder?',
+      message: `Delete ladder "${name}"? This will also delete all sessions and match records linked to it. This cannot be undone.`,
+      okLabel: 'Delete',
+      danger: true,
     });
-  }
-
-  if(!rows.length){toast('No scores entered yet.',true);return;}
-  try{
-    await api('matches','POST',rows);
-    toast(`Session saved! ${rows.length} entries recorded.`);
-    initEntry();
-  }catch(e){toast(`Error: ${e.message}`,true);}
-};
-
-// ─── PLAYERS ─────────────────────────────────────────────────────────
-const filterPlayers=()=>{
-  const q=document.getElementById('player-search').value.toLowerCase().trim();
-  const statusFilter=document.getElementById('player-status-filter')?.value||'all';
-  document.querySelectorAll('#players-table tbody tr').forEach(row=>{
-    const name=row.querySelector('td')?.textContent.toLowerCase()||'';
-    const statusCell=row.querySelectorAll('td')[4]?.textContent.toLowerCase()||'';
-    const nameMatch=name.includes(q);
-    const statusMatch=statusFilter==='all'||statusCell.includes(statusFilter);
-    row.style.display=(nameMatch&&statusMatch)?'':'none';
-  });
-};
-
-const loadPlayers=async()=>{
-  try{
-    allPlayers=await api('players?select=*&order=first_name');
-    if(!allPlayers.length){document.getElementById('players-table').innerHTML='<div class="empty">No players yet.</div>';return;}
-    const rows=allPlayers.map(p=>`
-      <tr>
-        <td style="font-weight:700">${p.first_name} ${p.last_name}</td>
-        <td style="color:var(--text-muted)">${p.gender||'-'}</td>
-        <td style="color:var(--text-muted)">${p.email||'-'}</td>
-        <td style="color:var(--text-muted)">${p.phone||'-'}</td>
-        <td><span class="badge badge-${p.status}">${p.status}</span></td>
-        <td style="color:var(--text-muted)">${p.date_joined?new Date(p.date_joined+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'-'}</td>
-        <td><button class="btn btn-outline btn-sm" onclick="openEdit(${p.id})">Edit</button></td>
-      </tr>`).join('');
-    document.getElementById('players-count').textContent=`${allPlayers.length} player${allPlayers.length!==1?'s':''}`;
-    document.getElementById('players-table').innerHTML=`
-      <table><thead><tr><th>Name</th><th>Gender</th><th>Email</th><th>Phone</th><th>Status</th><th>Joined</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
-  }catch(e){document.getElementById('players-table').innerHTML=`<div class="empty">Error: ${e.message}</div>`;}
-};
-
-const initAddPlayer=()=>{
-  document.getElementById('p-joined').value=new Date().toISOString().split('T')[0];
-};
-
-const addPlayer=async(e)=>{
-  e.preventDefault();
-  const body={first_name:document.getElementById('p-first').value.trim(),last_name:document.getElementById('p-last').value.trim(),email:document.getElementById('p-email').value.trim()||null,phone:document.getElementById('p-phone').value.trim()||null,gender:document.getElementById('p-gender').value||null,status:document.getElementById('p-status').value,date_joined:document.getElementById('p-joined').value||null,current_rank:999};
-  try{
-    await api('players','POST',body);
-    toast(`${body.first_name} ${body.last_name} added successfully!`);
-    e.target.reset();
-    document.getElementById('p-joined').value=new Date().toISOString().split('T')[0];
-    allPlayers=[];
-  }catch(e){toast(`Error: ${e.message}`,true);}
-};
-
-const openEdit=(id)=>{
-  const p=allPlayers.find(x=>x.id===id);if(!p)return;
-  document.getElementById('edit-id').value=p.id;
-  document.getElementById('edit-first').value=p.first_name;
-  document.getElementById('edit-last').value=p.last_name;
-  document.getElementById('edit-email').value=p.email||'';
-  document.getElementById('edit-phone').value=p.phone||'';
-  document.getElementById('edit-gender').value=p.gender||'';
-  document.getElementById('edit-status').value=p.status||'active';
-  document.getElementById('edit-modal').classList.add('open');
-};
-
-const closeModal=()=>document.getElementById('edit-modal').classList.remove('open');
-
-const saveEditPlayer=async(e)=>{
-  e.preventDefault();
-  const id=document.getElementById('edit-id').value;
-  const body={first_name:document.getElementById('edit-first').value.trim(),last_name:document.getElementById('edit-last').value.trim(),email:document.getElementById('edit-email').value.trim()||null,phone:document.getElementById('edit-phone').value.trim()||null,gender:document.getElementById('edit-gender').value||null,status:document.getElementById('edit-status').value};
-  try{
-    await api(`players?id=eq.${id}`,'PATCH',body);
-    toast('Player updated!');closeModal();loadPlayers();allPlayers=[];
-  }catch(e){toast(`Error: ${e.message}`,true);}
-};
-
-// ─── INIT ─────────────────────────────────────────────────────────────
-const loadSharePage=async()=>{
-  const ladders=await api('ladders?select=*&order=id.desc');
-  const el=document.getElementById('share-ladder-list');
-  if(!ladders.length){el.innerHTML='<div class="empty">No ladders yet. Create one in the Ladders tab.</div>';return;}
-  const baseUrl=window.location.origin+window.location.pathname.replace('index.html','')+'players.html';
-  el.innerHTML=ladders.map(l=>{
-    const encoded=btoa(String(l.id));
-    const url=`${baseUrl}?l=${encoded}`;
-    const statusColor=l.status==='active'?'var(--teal)':'var(--text-muted)';
-    return `<div style="padding:16px 0;border-bottom:0.5px solid var(--border);">
-      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
-        <div>
-          <div style="font-weight:700;font-size:14px;">${l.name}</div>
-          <div style="font-size:11px;font-weight:700;color:${statusColor};text-transform:uppercase;letter-spacing:.5px;margin-top:2px;">${l.status}</div>
-        </div>
-        <button class="btn btn-primary btn-sm" onclick="copyShareLink('${url}','copy-btn-${l.id}')" id="copy-btn-${l.id}">Copy link</button>
-      </div>
-      <div style="margin-top:10px;background:var(--bg);border:0.5px solid var(--border);border-radius:var(--radius-sm);padding:8px 12px;font-size:12px;font-weight:500;color:var(--text-muted);word-break:break-all;font-family:monospace;">${url}</div>
-    </div>`;
-  }).join('');
-};
-
-const copyShareLink=(url,btnId)=>{
-  navigator.clipboard.writeText(url).then(()=>{
-    const btn=document.getElementById(btnId);
-    if(btn){
-      const orig=btn.textContent;
-      btn.textContent='Copied!';
-      btn.style.background='var(--teal)';
-      setTimeout(()=>{btn.textContent=orig;btn.style.background='';},2000);
+    if (!ok) return;
+    try {
+      // Bulk deletes — one call each table instead of N per ID
+      await api(`matches?ladder_id=eq.${id}`, 'DELETE');
+      await api(`ladder_players?ladder_id=eq.${id}`, 'DELETE');
+      await api(`ladders?id=eq.${id}`, 'DELETE');
+      if (currentLadder && currentLadder.id === id) currentLadder = null;
+      toast(`Ladder "${name}" deleted.`);
+      await loadLadderSelector();
+      loadLaddersPage();
+      updateLadderBanner();
+    } catch (e) {
+      toast(`Error: ${e.message}`, true);
     }
-    toast('Link copied to clipboard!');
-  }).catch(()=>{
-    toast('Could not copy. Please copy the link manually.',true);
-  });
-};
+  };
 
-document.getElementById('last-updated').textContent=new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+  /* ─── LADDER PLAYERS MODAL ─────────────────────────────── */
 
-// Single delegated listener handles all button clicks
-document.addEventListener('click', e=>{
-  const btn = e.target.closest('[data-action]');
-  if(!btn) return;
-  const action = btn.dataset.action;
-  const page = btn.dataset.page;
-  if(action==='showPage' && page) showPage(page, btn);
-  if(action==='addCourtPlayerBtn'){const pid=parseInt(btn.dataset.pid);addCourtPlayer(pid);}
-  if(action==='markNoShow'){markNoShow(btn.dataset.pid);}
-  if(action==='cancelNoShow'){cancelNoShow();}
-  if(action==='removeCourtPlayerBtn'){removeCourtPlayer(parseInt(btn.dataset.pid));}
-  if(action==='addExtraGame') addExtraGame();
-  if(action==='editGame') editGame(btn);
-  if(action==='deleteSession') deleteSession(btn);
-  if(action==='editSession') editSession(btn);
-  if(action==='lpToggleAll') lpToggleAll(btn);
-  if(action==='lpSaveChanges') lpSaveChanges();
-  if(action==='submitSession') submitSession();
-  if(action==='closeEditLadderModal') closeEditLadderModal();
-  if(action==='closeModal') closeModal();
-  if(action==='closeEditGameModal') document.getElementById('edit-game-modal').classList.remove('open');
-  if(action==='openNotifyPlayers') openNotifyPlayers();
-  if(action==='closeNotifyModal') document.getElementById('notify-modal').classList.remove('open');
-  if(action==='generateQR'){if(typeof generateQR!=='undefined')generateQR();}
-  if(action==='openSendPromo'){if(typeof openSendPromo!=='undefined')openSendPromo();}
-  if(action==='closePromoModal') document.getElementById('promo-modal').classList.remove('open');
-  if(action==='closeEditSessionModal') document.getElementById('edit-session-modal').classList.remove('open');
-  if(action==='addToLadder') addToLadder();
-  if(action==='closeLpModal') closeLpModal();
-  if(action==='switchTab') switchMainTab(btn.dataset.tab);
-  if(action==='goHome') goHome();
-  if(action==='switchProgramTab') switchProgramTab(btn.dataset.tab);
-  // Tournament actions
-  if(action==='openTournamentDetail') openTournamentDetail(btn);
-  if(action==='openEditTournament') openEditTournament(btn);
-  if(action==='deleteTournament') deleteTournament(btn);
-  if(action==='backToTournaments') backToTournaments();
-  if(action==='openAddTeam') openAddTeam(btn);
-  if(action==='deleteTeam') deleteTeam(btn);
-  if(action==='generateRoundRobin') generateRoundRobin(btn);
-  if(action==='setFinalsFormat') setFinalsFormat(btn);
-  if(action==='generateFinals') generateFinals(btn);
-  if(action==='openRecordMatch') openRecordMatch(btn);
-  if(action==='closeEditTournamentModal') document.getElementById('edit-tournament-modal').classList.remove('open');
-  if(action==='closeAddTeamModal') document.getElementById('add-team-modal').classList.remove('open');
-  if(action==='closeRecordMatchModal') document.getElementById('record-match-modal').classList.remove('open');
-});
+  const openLadderPlayers = async (ladderId, ladderName) => {
+    modalLadderId = ladderId;
+    document.getElementById('lp-modal-title').textContent = `Players — ${ladderName}`;
+    document.getElementById('lp-modal').classList.add('open');
+    const searchEl = document.getElementById('lp-search');
+    if (searchEl) searchEl.value = '';
+    await refreshLadderPlayersModal();
+  };
 
-document.addEventListener('change', e=>{
-  const el=e.target;
-  if(el.dataset.action==='lpChangeStatus'){lpChangeStatus(el);return;}
-  if(el.name==='noshow-penalty'){noShowPenalty=parseInt(el.value);return;}
-  if(el.id==='notify-type'){setNotifyTemplate(el.value);return;}
-});
+  const refreshLadderPlayersModal = async () => {
+    const [allP, enrolled] = await Promise.all([
+      api('players?select=*&order=first_name'),
+      api(`ladder_players?select=ladder_id,player_id,status&ladder_id=eq.${modalLadderId}`),
+    ]);
+    allPlayers = allP;
+    const enrolledIds = enrolled.map((r) => Number(r.player_id));
+    const activePlayers = allPlayers.filter((p) => p.status !== 'inactive');
 
-document.addEventListener('input', e=>{
-  const el=e.target;
-  // Status change for ladder player (also handled in change event above)
-  if(el.dataset.action==='lpChangeStatus'){lpChangeStatus(el);return;}
-  // Search filter for ladder players modal
-  if(el.id==='lp-search'){
-    const q=el.value.toLowerCase();
-    document.querySelectorAll('#lp-enrolled .lp-player-row').forEach(row=>{
-      row.style.display=row.dataset.name.includes(q)?'':'none';
-    });
-    return;
-  }
-  // Auto-calc for edit game modal
-  const rid=el.dataset.egrid;
-  if(rid){
-    const sf=document.getElementById(`eg-sf-${rid}`);
-    const sa=document.getElementById(`eg-sa-${rid}`);
-    const pts=document.getElementById(`eg-pts-${rid}`);
-    if(sf&&sa&&pts&&sf.value!==''&&sa.value!==''){
-      pts.value=calcPoints(parseInt(sf.value),parseInt(sa.value));
+    const listEl = document.getElementById('lp-enrolled');
+    const allChecked = activePlayers.every((p) => enrolledIds.includes(Number(p.id)));
+    listEl.dataset.enrolledIds = enrolledIds.join(',');
+
+    const headerHtml = `
+      <div class="lp-sticky-header">
+        <input type="checkbox" id="lp-select-all" ${allChecked ? 'checked' : ''}
+          style="width:16px;height:16px;cursor:pointer;" data-action="lpToggleAll">
+        <label for="lp-select-all" class="text-bolder text-uppercase color-blue cursor-pointer" style="font-size:12px;letter-spacing:.5px;">Select all</label>
+        <span class="text-bold color-blue" style="margin-left:auto;font-size:12px;">${enrolledIds.length} / ${activePlayers.length} enrolled</span>
+      </div>`;
+
+    const rowsHtml = activePlayers
+      .map((p) => {
+        const isEnrolled = enrolledIds.includes(Number(p.id));
+        const enrolledRow = enrolled.find((r) => Number(r.player_id) === Number(p.id));
+        const ladderStatus = enrolledRow && enrolledRow.status ? enrolledRow.status : 'active';
+        const fullName = `${p.first_name} ${p.last_name}`;
+        return `<div class="lp-row lp-player-row" data-name="${esc(fullName.toLowerCase())}">
+          <input type="checkbox" id="lp-cb-${p.id}" ${isEnrolled ? 'checked' : ''}
+            style="width:16px;height:16px;cursor:pointer;" data-pid="${p.id}">
+          <label for="lp-cb-${p.id}" class="text-bold cursor-pointer flex-1" style="font-size:13px;">
+            ${esc(fullName)}
+            <span class="badge badge-${esc(p.status)}" style="margin-left:6px;">${esc(p.status)}</span>
+          </label>
+          ${
+            isEnrolled
+              ? `<select data-action="lpChangeStatus" data-pid="${p.id}"
+                  class="lp-status-select ${ladderStatus === 'active' ? 'lp-status-active' : 'lp-status-sub'}">
+                  <option value="active" ${ladderStatus === 'active' ? 'selected' : ''}>Active</option>
+                  <option value="sub" ${ladderStatus === 'sub' ? 'selected' : ''}>Sub</option>
+                </select>`
+              : ''
+          }
+        </div>`;
+      })
+      .join('');
+
+    listEl.innerHTML = headerHtml + rowsHtml;
+  };
+
+  const lpChangeStatus = async (sel) => {
+    const pid = parseInt(sel.dataset.pid, 10);
+    const newStatus = sel.value;
+    sel.disabled = true;
+    try {
+      await api(
+        `ladder_players?ladder_id=eq.${modalLadderId}&player_id=eq.${pid}`,
+        'PATCH',
+        { status: newStatus },
+      );
+      sel.classList.toggle('lp-status-active', newStatus === 'active');
+      sel.classList.toggle('lp-status-sub', newStatus === 'sub');
+      const p = ladderPlayers.find((x) => x.id === pid);
+      if (p) p.ladder_status = newStatus;
+      toast(`Status updated to ${newStatus}.`);
+    } catch (e) {
+      toast(`Error: ${e.message}`, true);
+    } finally {
+      sel.disabled = false;
     }
-  }
-  // Auto-calc for extra/game4 score inputs
-  const egame=el.dataset.egame;
-  if(egame){
-    const sA=document.getElementById(`scoreA-${egame}`);
-    const sB=document.getElementById(`scoreB-${egame}`);
-    if(sA&&sB&&sA.value!==''&&sB.value!==''){
-      const ptA=calcPoints(parseInt(sA.value),parseInt(sB.value));
-      const ptB=calcPoints(parseInt(sB.value),parseInt(sA.value));
-      const preview=document.getElementById(`pts-preview-${egame}`);
-      if(preview){
-        const aColor=ptA>ptB?'var(--teal)':'var(--orange)';
-        const bColor=ptB>ptA?'var(--teal)':'var(--orange)';
-        preview.innerHTML=`<span style="color:${aColor};font-weight:700;">Team A: +${ptA} pts</span> &nbsp;|&nbsp; <span style="color:${bColor};font-weight:700;">Team B: +${ptB} pts</span>`;
+  };
+
+  const lpSaveChanges = async () => {
+    const listEl = document.getElementById('lp-enrolled');
+    const prevEnrolledIds = (listEl.dataset.enrolledIds || '')
+      .split(',')
+      .filter(Boolean)
+      .map(Number);
+    const checkboxes = document.querySelectorAll('#lp-enrolled input[type="checkbox"][data-pid]');
+    const nowCheckedIds = [...checkboxes]
+      .filter((cb) => cb.checked)
+      .map((cb) => parseInt(cb.dataset.pid, 10));
+
+    const toAdd = nowCheckedIds.filter((id) => !prevEnrolledIds.includes(id));
+    const toRemove = prevEnrolledIds.filter((id) => !nowCheckedIds.includes(id));
+
+    if (!toAdd.length && !toRemove.length) {
+      toast('No changes to save.');
+      return;
+    }
+    const saveBtn = document.getElementById('lp-save-btn');
+    if (saveBtn) {
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Saving...';
+    }
+    try {
+      if (toAdd.length) {
+        await api(
+          'ladder_players',
+          'POST',
+          toAdd.map((pid) => ({ ladder_id: parseInt(modalLadderId, 10), player_id: pid })),
+        );
+      }
+      if (toRemove.length) {
+        // Single bulk delete
+        await api(
+          `ladder_players?ladder_id=eq.${modalLadderId}&player_id=in.(${toRemove.join(',')})`,
+          'DELETE',
+        );
+      }
+      toast(`Saved! ${toAdd.length} added, ${toRemove.length} removed.`);
+      await loadLadderPlayers();
+      document.getElementById('lp-modal').classList.remove('open');
+    } catch (e) {
+      toast(`Error: ${e.message}`, true);
+    } finally {
+      if (saveBtn) {
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Save changes';
       }
     }
-  }
-});
-
-document.getElementById('player-status-filter')?.addEventListener('change', filterPlayers);
-document.getElementById('player-search')?.addEventListener('input', filterPlayers);
-// Show home page on load
-document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-document.getElementById('page-home').classList.add('active');
-document.getElementById('tab-home').classList.add('active');
-document.getElementById('subnav-programs').style.display='none';
-document.getElementById('subnav-management').style.display='none';
-document.getElementById('subnav-ladder-options').style.display='none';
-document.getElementById('subnav-tournament-options').style.display='none';
-
-document.getElementById('tab-home').dataset.action='goHome';
-document.getElementById('edit-game-form').addEventListener('submit',saveEditGame);
-document.getElementById('ladder-selector').addEventListener('change',onLadderChange);
-document.getElementById('tournament-selector')?.addEventListener('change',onTournamentChange);
-document.getElementById('edit-session-form').addEventListener('submit',saveEditSession);
-// Tournament form listeners moved to end of file
-
-loadLadderSelector();
-
-
-// ─── TOURNAMENTS ─────────────────────────────────────────────────────────────
-
-const CATEGORY_LABELS = {
-  mixed_doubles: 'Mixed Doubles',
-  mens_doubles: "Men's Doubles",
-  womens_doubles: "Women's Doubles",
-  team_challenge: 'Team Challenge (2M+2W)'
-};
-
-let currentTournamentId = null;
-
-async function loadTournamentsPage() {
-  // Make sure management subnav is visible and tournaments page is active
-  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  document.getElementById('page-tournaments').classList.add('active');
-  document.getElementById('subnav-management').style.display='flex';
-  document.getElementById('subnav-programs').style.display='none';
-  document.getElementById('subnav-ladder-options').style.display='none';
-  document.getElementById('subnav-tournament-options').style.display='none';
-  document.getElementById('tab-home').classList.remove('active');
-  // Activate tournaments button in subnav
-  document.querySelectorAll('#subnav-management button').forEach(b=>b.classList.toggle('active',b.dataset.page==='tournaments'));
-  const tournaments = await api('tournaments?select=*&order=id.desc');
-  const el = document.getElementById('tournaments-list');
-  if (!tournaments.length) { el.innerHTML = '<div class="empty">No tournaments yet. Create your first one!</div>'; return; }
-  el.innerHTML = tournaments.map(t => `
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:0.5px solid var(--border);flex-wrap:wrap;gap:8px;">
-      <div>
-        <div style="font-weight:700;font-size:14px;">${t.name}</div>
-        <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">
-          ${(t.categories||[]).map(c=>CATEGORY_LABELS[c]||c).join(' · ')||'No categories'}
-          ${t.date?' · '+new Date(t.date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):''}
-        </div>
-      </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <span class="badge badge-${t.status==='active'?'active':t.status==='completed'?'inactive':'sub'}">${t.status}</span>
-        <button class="btn btn-primary btn-sm" data-action="openTournamentDetail" data-tid="${t.id}">Manage</button>
-        <button class="btn btn-outline btn-sm" data-action="openEditTournament" data-tid="${t.id}">Edit</button>
-        <button class="btn btn-danger btn-sm" data-action="deleteTournament" data-tid="${t.id}" data-tname="${t.name}">Delete</button>
-      </div>
-    </div>`).join('');
-};
-
-const getCheckedCategories=(prefix)=>{
-  const cats=['mixed','mens','womens','team'];
-  return cats.map(c=>document.getElementById(`${prefix}-cat-${c}`)?.checked?document.getElementById(`${prefix}-cat-${c}`).value:null).filter(Boolean);
-};
-
-async function createTournament(e) {
-  e.preventDefault();
-  e.stopPropagation();
-  console.log('createTournament called');
-  const name = document.getElementById('tn-name').value.trim();
-  const categories = getCheckedCategories('tn');
-  console.log('name:', name, 'categories:', categories);
-  if (!name) { toast('Please enter a tournament name.', true); return; }
-  if (!categories.length) { toast('Please select at least one category.', true); return; }
-  const body = { name, categories: `{${categories.join(',')}}`, date: document.getElementById('tn-date').value || null, status: 'draft' };
-  try {
-    console.log('Posting tournament...');
-    await api('tournaments', 'POST', body);
-    console.log('Tournament created, loading page...');
-    toast(`Tournament "${name}" created!`);
-    document.getElementById('create-tournament-form').reset();
-    await loadTournamentsPage();
-    console.log('loadTournamentsPage done');
-  } catch(err) { 
-    console.error('Error:', err);
-    toast(`Error: ${err.message}`, true); 
-  }
-};
-
-function openEditTournament(btn) {
-  const tid = btn.dataset.tid;
-  api(`tournaments?id=eq.${tid}&select=*`).then(rows => {
-    if (!rows.length) return;
-    const t = rows[0];
-    document.getElementById('edit-tn-id').value = t.id;
-    document.getElementById('edit-tn-name').value = t.name;
-    document.getElementById('edit-tn-date').value = t.date || '';
-    document.getElementById('edit-tn-status').value = t.status;
-    // Check the right category boxes
-    const cats=['mixed','mens','womens','team'];
-    const vals=['mixed_doubles','mens_doubles','womens_doubles','team_challenge'];
-    cats.forEach((c,i)=>{
-      const cb=document.getElementById(`edit-tn-cat-${c}`);
-      if(cb) cb.checked=(t.categories||[]).includes(vals[i]);
-    });
-    document.getElementById('edit-tournament-modal').classList.add('open');
-  });
-};
-
-async function saveEditTournament(e) {
-  e.preventDefault();
-  const id = document.getElementById('edit-tn-id').value;
-  const categories = getCheckedCategories('edit-tn');
-  if (!categories.length) { toast('Please select at least one category.', true); return; }
-  const body = {
-    name: document.getElementById('edit-tn-name').value.trim(),
-    categories: `{${categories.join(',')}}`,
-    date: document.getElementById('edit-tn-date').value || null,
-    status: document.getElementById('edit-tn-status').value
   };
-  try {
-    await api(`tournaments?id=eq.${id}`, 'PATCH', body);
-    toast('Tournament updated!');
-    document.getElementById('edit-tournament-modal').classList.remove('open');
-    loadTournamentsPage();
-  } catch(e) { toast(`Error: ${e.message}`, true); }
-};
 
-async function deleteTournament(btn) {
-  const tid = btn.dataset.tid;
-  const name = btn.dataset.tname;
-  if (!confirm(`Delete tournament "${name}"?\n\nThis will delete all teams and matches. This cannot be undone.`)) return;
-  try {
-    // Deletion handled by tournament.js - skip old delete logic
-    await api(`tournaments?id=eq.${tid}`, 'DELETE');
-    toast(`Tournament "${name}" deleted.`);
-    loadTournamentsPage();
-  } catch(e) { toast(`Error: ${e.message}`, true); }
-};
+  const lpToggleAll = (btn) => {
+    const selectAll = btn.checked;
+    document
+      .querySelectorAll('#lp-enrolled input[type="checkbox"][data-pid]')
+      .forEach((cb) => (cb.checked = selectAll));
+  };
 
-// ─── TOURNAMENT DETAIL ────────────────────────────────────────────────────────
+  const closeLpModal = () => document.getElementById('lp-modal').classList.remove('open');
 
-async function openTournamentDetail(btn) {
-  currentTournamentId = parseInt(btn.dataset.tid);
-  showPage('tournament-detail', null);
-  await renderTournamentDetail();
-};
+  /* ─── LADDER STANDINGS ─────────────────────────────────── */
 
-function backToTournaments() {
-  currentTournamentId = null;
-  showPage('tournaments', document.querySelector('#subnav-management button[data-page="tournaments"]'));
-};
+  const loadLadder = async () => {
+    if (!currentLadder) {
+      document.getElementById('ladder-stats').innerHTML = '';
+      document.getElementById('ladder-table').innerHTML =
+        '<div class="empty">Please select or create a ladder first.</div>';
+      return;
+    }
+    try {
+      if (!allPlayers.length) allPlayers = await api('players?select=*&order=id');
+      const matches = await api(`matches?select=*&ladder_id=eq.${currentLadder.id}`);
+      const pm = {};
+      ladderPlayers.forEach((p) => (pm[p.id] = 0));
+      matches.forEach((m) => {
+        if (pm[m.player_id] !== undefined) pm[m.player_id] += m.points_earned || 0;
+      });
+      const ranked = [...ladderPlayers]
+        .filter((p) => p.ladder_status === 'active')
+        .sort((a, b) => (pm[b.id] || 0) - (pm[a.id] || 0));
+      ranked.forEach((p, i) => {
+        p._rank = i + 1;
+        p._points = pm[p.id] || 0;
+      });
+      allPlayers._ranked = ranked;
+      const sessions = [...new Set(matches.map((m) => m.session_date))];
+      const uniqueGames = new Set(
+        matches.map((m) => `${m.session_date}__${m.court_group}__${m.game_number}`),
+      ).size;
+      const leader = ranked[0] ? `${ranked[0].first_name} ${ranked[0].last_name}` : '-';
+      document.getElementById('ladder-stats').innerHTML = `
+        <div class="stat"><div class="stat-label">Players</div><div class="stat-value">${ladderPlayers.length}</div></div>
+        <div class="stat"><div class="stat-label">Sessions</div><div class="stat-value">${sessions.length}</div></div>
+        <div class="stat"><div class="stat-label">Games</div><div class="stat-value">${uniqueGames}</div></div>
+        <div class="stat lime"><div class="stat-label">Leader</div><div class="stat-value">${esc(leader)}</div></div>`;
+      renderLadder();
+    } catch (e) {
+      document.getElementById('ladder-table').innerHTML =
+        `<div class="empty">Error: ${esc(e.message)}</div>`;
+    }
+  };
 
-async function renderTournamentDetail() {
-  const [tArr, teams, matches] = await Promise.all([
-    api(`tournaments?id=eq.${currentTournamentId}&select=*`),
-    api(`tournament_categories?tournament_id=eq.${currentTournamentId}&select=*`),
-    api(`tournament_matches?tournament_id=eq.${currentTournamentId}&select=*&order=round,id`)
-  ]);
-  const t = tArr[0];
-  if (!t) return;
+  const renderLadder = () => {
+    const filter = document.getElementById('gender-filter').value;
+    const players = (allPlayers._ranked || []).filter((p) => filter === 'all' || p.gender === filter);
+    if (!players.length) {
+      document.getElementById('ladder-table').innerHTML =
+        '<div class="empty">No players in this ladder yet.</div>';
+      return;
+    }
+    const rows = players
+      .map((p, i) => {
+        const rc = i === 0 ? 'top1' : i === 1 ? 'top2' : i === 2 ? 'top3' : '';
+        return `<tr>
+          <td><span class="rank-badge ${rc}">${i + 1}</span></td>
+          <td class="text-bold">${esc(p.first_name)} ${esc(p.last_name)}</td>
+          <td class="text-muted-12">${esc(p.gender || '-')}</td>
+          <td><span class="points-pill">${p._points} pts</span></td>
+        </tr>`;
+      })
+      .join('');
+    document.getElementById('ladder-table').innerHTML = `
+      <table>
+        <thead><tr><th>Rank</th><th>Player</th><th>Gender</th><th>Points</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+  };
 
-  const statusColor = t.status==='active'?'var(--teal)':t.status==='completed'?'var(--blue)':'var(--text-muted)';
-  const date = t.date ? new Date(t.date+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'long',day:'numeric',year:'numeric'}) : 'No date set';
-  const categories = t.categories || [];
+  /* ─── SESSIONS ─────────────────────────────────────────── */
 
-  let html = `
-    <div class="card">
-      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
-        <div>
-          <div style="font-size:18px;font-weight:800;color:var(--text);">${t.name}</div>
-          <div style="font-size:12px;color:var(--text-muted);margin-top:4px;font-weight:600;">${date}</div>
-          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">
-            ${categories.map(c=>`<span class="badge badge-active">${CATEGORY_LABELS[c]||c}</span>`).join('')}
+  const loadSessions = async () => {
+    if (!currentLadder) {
+      document.getElementById('sessions-list').innerHTML =
+        '<div class="empty">Please select a ladder first.</div>';
+      return;
+    }
+    try {
+      const matches = await api(
+        `matches?select=*,players(first_name,last_name)&ladder_id=eq.${currentLadder.id}&order=session_date.desc,court_group,game_number`,
+      );
+      if (!matches.length) {
+        document.getElementById('sessions-list').innerHTML =
+          '<div class="empty">No sessions recorded yet.</div>';
+        return;
+      }
+      const grouped = {};
+      matches.forEach((m) => {
+        const key = `${m.session_date}__${m.court_group}`;
+        if (!grouped[key]) grouped[key] = { date: m.session_date, group: m.court_group, games: {} };
+        if (!grouped[key].games[m.game_number]) grouped[key].games[m.game_number] = [];
+        grouped[key].games[m.game_number].push(m);
+      });
+      let html = '';
+      Object.values(grouped).forEach((s) => {
+        const date = fmtDate(s.date, {
+          weekday: 'short',
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+        });
+        const sessionMatchIds = Object.values(s.games)
+          .flat()
+          .map((m) => m.id)
+          .join(',');
+        html += `<div class="session-block">
+          <div class="row-between mb-8">
+            <div class="blue-tag">${date} — Court ${s.group}</div>
+            <div class="row gap-6">
+              <button class="btn btn-outline btn-sm" data-action="editSession" data-matchids="${sessionMatchIds}" data-date="${esc(s.date)}" data-court="${s.group}">Edit session</button>
+              <button class="btn btn-danger btn-sm" data-action="deleteSession" data-matchids="${sessionMatchIds}" data-date="${esc(s.date)}" data-court="${s.group}">Delete session</button>
+            </div>
+          </div>`;
+        Object.entries(s.games).forEach(([gnum, players]) => {
+          const gameIds = players.map((p) => p.id).join(',');
+          html += `<div class="game-row">
+            <div class="row-between gap-6">
+              <div class="row-wrap gap-6">
+                <span class="label-tag" style="margin-right:4px;">Game ${gnum}</span>`;
+          players.forEach((p) => {
+            const name = p.players ? `${p.players.first_name} ${p.players.last_name}` : 'Unknown';
+            const score = p.score_for !== null ? `${p.score_for}-${p.score_against}` : '-';
+            const pts = p.default_no_show ? '-1' : `+${p.points_earned}`;
+            const color = p.default_no_show
+              ? 'var(--orange)'
+              : p.is_sub
+                ? 'var(--text-muted)'
+                : 'var(--teal)';
+            const subTag = p.is_sub ? '<span class="sub-pill">SUB</span>' : '';
+            html += `<span style="margin-right:10px;font-weight:500">${esc(name)}${subTag} <span style="color:${color};font-weight:700">${score}/${pts}pts</span></span>`;
+          });
+          html += `</div>
+              <div class="row gap-6 flex-shrink-0">
+                <button class="btn btn-outline btn-sm" data-action="editGame" data-gameids="${gameIds}" data-gnum="${gnum}" data-date="${esc(s.date)}" data-court="${s.group}">Edit</button>
+              </div>
+            </div>
+          </div>`;
+        });
+        html += '</div>';
+      });
+      document.getElementById('sessions-list').innerHTML = html;
+    } catch (e) {
+      document.getElementById('sessions-list').innerHTML =
+        `<div class="empty">Error: ${esc(e.message)}</div>`;
+    }
+  };
+
+  const editSession = (btn) => {
+    const ids = btn.dataset.matchids.split(',').filter(Boolean);
+    const date = btn.dataset.date;
+    const court = btn.dataset.court;
+    document.getElementById('es-ids').value = ids.join(',');
+    document.getElementById('es-date').value = date;
+    document.getElementById('es-court').value = court;
+    document.getElementById('es-orig-date').value = date;
+    document.getElementById('es-orig-court').value = court;
+    document.getElementById('edit-session-modal').classList.add('open');
+  };
+
+  const saveEditSession = async (e) => {
+    e.preventDefault();
+    const ids = document.getElementById('es-ids').value.split(',').filter(Boolean);
+    const newDate = document.getElementById('es-date').value;
+    const newCourt = document.getElementById('es-court').value;
+    const origDate = document.getElementById('es-orig-date').value;
+    const origCourt = document.getElementById('es-orig-court').value;
+
+    if (!newDate || !newCourt) {
+      toast('Please fill in both date and court number.', true);
+      return;
+    }
+    if (newDate !== origDate || newCourt !== origCourt) {
+      const existing = await api(
+        `matches?session_date=eq.${newDate}&court_group=eq.${newCourt}&ladder_id=eq.${currentLadder.id}&limit=1`,
+      );
+      if (existing.length) {
+        const d = fmtDate(newDate, {
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+        });
+        toast(
+          `A session already exists for Court ${newCourt} on ${d}. Please choose a different date or court.`,
+          true,
+        );
+        return;
+      }
+    }
+
+    const saveBtn = document.getElementById('es-save-btn');
+    if (saveBtn) {
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Saving...';
+    }
+    try {
+      // Single bulk PATCH instead of N sequential ones
+      await api(`matches?id=in.(${ids.join(',')})`, 'PATCH', {
+        session_date: newDate,
+        court_group: parseInt(newCourt, 10),
+      });
+      toast('Session updated!');
+      document.getElementById('edit-session-modal').classList.remove('open');
+      loadSessions();
+    } catch (err) {
+      toast(`Error: ${err.message}`, true);
+    } finally {
+      if (saveBtn) {
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Save changes';
+      }
+    }
+  };
+
+  const deleteSession = async (btn) => {
+    const ids = btn.dataset.matchids.split(',').filter(Boolean);
+    const date = fmtDate(btn.dataset.date, {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+    const court = btn.dataset.court;
+    const ok = await confirmModal({
+      title: 'Delete session?',
+      message: `Delete entire session for ${date} — Court ${court}? This will remove all ${ids.length} game records. This cannot be undone.`,
+      okLabel: 'Delete',
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      // Bulk delete
+      await api(`matches?id=in.(${ids.join(',')})`, 'DELETE');
+      toast(`Session deleted — ${ids.length} records removed.`);
+      loadSessions();
+    } catch (e) {
+      toast(`Error: ${e.message}`, true);
+    }
+  };
+
+  const editGame = async (btn) => {
+    const ids = btn.dataset.gameids.split(',').filter(Boolean);
+    const gnum = btn.dataset.gnum;
+    const date = btn.dataset.date;
+    const court = btn.dataset.court;
+    const rows = await api(
+      `matches?id=in.(${ids.join(',')})&select=*,players(first_name,last_name)`,
+    );
+    if (!rows.length) {
+      toast('Could not load game data.', true);
+      return;
+    }
+    const isVoided = rows[0].score_for === null;
+    const modalBody = document.getElementById('edit-game-body');
+    modalBody.innerHTML = `
+      <div class="text-bold text-muted-13 mb-12 text-uppercase">
+        Game ${esc(gnum)} — ${fmtDate(date)} — Court ${esc(court)}
+      </div>
+      <label class="row gap-8 cursor-pointer mb-16 bg-orange-light text-bold color-orange" style="padding:10px 14px;border-radius:var(--radius-sm);font-size:13px;">
+        <input type="checkbox" id="eg-void-game" ${isVoided ? 'checked' : ''} data-action="toggleEditGameVoid"> Void this game (0 points for all players)
+      </label>
+      <div id="eg-scores-section" class="${isVoided ? 'opacity-04' : ''}">
+        <div class="label-tag mb-10">Scores per player</div>
+        ${rows
+          .map(
+            (r) => `
+            <div style="padding:10px 0;border-bottom:0.5px solid var(--border);">
+              <div class="text-bold mb-8" style="font-size:13px;">${r.players ? esc(r.players.first_name + ' ' + r.players.last_name) : 'Unknown'}</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+                <div class="form-group">
+                  <label>Score for</label>
+                  <input type="number" min="0" max="11" id="eg-sf-${r.id}" value="${r.score_for !== null ? r.score_for : ''}" placeholder="0" data-egrid="${r.id}" data-egtype="sf">
+                </div>
+                <div class="form-group">
+                  <label>Score against</label>
+                  <input type="number" min="0" max="11" id="eg-sa-${r.id}" value="${r.score_against !== null ? r.score_against : ''}" placeholder="0" data-egrid="${r.id}" data-egtype="sa">
+                </div>
+                <div class="form-group">
+                  <label>Points earned <span class="color-teal" style="font-size:9px;">(auto)</span></label>
+                  <input type="number" min="-1" max="4" id="eg-pts-${r.id}" value="${r.points_earned !== null ? r.points_earned : 0}" placeholder="0" style="background:var(--bg);" readonly>
+                </div>
+              </div>
+            </div>`,
+          )
+          .join('')}
+      </div>
+      <input type="hidden" id="eg-ids" value="${ids.join(',')}">
+    `;
+    document.getElementById('edit-game-modal').classList.add('open');
+  };
+
+  const toggleEditGameVoid = () => {
+    const isVoid = document.getElementById('eg-void-game').checked;
+    const section = document.getElementById('eg-scores-section');
+    section.classList.toggle('opacity-04', isVoid);
+  };
+
+  const saveEditGame = async (e) => {
+    e.preventDefault();
+    const ids = document.getElementById('eg-ids').value.split(',').filter(Boolean);
+    const isVoid = document.getElementById('eg-void-game').checked;
+    try {
+      // Build per-id PATCHes; we still need separate calls because each row has unique values
+      // But we run them in parallel.
+      await Promise.all(
+        ids.map((id) => {
+          const sf = document.getElementById(`eg-sf-${id}`);
+          const sa = document.getElementById(`eg-sa-${id}`);
+          const pts = document.getElementById(`eg-pts-${id}`);
+          const body = {
+            score_for: isVoid ? null : sf && sf.value !== '' ? parseInt(sf.value, 10) : null,
+            score_against: isVoid ? null : sa && sa.value !== '' ? parseInt(sa.value, 10) : null,
+            points_earned: isVoid ? 0 : pts && pts.value !== '' ? parseInt(pts.value, 10) : 0,
+          };
+          return api(`matches?id=eq.${id}`, 'PATCH', body);
+        }),
+      );
+      toast('Game updated successfully!');
+      document.getElementById('edit-game-modal').classList.remove('open');
+      loadSessions();
+    } catch (err) {
+      toast(`Error: ${err.message}`, true);
+    }
+  };
+
+  /* ─── RECORD SESSION ───────────────────────────────────── */
+
+  const calcPoints = (sf, sa) => {
+    if (sf > sa) return 4;
+    const d = sa - sf;
+    if (d <= 2) return 3;
+    if (d <= 4) return 2;
+    if (d <= 8) return 1;
+    return 0;
+  };
+
+  const initEntry = async () => {
+    courtPlayers = [];
+    noShowPlayer = null;
+    noShowPenalty = -4;
+    gameCount = 0;
+    extraGameCount = 0;
+    extraGames = [];
+    document.getElementById('session-date').value = todayISO();
+    document.getElementById('court-number').value = '';
+    document.getElementById('court-players-list').innerHTML = '';
+    document.getElementById('games-container').innerHTML = '';
+    document.getElementById('games-setup-card').style.display = 'none';
+    document.getElementById('save-btn-wrap').style.display = 'none';
+    document.getElementById('player-search-entry').value = '';
+    const psl = document.getElementById('player-dropdown-list');
+    if (psl) psl.innerHTML = '';
+    if (!currentLadder) {
+      document.getElementById('entry-no-ladder').style.display = 'block';
+      document.getElementById('entry-form').style.display = 'none';
+    } else {
+      document.getElementById('entry-no-ladder').style.display = 'none';
+      document.getElementById('entry-form').style.display = 'block';
+      if (!allPlayers.length) allPlayers = await api('players?select=*&order=first_name');
+      if (!ladderPlayers.length) await loadLadderPlayers();
+      renderPlayerDropdown('');
+    }
+  };
+
+  const renderPlayerDropdown = (filter = '') => {
+    const list = document.getElementById('player-dropdown-list');
+    if (!list) return;
+    const matches = ladderPlayers
+      .filter((p) => !courtPlayers.find((cp) => cp.id === p.id))
+      .filter(
+        (p) =>
+          !filter ||
+          `${p.first_name} ${p.last_name}`.toLowerCase().includes(filter.toLowerCase()),
+      );
+    if (!matches.length) {
+      list.innerHTML = `<div class="text-muted-13 text-center" style="padding:12px 14px;">${filter ? 'No players found' : 'All players added'}</div>`;
+      return;
+    }
+    list.innerHTML = matches
+      .map(
+        (p) => `
+      <div data-action="addCourtPlayerBtn" data-pid="${p.id}"
+        class="row-between text-bold cursor-pointer" style="padding:10px 14px;font-size:13px;border-bottom:0.5px solid var(--border);">
+        <span>${esc(p.first_name)} ${esc(p.last_name)}</span>
+        ${p.ladder_status === 'sub' ? '<span class="sub-pill">SUB</span>' : ''}
+      </div>`,
+      )
+      .join('');
+  };
+
+  const searchPlayersEntry = () => {
+    const q = document.getElementById('player-search-entry').value;
+    renderPlayerDropdown(q);
+  };
+
+  const addCourtPlayer = (id) => {
+    if (courtPlayers.length >= 6) {
+      toast('Maximum 6 players per court.', true);
+      return;
+    }
+    const p = ladderPlayers.find((x) => x.id === id);
+    if (!p || courtPlayers.find((cp) => cp.id === id)) return;
+    courtPlayers.push(p);
+    document.getElementById('player-search-entry').value = '';
+    renderPlayerDropdown('');
+    renderCourtPlayers();
+  };
+
+  const removeCourtPlayer = (id) => {
+    if (noShowPlayer && noShowPlayer.id === id) noShowPlayer = null;
+    courtPlayers = courtPlayers.filter((p) => p.id !== id);
+    renderPlayerDropdown(document.getElementById('player-search-entry')?.value || '');
+    renderCourtPlayers();
+    if (courtPlayers.filter((p) => !noShowPlayer || p.id !== noShowPlayer.id).length < 4) {
+      document.getElementById('games-setup-card').style.display = 'none';
+      document.getElementById('save-btn-wrap').style.display = 'none';
+    }
+  };
+
+  const markNoShow = (pid) => {
+    noShowPlayer = courtPlayers.find((p) => p.id === parseInt(pid, 10)) || null;
+    noShowPenalty = -4;
+    renderPlayerDropdown(document.getElementById('player-search-entry')?.value || '');
+    renderCourtPlayers();
+  };
+
+  const cancelNoShow = () => {
+    noShowPlayer = null;
+    noShowPenalty = -4;
+    renderCourtPlayers();
+  };
+
+  const renderCourtPlayers = () => {
+    const el = document.getElementById('court-players-list');
+    if (!courtPlayers.length) {
+      el.innerHTML = '';
+      return;
+    }
+    const playerChipsHtml = courtPlayers
+      .map((p, i) => {
+        const isNoShow = noShowPlayer && noShowPlayer.id === p.id;
+        return `<div class="court-player ${isNoShow ? 'no-show' : ''}">
+          <span class="court-num-badge ${isNoShow ? 'no-show' : ''}">${i + 1}</span>
+          <span class="text-bold" style="font-size:13px;">${esc(p.first_name)} ${esc(p.last_name)}</span>
+          ${
+            isNoShow
+              ? `<span style="font-size:9px;font-weight:800;background:var(--orange);color:white;padding:2px 6px;border-radius:99px;letter-spacing:.5px;">NO-SHOW</span>
+                <button data-action="cancelNoShow" class="color-orange text-bold cursor-pointer" style="background:none;border:none;font-size:12px;padding:0 2px;">undo</button>`
+              : `<button data-action="markNoShow" data-pid="${p.id}" class="text-muted-11 text-bold cursor-pointer" style="background:none;padding:2px 6px;border:0.5px solid var(--border);border-radius:99px;font-size:10px;">No-show</button>
+                <button data-action="removeCourtPlayerBtn" data-pid="${p.id}" class="cursor-pointer text-muted-13" style="background:none;border:none;font-size:16px;line-height:1;padding:0 2px;">&times;</button>`
+          }
+        </div>`;
+      })
+      .join('');
+
+    el.innerHTML = `<div class="row-wrap mb-10">${playerChipsHtml}</div>
+      ${
+        noShowPlayer
+          ? `<div class="no-show-banner">
+            <span class="text-bold color-orange" style="font-size:13px;">${esc(noShowPlayer.first_name)} ${esc(noShowPlayer.last_name)} did not show up.</span>
+            <span class="text-muted-12">Assign penalty:</span>
+            <label class="row gap-4 cursor-pointer text-bold color-orange" style="font-size:13px;">
+              <input type="radio" name="noshow-penalty" id="ns-penalty" value="-4" ${noShowPenalty === -4 ? 'checked' : ''}> -4 pts (penalty)
+            </label>
+            <label class="row gap-4 cursor-pointer text-bold text-muted-13">
+              <input type="radio" name="noshow-penalty" id="ns-excused" value="0" ${noShowPenalty === 0 ? 'checked' : ''}> 0 pts (excused)
+            </label>
+          </div>`
+          : ''
+      }`;
+
+    const activePlayers = courtPlayers.filter((p) => !noShowPlayer || p.id !== noShowPlayer.id);
+    if (activePlayers.length >= 4) buildGames(activePlayers);
+    else {
+      document.getElementById('games-setup-card').style.display = 'none';
+      document.getElementById('save-btn-wrap').style.display = 'none';
+    }
+  };
+
+  const getRoundRobinMatchups = (n) => {
+    if (n === 4)
+      return [
+        { teamA: [0, 1], teamB: [2, 3], sit: null },
+        { teamA: [0, 3], teamB: [1, 2], sit: null },
+        { teamA: [1, 3], teamB: [0, 2], sit: null },
+      ];
+    if (n === 5)
+      return [
+        { teamA: [0, 1], teamB: [2, 3], sit: 4 },
+        { teamA: [0, 4], teamB: [1, 2], sit: 3 },
+        { teamA: [3, 4], teamB: [0, 2], sit: 1 },
+        { teamA: [1, 3], teamB: [2, 4], sit: 0 },
+        { teamA: [0, 3], teamB: [1, 4], sit: 2 },
+      ];
+    if (n === 6)
+      return [
+        { teamA: [0, 1], teamB: [2, 3], sit: [4, 5] },
+        { teamA: [1, 5], teamB: [0, 4], sit: [2, 3] },
+        { teamA: [3, 4], teamB: [2, 5], sit: [0, 1] },
+        { teamA: [0, 2], teamB: [1, 4], sit: [3, 5] },
+        { teamA: [3, 5], teamB: [1, 2], sit: [0, 4] },
+        { teamA: [0, 3], teamB: [4, 5], sit: [1, 2] },
+      ];
+    return [];
+  };
+
+  const buildGames = (activePlayers) => {
+    const players = activePlayers || courtPlayers;
+    const matchups = getRoundRobinMatchups(players.length);
+    gameCount = matchups.length;
+    extraGameCount = 0;
+    extraGames = [];
+    const container = document.getElementById('games-container');
+    container.innerHTML = '';
+    matchups.forEach((m, i) => renderGameCard(i + 1, m, false, players));
+    if (players.length === 4) {
+      const playerOpts = players
+        .map((p) => `<option value="${p.id}">${esc(p.first_name)} ${esc(p.last_name)}</option>`)
+        .join('');
+      const g4 = document.createElement('div');
+      g4.id = 'game-card-4';
+      g4.className = 'game-card-lime';
+      g4.innerHTML = `
+        <div class="game-card-header-lime">
+          <span class="lime-tag" style="color:var(--lime-dark);">Game 4 — Closest scores</span>
+          <label class="row gap-4 cursor-pointer text-bold text-uppercase" style="font-size:11px;color:var(--lime-dark);letter-spacing:.5px;">
+            <input type="checkbox" id="void-4" data-action="toggleVoid" data-gamenum="4"> Void
+          </label>
+        </div>
+        <div class="bg-bg text-muted-12" style="padding:10px 14px;">
+          After the 3 games, match the 2 players with the closest total scores on each team.
+        </div>
+        <div id="game-body-4" class="game-card-body">
+          <div class="vs-grid-top">
+            <div class="team-pad-blue-l">
+              <div class="blue-tag mb-8">Team A</div>
+              <select id="extraA1-4" class="full-width mb-6" style="font-size:12px;font-family:Montserrat,sans-serif;"><option value="">Player 1</option>${playerOpts}</select>
+              <select id="extraA2-4" class="full-width mb-8" style="font-size:12px;font-family:Montserrat,sans-serif;"><option value="">Player 2</option>${playerOpts}</select>
+              <input type="number" min="0" max="11" placeholder="Score" id="scoreA-4" data-egame="4" data-eteam="A" class="full-width score-input">
+            </div>
+            <div class="vs-tag" style="padding-top:40px;">VS</div>
+            <div class="team-pad-teal-l">
+              <div class="label-tag mb-8" style="color:var(--teal);">Team B</div>
+              <select id="extraB1-4" class="full-width mb-6" style="font-size:12px;font-family:Montserrat,sans-serif;"><option value="">Player 1</option>${playerOpts}</select>
+              <select id="extraB2-4" class="full-width mb-8" style="font-size:12px;font-family:Montserrat,sans-serif;"><option value="">Player 2</option>${playerOpts}</select>
+              <input type="number" min="0" max="11" placeholder="Score" id="scoreB-4" data-egame="4" data-eteam="B" class="full-width score-input">
+            </div>
+          </div>
+          <div id="pts-preview-4" class="points-preview"></div>
+          <input type="hidden" id="teamA-ids-4" value=""><input type="hidden" id="teamB-ids-4" value="">
+        </div>`;
+      container.appendChild(g4);
+      gameCount = 3;
+      extraGames = [4];
+    }
+    document.getElementById('games-setup-card').style.display = 'block';
+    document.getElementById('save-btn-wrap').style.display = 'block';
+  };
+
+  const renderGameCard = (gameNum, matchup, isExtra, players) => {
+    const activePl =
+      players ||
+      (noShowPlayer ? courtPlayers.filter((p) => p.id !== noShowPlayer.id) : courtPlayers);
+    const container = document.getElementById('games-container');
+    const div = document.createElement('div');
+    div.id = `game-card-${gameNum}`;
+    div.className = 'game-card';
+    const tA = matchup ? matchup.teamA.map((i) => activePl[i]) : [];
+    const tB = matchup ? matchup.teamB.map((i) => activePl[i]) : [];
+    const sitRaw = matchup ? matchup.sit : null;
+    const sitting =
+      sitRaw === null
+        ? null
+        : Array.isArray(sitRaw)
+          ? sitRaw.map((i) => activePl[i]).filter(Boolean)
+          : [activePl[sitRaw]].filter(Boolean);
+    const teamANames = tA.map((p) => `${p.first_name} ${p.last_name}`).join(' & ') || 'Team A';
+    const teamBNames = tB.map((p) => `${p.first_name} ${p.last_name}`).join(' & ') || 'Team B';
+    const teamAIds = tA.map((p) => p.id);
+    const teamBIds = tB.map((p) => p.id);
+    div.innerHTML = `
+      <div class="game-card-header">
+        <span class="lime-tag">Game ${gameNum}${isExtra ? ' (extra)' : ''}</span>
+        <div class="row gap-12">
+          ${
+            sitting && sitting.length
+              ? `<span style="font-size:11px;color:var(--blue-light);font-weight:500;">Sitting out: <strong style="color:white;">${sitting.map((p) => esc(p.first_name + ' ' + p.last_name)).join(', ')}</strong></span>`
+              : ''
+          }
+          <label class="row gap-4 cursor-pointer text-bold text-uppercase" style="font-size:11px;color:var(--orange-light);letter-spacing:.5px;">
+            <input type="checkbox" id="void-${gameNum}" data-action="toggleVoid" data-gamenum="${gameNum}"> Void
+          </label>
+          ${isExtra ? `<button class="btn btn-danger btn-sm" data-action="removeExtraGame" data-gamenum="${gameNum}">Remove</button>` : ''}
+        </div>
+      </div>
+      <div id="game-body-${gameNum}" class="game-card-body">
+        <div class="vs-grid">
+          <div class="team-pad-blue">
+            <div class="blue-tag mb-6">Team A</div>
+            <div class="text-bold mb-10" style="font-size:13px;min-height:36px;">${esc(teamANames)}</div>
+            <input type="number" min="0" max="11" placeholder="Score" id="scoreA-${gameNum}" data-autoscore="${gameNum}" class="score-input">
+          </div>
+          <div class="vs-tag">VS</div>
+          <div class="team-pad-teal">
+            <div class="label-tag mb-6" style="color:var(--teal);">Team B</div>
+            <div class="text-bold mb-10" style="font-size:13px;min-height:36px;">${esc(teamBNames)}</div>
+            <input type="number" min="0" max="11" placeholder="Score" id="scoreB-${gameNum}" data-autoscore="${gameNum}" class="score-input">
           </div>
         </div>
-        <span style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:${statusColor};">${t.status}</span>
+        <div id="pts-preview-${gameNum}" class="points-preview"></div>
       </div>
-    </div>`;
+      <input type="hidden" id="teamA-ids-${gameNum}" value="${teamAIds.join(',')}">
+      <input type="hidden" id="teamB-ids-${gameNum}" value="${teamBIds.join(',')}">`;
+    container.appendChild(div);
+  };
 
-  // Render each category independently
-  for(const category of categories){
-    const catTeams = teams.filter(tm=>tm.category===category);
-    const catRR = matches.filter(m=>m.phase==='round_robin'&&m.category===category);
-    const catFinals = matches.filter(m=>m.phase==='finals'&&m.category===category);
-    const standings = calcTournamentStandings(catTeams, catRR);
-    const rrComplete = catRR.length>0 && catRR.every(m=>m.status==='completed');
-    // Get finals format per category from tournament
-    const finalsFormat = finalsFormatMap[`${t.id}_${category}`]||null;
+  const toggleVoid = (gameNum) => {
+    const isVoided = document.getElementById(`void-${gameNum}`).checked;
+    const body = document.getElementById(`game-body-${gameNum}`);
+    if (isVoided) {
+      body.classList.add('opacity-04');
+      document.getElementById(`pts-preview-${gameNum}`).innerHTML =
+        '<span class="color-orange text-bold">Game voided — 0 points for both teams</span>';
+    } else {
+      body.classList.remove('opacity-04');
+      autoCalcGame(gameNum);
+    }
+  };
 
-    html += `
-    <div style="border:2px solid var(--blue);border-radius:var(--radius);margin-bottom:20px;overflow:hidden;">
-      <div style="background:var(--blue);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;">
-        <div style="font-size:13px;font-weight:800;color:white;text-transform:uppercase;letter-spacing:1px;">${CATEGORY_LABELS[category]||category}</div>
-        ${t.status!=='completed'?`<button class="btn btn-sm" style="background:var(--lime);color:var(--lime-dark);font-weight:800;" data-action="openAddTeam" data-tid="${t.id}" data-category="${category}">+ Add team</button>`:''}
-      </div>
-      <div style="padding:16px;">
-        <!-- Teams -->
-        <div style="margin-bottom:16px;">
-          <div class="card-title">Teams (${catTeams.length})</div>
-          ${catTeams.length?`<table>
-            <thead><tr><th>#</th><th>Team</th><th>Players</th><th></th></tr></thead>
-            <tbody>${await renderTeamRows(catTeams, t.status)}</tbody>
-          </table>`:'<div class="empty" style="font-size:13px;">No teams yet for this category.</div>'}
+  const autoCalcGame = (gameNum) => {
+    const sA = document.getElementById(`scoreA-${gameNum}`);
+    const sB = document.getElementById(`scoreB-${gameNum}`);
+    const preview = document.getElementById(`pts-preview-${gameNum}`);
+    if (!sA || !sB || sA.value === '' || sB.value === '') {
+      preview.textContent = '';
+      return;
+    }
+    const a = parseInt(sA.value, 10);
+    const b = parseInt(sB.value, 10);
+    const ptA = calcPoints(a, b);
+    const ptB = calcPoints(b, a);
+    const tAIds = document.getElementById(`teamA-ids-${gameNum}`).value.split(',').filter(Boolean);
+    const tBIds = document.getElementById(`teamB-ids-${gameNum}`).value.split(',').filter(Boolean);
+    const tANames = tAIds
+      .map((id) => allPlayers.find((p) => p.id == id))
+      .filter(Boolean)
+      .map((p) => p.first_name)
+      .join(' & ');
+    const tBNames = tBIds
+      .map((id) => allPlayers.find((p) => p.id == id))
+      .filter(Boolean)
+      .map((p) => p.first_name)
+      .join(' & ');
+    const aColor = ptA > ptB ? 'var(--teal)' : 'var(--orange)';
+    const bColor = ptB > ptA ? 'var(--teal)' : 'var(--orange)';
+    preview.innerHTML = `<span style="color:${aColor};font-weight:700;">${esc(tANames || 'Team A')}: ${ptA > 0 ? '+' : ''}${ptA} pts</span> &nbsp;|&nbsp; <span style="color:${bColor};font-weight:700;">${esc(tBNames || 'Team B')}: ${ptB > 0 ? '+' : ''}${ptB} pts</span>`;
+  };
+
+  const autoCalcExtraGame = (gameNum) => {
+    const sA = document.getElementById(`scoreA-${gameNum}`);
+    const sB = document.getElementById(`scoreB-${gameNum}`);
+    const preview = document.getElementById(`pts-preview-${gameNum}`);
+    if (!sA || !sB || sA.value === '' || sB.value === '') {
+      preview.textContent = '';
+      return;
+    }
+    const a = parseInt(sA.value, 10);
+    const b = parseInt(sB.value, 10);
+    const ptA = calcPoints(a, b);
+    const ptB = calcPoints(b, a);
+    const aColor = ptA > ptB ? 'var(--teal)' : 'var(--orange)';
+    const bColor = ptB > ptA ? 'var(--teal)' : 'var(--orange)';
+    preview.innerHTML = `<span style="color:${aColor};font-weight:700;">Team A: ${ptA > 0 ? '+' : ''}${ptA} pts</span> &nbsp;|&nbsp; <span style="color:${bColor};font-weight:700;">Team B: ${ptB > 0 ? '+' : ''}${ptB} pts</span>`;
+  };
+
+  const addExtraGame = () => {
+    extraGameCount++;
+    const gameNum = 100 + extraGameCount;
+    extraGames.push(gameNum);
+    const container = document.getElementById('games-container');
+    const players = courtPlayers.filter((p) => !noShowPlayer || p.id !== noShowPlayer.id);
+    const playerOpts = players
+      .map((p) => `<option value="${p.id}">${esc(p.first_name)} ${esc(p.last_name)}</option>`)
+      .join('');
+    const div = document.createElement('div');
+    div.id = `game-card-${gameNum}`;
+    div.className = 'game-card';
+    div.innerHTML = `
+      <div class="game-card-header">
+        <span class="lime-tag">Extra game</span>
+        <div class="row gap-8">
+          <label class="row gap-4 cursor-pointer text-bold text-uppercase" style="font-size:11px;color:var(--orange-light);letter-spacing:.5px;">
+            <input type="checkbox" id="void-${gameNum}" data-action="toggleVoid" data-gamenum="${gameNum}"> Void
+          </label>
+          <button class="btn btn-danger btn-sm" data-action="removeExtraGame" data-gamenum="${gameNum}">Remove</button>
         </div>
-
-        <!-- Round Robin -->
-        ${catTeams.length>=2?`
-        <div style="margin-bottom:16px;">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-            <div class="card-title" style="margin:0;">Round Robin</div>
-            ${t.status!=='completed'&&catRR.length===0?`<button class="btn btn-primary btn-sm" data-action="generateRoundRobin" data-tid="${t.id}" data-category="${category}">Generate</button>`:''}
-          </div>
-          ${catRR.length?renderRRMatchTable(catRR,catTeams)+renderStandingsTable(standings):'<div class="empty" style="font-size:13px;">Click Generate to create round robin schedule.</div>'}
-        </div>`:''}
-
-        <!-- Finals -->
-        ${rrComplete?`
-        <div>
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-            <div class="card-title" style="margin:0;">Finals</div>
-            ${!finalsFormat&&t.status!=='completed'?`
-              <div style="display:flex;gap:8px;">
-                <button class="btn btn-outline btn-sm" data-action="setFinalsFormat" data-tid="${t.id}" data-category="${category}" data-format="top4">Top 4</button>
-                <button class="btn btn-primary btn-sm" data-action="setFinalsFormat" data-tid="${t.id}" data-category="${category}" data-format="bracket">Bracket</button>
-              </div>`:''}
-          </div>
-          ${catFinals.length?renderFinalsSection(catFinals,catTeams,{...t,finals_format:finalsFormat},standings)
-            :(finalsFormat?`<button class="btn btn-primary btn-sm" data-action="generateFinals" data-tid="${t.id}" data-category="${category}" data-format="${finalsFormat}">Generate finals</button>`
-            :'<div class="empty" style="font-size:13px;">Choose finals format above.</div>')}
-        </div>`:''}
       </div>
-    </div>`;
-  }
-
-  document.getElementById('tournament-detail-content').innerHTML = html;
-};
-
-const renderTeamRows = async (teams, status) => {
-  // Get player names for all teams
-  const playerIds = [...new Set(teams.flatMap(t=>[t.player1_id,t.player2_id,t.player3_id,t.player4_id].filter(Boolean)))];
-  let players = [];
-  if (playerIds.length) players = await api(`players?id=in.(${playerIds.join(',')})&select=id,first_name,last_name`);
-  const pMap = {};
-  players.forEach(p=>pMap[p.id]=`${p.first_name} ${p.last_name}`);
-
-  return teams.map((t,i) => {
-    const playerList = [t.player1_id,t.player2_id,t.player3_id,t.player4_id]
-      .filter(Boolean).map(id=>pMap[id]||'Unknown').join(', ');
-    return `<tr>
-      <td style="font-weight:800;color:var(--text-muted);">${i+1}</td>
-      <td style="font-weight:700;">${t.name}</td>
-      <td style="color:var(--text-muted);font-size:12px;">${playerList}</td>
-      <td>${status!=='completed'?`<button class="btn btn-danger btn-sm" data-action="deleteTeam" data-teamid="${t.id}">Remove</button>`:''}</td>
-    </tr>`;
-  }).join('');
-};
-
-const calcTournamentStandings = (teams, rrMatches) => {
-  const stats = {};
-  teams.forEach(t => stats[t.id] = {id:t.id, name:t.name, w:0, l:0, pts_for:0, pts_against:0, points:0});
-  rrMatches.filter(m=>m.status==='completed').forEach(m => {
-    if (!stats[m.team_a_id]||!stats[m.team_b_id]) return;
-    stats[m.team_a_id].pts_for += m.score_a||0;
-    stats[m.team_a_id].pts_against += m.score_b||0;
-    stats[m.team_b_id].pts_for += m.score_b||0;
-    stats[m.team_b_id].pts_against += m.score_a||0;
-    if (m.winner_team_id===m.team_a_id) { stats[m.team_a_id].w++; stats[m.team_a_id].points+=2; stats[m.team_b_id].l++; }
-    else if (m.winner_team_id===m.team_b_id) { stats[m.team_b_id].w++; stats[m.team_b_id].points+=2; stats[m.team_a_id].l++; }
-  });
-  return Object.values(stats).sort((a,b)=>b.points-a.points||(b.pts_for-b.pts_against)-(a.pts_for-a.pts_against));
-};
-
-const renderStandingsTable = (standings) => {
-  if (!standings.length) return '';
-  return `<div style="margin-top:16px;">
-    <div class="card-title">Standings</div>
-    <table>
-      <thead><tr><th>Pos</th><th>Team</th><th>W</th><th>L</th><th>Pts</th></tr></thead>
-      <tbody>${standings.map((s,i)=>`<tr>
-        <td><span class="rank-badge ${i===0?'top1':i===1?'top2':i===2?'top3':''}">${i+1}</span></td>
-        <td style="font-weight:700;">${s.name}</td>
-        <td style="color:var(--teal);font-weight:700;">${s.w}</td>
-        <td style="color:var(--orange);font-weight:700;">${s.l}</td>
-        <td><span class="points-pill">${s.points}</span></td>
-      </tr>`).join('')}
-      </tbody>
-    </table>
-  </div>`;
-};
-
-const renderRRMatchTable = (matches, teams) => {
-  const tMap = {};
-  teams.forEach(t=>tMap[t.id]=t.name);
-  const rounds = [...new Set(matches.map(m=>m.round))].sort((a,b)=>a-b);
-  return rounds.map(round => `
-    <div style="margin-bottom:12px;">
-      <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:6px;">Round ${round}</div>
-      ${matches.filter(m=>m.round===round).map(m=>`
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--bg);border-radius:var(--radius-sm);margin-bottom:4px;border-left:3px solid ${m.status==='completed'?'var(--lime)':'var(--border)'};">
-          <div style="font-size:13px;font-weight:600;flex:1;">${tMap[m.team_a_id]||'?'} <span style="color:var(--text-muted);font-weight:400;">vs</span> ${tMap[m.team_b_id]||'?'}</div>
-          ${m.status==='completed'
-            ?`<span style="font-size:13px;font-weight:800;color:var(--blue);margin:0 12px;">${m.score_a} - ${m.score_b}</span>`
-            :`<span style="font-size:11px;color:var(--text-muted);margin:0 12px;">Pending</span>`}
-          <button class="btn btn-outline btn-sm" data-action="openRecordMatch" data-matchid="${m.id}" data-phase="round_robin">${m.status==='completed'?'Edit':'Record'}</button>
-        </div>`).join('')}
-    </div>`).join('');
-};
-
-const renderFinalsSection = (finalsMatches, teams, tournament, standings) => {
-  const tMap = {};
-  teams.forEach(t=>tMap[t.id]=t.name);
-
-  if (!finalsMatches.length) {
-    return `<div style="font-size:13px;color:var(--text-muted);margin-bottom:12px;">Format: <strong>${tournament.finals_format==='bracket'?'Bracket':'Top 4'}</strong></div>
-      <button class="btn btn-primary btn-sm" data-action="generateFinals" data-tid="${tournament.id}" data-format="${tournament.finals_format}">Generate finals matches</button>`;
-  }
-
-  const completed = finalsMatches.every(m=>m.status==='completed');
-  const rounds = [...new Set(finalsMatches.map(m=>m.round))].sort((a,b)=>a-b);
-  const roundLabels = {1:'Semifinals',2:'3rd Place Match',3:'Final',4:'Final'};
-
-  let html = `<div style="font-size:13px;color:var(--text-muted);margin-bottom:12px;">Format: <strong>${tournament.finals_format==='bracket'?'Bracket':'Top 4'}</strong></div>`;
-
-  html += rounds.map(round => `
-    <div style="margin-bottom:12px;">
-      <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--blue);margin-bottom:6px;">${roundLabels[round]||'Round '+round}</div>
-      ${finalsMatches.filter(m=>m.round===round).map(m=>`
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--blue-pale);border-radius:var(--radius-sm);margin-bottom:4px;border-left:3px solid var(--blue);">
-          <div style="font-size:13px;font-weight:600;flex:1;">${tMap[m.team_a_id]||'TBD'} <span style="color:var(--text-muted);font-weight:400;">vs</span> ${tMap[m.team_b_id]||'TBD'}</div>
-          ${m.status==='completed'
-            ?`<span style="font-size:13px;font-weight:800;color:var(--blue);margin:0 12px;">${m.score_a} - ${m.score_b}</span>`
-            :`<span style="font-size:11px;color:var(--text-muted);margin:0 12px;">Pending</span>`}
-          ${m.team_a_id&&m.team_b_id?`<button class="btn btn-outline btn-sm" data-action="openRecordMatch" data-matchid="${m.id}" data-phase="finals">${m.status==='completed'?'Edit':'Record'}</button>`:'<span style="font-size:11px;color:var(--text-muted);">Awaiting results</span>'}
-        </div>`).join('')}
-    </div>`).join('');
-
-  // Show podium if finals complete
-  if (completed) {
-    const finalMatch = finalsMatches.find(m=>m.round===Math.max(...finalsMatches.map(x=>x.round)));
-    const thirdMatch = finalsMatches.find(m=>m.round===Math.max(...finalsMatches.map(x=>x.round))-1);
-    const first = finalMatch?.winner_team_id ? tMap[finalMatch.winner_team_id] : null;
-    const second = finalMatch?.winner_team_id ? tMap[finalMatch.team_a_id===finalMatch.winner_team_id?finalMatch.team_b_id:finalMatch.team_a_id] : null;
-    const third = thirdMatch?.winner_team_id ? tMap[thirdMatch.winner_team_id] : null;
-    if (first) {
-      html += `<div style="margin-top:20px;padding:20px;background:linear-gradient(135deg,var(--blue),#0d2a8f);border-radius:var(--radius);text-align:center;">
-        <div style="font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--lime);margin-bottom:16px;">🏆 Final Results</div>
-        <div style="display:flex;justify-content:center;gap:24px;flex-wrap:wrap;">
-          ${second?`<div style="text-align:center;"><div style="font-size:28px;">🥈</div><div style="font-size:13px;font-weight:700;color:#e0e0e0;margin-top:4px;">${second}</div><div style="font-size:11px;color:var(--blue-light);">2nd place</div></div>`:''}
-          <div style="text-align:center;"><div style="font-size:36px;">🥇</div><div style="font-size:15px;font-weight:800;color:var(--lime);margin-top:4px;">${first}</div><div style="font-size:11px;color:var(--lime-dark);font-weight:700;">Champion</div></div>
-          ${third?`<div style="text-align:center;"><div style="font-size:28px;">🥉</div><div style="font-size:13px;font-weight:700;color:#cd7f32;margin-top:4px;">${third}</div><div style="font-size:11px;color:var(--blue-light);">3rd place</div></div>`:''}
+      <div id="game-body-${gameNum}" class="game-card-body">
+        <div class="vs-grid-top">
+          <div class="team-pad-blue-l">
+            <div class="blue-tag mb-8">Team A</div>
+            <select id="extraA1-${gameNum}" class="full-width mb-6" style="font-size:12px;font-family:Montserrat,sans-serif;"><option value="">Player 1</option>${playerOpts}</select>
+            <select id="extraA2-${gameNum}" class="full-width mb-8" style="font-size:12px;font-family:Montserrat,sans-serif;"><option value="">Player 2</option>${playerOpts}</select>
+            <input type="number" min="0" max="11" placeholder="Score" id="scoreA-${gameNum}" data-egame="${gameNum}" data-eteam="A" class="full-width score-input">
+          </div>
+          <div class="vs-tag" style="padding-top:36px;">VS</div>
+          <div class="team-pad-teal-l">
+            <div class="label-tag mb-8" style="color:var(--teal);">Team B</div>
+            <select id="extraB1-${gameNum}" class="full-width mb-6" style="font-size:12px;font-family:Montserrat,sans-serif;"><option value="">Player 1</option>${playerOpts}</select>
+            <select id="extraB2-${gameNum}" class="full-width mb-8" style="font-size:12px;font-family:Montserrat,sans-serif;"><option value="">Player 2</option>${playerOpts}</select>
+            <input type="number" min="0" max="11" placeholder="Score" id="scoreB-${gameNum}" data-egame="${gameNum}" data-eteam="B" class="full-width score-input">
+          </div>
         </div>
+        <div id="pts-preview-${gameNum}" class="points-preview"></div>
+        <input type="hidden" id="teamA-ids-${gameNum}" value=""><input type="hidden" id="teamB-ids-${gameNum}" value="">
       </div>`;
-    }
-  }
-  return html;
-};
-
-// ─── TEAM MANAGEMENT ──────────────────────────────────────────────────────────
-
-function openAddTeam(btn) {
-  const tid = btn.dataset.tid;
-  const category = btn.dataset.category;
-  document.getElementById('at-tournament-id').value = tid;
-  document.getElementById('at-category').value = category;
-  document.getElementById('at-name').value = '';
-  document.getElementById('add-team-title').textContent = `Add Team — ${CATEGORY_LABELS[category]||category}`;
-
-  // Build player fields based on category
-  const isTeamChallenge = category === 'team_challenge';
-  const count = isTeamChallenge ? 4 : 2;
-  const labels = isTeamChallenge
-    ? ['Player 1 (Man)','Player 2 (Man)','Player 3 (Woman)','Player 4 (Woman)']
-    : ['Player 1','Player 2'];
-
-  const opts = allPlayers.filter(p=>p.status!=='inactive').map(p=>`<option value="${p.id}">${p.first_name} ${p.last_name}</option>`).join('');
-  document.getElementById('at-players-fields').innerHTML = labels.slice(0,count).map((lbl,i)=>`
-    <div class="form-group" style="margin-top:10px;">
-      <label>${lbl}</label>
-      <select id="at-p${i+1}" style="width:100%;">
-        <option value="">-- Select player --</option>${opts}
-      </select>
-    </div>`).join('');
-
-  document.getElementById('add-team-modal').classList.add('open');
-};
-
-async function saveAddTeam(e) {
-  e.preventDefault();
-  const tid = document.getElementById('at-tournament-id').value;
-  const category = document.getElementById('at-category').value;
-  const name = document.getElementById('at-name').value.trim();
-  const count = category==='team_challenge'?4:2;
-  if (!name) { toast('Please enter a team name.', true); return; }
-  const body = { tournament_id: parseInt(tid), name, category,
-    player1_id: parseInt(document.getElementById('at-p1')?.value)||null,
-    player2_id: parseInt(document.getElementById('at-p2')?.value)||null,
-    player3_id: count>=3?(parseInt(document.getElementById('at-p3')?.value)||null):null,
-    player4_id: count>=4?(parseInt(document.getElementById('at-p4')?.value)||null):null,
+    container.appendChild(div);
   };
-  try {
-    await api('tournament_teams','POST',body);
-    toast(`Team "${name}" added!`);
-    document.getElementById('add-team-modal').classList.remove('open');
-    renderTournamentDetail();
-  } catch(e) { toast(`Error: ${e.message}`, true); }
-};
 
-async function deleteTeam(btn) {
-  if (!confirm('Remove this team? This cannot be undone.')) return;
-  await api(`tournament_teams?id=eq.${btn.dataset.teamid}`,'DELETE');
-  toast('Team removed.');
-  renderTournamentDetail();
-};
+  const removeExtraGame = (gameNum) => {
+    document.getElementById(`game-card-${gameNum}`).remove();
+    extraGames = extraGames.filter((g) => g !== gameNum);
+  };
 
-// ─── ROUND ROBIN GENERATION ───────────────────────────────────────────────────
-
-async function generateRoundRobin(btn) {
-  const tid = btn.dataset.tid;
-  const category = btn.dataset.category;
-  const teams = await api(`tournament_teams?category_id=eq.${category}&select=id,name`);
-  if (teams.length < 2) { toast('Need at least 2 teams to generate matches.', true); return; }
-  const matches = [];
-  let round = 1;
-  for (let i = 0; i < teams.length; i++) {
-    for (let j = i+1; j < teams.length; j++) {
-      matches.push({ tournament_id:parseInt(tid), phase:'round_robin', round, category,
-        team_a_id:teams[i].id, team_b_id:teams[j].id, status:'pending' });
-      round++;
+  const submitSession = async () => {
+    if (!currentLadder) {
+      toast('Please select a ladder first.', true);
+      return;
     }
-  }
-  try {
-    await api('tournament_matches','POST',matches);
-    toast(`${matches.length} round robin matches generated!`);
-    renderTournamentDetail();
-  } catch(e) { toast(`Error: ${e.message}`, true); }
-};
-
-// ─── FINALS GENERATION ───────────────────────────────────────────────────────
-
-// Store finals format per category in memory (keyed by tournamentId_category)
-const finalsFormatMap = {};
-
-async function setFinalsFormat(btn) {
-  const tid = btn.dataset.tid;
-  const format = btn.dataset.format;
-  const category = btn.dataset.category;
-  finalsFormatMap[`${tid}_${category}`] = format;
-  toast(`Finals format set to ${format==='bracket'?'Bracket':'Top 4'}.`);
-  renderTournamentDetail();
-};
-
-async function generateFinals(btn) {
-  const tid = btn.dataset.tid;
-  const format = btn.dataset.format;
-  const category = btn.dataset.category;
-  const teams = await api(`tournament_teams?category_id=eq.${category}&select=id`);
-  const matches = await api(`tournament_rr_matches?category_id=eq.${category}&select=*`);
-  const standings = calcTournamentStandings(teams, matches);
-
-  let finalsMatches = [];
-  if (format === 'top4') {
-    // Semifinal 1: 1st vs 4th, Semifinal 2: 2nd vs 3rd
-    // Then: loser1 vs loser2 (3rd place), winner1 vs winner2 (final)
-    finalsMatches = [
-      { tournament_id:parseInt(tid), phase:'finals', round:1, category, team_a_id:standings[0]?.id, team_b_id:standings[3]?.id, status:'pending' },
-      { tournament_id:parseInt(tid), phase:'finals', round:1, category, team_a_id:standings[1]?.id, team_b_id:standings[2]?.id, status:'pending' },
-      { tournament_id:parseInt(tid), phase:'finals', round:2, category, team_a_id:null, team_b_id:null, status:'pending' },
-      { tournament_id:parseInt(tid), phase:'finals', round:3, category, team_a_id:null, team_b_id:null, status:'pending' },
-    ];
-  } else {
-    finalsMatches = [
-      { tournament_id:parseInt(tid), phase:'finals', round:1, category, team_a_id:standings[0]?.id, team_b_id:standings[1]?.id, status:'pending' },
-      { tournament_id:parseInt(tid), phase:'finals', round:2, category, team_a_id:standings[2]?.id||null, team_b_id:standings[3]?.id||null, status:'pending' },
-      { tournament_id:parseInt(tid), phase:'finals', round:3, category, team_a_id:null, team_b_id:null, status:'pending' },
-    ];
-  }
-
-  try {
-    await api('tournament_matches','POST',finalsMatches);
-    toast('Finals matches generated!');
-    renderTournamentDetail();
-  } catch(e) { toast(`Error: ${e.message}`, true); }
-};
-
-// ─── RECORD MATCH ─────────────────────────────────────────────────────────────
-
-async function openRecordMatch(btn) {
-  const matchId = btn.dataset.matchid;
-  const phase = btn.dataset.phase;
-  const match = (await api(`tournament_matches?id=eq.${matchId}&select=*`))[0];
-  if (!match) return;
-
-  const teams = await api(`tournament_teams?category_id=eq.${currentTournamentId}&select=id,name`);
-  const tMap = {};
-  teams.forEach(t=>tMap[t.id]=t.name);
-  const isFinals = phase === 'finals';
-
-  document.getElementById('rm-match-id').value = matchId;
-  document.getElementById('rm-phase').value = phase;
-  document.getElementById('record-match-title').textContent = isFinals ? 'Record Finals Match' : 'Record Round Robin Match';
-  document.getElementById('record-match-body').innerHTML = `
-    <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px;margin-bottom:16px;">
-      <div style="background:var(--blue-pale);border-radius:var(--radius-sm);padding:14px;text-align:center;">
-        <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--blue);margin-bottom:6px;">Team A</div>
-        <div style="font-size:13px;font-weight:700;margin-bottom:10px;">${tMap[match.team_a_id]||'TBD'}</div>
-        <input type="number" min="0" id="rm-score-a" value="${match.score_a??''}" placeholder="Score"
-          style="width:80px;text-align:center;font-size:20px;font-weight:800;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:6px;">
-      </div>
-      <div style="font-size:16px;font-weight:800;color:var(--text-muted);">VS</div>
-      <div style="background:var(--teal-light);border-radius:var(--radius-sm);padding:14px;text-align:center;">
-        <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--teal);margin-bottom:6px;">Team B</div>
-        <div style="font-size:13px;font-weight:700;margin-bottom:10px;">${tMap[match.team_b_id]||'TBD'}</div>
-        <input type="number" min="0" id="rm-score-b" value="${match.score_b??''}" placeholder="Score"
-          style="width:80px;text-align:center;font-size:20px;font-weight:800;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:6px;">
-      </div>
-    </div>
-    ${isFinals?`<div style="font-size:12px;color:var(--text-muted);font-weight:500;text-align:center;padding:8px;background:var(--bg);border-radius:var(--radius-sm);">
-      Finals: play to 11, <strong>win by 2</strong>
-    </div>`:`<div style="font-size:12px;color:var(--text-muted);font-weight:500;text-align:center;padding:8px;background:var(--bg);border-radius:var(--radius-sm);">
-      Round robin: play to 11, win by 1
-    </div>`}
-  `;
-  document.getElementById('record-match-modal').classList.add('open');
-};
-
-async function saveRecordMatch(e) {
-  e.preventDefault();
-  const matchId = document.getElementById('rm-match-id').value;
-  const scoreA = parseInt(document.getElementById('rm-score-a').value);
-  const scoreB = parseInt(document.getElementById('rm-score-b').value);
-  if (isNaN(scoreA)||isNaN(scoreB)) { toast('Please enter both scores.', true); return; }
-
-  const match = (await api(`tournament_matches?id=eq.${matchId}&select=*`))[0];
-  const winnerId = scoreA > scoreB ? match.team_a_id : match.team_b_id;
-
-  try {
-    await api(`tournament_matches?id=eq.${matchId}`,'PATCH',{
-      score_a: scoreA, score_b: scoreB,
-      winner_team_id: winnerId, status: 'completed'
+    const date = document.getElementById('session-date').value;
+    const courtNum = document.getElementById('court-number').value;
+    if (!date || !courtNum) {
+      toast('Please fill in session date and court number.', true);
+      return;
+    }
+    if (!courtPlayers.length) {
+      toast('Please add players to the court.', true);
+      return;
+    }
+    const rows = [];
+    const extraGameMap = {};
+    extraGames.forEach((g, i) => {
+      extraGameMap[g] = gameCount + 1 + i;
     });
+    const allGameNums = [...Array(gameCount).keys()].map((i) => i + 1).concat(extraGames);
 
-    // If finals top4: update next round teams based on results
-    if (document.getElementById('rm-phase').value === 'finals') {
-      await updateFinalsProgression(matchId, match, winnerId, scoreA, scoreB);
+    // Validate uniqueness
+    const existing = await api(
+      `matches?session_date=eq.${date}&court_group=eq.${courtNum}&ladder_id=eq.${currentLadder.id}&limit=1`,
+    );
+    if (existing.length) {
+      const existingDate = fmtDate(date, {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      });
+      toast(
+        `A session for Court ${courtNum} on ${existingDate} already exists. Please edit the existing session or choose a different court/date.`,
+        true,
+      );
+      return;
     }
 
-    toast('Match result saved!');
-    document.getElementById('record-match-modal').classList.remove('open');
-    renderTournamentDetail();
-  } catch(e) { toast(`Error: ${e.message}`, true); }
-};
+    // Validate game 4 (4-player closest scores) has all players selected
+    if (courtPlayers.length === 4) {
+      const a1 = document.getElementById('extraA1-4')?.value;
+      const a2 = document.getElementById('extraA2-4')?.value;
+      const b1 = document.getElementById('extraB1-4')?.value;
+      const b2 = document.getElementById('extraB2-4')?.value;
+      const isVoided4 = document.getElementById('void-4')?.checked || false;
+      if (!isVoided4 && (!a1 || !a2 || !b1 || !b2)) {
+        toast('Game 4: Please select all 4 players or mark the game as void.', true);
+        return;
+      }
+    }
 
-async function updateFinalsProgression(matchId, match, winnerId, scoreA, scoreB) {
-  // After semifinals (round 1), populate 3rd place and final
-  if (match.round !== 1) return;
-  const loserId = winnerId === match.team_a_id ? match.team_b_id : match.team_a_id;
-  const catMatch = await api(`tournament_matches?id=eq.${matchId}&select=category`);
-  const matchCategory = catMatch[0]?.category||null;
-  const catFilter = matchCategory?`&category=eq.${matchCategory}`:'';
-  const allSemis = await api(`tournament_matches?tournament_id=eq.${currentTournamentId}&phase=eq.finals&round=eq.1${catFilter}&select=*`);
-  const completedSemis = allSemis.filter(m=>m.status==='completed');
-  if (completedSemis.length < 2) return;
+    // Validate scores
+    const missingScores = [];
+    for (const gameNum of allGameNums) {
+      const isVoided = document.getElementById(`void-${gameNum}`)?.checked || false;
+      if (isVoided) continue;
+      const sA = document.getElementById(`scoreA-${gameNum}`);
+      const sB = document.getElementById(`scoreB-${gameNum}`);
+      if (!sA || sA.value === '' || !sB || sB.value === '') missingScores.push(gameNum);
+    }
+    if (missingScores.length) {
+      toast(
+        `Please enter scores for Game${missingScores.length > 1 ? 's' : ''} ${missingScores.join(', ')} or mark ${missingScores.length > 1 ? 'them' : 'it'} as void.`,
+        true,
+      );
+      return;
+    }
 
-  const winners = completedSemis.map(m=>m.winner_team_id);
-  const losers = completedSemis.map(m=>m.winner_team_id===m.team_a_id?m.team_b_id:m.team_a_id);
+    for (const gameNum of allGameNums) {
+      const sA = document.getElementById(`scoreA-${gameNum}`);
+      const sB = document.getElementById(`scoreB-${gameNum}`);
+      if (!sA || sA.value === '') continue;
+      const scoreA = parseInt(sA.value, 10);
+      const scoreB = parseInt(sB?.value || 0, 10);
+      const isVoided = document.getElementById(`void-${gameNum}`)?.checked || false;
+      const ptA = isVoided ? 0 : calcPoints(scoreA, scoreB);
+      const ptB = isVoided ? 0 : calcPoints(scoreB, scoreA);
+      let tAIds, tBIds;
+      const isExtraGame = gameNum > 100 || (gameNum === 4 && courtPlayers.length === 4);
+      if (isExtraGame) {
+        tAIds = [
+          document.getElementById(`extraA1-${gameNum}`)?.value,
+          document.getElementById(`extraA2-${gameNum}`)?.value,
+        ]
+          .filter(Boolean)
+          .map(Number);
+        tBIds = [
+          document.getElementById(`extraB1-${gameNum}`)?.value,
+          document.getElementById(`extraB2-${gameNum}`)?.value,
+        ]
+          .filter(Boolean)
+          .map(Number);
+      } else {
+        tAIds =
+          document.getElementById(`teamA-ids-${gameNum}`)?.value.split(',').filter(Boolean).map(Number) ||
+          [];
+        tBIds =
+          document.getElementById(`teamB-ids-${gameNum}`)?.value.split(',').filter(Boolean).map(Number) ||
+          [];
+      }
+      tAIds.forEach((pid) => {
+        if (!pid) return;
+        const pA = ladderPlayers.find((p) => p.id === pid);
+        const isSubA = pA?.ladder_status === 'sub';
+        rows.push({
+          session_date: date,
+          court_group: parseInt(courtNum, 10),
+          player_id: pid,
+          game_number: extraGameMap[gameNum] || gameNum,
+          score_for: isVoided ? null : scoreA,
+          score_against: isVoided ? null : scoreB,
+          points_earned: isSubA ? 0 : ptA,
+          is_sub: isSubA,
+          default_no_show: false,
+          ladder_id: currentLadder.id,
+        });
+      });
+      tBIds.forEach((pid) => {
+        if (!pid) return;
+        const pB = ladderPlayers.find((p) => p.id === pid);
+        const isSubB = pB?.ladder_status === 'sub';
+        rows.push({
+          session_date: date,
+          court_group: parseInt(courtNum, 10),
+          player_id: pid,
+          game_number: extraGameMap[gameNum] || gameNum,
+          score_for: isVoided ? null : scoreB,
+          score_against: isVoided ? null : scoreA,
+          points_earned: isSubB ? 0 : ptB,
+          is_sub: isSubB,
+          default_no_show: false,
+          ladder_id: currentLadder.id,
+        });
+      });
+    }
+    if (noShowPlayer) {
+      rows.push({
+        session_date: date,
+        court_group: parseInt(courtNum, 10),
+        player_id: noShowPlayer.id,
+        game_number: 1,
+        score_for: null,
+        score_against: null,
+        points_earned: noShowPenalty,
+        is_sub: noShowPlayer.ladder_status === 'sub',
+        default_no_show: true,
+        ladder_id: currentLadder.id,
+      });
+    }
+    if (!rows.length) {
+      toast('No scores entered yet.', true);
+      return;
+    }
+    try {
+      // Single batch insert — atomic on the server
+      await api('matches', 'POST', rows);
+      toast(`Session saved! ${rows.length} entries recorded.`);
+      initEntry();
+    } catch (e) {
+      toast(`Error: ${e.message}`, true);
+    }
+  };
 
-  const thirdMatch = await api(`tournament_matches?tournament_id=eq.${currentTournamentId}&phase=eq.finals&round=eq.2${catFilter}&select=*`);
-  const finalMatch = await api(`tournament_matches?tournament_id=eq.${currentTournamentId}&phase=eq.finals&round=eq.3${catFilter}&select=*`);
+  /* ─── PLAYERS ──────────────────────────────────────────── */
 
-  if (thirdMatch.length) await api(`tournament_matches?id=eq.${thirdMatch[0].id}`,'PATCH',{team_a_id:losers[0],team_b_id:losers[1]});
-  if (finalMatch.length) await api(`tournament_matches?id=eq.${finalMatch[0].id}`,'PATCH',{team_a_id:winners[0],team_b_id:winners[1]});
-};
+  const filterPlayers = () => {
+    const q = document.getElementById('player-search').value.toLowerCase().trim();
+    const statusFilter = document.getElementById('player-status-filter')?.value || 'all';
+    document.querySelectorAll('#players-table tbody tr').forEach((row) => {
+      const name = row.querySelector('td')?.textContent.toLowerCase() || '';
+      const statusCell = row.querySelectorAll('td')[4]?.textContent.toLowerCase() || '';
+      const nameMatch = name.includes(q);
+      const statusMatch = statusFilter === 'all' || statusCell.includes(statusFilter);
+      row.style.display = nameMatch && statusMatch ? '' : 'none';
+    });
+  };
 
-// Tournament form listeners (must be after function definitions)
-document.getElementById('create-tournament-form').addEventListener('submit',createTournament);
-document.getElementById('edit-tournament-form').addEventListener('submit',saveEditTournament);
-document.getElementById('add-team-form').addEventListener('submit',saveAddTeam);
-document.getElementById('record-match-form').addEventListener('submit',saveRecordMatch);
+  const loadPlayers = async () => {
+    try {
+      allPlayers = await api('players?select=*&order=first_name');
+      if (!allPlayers.length) {
+        document.getElementById('players-table').innerHTML =
+          '<div class="empty">No players yet.</div>';
+        return;
+      }
+      const rows = allPlayers
+        .map(
+          (p) => `
+        <tr>
+          <td class="text-bold">${esc(p.first_name)} ${esc(p.last_name)}</td>
+          <td class="text-muted-12">${esc(p.gender || '-')}</td>
+          <td class="text-muted-12">${esc(p.email || '-')}</td>
+          <td class="text-muted-12">${esc(p.phone || '-')}</td>
+          <td><span class="badge badge-${esc(p.status)}">${esc(p.status)}</span></td>
+          <td class="text-muted-12">${fmtDate(p.date_joined) || '-'}</td>
+          <td><button class="btn btn-outline btn-sm" data-action="openEdit" data-pid="${p.id}">Edit</button></td>
+        </tr>`,
+        )
+        .join('');
+      document.getElementById('players-count').textContent =
+        `${allPlayers.length} player${allPlayers.length !== 1 ? 's' : ''}`;
+      document.getElementById('players-table').innerHTML = `
+        <table><thead><tr><th>Name</th><th>Gender</th><th>Email</th><th>Phone</th><th>Status</th><th>Joined</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+    } catch (e) {
+      document.getElementById('players-table').innerHTML =
+        `<div class="empty">Error: ${esc(e.message)}</div>`;
+    }
+  };
 
-// ─── EMAIL NOTIFICATIONS ──────────────────────────────────────────────────────
+  const initAddPlayer = () => {
+    document.getElementById('p-joined').value = todayISO();
+  };
 
-const EMAILJS_SERVICE = 'service_b9yh0p3';
-const EMAILJS_TEMPLATE = 'template_whqzhfb';
-const EMAILJS_KEY = '6_1uofjtAIBjdqqrn';
+  const addPlayer = async (e) => {
+    e.preventDefault();
+    const body = {
+      first_name: document.getElementById('p-first').value.trim(),
+      last_name: document.getElementById('p-last').value.trim(),
+      email: document.getElementById('p-email').value.trim() || null,
+      phone: document.getElementById('p-phone').value.trim() || null,
+      gender: document.getElementById('p-gender').value || null,
+      status: document.getElementById('p-status').value,
+      date_joined: document.getElementById('p-joined').value || null,
+      current_rank: 999,
+    };
+    try {
+      await api('players', 'POST', body);
+      toast(`${body.first_name} ${body.last_name} added successfully!`);
+      e.target.reset();
+      document.getElementById('p-joined').value = todayISO();
+      allPlayers = [];
+    } catch (err) {
+      toast(`Error: ${err.message}`, true);
+    }
+  };
 
-const NOTIFY_TEMPLATES = {
-  welcome: {
-    subject: `🏓 Welcome to the {{ladder}} — Guidelines & Schedule`,
-    message: `I hope this message finds you well.
+  const openEdit = (id) => {
+    const p = allPlayers.find((x) => x.id === id);
+    if (!p) return;
+    document.getElementById('edit-id').value = p.id;
+    document.getElementById('edit-first').value = p.first_name;
+    document.getElementById('edit-last').value = p.last_name;
+    document.getElementById('edit-email').value = p.email || '';
+    document.getElementById('edit-phone').value = p.phone || '';
+    document.getElementById('edit-gender').value = p.gender || '';
+    document.getElementById('edit-status').value = p.status || 'active';
+    document.getElementById('edit-modal').classList.add('open');
+  };
+
+  const closeModal = () => document.getElementById('edit-modal').classList.remove('open');
+
+  const saveEditPlayer = async (e) => {
+    e.preventDefault();
+    const id = document.getElementById('edit-id').value;
+    const body = {
+      first_name: document.getElementById('edit-first').value.trim(),
+      last_name: document.getElementById('edit-last').value.trim(),
+      email: document.getElementById('edit-email').value.trim() || null,
+      phone: document.getElementById('edit-phone').value.trim() || null,
+      gender: document.getElementById('edit-gender').value || null,
+      status: document.getElementById('edit-status').value,
+    };
+    try {
+      await api(`players?id=eq.${id}`, 'PATCH', body);
+      toast('Player updated!');
+      closeModal();
+      loadPlayers();
+      allPlayers = [];
+    } catch (err) {
+      toast(`Error: ${err.message}`, true);
+    }
+  };
+
+  /* ─── SHARE PAGE ───────────────────────────────────────── */
+
+  const loadSharePage = async () => {
+    let ladders = [];
+    try {
+      ladders = await api('ladders?select=*&order=id.desc');
+    } catch (e) {
+      document.getElementById('share-ladder-list').innerHTML =
+        `<div class="empty">Error: ${esc(e.message)}</div>`;
+      return;
+    }
+    const el = document.getElementById('share-ladder-list');
+    if (!ladders.length) {
+      el.innerHTML = '<div class="empty">No ladders yet. Create one in the Ladders tab.</div>';
+      return;
+    }
+    const baseUrl =
+      window.location.origin + window.location.pathname.replace('index.html', '') + 'players.html';
+    el.innerHTML = ladders
+      .map((l) => {
+        const encoded = btoa(String(l.id));
+        const url = `${baseUrl}?l=${encoded}`;
+        const statusColor = l.status === 'active' ? 'var(--teal)' : 'var(--text-muted)';
+        return `<div class="list-row">
+          <div class="row-between">
+            <div>
+              <div class="text-bold text-14">${esc(l.name)}</div>
+              <div class="text-bold text-uppercase mt-4" style="font-size:11px;color:${statusColor};letter-spacing:.5px;">${esc(l.status)}</div>
+            </div>
+            <button class="btn btn-primary btn-sm" data-action="copyShareLink" data-url="${esc(url)}" data-btnid="copy-btn-${l.id}" id="copy-btn-${l.id}">Copy link</button>
+          </div>
+          <div class="url-box">${esc(url)}</div>
+        </div>`;
+      })
+      .join('');
+  };
+
+  const copyShareLink = (url, btnId) => {
+    navigator.clipboard
+      .writeText(url)
+      .then(() => {
+        const btn = document.getElementById(btnId);
+        if (btn) {
+          const orig = btn.textContent;
+          btn.textContent = 'Copied!';
+          btn.style.background = 'var(--teal)';
+          setTimeout(() => {
+            btn.textContent = orig;
+            btn.style.background = '';
+          }, 2000);
+        }
+        toast('Link copied to clipboard!');
+      })
+      .catch(() => {
+        toast('Could not copy. Please copy the link manually.', true);
+      });
+  };
+
+  /* ─── EMAIL NOTIFICATIONS ──────────────────────────────── */
+
+  const NOTIFY_TEMPLATES = {
+    welcome: {
+      subject: '🏓 Welcome to the {{ladder}} — Guidelines & Schedule',
+      message: `I hope this message finds you well.
 
 I'm excited to share that our upcoming Pickleball Ladder will officially begin on Saturday, April 18, 2026, with sessions taking place every Saturday from 1:30 PM to 3:00 PM for six consecutive weeks.
 
@@ -1999,203 +1667,485 @@ Penalties:
 
 If you have any questions please feel free to reach out.
 
-I'm looking forward to an amazing season of friendly competition and good vibes on the courts! 🎾🔥`
-  },
-  scores: {
-    subject: `🏆 Scores Updated — {{ladder}}`,
-    message: `The scores for the {{ladder}} ladder have just been updated!\n\nCheck the latest standings and see where you stand on the leaderboard.`
-  },
-  reminder: {
-    subject: `⏰ Session Reminder — {{ladder}}`,
-    message: `This is a friendly reminder that your next pickleball session for the {{ladder}} ladder is coming up soon.\n\nMake sure you're ready to play your best game!`
-  },
-  end: {
-    subject: `🏆 {{ladder}} Ladder — Final Results`,
-    message: `The {{ladder}} ladder has officially ended!\n\nThank you so much for your participation, dedication, and competitive spirit throughout this season. It was a fantastic ladder and we hope to see you again in the next one!\n\nCheck out the final standings below.`
-  },
-  custom: {
-    subject: `Ferocia Pickleball — {{ladder}}`,
-    message: ``
-  }
-};
+I'm looking forward to an amazing season of friendly competition and good vibes on the courts! 🎾🔥`,
+    },
+    scores: {
+      subject: '🏆 Scores Updated — {{ladder}}',
+      message:
+        'The scores for the {{ladder}} ladder have just been updated!\n\nCheck the latest standings and see where you stand on the leaderboard.',
+    },
+    reminder: {
+      subject: '⏰ Session Reminder — {{ladder}}',
+      message:
+        "This is a friendly reminder that your next pickleball session for the {{ladder}} ladder is coming up soon.\n\nMake sure you're ready to play your best game!",
+    },
+    end: {
+      subject: '🏆 End of {{ladder}} — Congratulations!',
+      message:
+        'The {{ladder}} ladder has officially come to an end!\n\nThank you for your participation and great sportsmanship. Check the final standings to see how you finished.',
+    },
+    custom: {
+      subject: '',
+      message: '',
+    },
+  };
 
-function openNotifyPlayers() {
-  if (!currentLadder) { toast('Please select a ladder first.', true); return; }
-  const emailPlayers = ladderPlayers.filter(p => p.email && p.ladder_status === 'active');
-  if (!emailPlayers.length) { toast('No active players with email addresses found.', true); return; }
+  const setNotifyTemplate = (type) => {
+    const t = NOTIFY_TEMPLATES[type];
+    if (!t) return;
+    const ladderName = currentLadder ? currentLadder.name : 'ladder';
+    document.getElementById('notify-subject').value = t.subject.replaceAll('{{ladder}}', ladderName);
+    document.getElementById('notify-message').value = t.message.replaceAll('{{ladder}}', ladderName);
+  };
 
-  document.getElementById('notify-recipient-count').innerHTML =
-    `<span style="color:var(--teal);font-weight:700;">${emailPlayers.length} players</span> will receive this email (active players with email addresses).`;
+  const openNotifyPlayers = () => {
+    if (!currentLadder) {
+      toast('Please select a ladder first.', true);
+      return;
+    }
+    const emailPlayers = ladderPlayers.filter((p) => p.email && p.ladder_status === 'active');
+    document.getElementById('notify-recipient-count').innerHTML =
+      `<span class="text-bold color-teal">${emailPlayers.length} active players with email</span> in <strong>${esc(currentLadder.name)}</strong> will receive this email.`;
+    setNotifyTemplate('welcome');
+    document.getElementById('notify-type').value = 'welcome';
+    document.getElementById('notify-modal').classList.add('open');
+  };
 
-  // Set default template
-  setNotifyTemplate('welcome');
-  document.getElementById('notify-modal').classList.add('open');
-};
-
-function setNotifyTemplate(type) {
-  const ladderName = currentLadder?.name || 'Ferocia Ladder';
-  const tmpl = NOTIFY_TEMPLATES[type];
-  document.getElementById('notify-subject').value = tmpl.subject.replace('{{ladder}}', ladderName);
-  document.getElementById('notify-message').value = tmpl.message.replace(/{{ladder}}/g, ladderName);
-};
-
-async function sendNotifications(e) {
-  e.preventDefault();
-  if (!currentLadder) return;
-
-  const subject = document.getElementById('notify-subject').value.trim();
-  const message = document.getElementById('notify-message').value.trim();
-  if (!subject || !message) { toast('Please fill in subject and message.', true); return; }
-
-  const emailPlayers = ladderPlayers.filter(p => p.email && p.ladder_status === 'active');
-  if (!emailPlayers.length) { toast('No players to notify.', true); return; }
-
-  // Build leaderboard URL
-  const encoded = btoa(String(currentLadder.id));
-  const baseUrl = window.location.origin + window.location.pathname.replace('index.html','') + 'players.html';
-  const leaderboardUrl = `${baseUrl}?l=${encoded}`;
-
-  const sendBtn = document.getElementById('notify-send-btn');
-  sendBtn.disabled = true;
-  sendBtn.textContent = 'Sending...';
-
-  // Init EmailJS
-  emailjs.init({publicKey: EMAILJS_KEY});
-  // Append leaderboard URL directly into the message for score/end types
-  let sent = 0;
-  let failed = 0;
-
-  for (const player of emailPlayers) {
+  // Send a single email with one retry on failure.
+  // Returns true on success, false on permanent failure.
+  async function sendOneEmail(serviceId, templateId, params) {
     try {
-      await emailjs.send(EMAILJS_SERVICE, EMAILJS_TEMPLATE, {
+      await emailjs.send(serviceId, templateId, params);
+      return true;
+    } catch (err) {
+      // Brief backoff, then one retry
+      await sleep(CFG.EMAIL_RETRY_DELAY_MS);
+      try {
+        await emailjs.send(serviceId, templateId, params);
+        return true;
+      } catch (_) {
+        return false;
+      }
+    }
+  }
+
+  // Warn user before they navigate away mid-send
+  let _emailInFlight = false;
+  function beforeUnloadGuard(e) {
+    if (_emailInFlight) {
+      e.preventDefault();
+      e.returnValue = '';
+      return '';
+    }
+  }
+  window.addEventListener('beforeunload', beforeUnloadGuard);
+
+  const sendNotifications = async (e) => {
+    e.preventDefault();
+    if (!currentLadder) return;
+
+    const subject = document.getElementById('notify-subject').value.trim();
+    const message = document.getElementById('notify-message').value.trim();
+    if (!subject || !message) {
+      toast('Please fill in subject and message.', true);
+      return;
+    }
+    const emailPlayers = ladderPlayers.filter((p) => p.email && p.ladder_status === 'active');
+    if (!emailPlayers.length) {
+      toast('No players to notify.', true);
+      return;
+    }
+
+    const encoded = btoa(String(currentLadder.id));
+    const baseUrl =
+      window.location.origin + window.location.pathname.replace('index.html', '') + 'players.html';
+    const leaderboardUrl = `${baseUrl}?l=${encoded}`;
+
+    const sendBtn = document.getElementById('notify-send-btn');
+    sendBtn.disabled = true;
+    sendBtn.textContent = 'Sending...';
+    _emailInFlight = true;
+
+    emailjs.init({ publicKey: CFG.EMAILJS.PUBLIC_KEY });
+    let sent = 0;
+    const failedRecipients = [];
+
+    for (const player of emailPlayers) {
+      const ok = await sendOneEmail(CFG.EMAILJS.SERVICE, CFG.EMAILJS.TEMPLATES.LADDER_NOTIFY, {
         player_name: `${player.first_name} ${player.last_name}`,
         player_email: player.email,
-        subject: subject,
-        message: message,
-        leaderboard_url: leaderboardUrl
+        subject,
+        message,
+        leaderboard_url: leaderboardUrl,
       });
-      sent++;
-      sendBtn.textContent = `Sending... ${sent}/${emailPlayers.length}`;
-    } catch(err) {
-      console.error(`Failed to send to ${player.email}:`, err);
-      failed++;
+      if (ok) {
+        sent++;
+      } else {
+        failedRecipients.push(player.email);
+      }
+      sendBtn.textContent = `Sending... ${sent + failedRecipients.length}/${emailPlayers.length}`;
+      // Throttle so we don't trip rate limits
+      if (sent + failedRecipients.length < emailPlayers.length) {
+        await sleep(CFG.EMAIL_THROTTLE_MS);
+      }
     }
-  }
 
-  sendBtn.disabled = false;
-  sendBtn.textContent = 'Send emails';
-  document.getElementById('notify-modal').classList.remove('open');
+    _emailInFlight = false;
+    sendBtn.disabled = false;
+    sendBtn.textContent = 'Send emails';
+    document.getElementById('notify-modal').classList.remove('open');
 
-  if (failed === 0) {
-    toast(`✅ ${sent} emails sent successfully!`);
-  } else {
-    toast(`Sent ${sent} emails. ${failed} failed.`, failed > 0);
-  }
-};
-document.getElementById('notify-form').addEventListener('submit', sendNotifications);
+    if (!failedRecipients.length) {
+      toast(`✅ ${sent} emails sent successfully!`);
+    } else {
+      const failedList = failedRecipients.slice(0, 3).join(', ');
+      const more = failedRecipients.length > 3 ? ` (+${failedRecipients.length - 3} more)` : '';
+      toast(`Sent ${sent}. Failed: ${failedList}${more}`, true);
+    }
+  };
 
-// ─── PROMOTIONS ───────────────────────────────────────────────────────────────
+  /* ─── PROMOTIONS ───────────────────────────────────────── */
 
-const EMAILJS_PROMO_TEMPLATE = 'template_bi5i16p';
+  const loadPromotionsPage = async () => {
+    document.querySelectorAll('.page').forEach((p) => p.classList.remove('active'));
+    document.getElementById('page-promotions').classList.add('active');
+    document.getElementById('subnav-management').style.display = 'flex';
+    document.getElementById('tab-home').classList.remove('active');
+    document
+      .querySelectorAll('#subnav-management button')
+      .forEach((b) => b.classList.toggle('active', b.dataset.page === 'promotions'));
+    await loadSubscribers();
+  };
 
-async function loadPromotionsPage() {
-  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  document.getElementById('page-promotions').classList.add('active');
-  document.getElementById('subnav-management').style.display='flex';
-  document.getElementById('tab-home').classList.remove('active');
-  document.querySelectorAll('#subnav-management button').forEach(b=>b.classList.toggle('active',b.dataset.page==='promotions'));
-  await loadSubscribers();
-};
-
-async function loadSubscribers() {
-  const filter = document.getElementById('sub-status-filter')?.value || 'all';
-  const search = document.getElementById('sub-search')?.value.toLowerCase().trim() || '';
-  let query = 'subscribers?select=*&order=subscribed_at.desc';
-  if (filter !== 'all') query += `&status=eq.${filter}`;
-  const subs = await api(query);
-  const filtered = subs.filter(s => {
-    if (!search) return true;
-    return `${s.first_name} ${s.last_name} ${s.email}`.toLowerCase().includes(search);
-  });
-  document.getElementById('sub-count').textContent = `${filtered.length}`;
-  const statusColors = { active:'var(--teal)', pending:'var(--orange)', unsubscribed:'var(--text-muted)' };
-  document.getElementById('subscribers-table').innerHTML = filtered.length ? `
-    <table>
-      <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Skill</th><th>Status</th><th>Joined</th></tr></thead>
-      <tbody>${filtered.map(s=>`<tr>
-        <td style="font-weight:700;">${s.first_name} ${s.last_name}</td>
-        <td style="font-size:12px;">${s.email}</td>
-        <td style="font-size:12px;">${s.phone||'—'}</td>
-        <td style="font-size:12px;text-transform:capitalize;">${s.skill_level||'—'}</td>
-        <td><span style="font-size:10px;font-weight:800;text-transform:uppercase;color:${statusColors[s.status]||'var(--text-muted)'};">${s.status}</span></td>
-        <td style="font-size:12px;color:var(--text-muted);">${s.subscribed_at?new Date(s.subscribed_at+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—'}</td>
-      </tr>`).join('')}</tbody>
-    </table>` : '<div class="empty">No subscribers found.</div>';
-};
-
-async function generateQR() {
-  const baseUrl = window.location.origin + window.location.pathname.replace('index.html','') + 'subscribe.html';
-  document.getElementById('subscribe-url-display').textContent = baseUrl;
-  document.getElementById('qr-container').style.display = 'block';
-  const qrEl = document.getElementById('qr-code');
-  qrEl.innerHTML = '';
-  new QRCode(qrEl, {
-    text: baseUrl,
-    width: 160,
-    height: 160,
-    colorDark: '#174CCC',
-    colorLight: '#ffffff',
-    correctLevel: QRCode.CorrectLevel.H
-  });
-}
-
-async function openSendPromo() {
-  const subs = await api('subscribers?status=eq.active&select=id');
-  document.getElementById('promo-recipient-count').innerHTML =
-    `<span style="color:var(--teal);font-weight:700;">${subs.length} active subscribers</span> will receive this email.`;
-  document.getElementById('promo-subject').value = '';
-  document.getElementById('promo-message').value = '';
-  document.getElementById('promo-modal').classList.add('open');
-};
-
-async function sendPromoEmail(e) {
-  e.preventDefault();
-  const subject = document.getElementById('promo-subject').value.trim();
-  const message = document.getElementById('promo-message').value.trim();
-  if (!subject || !message) { toast('Please fill in subject and message.', true); return; }
-
-  const subs = await api('subscribers?status=eq.active&select=*');
-  if (!subs.length) { toast('No active subscribers to send to.', true); return; }
-
-  const sendBtn = document.getElementById('promo-send-btn');
-  sendBtn.disabled = true; sendBtn.textContent = 'Sending...';
-
-  emailjs.init({publicKey: EMAILJS_KEY});
-  const baseUrl = window.location.origin + window.location.pathname.replace('index.html','');
-  let sent = 0, failed = 0;
-
-  for (const sub of subs) {
+  const loadSubscribers = async () => {
+    const filter = document.getElementById('sub-status-filter')?.value || 'all';
+    const search = document.getElementById('sub-search')?.value.toLowerCase().trim() || '';
+    let query = 'subscribers?select=*&order=subscribed_at.desc';
+    if (filter !== 'all') query += `&status=eq.${filter}`;
+    let subs = [];
     try {
+      subs = await api(query);
+    } catch (e) {
+      document.getElementById('subscribers-table').innerHTML =
+        `<div class="empty">Error: ${esc(e.message)}</div>`;
+      return;
+    }
+    const filtered = subs.filter((s) => {
+      if (!search) return true;
+      return `${s.first_name} ${s.last_name} ${s.email}`.toLowerCase().includes(search);
+    });
+    document.getElementById('sub-count').textContent = `${filtered.length}`;
+    const statusColors = {
+      active: 'var(--teal)',
+      pending: 'var(--orange)',
+      unsubscribed: 'var(--text-muted)',
+    };
+    document.getElementById('subscribers-table').innerHTML = filtered.length
+      ? `<table>
+          <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Skill</th><th>Status</th><th>Joined</th></tr></thead>
+          <tbody>${filtered
+            .map(
+              (s) => `<tr>
+                <td class="text-bold">${esc(s.first_name)} ${esc(s.last_name)}</td>
+                <td style="font-size:12px;">${esc(s.email)}</td>
+                <td style="font-size:12px;">${esc(s.phone || '—')}</td>
+                <td style="font-size:12px;text-transform:capitalize;">${esc(s.skill_level || '—')}</td>
+                <td><span class="text-bolder text-uppercase" style="font-size:10px;color:${statusColors[s.status] || 'var(--text-muted)'};">${esc(s.status)}</span></td>
+                <td class="text-muted-12">${fmtDate(s.subscribed_at) || '—'}</td>
+              </tr>`,
+            )
+            .join('')}</tbody>
+        </table>`
+      : '<div class="empty">No subscribers found.</div>';
+  };
+
+  const generateQR = () => {
+    const baseUrl =
+      window.location.origin + window.location.pathname.replace('index.html', '') + 'subscribe.html';
+    document.getElementById('subscribe-url-display').textContent = baseUrl;
+    document.getElementById('qr-container').style.display = 'block';
+    const qrEl = document.getElementById('qr-code');
+    qrEl.innerHTML = '';
+    /* eslint-disable no-new, no-undef */
+    new QRCode(qrEl, {
+      text: baseUrl,
+      width: 160,
+      height: 160,
+      colorDark: '#174CCC',
+      colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel.H,
+    });
+    /* eslint-enable */
+  };
+
+  const openSendPromo = async () => {
+    let subs = [];
+    try {
+      subs = await api('subscribers?status=eq.active&select=id');
+    } catch (e) {
+      toast(`Error: ${e.message}`, true);
+      return;
+    }
+    document.getElementById('promo-recipient-count').innerHTML =
+      `<span class="text-bold color-teal">${subs.length} active subscribers</span> will receive this email.`;
+    document.getElementById('promo-subject').value = '';
+    document.getElementById('promo-message').value = '';
+    document.getElementById('promo-modal').classList.add('open');
+  };
+
+  const sendPromoEmail = async (e) => {
+    e.preventDefault();
+    const subject = document.getElementById('promo-subject').value.trim();
+    const message = document.getElementById('promo-message').value.trim();
+    if (!subject || !message) {
+      toast('Please fill in subject and message.', true);
+      return;
+    }
+    let subs = [];
+    try {
+      subs = await api('subscribers?status=eq.active&select=*');
+    } catch (err) {
+      toast(`Error: ${err.message}`, true);
+      return;
+    }
+    if (!subs.length) {
+      toast('No active subscribers to send to.', true);
+      return;
+    }
+
+    const sendBtn = document.getElementById('promo-send-btn');
+    sendBtn.disabled = true;
+    sendBtn.textContent = 'Sending...';
+    _emailInFlight = true;
+
+    emailjs.init({ publicKey: CFG.EMAILJS.PUBLIC_KEY });
+    const baseUrl = window.location.origin + window.location.pathname.replace('index.html', '');
+    let sent = 0;
+    const failedRecipients = [];
+
+    for (const sub of subs) {
       const unsubUrl = `${baseUrl}unsubscribe.html?t=${sub.unsubscribe_token}`;
-      await emailjs.send(EMAILJS_SERVICE, EMAILJS_PROMO_TEMPLATE, {
+      const ok = await sendOneEmail(CFG.EMAILJS.SERVICE, CFG.EMAILJS.TEMPLATES.PROMO, {
         player_name: `${sub.first_name} ${sub.last_name}`,
         player_email: sub.email,
-        subject: subject,
-        message: message,
-        unsubscribe_url: unsubUrl
+        subject,
+        message,
+        unsubscribe_url: unsubUrl,
       });
-      sent++;
-      sendBtn.textContent = `Sending... ${sent}/${subs.length}`;
-    } catch(err) {
-      console.error(`Failed: ${sub.email}`, err);
-      failed++;
+      if (ok) sent++;
+      else failedRecipients.push(sub.email);
+      sendBtn.textContent = `Sending... ${sent + failedRecipients.length}/${subs.length}`;
+      if (sent + failedRecipients.length < subs.length) {
+        await sleep(CFG.EMAIL_THROTTLE_MS);
+      }
     }
-  }
 
-  sendBtn.disabled = false; sendBtn.textContent = 'Send emails';
-  document.getElementById('promo-modal').classList.remove('open');
-  toast(failed === 0 ? `✅ ${sent} promotional emails sent!` : `Sent ${sent}, failed ${failed}.`, failed > 0);
-};
-document.getElementById('promo-form').addEventListener('submit', sendPromoEmail);
-document.getElementById('sub-status-filter')?.addEventListener('change', loadSubscribers);
-document.getElementById('sub-search')?.addEventListener('input', loadSubscribers);
+    _emailInFlight = false;
+    sendBtn.disabled = false;
+    sendBtn.textContent = 'Send emails';
+    document.getElementById('promo-modal').classList.remove('open');
+    if (!failedRecipients.length) {
+      toast(`✅ ${sent} promotional emails sent!`);
+    } else {
+      const failedList = failedRecipients.slice(0, 3).join(', ');
+      const more = failedRecipients.length > 3 ? ` (+${failedRecipients.length - 3} more)` : '';
+      toast(`Sent ${sent}. Failed: ${failedList}${more}`, true);
+    }
+  };
+
+  /* ─── EVENT DELEGATION ─────────────────────────────────── */
+
+  // Click handler — looks up the action handler for any [data-action] click
+  const CLICK_HANDLERS = {
+    // Navigation
+    showPage: (btn) => showPage(btn.dataset.page, btn),
+    switchTab: (btn) => switchMainTab(btn.dataset.tab),
+    switchProgramTab: (btn) => switchProgramTab(btn.dataset.tab),
+    goHome: () => goHome(),
+    // Court / session entry
+    addCourtPlayerBtn: (btn) => addCourtPlayer(parseInt(btn.dataset.pid, 10)),
+    markNoShow: (btn) => markNoShow(btn.dataset.pid),
+    cancelNoShow: () => cancelNoShow(),
+    removeCourtPlayerBtn: (btn) => removeCourtPlayer(parseInt(btn.dataset.pid, 10)),
+    addExtraGame: () => addExtraGame(),
+    removeExtraGame: (btn) => removeExtraGame(parseInt(btn.dataset.gamenum, 10)),
+    toggleVoid: (btn) => toggleVoid(parseInt(btn.dataset.gamenum, 10)),
+    submitSession: () => submitSession(),
+    // Sessions
+    editGame: (btn) => editGame(btn),
+    deleteSession: (btn) => deleteSession(btn),
+    editSession: (btn) => editSession(btn),
+    toggleEditGameVoid: () => toggleEditGameVoid(),
+    // Ladders
+    openLadderPlayers: (btn) =>
+      openLadderPlayers(parseInt(btn.dataset.lid, 10), btn.dataset.lname),
+    openEditLadder: (btn) => openEditLadder(parseInt(btn.dataset.lid, 10)),
+    toggleLadderStatus: (btn) =>
+      toggleLadderStatus(parseInt(btn.dataset.lid, 10), btn.dataset.lstatus),
+    deleteLadder: (btn) => deleteLadder(parseInt(btn.dataset.lid, 10), btn.dataset.lname),
+    // Ladder players modal
+    lpToggleAll: (btn) => lpToggleAll(btn),
+    lpSaveChanges: () => lpSaveChanges(),
+    closeLpModal: () => closeLpModal(),
+    // Players
+    openEdit: (btn) => openEdit(parseInt(btn.dataset.pid, 10)),
+    closeModal: () => closeModal(),
+    // Modals
+    closeEditLadderModal: () => closeEditLadderModal(),
+    closeEditGameModal: () =>
+      document.getElementById('edit-game-modal').classList.remove('open'),
+    closeNotifyModal: () => document.getElementById('notify-modal').classList.remove('open'),
+    closePromoModal: () => document.getElementById('promo-modal').classList.remove('open'),
+    closeEditSessionModal: () =>
+      document.getElementById('edit-session-modal').classList.remove('open'),
+    // Notify / promo
+    openNotifyPlayers: () => openNotifyPlayers(),
+    openSendPromo: () => openSendPromo(),
+    generateQR: () => generateQR(),
+    // Share
+    copyShareLink: (btn) => copyShareLink(btn.dataset.url, btn.dataset.btnid),
+    // Auth
+    signOut: async () => {
+      const ok = await confirmModal({
+        title: 'Sign out?',
+        message: 'You will need to sign in again to access the admin area.',
+        okLabel: 'Sign out',
+      });
+      if (ok) window.auth.signOut();
+    },
+  };
+
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    const handler = CLICK_HANDLERS[btn.dataset.action];
+    if (handler) handler(btn);
+  });
+
+  // Change handler — for selects / radios that need a custom action
+  document.addEventListener('change', (e) => {
+    const el = e.target;
+    if (el.dataset.action === 'lpChangeStatus') {
+      lpChangeStatus(el);
+      return;
+    }
+    if (el.name === 'noshow-penalty') {
+      noShowPenalty = parseInt(el.value, 10);
+      return;
+    }
+    if (el.id === 'notify-type') {
+      setNotifyTemplate(el.value);
+      return;
+    }
+    if (el.id === 'gender-filter') {
+      renderLadder();
+      return;
+    }
+  });
+
+  // Input handler — search + auto-calc previews
+  document.addEventListener('input', (e) => {
+    const el = e.target;
+    if (el.id === 'lp-search') {
+      const q = el.value.toLowerCase();
+      document.querySelectorAll('#lp-enrolled .lp-player-row').forEach((row) => {
+        row.style.display = row.dataset.name.includes(q) ? '' : 'none';
+      });
+      return;
+    }
+    if (el.id === 'player-search-entry') {
+      searchPlayersEntry();
+      return;
+    }
+    // Edit-game modal: recompute points when scores change
+    const rid = el.dataset.egrid;
+    if (rid) {
+      const sf = document.getElementById(`eg-sf-${rid}`);
+      const sa = document.getElementById(`eg-sa-${rid}`);
+      const pts = document.getElementById(`eg-pts-${rid}`);
+      if (sf && sa && pts && sf.value !== '' && sa.value !== '') {
+        pts.value = calcPoints(parseInt(sf.value, 10), parseInt(sa.value, 10));
+      }
+    }
+    // Extra game / game-4 score inputs
+    const egame = el.dataset.egame;
+    if (egame) {
+      autoCalcExtraGame(parseInt(egame, 10));
+    }
+    // Round-robin auto-calc preview
+    const ascore = el.dataset.autoscore;
+    if (ascore) {
+      autoCalcGame(parseInt(ascore, 10));
+    }
+  });
+
+  /* ─── BOOT ─────────────────────────────────────────────── */
+
+  document.getElementById('last-updated').textContent = new Date().toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+
+  // Default to home page on load
+  document.querySelectorAll('.page').forEach((p) => p.classList.remove('active'));
+  document.getElementById('page-home').classList.add('active');
+  document.getElementById('tab-home').classList.add('active');
+  document.getElementById('subnav-programs').style.display = 'none';
+  document.getElementById('subnav-management').style.display = 'none';
+  document.getElementById('subnav-ladder-options').style.display = 'none';
+  document.getElementById('subnav-tournament-options').style.display = 'none';
+  document.getElementById('tab-home').dataset.action = 'goHome';
+
+  // Form listeners — these only attach event handlers, no data fetched yet,
+  // so safe to wire up before auth resolves.
+  document.getElementById('create-ladder-form').addEventListener('submit', createLadder);
+  document.getElementById('edit-game-form').addEventListener('submit', saveEditGame);
+  document.getElementById('ladder-selector').addEventListener('change', onLadderChange);
+  document.getElementById('tournament-selector')?.addEventListener('change', onTournamentChange);
+  document.getElementById('edit-session-form').addEventListener('submit', saveEditSession);
+  document.getElementById('notify-form').addEventListener('submit', sendNotifications);
+  document.getElementById('promo-form').addEventListener('submit', sendPromoEmail);
+  document.getElementById('sub-status-filter')?.addEventListener('change', loadSubscribers);
+  document.getElementById('sub-search')?.addEventListener('input', loadSubscribers);
+  document.getElementById('player-status-filter')?.addEventListener('change', filterPlayers);
+  document.getElementById('player-search')?.addEventListener('input', filterPlayers);
+  document.querySelector('#edit-ladder-modal form')?.addEventListener('submit', saveEditLadder);
+  document.querySelector('#edit-modal form')?.addEventListener('submit', saveEditPlayer);
+  document.querySelector('#page-add-player form')?.addEventListener('submit', addPlayer);
+
+  // Expose helpers that tournament.js (loaded right after this file) needs.
+  // Done BEFORE requireAuth so tournament.js can read it synchronously.
+  window.app = {
+    api,
+    toast,
+    confirmModal,
+    fmtDate,
+    esc,
+    escapeHtml,
+    sleep,
+    showPage,
+  };
+
+  // Track auth state so tournament.js can wait on it too
+  window.app.authReady = new Promise((resolve) => {
+    window.app._resolveAuthReady = resolve;
+  });
+
+  // Wait for auth before loading any data. requireAuth() shows the
+  // login modal if not signed in; once signed in, our callback fires.
+  window.auth.requireAuth(() => {
+    // Show the sign-out button now that we're authenticated
+    const signOutBtn = document.getElementById('sign-out-btn');
+    if (signOutBtn) signOutBtn.style.display = 'inline-block';
+
+    // Kick off the data load
+    loadLadderSelector();
+
+    // Let tournament.js (and anything else waiting on auth) proceed
+    if (window.app._resolveAuthReady) {
+      window.app._resolveAuthReady();
+      window.app._resolveAuthReady = null;
+    }
+  });
+})();

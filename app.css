@@ -1,0 +1,135 @@
+/* ============================================================
+   FEROCIA SPORTS CENTER — UTILITY CLASSES
+   Replaces the most repeated inline styles in app.js / tournament.js.
+   Loaded AFTER tournament.css, before any per-page <style>.
+   ============================================================ */
+
+/* ─── LAYOUT UTILITIES ────────────────────────────────── */
+.row              { display:flex; align-items:center; gap:8px; }
+.row-wrap         { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.row-between      { display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; }
+.row-end          { display:flex; align-items:center; justify-content:flex-end; gap:8px; flex-wrap:wrap; }
+.col              { display:flex; flex-direction:column; gap:8px; }
+.gap-4            { gap:4px; }
+.gap-6            { gap:6px; }
+.gap-10           { gap:10px; }
+.gap-12           { gap:12px; }
+.gap-14           { gap:14px; }
+.flex-1           { flex:1; }
+.flex-shrink-0    { flex-shrink:0; }
+.full-width       { width:100%; }
+
+/* ─── SPACING ─────────────────────────────────────────── */
+.mb-4             { margin-bottom:4px; }
+.mb-6             { margin-bottom:6px; }
+.mb-8             { margin-bottom:8px; }
+.mb-10            { margin-bottom:10px; }
+.mb-12            { margin-bottom:12px; }
+.mb-16            { margin-bottom:16px; }
+.mb-20            { margin-bottom:20px; }
+.mb-24            { margin-bottom:24px; }
+.mt-4             { margin-top:4px; }
+.mt-8             { margin-top:8px; }
+.mt-10            { margin-top:10px; }
+.mt-12            { margin-top:12px; }
+.mt-16            { margin-top:16px; }
+.no-margin        { margin:0; }
+
+/* ─── TEXT & TYPOGRAPHY ───────────────────────────────── */
+.text-muted-11    { color:var(--text-muted); font-size:11px; font-weight:500; }
+.text-muted-12    { color:var(--text-muted); font-size:12px; font-weight:500; }
+.text-muted-13    { color:var(--text-muted); font-size:13px; font-weight:500; }
+.text-muted-sm    { color:var(--text-muted); font-size:12px; font-weight:600; }
+.text-bold        { font-weight:700; }
+.text-bolder      { font-weight:800; }
+.text-13          { font-size:13px; }
+.text-14          { font-size:14px; }
+.text-uppercase   { text-transform:uppercase; letter-spacing:1px; }
+.text-center      { text-align:center; }
+.word-break       { word-break:break-all; }
+
+.label-tag        { font-size:10px; font-weight:800; letter-spacing:1px; text-transform:uppercase; color:var(--text-muted); }
+.lime-tag         { font-size:11px; font-weight:800; letter-spacing:1px; text-transform:uppercase; color:var(--lime); }
+.blue-tag         { font-size:11px; font-weight:800; letter-spacing:1px; text-transform:uppercase; color:var(--blue); }
+
+/* ─── COLORS / BACKGROUNDS ────────────────────────────── */
+.bg-pale          { background:var(--blue-pale); }
+.bg-bg            { background:var(--bg); }
+.bg-teal-light    { background:var(--teal-light); }
+.bg-orange-light  { background:var(--orange-light); }
+.color-teal       { color:var(--teal); }
+.color-orange     { color:var(--orange); }
+.color-blue       { color:var(--blue); }
+
+/* ─── ROW-LIKE CARDS ──────────────────────────────────── */
+.list-row         { padding:12px 0; border-bottom:0.5px solid var(--border); }
+.list-row:last-child { border-bottom:none; }
+.list-row-flex    { display:flex; align-items:center; justify-content:space-between; padding:12px 0; border-bottom:0.5px solid var(--border); flex-wrap:wrap; gap:8px; }
+
+.session-block    { margin-bottom:24px; }
+.game-row         { margin-bottom:6px; padding:10px 12px; background:var(--bg); border-radius:var(--radius-sm); font-size:13px; border-left:3px solid var(--lime); }
+
+/* ─── INPUTS / FORMS ──────────────────────────────────── */
+.input-full       { width:100%; padding:9px 12px; border:0.5px solid var(--border); border-radius:var(--radius-sm); font-family:'Montserrat',sans-serif; font-size:13px; outline:none; }
+.input-sm         { font-size:12px; padding:5px 10px; font-family:'Montserrat',sans-serif; font-weight:600; border:0.5px solid var(--border); border-radius:var(--radius-sm); }
+.search-input     { width:100%; padding:10px 14px; font-size:13px; border:0.5px solid var(--border); border-radius:var(--radius-sm); font-family:'Montserrat',sans-serif; }
+.score-input      { width:80px; text-align:center; font-size:18px; font-weight:800; border:1.5px solid var(--border); border-radius:var(--radius-sm); padding:6px; }
+
+/* ─── PILLS / BADGES ──────────────────────────────────── */
+.pill             { display:inline-block; font-size:10px; font-weight:700; letter-spacing:.5px; text-transform:uppercase; padding:3px 9px; border-radius:99px; }
+.sub-pill         { font-size:9px; font-weight:800; background:var(--orange-light); color:var(--orange); padding:1px 5px; border-radius:99px; margin-left:3px; }
+.count-pill       { font-size:11px; background:var(--gray); padding:2px 8px; border-radius:99px; font-weight:700; color:var(--text-muted); margin-left:6px; }
+
+/* ─── GAME CARD ───────────────────────────────────────── */
+.game-card        { border:0.5px solid var(--border); border-radius:var(--radius-sm); margin-bottom:12px; overflow:hidden; }
+.game-card-lime   { border:2px solid var(--lime); border-radius:var(--radius-sm); margin-bottom:12px; overflow:hidden; }
+.game-card-header { background:var(--blue); padding:10px 14px; display:flex; align-items:center; justify-content:space-between; }
+.game-card-header-lime { background:var(--lime); padding:10px 14px; display:flex; align-items:center; justify-content:space-between; }
+.game-card-body   { padding:14px; }
+.team-pad-blue    { background:var(--blue-pale); border-radius:var(--radius-sm); padding:12px; text-align:center; }
+.team-pad-teal    { background:var(--teal-light); border-radius:var(--radius-sm); padding:12px; text-align:center; }
+.team-pad-blue-l  { background:var(--blue-pale); border-radius:var(--radius-sm); padding:12px; }
+.team-pad-teal-l  { background:var(--teal-light); border-radius:var(--radius-sm); padding:12px; }
+.vs-tag           { font-size:16px; font-weight:800; color:var(--text-muted); }
+.vs-grid          { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:12px; }
+.vs-grid-top      { display:grid; grid-template-columns:1fr auto 1fr; align-items:start; gap:12px; }
+.points-preview   { margin-top:10px; font-size:12px; color:var(--text-muted); text-align:center; font-weight:500; }
+
+/* ─── COURT PLAYERS ───────────────────────────────────── */
+.court-player     { display:flex; align-items:center; gap:8px; background:var(--blue-pale); border:0.5px solid var(--border); border-radius:var(--radius-sm); padding:7px 12px; }
+.court-player.no-show { background:var(--orange-light); border:1.5px solid var(--orange); }
+.court-num-badge  { width:22px; height:22px; background:var(--blue); border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:11px; font-weight:800; color:white; }
+.court-num-badge.no-show { background:var(--orange); }
+.no-show-banner   { background:var(--orange-light); border:1.5px solid var(--orange); border-radius:var(--radius-sm); padding:12px 16px; margin-bottom:10px; display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+
+/* ─── SHARE LINK / URL ────────────────────────────────── */
+.url-box          { background:var(--bg); border:0.5px solid var(--border); border-radius:var(--radius-sm); padding:8px 12px; font-size:12px; font-weight:500; color:var(--text-muted); word-break:break-all; font-family:monospace; margin-top:10px; }
+
+/* ─── HOME LANDING TILES ──────────────────────────────── */
+.tile             { border-radius:var(--radius); padding:28px 20px; cursor:pointer; transition:opacity .15s; }
+.tile:hover       { opacity:.85; }
+.tile-blue        { background:var(--blue); color:white; }
+.tile-teal        { background:var(--teal); color:white; }
+.tile-orange      { background:var(--orange); color:white; }
+.tile-icon        { font-size:32px; margin-bottom:12px; }
+.tile-title       { font-size:14px; font-weight:800; letter-spacing:.5px; text-transform:uppercase; color:white; }
+.tile-sub         { font-size:11px; margin-top:4px; font-weight:500; }
+.tile-grid        { display:grid; grid-template-columns:1fr 1fr; gap:16px; max-width:480px; margin:0 auto; }
+.home-wrap        { text-align:center; padding:48px 24px 32px; }
+.home-eyebrow     { font-size:13px; font-weight:800; letter-spacing:2px; text-transform:uppercase; color:var(--text-muted); margin-bottom:32px; }
+
+/* ─── MISC HELPERS ────────────────────────────────────── */
+.cursor-pointer   { cursor:pointer; }
+.hidden           { display:none !important; }
+.relative         { position:relative; }
+.opacity-04       { opacity:0.4; pointer-events:none; }
+.scroll-y         { overflow-y:auto; }
+.max-h-220        { max-height:220px; }
+.max-h-55vh       { max-height:55vh; }
+
+/* Sticky select-all header for ladder players modal */
+.lp-sticky-header { display:flex; align-items:center; gap:8px; padding:10px 12px; border-bottom:2px solid var(--border); background:var(--blue-pale); position:sticky; top:0; z-index:1; }
+.lp-row           { display:flex; align-items:center; gap:10px; padding:8px 12px; border-bottom:0.5px solid var(--border); }
+.lp-status-select { font-size:11px; font-weight:700; padding:3px 8px; border:0.5px solid var(--border); border-radius:99px; font-family:'Montserrat',sans-serif; cursor:pointer; }
+.lp-status-active { background:var(--teal-light); color:var(--teal); }
+.lp-status-sub    { background:var(--orange-light); color:var(--orange); }
