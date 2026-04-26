@@ -355,6 +355,156 @@ function tCalcStandings(teams, matches) {
   });
 }
 
+// ─── GROUP HELPERS ──────────────────────────────────────────
+
+// Min/max teams per group (admin can pick any target in this range).
+const GROUP_MIN_SIZE = 3;
+const GROUP_MAX_SIZE = 8;
+
+// Threshold: if teams > THIS, the schedule generator asks for group config.
+const GROUP_TRIGGER_THRESHOLD = 8;
+
+// Compute valid "teams per group" target sizes for a given team count.
+// Returns array of { size, groups, distribution } objects.
+//   - size:         the target the admin picks (e.g. 5)
+//   - groups:       resulting number of groups
+//   - distribution: array of group sizes, e.g. [5, 5, 4]
+// Excludes any option where any group would be < MIN or > MAX.
+function tSuggestGroupSizes(numTeams) {
+  const suggestions = [];
+  const seen = new Set();
+  for (let target = GROUP_MIN_SIZE; target <= GROUP_MAX_SIZE; target++) {
+    const distribution = tComputeDistribution(numTeams, target);
+    if (!distribution) continue;
+    // Skip if any group falls outside [MIN, MAX]
+    if (!distribution.every(s => s >= GROUP_MIN_SIZE && s <= GROUP_MAX_SIZE)) continue;
+    // Skip duplicates: many targets produce the same split (e.g. target=7 and 8
+    // both produce [8,8,8] for 24 teams). Keep only the first.
+    const key = distribution.join(',');
+    if (seen.has(key)) continue;
+    seen.add(key);
+    suggestions.push({ size: target, groups: distribution.length, distribution });
+  }
+  return suggestions;
+}
+
+// Given numTeams and a target size, return the actual group sizes
+// distributed as evenly as possible. Returns null if impossible.
+//
+// Examples (matching admin's spec):
+//   numTeams=10, target=5 → [5, 5]
+//   numTeams=11, target=5 → [6, 5]
+//   numTeams=24, target=8 → [8, 8, 8]
+//   numTeams=9,  target=3 → [3, 3, 3]
+//   numTeams=15, target=4 → [5, 5, 5]   (3 groups, balanced; not 4+4+4+3)
+function tComputeDistribution(numTeams, target) {
+  if (numTeams < target || target < 1) return null;
+  // Round to nearest number of groups (so target=5 with 11 teams → 2 groups of ~5.5)
+  const numGroups = Math.max(1, Math.round(numTeams / target));
+  if (numGroups < 1) return null;
+  // Distribute evenly: base size + 1 extra for the first `remainder` groups
+  const base = Math.floor(numTeams / numGroups);
+  const remainder = numTeams % numGroups;
+  const dist = [];
+  for (let i = 0; i < numGroups; i++) {
+    dist.push(base + (i < remainder ? 1 : 0));
+  }
+  // Sort descending so larger groups appear first (cosmetic — A is biggest)
+  dist.sort((a, b) => b - a);
+  return dist;
+}
+
+// Fisher-Yates shuffle (immutable input).
+function tShuffleArray(arr) {
+  const out = arr.slice();
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+// Generate group letter names: A, B, C, ..., Z, AA, AB, ...
+function tGroupLetter(index) {
+  let s = '';
+  let n = index;
+  do {
+    s = String.fromCharCode(65 + (n % 26)) + s;
+    n = Math.floor(n / 26) - 1;
+  } while (n >= 0);
+  return s;
+}
+
+// Build cross-group seeded order for the bracket.
+// Input: groupStandings = [ [g1Standings...], [g2Standings...], ... ]
+//        finalsPerGroup = number of teams advancing per group
+// Output: ordered array of teams ready for bracket placement, where
+//         index 0 is the top overall seed (best 1st-place finisher).
+//
+// Strategy: build "tiers" — all 1st-place finishers form tier 0, all
+// 2nd-place finishers form tier 1, etc. Within each tier, sort by
+// raw standings strength (pts_for, then diff, then wins). Then
+// interleave tiers so seed 1 = best 1st, seed 2 = best 2nd... no:
+// actually seeds go 1=best 1st, 2=2nd best 1st, ..., G=worst 1st,
+// then G+1=best 2nd, etc. (where G = number of groups). This naturally
+// keeps group winners at the top of the seeding, which is what makes
+// "1 vs 8" pairings cross groups in early rounds.
+function tBuildSeededAdvancement(groupStandings, finalsPerGroup) {
+  const numGroups = groupStandings.length;
+  const tiers = [];
+  for (let rank = 0; rank < finalsPerGroup; rank++) {
+    const tier = [];
+    for (let g = 0; g < numGroups; g++) {
+      const team = groupStandings[g][rank];
+      if (team) tier.push({ ...team, _groupIndex: g, _groupRank: rank + 1 });
+    }
+    // Sort tier by strength so the best 1st-place gets seed 1, etc.
+    tier.sort((a, b) => {
+      if (a.forfeited !== b.forfeited) return a.forfeited ? 1 : -1;
+      if (b.pts_for !== a.pts_for) return b.pts_for - a.pts_for;
+      const diffA = a.pts_for - a.pts_against;
+      const diffB = b.pts_for - b.pts_against;
+      if (diffB !== diffA) return diffB - diffA;
+      if (b.w !== a.w) return b.w - a.w;
+      return a.l - b.l;
+    });
+    tiers.push(tier);
+  }
+  // Concatenate tiers: all 1st-placed (best→worst), then all 2nd-placed, etc.
+  const seeded = [];
+  tiers.forEach(tier => seeded.push(...tier));
+  return seeded;
+}
+
+// Try to swap pairings in the first round of a bracket so that no
+// two same-group teams meet. Mutates the pairings array in place.
+// pairings is [[seedAteam, seedBteam], ...]; teams have _groupIndex set.
+function tAvoidSameGroupClashes(pairings) {
+  for (let i = 0; i < pairings.length; i++) {
+    const [a, b] = pairings[i];
+    if (!a || !b) continue;
+    if (a._groupIndex !== b._groupIndex) continue;
+    // Found a same-group clash — try to swap b with another match's team.
+    let swapped = false;
+    for (let j = 0; j < pairings.length; j++) {
+      if (j === i) continue;
+      const [a2, b2] = pairings[j];
+      if (!a2 || !b2) continue;
+      // Swap b ↔ b2 if it resolves both matches' clashes
+      if (a._groupIndex !== b2._groupIndex && a2._groupIndex !== b._groupIndex) {
+        pairings[i] = [a, b2];
+        pairings[j] = [a2, b];
+        swapped = true;
+        break;
+      }
+    }
+    // If we couldn't find a clean swap, leave it — it's the best we can do
+    // for very-skewed group distributions.
+  }
+  return pairings;
+}
+
+
 // ─── MAIN ENTRY POINT ───────────────────────────────────────
 async function loadTournamentModule() {
   if (!tAllPlayers.length) {
@@ -494,12 +644,17 @@ async function confirmDeleteTournament(id) {
     const categories = await tApi(`tournament_categories?tournament_id=eq.${id}&select=id`);
     if (categories.length) {
       const catIds = categories.map(c => c.id).join(',');
-      // Bulk delete each child table for ALL categories in parallel — 3 calls instead of 3*N
+      // Delete child tables in parallel. tournament_groups must go after teams + rr
+      // because teams.group_id and rr.group_id reference it (ON DELETE SET NULL,
+      // so it would technically also work in any order, but cleanest to do it
+      // after the things that reference it).
       await Promise.all([
         tApi(`tournament_rr_matches?category_id=in.(${catIds})`, 'DELETE'),
         tApi(`tournament_bracket_matches?category_id=in.(${catIds})`, 'DELETE'),
         tApi(`tournament_teams?category_id=in.(${catIds})`, 'DELETE'),
       ]);
+      // Now safe to delete the groups themselves
+      await tApi(`tournament_groups?category_id=in.(${catIds})`, 'DELETE');
     }
     await tApi(`tournament_categories?tournament_id=eq.${id}`, 'DELETE');
     await tApi(`tournaments?id=eq.${id}`, 'DELETE');
@@ -572,14 +727,37 @@ async function loadCategory(catId, t) {
   const teams = await tApi(`tournament_teams?category_id=eq.${catId}&select=*&order=id`);
   const rrMatches = await tApi(`tournament_rr_matches?category_id=eq.${catId}&select=*&order=round,court`);
   const bracketMatches = await tApi(`tournament_bracket_matches?category_id=eq.${catId}&select=*&order=id`);
-  renderCategory(cat, teams, rrMatches, bracketMatches, t);
+  const groups = await tApi(`tournament_groups?category_id=eq.${catId}&select=*&order=position`);
+  renderCategory(cat, teams, rrMatches, bracketMatches, t, groups);
 }
 
-function renderCategory(cat, teams, rrMatches, bracketMatches, tournament) {
+function renderCategory(cat, teams, rrMatches, bracketMatches, tournament, groups = []) {
   const el = document.getElementById('t-category-content');
-  const standings = tCalcStandings(teams, rrMatches);
+  const useGroups = groups.length > 0;
+
+  // Single-RR mode: standings against all teams. Groups mode: per-group standings.
+  // Both modes need a unified "all standings sorted" for places where we don't care.
+  const standings = useGroups
+    ? null
+    : tCalcStandings(teams, rrMatches);
+
   const rrComplete = rrMatches.length > 0 && rrMatches.filter(m => m.status === 'pending').length === 0;
   const tMap = {}; teams.forEach(t => tMap[t.id] = t);
+
+  // Build per-group structures only if we have groups
+  let groupViews = [];
+  if (useGroups) {
+    groupViews = groups.map(g => {
+      const groupTeams = teams.filter(t => t.group_id === g.id);
+      const groupMatches = rrMatches.filter(m => m.group_id === g.id);
+      return {
+        group: g,
+        teams: groupTeams,
+        matches: groupMatches,
+        standings: tCalcStandings(groupTeams, groupMatches),
+      };
+    });
+  }
 
   let html = '';
 
@@ -632,8 +810,9 @@ function renderCategory(cat, teams, rrMatches, bracketMatches, tournament) {
     <div class="t-phase-card ${teams.length < 3 ? 't-phase-disabled' : ''}">
       <div class="t-phase-header">
         <div class="t-phase-title">
-          <span class="t-phase-num">2</span> Round Robin
+          <span class="t-phase-num">2</span> ${useGroups ? 'Group Stage' : 'Round Robin'}
           ${rrMatches.length > 0 ? `<span class="t-progress-label">${rrDone}/${rrTotal} matches</span>` : ''}
+          ${useGroups ? `<span class="t-progress-label">${groups.length} groups</span>` : ''}
         </div>
         ${teams.length >= 3 && rrMatches.length === 0 && tournament.status !== 'draft' ?
           `<button class="t-btn t-btn-sm t-btn-primary" onclick="showRRFormatModal(${cat.id})">Generate Schedule</button>` : ''}
@@ -642,31 +821,50 @@ function renderCategory(cat, teams, rrMatches, bracketMatches, tournament) {
       </div>
       ${rrMatches.length > 0 ? `
         ${rrTotal > 0 ? `<div class="t-progress-bar"><div class="t-progress-fill" style="width:${rrPct}%"></div></div>` : ''}
-        <div class="t-rr-grid">
-          ${renderRRRounds(rrMatches, tMap, tournament)}
-        </div>
-        ${rrDone > 0 ? tRenderStandings(standings, cat.name) : ''}
+        ${useGroups
+          ? renderGroupedRR(groupViews, tMap, tournament, cat)
+          : `<div class="t-rr-grid">${renderRRRounds(rrMatches, tMap, tournament)}</div>
+             ${rrDone > 0 ? tRenderStandings(standings, cat.name) : ''}`
+        }
       ` : teams.length < 3 ? `<div class="t-empty-sm">Add at least 3 teams first.</div>` :
         `<div class="t-empty-sm">Generate the schedule to start round robin play.</div>`}
     </div>`;
 
   // PHASE 3: FINALS
   if (rrComplete || bracketMatches.length > 0) {
+    // In groups mode the per-group advancement is already locked from schedule generation.
+    // Compute the number of teams advancing and a seeded preview.
+    let seededPreview = null;        // teams in seed order, with _groupRank etc.
+    let lockedFinalsSize = null;     // the locked total when groups
+    if (useGroups && cat.finals_per_group) {
+      seededPreview = tBuildSeededAdvancement(
+        groupViews.map(gv => gv.standings),
+        cat.finals_per_group
+      );
+      lockedFinalsSize = seededPreview.length;
+    }
+
+    // Bracket-size dropdown options (single-RR only). Filter to only reasonable sizes.
+    const ssOpts = !useGroups
+      ? `<option value="2">Top 2</option>
+         <option value="3">Top 3</option>
+         <option value="4" selected>Top 4</option>
+         <option value="8">Top 8</option>`
+      : '';
+
     html += `
       <div class="t-phase-card">
         <div class="t-phase-header">
           <div class="t-phase-title"><span class="t-phase-num">3</span> Finals</div>
           ${bracketMatches.length === 0 ? `
             <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-              <select id="finals-size-${cat.id}" class="t-select-sm">
-                <option value="2">Top 2</option>
-                <option value="3">Top 3</option>
-                <option value="4" selected>Top 4</option>
-                <option value="8">Top 8</option>
-              </select>
+              ${useGroups
+                ? `<span class="t-hint" style="background:#e8f0ff;color:#174CCC;padding:4px 10px;border-radius:99px;font-weight:700;">Top ${cat.finals_per_group} per group → ${lockedFinalsSize} teams</span>
+                   <input type="hidden" id="finals-size-${cat.id}" value="${lockedFinalsSize}">`
+                : `<select id="finals-size-${cat.id}" class="t-select-sm">${ssOpts}</select>`
+              }
               <select id="finals-elim-${cat.id}" class="t-select-sm">
                 <option value="single">Single Elim</option>
-                <option value="double">Double Elim</option>
               </select>
               <select id="finals-score-format-${cat.id}" class="t-select-sm">
                 <option value="play11_win2">11, win by 2</option>
@@ -683,14 +881,23 @@ function renderCategory(cat, teams, rrMatches, bracketMatches, tournament) {
         </div>
         ${bracketMatches.length > 0 ? renderBracket(bracketMatches, tMap, tournament) : `
           <div class="t-standings-preview">
-            <div class="t-empty-sm">Choose how many teams advance and generate the bracket.</div>
+            <div class="t-empty-sm">${useGroups ? 'These teams will advance to the bracket:' : 'Choose how many teams advance and generate the bracket.'}</div>
             <div style="margin-top:12px;">
-              ${standings.slice(0, 8).map((s, i) => `
-                <div class="t-standing-preview-row">
-                  <span class="t-seed-badge">${i + 1}</span>
-                  <span class="t-standing-name">${tEsc(s.name)}</span>
-                  <span class="t-standing-record">${s.w}W ${s.l}L ${s.pts_for - s.pts_against > 0 ? '+' : ''}${s.pts_for - s.pts_against}</span>
-                </div>`).join('')}
+              ${useGroups && seededPreview
+                ? seededPreview.map((s, i) => `
+                    <div class="t-standing-preview-row">
+                      <span class="t-seed-badge">${i + 1}</span>
+                      <span class="t-standing-name">${tEsc(s.name)}</span>
+                      <span class="t-group-tag">Group ${tEsc(groups[s._groupIndex]?.name || '?')} · #${s._groupRank}</span>
+                      <span class="t-standing-record">${s.w}W ${s.l}L ${s.pts_for - s.pts_against > 0 ? '+' : ''}${s.pts_for - s.pts_against}</span>
+                    </div>`).join('')
+                : (standings || []).slice(0, 8).map((s, i) => `
+                    <div class="t-standing-preview-row">
+                      <span class="t-seed-badge">${i + 1}</span>
+                      <span class="t-standing-name">${tEsc(s.name)}</span>
+                      <span class="t-standing-record">${s.w}W ${s.l}L ${s.pts_for - s.pts_against > 0 ? '+' : ''}${s.pts_for - s.pts_against}</span>
+                    </div>`).join('')
+              }
             </div>
           </div>`}
       </div>`;
@@ -743,6 +950,23 @@ function renderRRRounds(matches, tMap, tournament) {
   }).join('');
 }
 
+function renderGroupedRR(groupViews, tMap, tournament, cat) {
+  return groupViews.map(gv => {
+    const someDone = gv.matches.filter(m => m.status === 'completed').length > 0;
+    return `
+      <div class="t-group-block">
+        <div class="t-group-header">
+          <span class="t-group-badge">Group ${tEsc(gv.group.name)}</span>
+          <span class="t-group-team-count">${gv.teams.length} teams</span>
+        </div>
+        <div class="t-rr-grid t-group-rr-grid">
+          ${renderRRRounds(gv.matches, tMap, tournament)}
+        </div>
+        ${someDone ? tRenderStandings(gv.standings, cat.name) : ''}
+      </div>`;
+  }).join('');
+}
+
 function tRenderStandings(standings, catName) {
   const singlesMode = isSingles(catName);
   return `
@@ -769,14 +993,14 @@ function tRenderStandings(standings, catName) {
 }
 
 function renderBracket(matches, tMap, tournament) {
-  const roundOrder = ['QF','Semifinals','3rd Place','Final'];
+  const roundOrder = ['R32','R16','QF','Semifinals','3rd Place','Final'];
   const grouped = {};
   matches.forEach(m => {
     if (!grouped[m.round_name]) grouped[m.round_name] = [];
     grouped[m.round_name].push(m);
   });
   const orderedRounds = roundOrder.filter(r => grouped[r]);
-  const isComplete = matches.every(m => m.status === 'completed');
+  const isComplete = matches.every(m => m.status === 'completed' || m.status === 'bye');
   const finalMatch = matches.find(m => m.round_name === 'Final' && m.status === 'completed');
 
   let html = `<div class="t-bracket">`;
@@ -1055,21 +1279,87 @@ async function confirmDeleteTeam(teamId, catId) {
 
 // ─── GENERATE ROUND ROBIN ───────────────────────────────────
 async function showRRFormatModal(catId) {
-  document.getElementById('t-modal-title').textContent = 'Round Robin Format';
+  // Look up team count for this category to decide whether to show group config.
+  const teams = await tApi(`tournament_teams?category_id=eq.${catId}&select=id`);
+  const numTeams = teams.length;
+  const useGroups = numTeams > GROUP_TRIGGER_THRESHOLD;
+
+  let groupSection = '';
+  if (useGroups) {
+    const suggestions = tSuggestGroupSizes(numTeams);
+    if (!suggestions.length) {
+      // No valid split possible (shouldn't happen unless team count is wild).
+      tToast(`Cannot split ${numTeams} teams into valid groups (each group must be ${GROUP_MIN_SIZE}-${GROUP_MAX_SIZE} teams).`, true);
+      return;
+    }
+    // Default to the suggestion closest to 4 per group (a sensible mid-range pick).
+    const defaultIdx = suggestions.reduce((bestIdx, s, i, arr) =>
+      Math.abs(s.size - 4) < Math.abs(arr[bestIdx].size - 4) ? i : bestIdx, 0);
+
+    groupSection = `
+      <div class="t-info-banner" style="background:#e8f0ff;border:1px solid #174CCC;border-radius:6px;padding:10px 12px;margin-bottom:14px;">
+        <div style="font-size:12px;font-weight:700;color:#174CCC;margin-bottom:2px;">${numTeams} teams — group stage required</div>
+        <div style="font-size:11px;color:#6b7a99;">Teams will be randomly split into groups for round-robin play. Top finishers from each group advance to a single-elimination bracket.</div>
+      </div>
+      <div class="t-form-group">
+        <label class="t-label">Teams per group (target)</label>
+        <select class="t-input" id="t-group-size">
+          ${suggestions.map((s, i) => `
+            <option value="${s.size}" ${i === defaultIdx ? 'selected' : ''}>
+              ~${s.size} per group → ${s.groups} groups (${s.distribution.join(', ')})
+            </option>`).join('')}
+        </select>
+      </div>
+      <div class="t-form-group">
+        <label class="t-label">Teams advancing per group</label>
+        <select class="t-input" id="t-finals-per-group"></select>
+        <div style="font-size:11px;color:#6b7a99;margin-top:4px;">Top N from each group go to the bracket.</div>
+      </div>`;
+  }
+
+  document.getElementById('t-modal-title').textContent =
+    useGroups ? 'Group Stage Setup' : 'Round Robin Format';
   document.getElementById('t-modal-body').innerHTML = `
+    ${groupSection}
     <div class="t-form-group">
-      <label class="t-label">Score format</label>
+      <label class="t-label">Score format (round robin)</label>
       <select class="t-input" id="t-rr-format">${RR_FORMAT_OPTIONS}</select>
     </div>
     <p style="font-size:12px;color:#6b7a99;margin-bottom:20px;">
-      This format will apply to all round robin matches in this category.
+      ${useGroups
+        ? 'This format applies to all matches inside each group.'
+        : 'This format applies to all round robin matches in this category.'}
       Best of 3 / Best of 5 formats are available in the Finals section.
     </p>
     <div class="t-form-actions">
       <button type="button" class="t-btn t-btn-ghost" onclick="closeTModal()">Cancel</button>
-      <button type="button" class="t-btn t-btn-primary" onclick="generateRR(${catId})">Generate Schedule</button>
+      <button type="button" class="t-btn t-btn-primary" onclick="generateRR(${catId})">
+        Generate Schedule${useGroups ? ' & Groups' : ''}
+      </button>
     </div>
   `;
+  // Populate the "advancing per group" dropdown based on chosen group size.
+  if (useGroups) {
+    const refreshAdvancing = () => {
+      const sizeEl = document.getElementById('t-group-size');
+      const advEl = document.getElementById('t-finals-per-group');
+      if (!sizeEl || !advEl) return;
+      const chosenSize = parseInt(sizeEl.value, 10);
+      const chosen = tSuggestGroupSizes(numTeams).find(s => s.size === chosenSize);
+      const minGroupSize = chosen ? Math.min(...chosen.distribution) : chosenSize;
+      // Can advance 1 to (minGroupSize - 1), with a sane cap of 5.
+      const maxAdvance = Math.min(minGroupSize - 1, 5);
+      let opts = '';
+      for (let n = 1; n <= maxAdvance; n++) {
+        // Default to 2 if available, otherwise 1
+        const isDefault = n === Math.min(2, maxAdvance);
+        opts += `<option value="${n}" ${isDefault ? 'selected' : ''}>Top ${n} per group (${n * chosen.groups} total to bracket)</option>`;
+      }
+      advEl.innerHTML = opts;
+    };
+    refreshAdvancing();
+    document.getElementById('t-group-size').addEventListener('change', refreshAdvancing);
+  }
   openTModal();
 }
 
@@ -1078,39 +1368,128 @@ async function generateRR(catId) {
   const format = formatEl ? formatEl.value : 'play11_win1';
   const teams = await tApi(`tournament_teams?category_id=eq.${catId}&select=*&order=id`);
   const n = teams.length;
-  if (n < 3 || n > 20) { tToast(`Round robin supports 3-20 teams. You have ${n}.`, true); return; }
-  const schedule = RR_SCHEDULES[n];
-  if (!schedule) { tToast(`No schedule found for ${n} teams.`, true); return; }
 
-  const rows = [];
-  schedule.forEach(round => {
-    round.courts.forEach(court => {
-      rows.push({
-        category_id: catId,
-        round: round.round,
-        court: court.court,
-        team_a_id: teams[court.a].id,
-        team_b_id: teams[court.b].id,
-        status: 'pending'
+  // Decide path: single RR (≤8 teams) vs groups (>8 teams)
+  const useGroups = n > GROUP_TRIGGER_THRESHOLD;
+
+  if (!useGroups) {
+    // ─── SINGLE RR (existing behavior) ─────────────────────
+    if (n < 3 || n > 20) { tToast(`Round robin supports 3-20 teams. You have ${n}.`, true); return; }
+    const schedule = RR_SCHEDULES[n];
+    if (!schedule) { tToast(`No schedule found for ${n} teams.`, true); return; }
+
+    const rows = [];
+    schedule.forEach(round => {
+      round.courts.forEach(court => {
+        rows.push({
+          category_id: catId,
+          round: round.round,
+          court: court.court,
+          team_a_id: teams[court.a].id,
+          team_b_id: teams[court.b].id,
+          status: 'pending'
+        });
+      });
+      round.bye.forEach(byeIdx => {
+        rows.push({
+          category_id: catId,
+          round: round.round,
+          court: 0,
+          team_a_id: teams[byeIdx].id,
+          team_b_id: teams[byeIdx].id,
+          status: 'bye'
+        });
       });
     });
-    round.bye.forEach(byeIdx => {
-      rows.push({
-        category_id: catId,
-        round: round.round,
-        court: 0,
-        team_a_id: teams[byeIdx].id,
-        team_b_id: teams[byeIdx].id,
-        status: 'bye'
+
+    await tApi(`tournament_categories?id=eq.${catId}`, 'PATCH',
+      { rr_format: format, best_of: 1, finals_per_group: null });
+    await tApi('tournament_rr_matches', 'POST', rows);
+    closeTModal();
+    tToast(`Schedule generated! ${rows.filter(r => r.status === 'pending').length} matches ready.`);
+  } else {
+    // ─── GROUPS ──────────────────────────────────────────────
+    const sizeEl = document.getElementById('t-group-size');
+    const advEl = document.getElementById('t-finals-per-group');
+    const targetSize = parseInt(sizeEl?.value || '4', 10);
+    const finalsPerGroup = parseInt(advEl?.value || '2', 10);
+    const distribution = tComputeDistribution(n, targetSize);
+    if (!distribution) { tToast(`Cannot split ${n} teams with target ${targetSize}.`, true); return; }
+
+    // 1. Create the group rows
+    const groupRows = distribution.map((_, i) => ({
+      category_id: catId,
+      name: tGroupLetter(i),
+      position: i,
+    }));
+    const createdGroups = await tApi('tournament_groups', 'POST', groupRows);
+
+    // 2. Shuffle teams and deal them into groups based on the distribution
+    const shuffled = tShuffleArray(teams);
+    const groupedTeams = [];   // [ [teamsForGroup0...], [teamsForGroup1...], ... ]
+    let cursor = 0;
+    for (let i = 0; i < distribution.length; i++) {
+      groupedTeams.push(shuffled.slice(cursor, cursor + distribution[i]));
+      cursor += distribution[i];
+    }
+
+    // 3. Update each team with its group_id
+    //    Bulk PATCH per group — N+1 at worst, one per group.
+    await Promise.all(groupedTeams.map((teamList, gIdx) => {
+      const ids = teamList.map(t => t.id);
+      return tApi(
+        `tournament_teams?id=in.(${ids.join(',')})`,
+        'PATCH',
+        { group_id: createdGroups[gIdx].id }
+      );
+    }));
+
+    // 4. Build per-group RR schedule
+    const allMatchRows = [];
+    groupedTeams.forEach((teamList, gIdx) => {
+      const groupId = createdGroups[gIdx].id;
+      const schedule = RR_SCHEDULES[teamList.length];
+      if (!schedule) {
+        // Should not happen since min=3, max=8, all covered
+        console.error(`No RR_SCHEDULES entry for ${teamList.length} teams`);
+        return;
+      }
+      schedule.forEach(round => {
+        round.courts.forEach(court => {
+          allMatchRows.push({
+            category_id: catId,
+            group_id: groupId,
+            round: round.round,
+            court: court.court,
+            team_a_id: teamList[court.a].id,
+            team_b_id: teamList[court.b].id,
+            status: 'pending',
+          });
+        });
+        round.bye.forEach(byeIdx => {
+          allMatchRows.push({
+            category_id: catId,
+            group_id: groupId,
+            round: round.round,
+            court: 0,
+            team_a_id: teamList[byeIdx].id,
+            team_b_id: teamList[byeIdx].id,
+            status: 'bye',
+          });
+        });
       });
     });
-  });
 
-  // Save format to category (best_of is always 1 for round robin)
-  await tApi(`tournament_categories?id=eq.${catId}`, 'PATCH', { rr_format: format, best_of: 1 });
-  await tApi('tournament_rr_matches', 'POST', rows);
-  closeTModal();
-  tToast(`Schedule generated! ${rows.filter(r => r.status === 'pending').length} matches ready.`);
+    await tApi(`tournament_categories?id=eq.${catId}`, 'PATCH',
+      { rr_format: format, best_of: 1, finals_per_group: finalsPerGroup });
+    if (allMatchRows.length) {
+      await tApi('tournament_rr_matches', 'POST', allMatchRows);
+    }
+    closeTModal();
+    const numGames = allMatchRows.filter(r => r.status === 'pending').length;
+    tToast(`${distribution.length} groups created — ${numGames} matches ready across all groups.`);
+  }
+
   tCurrentCategoryId = catId;
   const [t] = await tApi(`tournaments?id=eq.${tCurrentTournamentId}&select=*`);
   const categories = await tApi(`tournament_categories?tournament_id=eq.${tCurrentTournamentId}&select=*&order=id`);
@@ -1127,14 +1506,31 @@ async function generateBracket(catId, tournamentId) {
   const isBestOf = scoreFormat === 'best_of_3' || scoreFormat === 'best_of_5';
   const finalsBestOf = scoreFormat === 'best_of_3' ? 3 : scoreFormat === 'best_of_5' ? 5 : 1;
 
+  const [cat] = await tApi(`tournament_categories?id=eq.${catId}&select=*`);
   const teams = await tApi(`tournament_teams?category_id=eq.${catId}&select=*`);
   const rrMatches = await tApi(`tournament_rr_matches?category_id=eq.${catId}&select=*`);
-  const standings = tCalcStandings(teams, rrMatches);
-  const advancing = standings.filter(s => !s.forfeited).slice(0, size);
+  const groups = await tApi(`tournament_groups?category_id=eq.${catId}&select=*&order=position`);
+
+  let advancing;  // ordered array of team-stat objects, index 0 = top seed
+  if (groups.length > 0 && cat.finals_per_group) {
+    // Groups mode: build seeded advancement from per-group standings.
+    const groupStandings = groups.map(g => {
+      const gTeams = teams.filter(t => t.group_id === g.id);
+      const gMatches = rrMatches.filter(m => m.group_id === g.id);
+      return tCalcStandings(gTeams, gMatches);
+    });
+    advancing = tBuildSeededAdvancement(groupStandings, cat.finals_per_group);
+    // Drop forfeited teams from the seeding (they should never advance).
+    advancing = advancing.filter(s => !s.forfeited);
+  } else {
+    // Single-RR mode: existing behavior.
+    const standings = tCalcStandings(teams, rrMatches);
+    advancing = standings.filter(s => !s.forfeited).slice(0, size);
+  }
 
   await tApi(`tournament_categories?id=eq.${catId}`, 'PATCH', {
     finals_format: format,
-    finals_size: size,
+    finals_size: advancing.length,
     finals_format_score: scoreFormat,
     best_of: finalsBestOf
   });
@@ -1143,41 +1539,161 @@ async function generateBracket(catId, tournamentId) {
   if (bracketMatches.length) {
     await tApi('tournament_bracket_matches', 'POST', bracketMatches);
   }
-  tToast(`Bracket generated! Top ${size} teams advancing.`);
+  tToast(`Bracket generated! ${advancing.length} teams advancing.`);
   openTournament(tCurrentTournamentId);
 }
 
-function buildBracketMatches(teams, catId, format) {
-  const n = teams.length;
+// Standard single-elimination seed pairings for a power-of-2 bracket size.
+// Returns array of [seedA_index, seedB_index] pairs for round 1.
+//   bracketSize=4  → [[0,3],[1,2]]
+//   bracketSize=8  → [[0,7],[1,6],[2,5],[3,4]]
+//   bracketSize=16 → [[0,15],[1,14],[2,13],[3,12],[4,11],[5,10],[6,9],[7,8]]
+function tStandardBracketPairings(bracketSize) {
+  const pairs = [];
+  for (let i = 0; i < bracketSize / 2; i++) {
+    pairs.push([i, bracketSize - 1 - i]);
+  }
+  return pairs;
+}
+
+function buildBracketMatches(advancing, catId, format) {
+  const n = advancing.length;
+  if (n < 2) return [];
+
   const matches = [];
 
+  // Special small-N cases (preserved from previous behavior)
   if (n === 2) {
     matches.push({ category_id: catId, round_name: 'Final', match_number: 1,
-      team_a_id: teams[0].id, team_b_id: teams[1].id, status: 'pending' });
-  } else if (n === 3) {
+      team_a_id: advancing[0].id, team_b_id: advancing[1].id,
+      seed_a: 1, seed_b: 2, status: 'pending' });
+    return matches;
+  }
+  if (n === 3) {
+    // 1 gets a bye, 2 plays 3, winner plays 1
     matches.push({ category_id: catId, round_name: 'Semifinals', match_number: 1,
-      team_a_id: teams[1].id, team_b_id: teams[2].id, status: 'pending' });
+      team_a_id: advancing[1].id, team_b_id: advancing[2].id,
+      seed_a: 2, seed_b: 3, status: 'pending' });
     matches.push({ category_id: catId, round_name: 'Final', match_number: 1,
-      team_a_id: teams[0].id, team_b_id: null, status: 'pending' });
-  } else if (n === 4) {
+      team_a_id: advancing[0].id, team_b_id: null,
+      seed_a: 1, seed_b: null, status: 'pending' });
+    return matches;
+  }
+  if (n === 4) {
     matches.push({ category_id: catId, round_name: 'Semifinals', match_number: 1,
-      team_a_id: teams[0].id, team_b_id: teams[3].id, status: 'pending' });
+      team_a_id: advancing[0].id, team_b_id: advancing[3].id,
+      seed_a: 1, seed_b: 4, status: 'pending' });
     matches.push({ category_id: catId, round_name: 'Semifinals', match_number: 2,
-      team_a_id: teams[1].id, team_b_id: teams[2].id, status: 'pending' });
+      team_a_id: advancing[1].id, team_b_id: advancing[2].id,
+      seed_a: 2, seed_b: 3, status: 'pending' });
     matches.push({ category_id: catId, round_name: '3rd Place', match_number: 1,
       team_a_id: null, team_b_id: null, status: 'pending' });
     matches.push({ category_id: catId, round_name: 'Final', match_number: 1,
       team_a_id: null, team_b_id: null, status: 'pending' });
-  } else if (n === 8) {
-    for (let i = 0; i < 4; i++) {
-      matches.push({ category_id: catId, round_name: 'QF', match_number: i + 1,
-        team_a_id: teams[i].id, team_b_id: teams[7 - i].id, status: 'pending' });
-    }
-    matches.push({ category_id: catId, round_name: 'Semifinals', match_number: 1, team_a_id: null, team_b_id: null, status: 'pending' });
-    matches.push({ category_id: catId, round_name: 'Semifinals', match_number: 2, team_a_id: null, team_b_id: null, status: 'pending' });
-    matches.push({ category_id: catId, round_name: '3rd Place', match_number: 1, team_a_id: null, team_b_id: null, status: 'pending' });
-    matches.push({ category_id: catId, round_name: 'Final', match_number: 1, team_a_id: null, team_b_id: null, status: 'pending' });
+    return matches;
   }
+
+  // ─── GENERAL CASE for n >= 5 ──────────────────────────────
+  // Pad to next power of 2 with byes (null teams).
+  const bracketSize = Math.pow(2, Math.ceil(Math.log2(n)));
+  const padded = advancing.slice();
+  while (padded.length < bracketSize) padded.push(null); // null = bye slot
+  // Build standard seed pairings (1 vs N, 2 vs N-1, ...)
+  const pairings = tStandardBracketPairings(bracketSize)
+    .map(([sa, sb]) => [padded[sa], padded[sb]]);
+
+  // If we're in groups mode (teams have _groupIndex), avoid same-group rematches in round 1.
+  const hasGroupInfo = padded.some(t => t && typeof t._groupIndex === 'number');
+  if (hasGroupInfo) tAvoidSameGroupClashes(pairings);
+
+  // Round 1 names depend on bracket size
+  const round1Name =
+    bracketSize === 16 ? 'R16' :
+    bracketSize === 8  ? 'QF'  :
+    bracketSize === 4  ? 'Semifinals' : `R${bracketSize}`;
+
+  // Insert round-1 matches. If a slot is null on EITHER side, the other team
+  // gets an automatic bye → mark the match completed with the non-null team
+  // as winner so advanceBracket logic in the next round still works.
+  pairings.forEach((pair, i) => {
+    const [a, b] = pair;
+    // Find the original seed numbers (their indices in `advancing`)
+    const seedA = a ? advancing.indexOf(a) + 1 : null;
+    const seedB = b ? advancing.indexOf(b) + 1 : null;
+
+    if (a && !b) {
+      // Top seed gets a bye through round 1 — record as a completed bye
+      matches.push({
+        category_id: catId, round_name: round1Name, match_number: i + 1,
+        team_a_id: a.id, team_b_id: null,
+        seed_a: seedA, seed_b: null,
+        score_a: null, score_b: null,
+        winner_id: a.id, status: 'bye'
+      });
+    } else if (!a && b) {
+      matches.push({
+        category_id: catId, round_name: round1Name, match_number: i + 1,
+        team_a_id: null, team_b_id: b.id,
+        seed_a: null, seed_b: seedB,
+        score_a: null, score_b: null,
+        winner_id: b.id, status: 'bye'
+      });
+    } else if (a && b) {
+      matches.push({
+        category_id: catId, round_name: round1Name, match_number: i + 1,
+        team_a_id: a.id, team_b_id: b.id,
+        seed_a: seedA, seed_b: seedB,
+        status: 'pending'
+      });
+    }
+    // Both null = nothing to insert (shouldn't happen with proper padding).
+  });
+
+  // Subsequent round placeholders, generated by halving each round
+  let prevRoundCount = pairings.length;
+  let currentSize = bracketSize / 2;
+  while (currentSize >= 1) {
+    let roundName;
+    if (currentSize === 1) roundName = 'Final';
+    else if (currentSize === 2) roundName = 'Semifinals';
+    else if (currentSize === 4) roundName = 'QF';
+    else roundName = `R${currentSize * 2}`;
+
+    for (let i = 0; i < currentSize; i++) {
+      matches.push({
+        category_id: catId, round_name: roundName, match_number: i + 1,
+        team_a_id: null, team_b_id: null, status: 'pending'
+      });
+    }
+    if (currentSize === 2) {
+      // 3rd place playoff sits alongside the Semifinals
+      matches.push({
+        category_id: catId, round_name: '3rd Place', match_number: 1,
+        team_a_id: null, team_b_id: null, status: 'pending'
+      });
+    }
+    currentSize = currentSize / 2;
+  }
+
+  // Auto-advance bye winners into the next round so the bracket renders cleanly.
+  // Walk through the matches and propagate any bye from R1 into its R2 slot.
+  // We do this client-side here because we built the rows in order.
+  const round1Matches = matches.filter(m => m.round_name === round1Name);
+  const round2Name =
+    bracketSize === 16 ? 'QF' :
+    bracketSize === 8  ? 'Semifinals' :
+    bracketSize === 4  ? 'Final' : `R${bracketSize / 2}`;
+  const round2Matches = matches.filter(m => m.round_name === round2Name);
+  round1Matches.forEach((m, idx) => {
+    if (m.status !== 'bye' || !m.winner_id) return;
+    const r2idx = Math.floor(idx / 2);
+    const isTopSlot = idx % 2 === 0;
+    const r2 = round2Matches[r2idx];
+    if (!r2) return;
+    if (isTopSlot) { r2.team_a_id = m.winner_id; r2.seed_a = m.seed_a || m.seed_b; }
+    else { r2.team_b_id = m.winner_id; r2.seed_b = m.seed_a || m.seed_b; }
+  });
+
   return matches;
 }
 
@@ -1354,22 +1870,16 @@ async function advanceBracket(matchId, winnerId, loserId, catId) {
   const [match] = await tApi(`tournament_bracket_matches?id=eq.${matchId}&select=*`);
   const allMatches = await tApi(`tournament_bracket_matches?category_id=eq.${catId}&select=*&order=id`);
 
-  const roundOrder = ['QF', 'SF', '3rd Place', 'Final'];
-  const curIdx = roundOrder.indexOf(match.round_name);
-  const nextRound = roundOrder[curIdx + 1];
-  const sfMatches = allMatches.filter(m => m.round_name === 'Semifinals');
-  const finalMatch = allMatches.find(m => m.round_name === 'Final');
-  const thirdMatch = allMatches.find(m => m.round_name === '3rd Place');
+  // Walk from R-of-N → next round in this order. The winner of match k in
+  // round R goes into match floor(k/2) of round R+1, alternating slots.
+  const flow = ['R32', 'R16', 'QF', 'Semifinals', 'Final'];
+  const curIdx = flow.indexOf(match.round_name);
+  if (curIdx === -1) return;
 
-  if (match.round_name === 'QF') {
-    const completedQF = allMatches.filter(m => m.round_name === 'QF' && m.status === 'completed');
-    const sfSlot = completedQF.length <= 2 ? sfMatches[0] : sfMatches[1];
-    if (sfSlot) {
-      const patch = sfSlot.team_a_id ? { team_b_id: winnerId } : { team_a_id: winnerId };
-      await tApi(`tournament_bracket_matches?id=eq.${sfSlot.id}`, 'PATCH', patch);
-    }
-  } else if (match.round_name === 'Semifinals') {
-    // Winner goes to Final, loser goes to 3rd Place
+  // Special handling: SF winner → Final (and SF loser → 3rd Place).
+  if (match.round_name === 'Semifinals') {
+    const finalMatch = allMatches.find(m => m.round_name === 'Final');
+    const thirdMatch = allMatches.find(m => m.round_name === '3rd Place');
     if (finalMatch) {
       const patch = finalMatch.team_a_id ? { team_b_id: winnerId } : { team_a_id: winnerId };
       await tApi(`tournament_bracket_matches?id=eq.${finalMatch.id}`, 'PATCH', patch);
@@ -1378,7 +1888,23 @@ async function advanceBracket(matchId, winnerId, loserId, catId) {
       const patch = thirdMatch.team_a_id ? { team_b_id: loserId } : { team_a_id: loserId };
       await tApi(`tournament_bracket_matches?id=eq.${thirdMatch.id}`, 'PATCH', patch);
     }
+    return;
   }
+
+  // Generic flow for earlier rounds: winner of match #N (1-indexed) goes
+  // into match #ceil(N/2) of the next round, alternating top/bottom slot.
+  const nextRound = flow[curIdx + 1];
+  if (!nextRound) return;
+  const nextMatches = allMatches
+    .filter(m => m.round_name === nextRound)
+    .sort((a, b) => (a.match_number || 0) - (b.match_number || 0));
+  const myMatchNum = match.match_number || 1;
+  const targetIdx = Math.floor((myMatchNum - 1) / 2);
+  const targetMatch = nextMatches[targetIdx];
+  if (!targetMatch) return;
+  const isTopSlot = (myMatchNum - 1) % 2 === 0;
+  const patch = isTopSlot ? { team_a_id: winnerId } : { team_b_id: winnerId };
+  await tApi(`tournament_bracket_matches?id=eq.${targetMatch.id}`, 'PATCH', patch);
 }
 
 // ─── TOURNAMENT STATUS ──────────────────────────────────────
