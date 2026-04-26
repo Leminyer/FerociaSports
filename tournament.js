@@ -1814,13 +1814,17 @@ async function saveScore(type, matchId, teamAId, teamBId, catId) {
     return;
   }
 
-  // Check if singles best-of mode
+  // Check whether the modal rendered game-by-game inputs (when best_of > 1)
+  // or the single score-pair inputs. This must match the condition used in
+  // openScoreModal at line ~1719: `const singlesMatch = bestOf > 1;`
+  // Previously this also required isSingles(catName), which caused a null
+  // .value crash for non-singles categories with best_of > 1 formats.
   const [catCheck] = await tApi(`tournament_categories?id=eq.${catId}&select=name,best_of`);
   const bestOf = catCheck?.best_of || 1;
-  const singlesMode = isSingles(catCheck?.name) && bestOf > 1;
+  const useGameByGame = bestOf > 1;
 
   let sa, sb, winnerId, gamesToSave = null;
-  if (singlesMode) {
+  if (useGameByGame) {
     const gameScores = [];
     for (let i = 0; i < bestOf; i++) {
       const ga = parseInt(document.getElementById(`t-game-a-${i}`)?.value);
