@@ -1305,8 +1305,15 @@
       return;
     }
 
-    // Validate game 4 (4-player closest scores) has all players selected
-    if (courtPlayers.length === 4) {
+    // Active player count = court players minus the no-show (if any).
+    // The "Game 4 — Closest scores" card is created whenever this count is 4,
+    // regardless of how many raw court players there are.
+    const activePlayerCount = courtPlayers.filter(
+      (p) => !noShowPlayer || p.id !== noShowPlayer.id,
+    ).length;
+
+    // Validate game 4 (4-active-players closest scores) has all players selected
+    if (activePlayerCount === 4) {
       const a1 = document.getElementById('extraA1-4')?.value;
       const a2 = document.getElementById('extraA2-4')?.value;
       const b1 = document.getElementById('extraB1-4')?.value;
@@ -1345,7 +1352,7 @@
       const ptA = isVoided ? 0 : calcPoints(scoreA, scoreB);
       const ptB = isVoided ? 0 : calcPoints(scoreB, scoreA);
       let tAIds, tBIds;
-      const isExtraGame = gameNum > 100 || (gameNum === 4 && courtPlayers.length === 4);
+      const isExtraGame = gameNum > 100 || (gameNum === 4 && activePlayerCount === 4);
       if (isExtraGame) {
         tAIds = [
           document.getElementById(`extraA1-${gameNum}`)?.value,
