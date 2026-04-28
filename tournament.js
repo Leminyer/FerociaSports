@@ -849,6 +849,7 @@ function renderCategory(cat, teams, rrMatches, bracketMatches, tournament, group
       ? `<option value="2">Top 2</option>
          <option value="3">Top 3</option>
          <option value="4" selected>Top 4</option>
+         <option value="6">Top 6</option>
          <option value="8">Top 8</option>`
       : '';
 
