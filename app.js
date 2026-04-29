@@ -1737,38 +1737,114 @@
   /* ─── SHARE PAGE ───────────────────────────────────────── */
 
   const loadSharePage = async () => {
-    let ladders = [];
+    // Load both ladders and tournaments in parallel
+    let ladders = [], tournaments = [];
     try {
-      ladders = await api('ladders?select=*&order=id.desc');
+      [ladders, tournaments] = await Promise.all([
+        api('ladders?select=*&order=id.desc'),
+        api('tournaments?select=*&order=id.desc'),
+      ]);
     } catch (e) {
-      document.getElementById('share-ladder-list').innerHTML =
-        `<div class="empty">Error: ${esc(e.message)}</div>`;
-      return;
+      toast(`Error loading share data: ${e.message}`, true);
     }
-    const el = document.getElementById('share-ladder-list');
-    if (!ladders.length) {
-      el.innerHTML = '<div class="empty">No ladders yet. Create one in the Ladders tab.</div>';
-      return;
-    }
-    const baseUrl =
+
+    const baseLadderUrl =
       window.location.origin + window.location.pathname.replace('index.html', '') + 'players.html';
-    el.innerHTML = ladders
-      .map((l) => {
-        const encoded = btoa(String(l.id));
-        const url = `${baseUrl}?l=${encoded}`;
-        const statusColor = l.status === 'active' ? 'var(--teal)' : 'var(--text-muted)';
-        return `<div class="list-row">
-          <div class="row-between">
-            <div>
-              <div class="text-bold text-14">${esc(l.name)}</div>
-              <div class="text-bold text-uppercase mt-4" style="font-size:11px;color:${statusColor};letter-spacing:.5px;">${esc(l.status)}</div>
-            </div>
-            <button class="btn btn-primary btn-sm" data-action="copyShareLink" data-url="${esc(url)}" data-btnid="copy-btn-${l.id}" id="copy-btn-${l.id}">Copy link</button>
+    const baseTourneyUrl =
+      window.location.origin + window.location.pathname.replace('index.html', '') + 'tournament-results.html';
+
+    const renderShareRow = (item, url, btnId, statusColor, statusLabel) => `
+      <div class="list-row share-row" data-name="${esc(item.name).toLowerCase()}" data-url="${esc(url)}">
+        <div class="row-between">
+          <div>
+            <div class="text-bold text-14">${esc(item.name)}</div>
+            <div class="text-bold text-uppercase mt-4" style="font-size:11px;color:${statusColor};letter-spacing:.5px;">${statusLabel}</div>
           </div>
-          <div class="url-box">${esc(url)}</div>
-        </div>`;
-      })
-      .join('');
+          <div style="display:flex;gap:8px;align-items:center;">
+            <button class="btn btn-outline btn-sm" data-action="showShareQR" data-url="${esc(url)}"
+              style="font-size:11px;">QR</button>
+            <button class="btn btn-primary btn-sm" data-action="copyShareLink"
+              data-url="${esc(url)}" data-btnid="${btnId}" id="${btnId}">Copy link</button>
+          </div>
+        </div>
+        <div class="url-box">${esc(url)}</div>
+      </div>`;
+
+    // Render ladders list
+    const ladderListEl = document.getElementById('share-ladder-list');
+    if (!ladders.length) {
+      ladderListEl.innerHTML = '<div class="empty">No ladders yet. Create one in the Ladders tab.</div>';
+    } else {
+      ladderListEl.innerHTML = ladders.map((l) => {
+        const url = `${baseLadderUrl}?l=${btoa(String(l.id))}`;
+        const statusColor = l.status === 'active' ? 'var(--teal)' : 'var(--text-muted)';
+        return renderShareRow(l, url, `copy-ladder-${l.id}`, statusColor, l.status);
+      }).join('');
+    }
+
+    // Render tournaments list
+    const tourneyListEl = document.getElementById('share-tournament-list');
+    if (!tournaments.length) {
+      tourneyListEl.innerHTML = '<div class="empty">No tournaments yet. Create one in the Tournaments tab.</div>';
+    } else {
+      tourneyListEl.innerHTML = tournaments.map((t) => {
+        const url = `${baseTourneyUrl}?t=${btoa(String(t.id))}`;
+        const statusColor = t.status === 'active' ? 'var(--teal)' : t.status === 'completed' ? 'var(--blue)' : 'var(--text-muted)';
+        return renderShareRow(t, url, `copy-tournament-${t.id}`, statusColor, t.status);
+      }).join('');
+    }
+
+    // Wire up search inputs
+    const wireSearch = (inputId, listId) => {
+      const input = document.getElementById(inputId);
+      if (!input) return;
+      input.addEventListener('input', () => {
+        const q = input.value.toLowerCase().trim();
+        document.querySelectorAll(`#${listId} .share-row`).forEach((row) => {
+          const name = row.dataset.name || '';
+          row.style.display = name.includes(q) ? '' : 'none';
+        });
+      });
+    };
+    wireSearch('share-search-ladders', 'share-ladder-list');
+    wireSearch('share-search-tournaments', 'share-tournament-list');
+  };
+
+  const switchShareTab = (btn) => {
+    const tab = btn.dataset.tab;
+    // Update tab button styles
+    document.querySelectorAll('.share-tab').forEach((b) => {
+      const isActive = b.dataset.tab === tab;
+      b.classList.toggle('active', isActive);
+      b.style.color = isActive ? 'var(--blue)' : 'var(--text-muted)';
+      b.style.borderBottomColor = isActive ? 'var(--lime)' : 'transparent';
+    });
+    // Show/hide panels
+    document.getElementById('share-tab-ladders').style.display = tab === 'ladders' ? '' : 'none';
+    document.getElementById('share-tab-tournaments').style.display = tab === 'tournaments' ? '' : 'none';
+    // Hide QR panel when switching tabs
+    document.getElementById('share-qr-panel').style.display = 'none';
+  };
+
+  const showShareQR = (btn) => {
+    const url = btn.dataset.url;
+    const panel = document.getElementById('share-qr-panel');
+    const qrEl = document.getElementById('share-qr-code');
+    const urlEl = document.getElementById('share-qr-url');
+    // Clear old QR
+    qrEl.innerHTML = '';
+    urlEl.textContent = url;
+    panel.style.display = 'block';
+    panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    // Generate QR
+    new QRCode(qrEl, {
+      text: url,
+      width: 180,
+      height: 180,
+      colorDark: '#0d1f4a',
+      colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel.H,
+    });
   };
 
   const copyShareLink = (url, btnId) => {
@@ -1998,6 +2074,124 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     }
   };
 
+  /* ─── TOURNAMENT NOTIFY ────────────────────────────────── */
+
+  // Opens the tournament notify modal, pre-filled with a default subject/message.
+  // tournamentId and tournamentName are passed from tournament.js via window.app.
+  const openTournamentNotifyModal = async (tournamentId, tournamentName) => {
+    if (!tournamentId) { toast('No tournament selected.', true); return; }
+
+    // Fetch all teams for this tournament to collect player emails
+    let categories = [], teams = [];
+    try {
+      categories = await api(`tournament_categories?tournament_id=eq.${tournamentId}&select=id`);
+      if (!categories.length) { toast('No categories found for this tournament.', true); return; }
+      const catIds = categories.map(c => c.id).join(',');
+      teams = await api(
+        `tournament_teams?category_id=in.(${catIds})&select=player1_id,player2_id,player3_id,player4_id`
+      );
+    } catch (err) {
+      toast(`Error loading tournament teams: ${err.message}`, true);
+      return;
+    }
+
+    // Collect all unique player IDs across all teams
+    const playerIds = [...new Set(
+      teams.flatMap(t => [t.player1_id, t.player2_id, t.player3_id, t.player4_id].filter(Boolean))
+    )];
+
+    if (!playerIds.length) { toast('No players found in this tournament.', true); return; }
+
+    // Fetch player emails
+    let players = [];
+    try {
+      players = await api(
+        `players?id=in.(${playerIds.join(',')})&select=id,first_name,last_name,email&order=first_name`
+      );
+    } catch (err) {
+      toast(`Error loading player emails: ${err.message}`, true);
+      return;
+    }
+
+    const emailPlayers = players.filter(p => p.email);
+    if (!emailPlayers.length) { toast('No players with email addresses found.', true); return; }
+
+    document.getElementById('t-notify-recipient-count').innerHTML =
+      `<span class="text-bold color-teal">${emailPlayers.length} player${emailPlayers.length !== 1 ? 's' : ''} with email</span> across all categories of <strong>${esc(tournamentName)}</strong> will receive this email.`;
+
+    // Pre-fill default subject and message
+    document.getElementById('t-notify-subject').value =
+      `🏆 ${tournamentName} — Your Results Are Ready`;
+    document.getElementById('t-notify-message').value =
+      `Hi {{player_name}},\n\nThe results for ${tournamentName} are now available. Click the link below to view your standings, bracket results, and more.\n\nThank you for participating and congratulations to all players on a great tournament!\n\nFerocia Sports Center`;
+
+    // Store on modal for use by sendTournamentNotify
+    const modal = document.getElementById('tournament-notify-modal');
+    modal._tournamentId = tournamentId;
+    modal._tournamentName = tournamentName;
+    modal._emailPlayers = emailPlayers;
+    modal.classList.add('open');
+  };
+
+  const closeTournamentNotifyModal = () => {
+    document.getElementById('tournament-notify-modal').classList.remove('open');
+  };
+
+  const sendTournamentNotify = async (e) => {
+    e.preventDefault();
+    const modal = document.getElementById('tournament-notify-modal');
+    const { _tournamentId, _tournamentName, _emailPlayers } = modal;
+    if (!_tournamentId || !_emailPlayers?.length) return;
+
+    const subject = document.getElementById('t-notify-subject').value.trim();
+    const message = document.getElementById('t-notify-message').value.trim();
+    if (!subject || !message) { toast('Please fill in subject and message.', true); return; }
+
+    // Build tournament results URL
+    const baseTourneyUrl =
+      window.location.origin + window.location.pathname.replace('index.html', '') + 'tournament-results.html';
+    const resultsUrl = `${baseTourneyUrl}?t=${btoa(String(_tournamentId))}`;
+
+    const sendBtn = document.getElementById('t-notify-send-btn');
+    sendBtn.disabled = true;
+    sendBtn.textContent = 'Sending...';
+    _emailInFlight = true;
+
+    emailjs.init({ publicKey: CFG.EMAILJS.PUBLIC_KEY });
+    let sent = 0;
+    const failedRecipients = [];
+
+    for (const player of _emailPlayers) {
+      const playerMsg = message.replace('{{player_name}}', `${player.first_name} ${player.last_name}`);
+      const ok = await sendOneEmail(CFG.EMAILJS.SERVICE, CFG.EMAILJS.TEMPLATES.LADDER_NOTIFY, {
+        player_name: `${player.first_name} ${player.last_name}`,
+        player_email: player.email,
+        subject,
+        message: playerMsg,
+        leaderboard_url: resultsUrl,
+      });
+      if (ok) sent++;
+      else failedRecipients.push(player.email);
+      sendBtn.textContent = `Sending... ${sent + failedRecipients.length}/${_emailPlayers.length}`;
+      if (sent + failedRecipients.length < _emailPlayers.length) {
+        await sleep(CFG.EMAIL_THROTTLE_MS);
+      }
+    }
+
+    _emailInFlight = false;
+    sendBtn.disabled = false;
+    sendBtn.textContent = 'Send emails';
+    closeTournamentNotifyModal();
+
+    if (!failedRecipients.length) {
+      toast(`✅ ${sent} emails sent successfully!`);
+    } else {
+      const failedList = failedRecipients.slice(0, 3).join(', ');
+      const more = failedRecipients.length > 3 ? ` (+${failedRecipients.length - 3} more)` : '';
+      toast(`Sent ${sent}. Failed: ${failedList}${more}`, true);
+    }
+  };
+
   /* ─── PROMOTIONS ───────────────────────────────────────── */
 
   const loadPromotionsPage = async () => {
@@ -2209,6 +2403,11 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
       });
       if (ok) window.auth.signOut();
     },
+    // Share Links
+    switchShareTab: (btn) => switchShareTab(btn),
+    showShareQR: (btn) => showShareQR(btn),
+    // Tournament notify
+    closeTournamentNotifyModal: () => closeTournamentNotifyModal(),
   };
 
   document.addEventListener('click', (e) => {
@@ -2310,6 +2509,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
   document.getElementById('edit-session-form').addEventListener('submit', saveEditSession);
   document.getElementById('notify-form').addEventListener('submit', sendNotifications);
   document.getElementById('promo-form').addEventListener('submit', sendPromoEmail);
+  document.getElementById('t-notify-form').addEventListener('submit', sendTournamentNotify);
   document.getElementById('sub-status-filter')?.addEventListener('change', loadSubscribers);
   document.getElementById('sub-search')?.addEventListener('input', loadSubscribers);
   document.getElementById('player-status-filter')?.addEventListener('change', filterPlayers);
@@ -2329,6 +2529,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     escapeHtml,
     sleep,
     showPage,
+    openTournamentNotifyModal,  // called by tournament.js notify button
   };
 
   // Track auth state so tournament.js can wait on it too
