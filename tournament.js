@@ -1059,7 +1059,7 @@ function renderBracket(matches, tMap, tournament) {
             ${m.court ? `<div style="font-size:9px;font-weight:800;letter-spacing:1px;color:#6b7a99;padding:4px 14px;background:#f4f6fc;border-bottom:1px solid #d6dff5;">COURT ${m.court}</div>` : ''}
             <div class="t-bracket-team ${winA ? 't-bracket-winner' : ''} ${!m.team_a_id ? 't-bracket-tbd' : ''}">
               <div style="flex:1;">
-                <div style="font-weight:700;">${tEsc(teamA?.name || 'TBD')}</div>
+                <div style="font-weight:700;">${tEsc(teamA?.name || (m.status === 'bye' ? 'BYE' : 'TBD'))}</div>
                 ${teamA ? `<div style="font-size:10px;color:#6b7a99;font-weight:500;margin-top:1px;">${getTeamPlayerNames(teamA)}</div>` : ''}
               </div>
               ${isDone ? `<span class="t-bracket-score ${winA ? 't-bracket-score-win' : ''}">${m.score_a}</span>` : ''}
@@ -1067,7 +1067,7 @@ function renderBracket(matches, tMap, tournament) {
             <div class="t-bracket-divider"></div>
             <div class="t-bracket-team ${winB ? 't-bracket-winner' : ''} ${!m.team_b_id ? 't-bracket-tbd' : ''}">
               <div style="flex:1;">
-                <div style="font-weight:700;">${tEsc(teamB?.name || 'TBD')}</div>
+                <div style="font-weight:700;">${tEsc(teamB?.name || (m.status === 'bye' ? 'BYE' : 'TBD'))}</div>
                 ${teamB ? `<div style="font-size:10px;color:#6b7a99;font-weight:500;margin-top:1px;">${getTeamPlayerNames(teamB)}</div>` : ''}
               </div>
               ${isDone ? `<span class="t-bracket-score ${winB ? 't-bracket-score-win' : ''}">${m.score_b}</span>` : ''}
