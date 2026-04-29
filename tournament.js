@@ -694,7 +694,7 @@ function renderTournamentDetail(t, categories) {
         ${t.status === 'draft' ? `<button class="t-btn t-btn-success" onclick="startTournament(${t.id})">▶ Start Tournament</button>` : ''}
         ${t.status === 'active' ? `<button class="t-btn t-btn-danger" onclick="completeTournament(${t.id})">Complete</button>` : ''}
         <button class="t-btn t-btn-ghost t-btn-sm" title="Notify all players with the results link"
-          onclick="window.app.openTournamentNotifyModal(${t.id}, ${JSON.stringify(t.name)})">
+          onclick="window.app.openTournamentNotifyModal(${t.id})">
           ✉️ Notify Players
         </button>
       </div>

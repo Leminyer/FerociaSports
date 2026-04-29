@@ -2078,22 +2078,28 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
 
   // Opens the tournament notify modal, pre-filled with a default subject/message.
   // tournamentId and tournamentName are passed from tournament.js via window.app.
-  const openTournamentNotifyModal = async (tournamentId, tournamentName) => {
+  const openTournamentNotifyModal = async (tournamentId) => {
     if (!tournamentId) { toast('No tournament selected.', true); return; }
 
-    // Fetch all teams for this tournament to collect player emails
-    let categories = [], teams = [];
+    // Fetch tournament name + all teams in parallel
+    let tournament, categories = [], teams = [];
     try {
-      categories = await api(`tournament_categories?tournament_id=eq.${tournamentId}&select=id`);
+      [[tournament], categories] = await Promise.all([
+        api(`tournaments?id=eq.${tournamentId}&select=id,name`),
+        api(`tournament_categories?tournament_id=eq.${tournamentId}&select=id`),
+      ]);
+      if (!tournament) { toast('Tournament not found.', true); return; }
       if (!categories.length) { toast('No categories found for this tournament.', true); return; }
       const catIds = categories.map(c => c.id).join(',');
       teams = await api(
         `tournament_teams?category_id=in.(${catIds})&select=player1_id,player2_id,player3_id,player4_id`
       );
     } catch (err) {
-      toast(`Error loading tournament teams: ${err.message}`, true);
+      toast(`Error loading tournament data: ${err.message}`, true);
       return;
     }
+
+    const tournamentName = tournament.name;
 
     // Collect all unique player IDs across all teams
     const playerIds = [...new Set(
