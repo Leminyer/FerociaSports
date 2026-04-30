@@ -611,7 +611,8 @@ async function createTournament(e) {
       tToast(`A tournament named "${name}" ${date ? 'on this date ' : ''}already exists.`, true);
       return;
     }
-    const [t] = await tApi('tournaments', 'POST', { name, date, status: 'draft' });
+    await tApi('tournaments', 'POST', { name, date, status: 'draft' });
+    const [t] = await tApi(`tournaments?name=eq.${encodeURIComponent(name)}&status=eq.draft&select=*&order=id.desc&limit=1`);
     if (categories.length) {
       // Bulk insert all categories in a single POST
       await tApi('tournament_categories', 'POST',
@@ -1427,7 +1428,9 @@ async function generateRR(catId) {
       name: tGroupLetter(i),
       position: i,
     }));
-    const createdGroups = await tApi('tournament_groups', 'POST', groupRows);
+    await tApi('tournament_groups', 'POST', groupRows);
+    // Fetch the just-created groups ordered by position
+    const createdGroups = await tApi(`tournament_groups?category_id=eq.${catId}&select=*&order=position`);
 
     // 2. Shuffle teams and deal them into groups based on the distribution
     const shuffled = tShuffleArray(teams);

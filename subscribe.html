@@ -209,22 +209,32 @@
       });
 
       // Send confirmation email
-      await emailjs.send(CFG.EMAILJS.SERVICE, CFG.EMAILJS.TEMPLATES.CONFIRM, {
-        player_name: `${first} ${last}`,
-        player_email: email,
-        subject: '✅ Please confirm your Ferocia Sports subscription',
-        confirm_url: confirmUrl,
-      });
+      try {
+        await emailjs.send(CFG.EMAILJS.SERVICE, CFG.EMAILJS.TEMPLATES.CONFIRM, {
+          player_name: `${first} ${last}`,
+          player_email: email,
+          subject: '✅ Please confirm your Ferocia Sports subscription',
+          confirm_url: confirmUrl,
+        });
+      } catch (emailErr) {
+        // Subscription was saved — just the confirmation email failed.
+        // Still show success so the player knows they're registered;
+        // admin can manually send a confirmation later.
+        console.error('[Ferocia subscribe] Confirmation email failed:', emailErr);
+      }
 
       document.getElementById('form-section').style.display = 'none';
       // textContent is XSS-safe regardless of input
       document.getElementById('confirm-email-shown').textContent = email;
       document.getElementById('success-screen').style.display = 'block';
     } catch (err) {
+      console.error('[Ferocia subscribe] Error:', err);
       if (err.message && err.message.toLowerCase().includes('duplicate')) {
         showFieldError('s-email', 'err-email', 'This email is already registered.');
+      } else if (err.message && err.message.toLowerCase().includes('policy')) {
+        showFieldError('s-email', 'err-email', 'Subscription temporarily unavailable. Please try again in a moment.');
       } else {
-        showFieldError('s-email', 'err-email', 'Something went wrong. Please try again.');
+        showFieldError('s-email', 'err-email', `Something went wrong: ${err.message || 'Please try again.'}`);
       }
       btn.disabled = false;
       btn.textContent = 'Subscribe Now';

@@ -139,8 +139,12 @@
         return result.data || [];
       }
       case 'POST': {
-        // Insert one or many; return the inserted rows
-        qb = sbClient.from(table).insert(body).select(select);
+        // Insert one or many. We do NOT chain .select() here because some
+        // tables (e.g. subscribers) have no SELECT RLS policy for anon —
+        // requesting the inserted row back would cause a permission error.
+        // Admin callers (tournament.js) that need the inserted row back use
+        // a follow-up GET or rely on the id returned via the trigger.
+        qb = sbClient.from(table).insert(body);
         result = await qb;
         if (result.error) throw new Error(result.error.message);
         return result.data || [];
