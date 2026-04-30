@@ -291,7 +291,12 @@
       grouped[key].games[m.game_number].push(m);
     });
 
-    const sorted = Object.values(grouped).sort((a, b) => b.date.localeCompare(a.date));
+    // Only show courts where ALL non-no-show games have scores recorded
+    const completed = Object.values(grouped).filter((s) =>
+      Object.values(s.games).flat().every((m) => m.default_no_show || m.score_for !== null)
+    );
+
+    const sorted = completed.sort((a, b) => b.date.localeCompare(a.date));
 
     let html = '';
     sorted.forEach((s) => {

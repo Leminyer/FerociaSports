@@ -627,6 +627,8 @@
           '<div class="empty">No sessions recorded yet.</div>';
         return;
       }
+
+      // Group by court (date__court_group)
       const grouped = {};
       matches.forEach((m) => {
         const key = `${m.session_date}__${m.court_group}`;
@@ -634,53 +636,86 @@
         if (!grouped[key].games[m.game_number]) grouped[key].games[m.game_number] = [];
         grouped[key].games[m.game_number].push(m);
       });
-      let html = '';
+
+      // Group courts by date for the Print Roster button (one per date)
+      const byDate = {};
       Object.values(grouped).forEach((s) => {
-        const date = fmtDate(s.date, {
-          weekday: 'short',
-          year: 'numeric',
-          month: 'short',
-          day: 'numeric',
-        });
-        const sessionMatchIds = Object.values(s.games)
-          .flat()
-          .map((m) => m.id)
-          .join(',');
-        html += `<div class="session-block">
-          <div class="row-between mb-8">
-            <div class="blue-tag">${date} — Court ${s.group}</div>
-            <div class="row gap-6">
-              <button class="btn btn-outline btn-sm" data-action="editSession" data-matchids="${sessionMatchIds}" data-date="${esc(s.date)}" data-court="${s.group}">Edit session</button>
-              <button class="btn btn-danger btn-sm" data-action="deleteSession" data-matchids="${sessionMatchIds}" data-date="${esc(s.date)}" data-court="${s.group}">Delete session</button>
-            </div>
-          </div>`;
-        Object.entries(s.games).forEach(([gnum, players]) => {
-          const gameIds = players.map((p) => p.id).join(',');
-          html += `<div class="game-row">
-            <div class="row-between gap-6">
-              <div class="row-wrap gap-6">
-                <span class="label-tag" style="margin-right:4px;">Game ${gnum}</span>`;
-          players.forEach((p) => {
-            const name = p.players ? `${p.players.first_name} ${p.players.last_name}` : 'Unknown';
-            const score = p.score_for !== null ? `${p.score_for}-${p.score_against}` : '-';
-            const pts = p.default_no_show ? '-1' : `+${p.points_earned}`;
-            const color = p.default_no_show
-              ? 'var(--orange)'
-              : p.is_sub
-                ? 'var(--text-muted)'
-                : 'var(--teal)';
-            const subTag = p.is_sub ? '<span class="sub-pill">SUB</span>' : '';
-            html += `<span style="margin-right:10px;font-weight:500">${esc(name)}${subTag} <span style="color:${color};font-weight:700">${score}/${pts}pts</span></span>`;
-          });
-          html += `</div>
-              <div class="row gap-6 flex-shrink-0">
-                <button class="btn btn-outline btn-sm" data-action="editGame" data-gameids="${gameIds}" data-gnum="${gnum}" data-date="${esc(s.date)}" data-court="${s.group}">Edit</button>
-              </div>
-            </div>
-          </div>`;
-        });
-        html += '</div>';
+        if (!byDate[s.date]) byDate[s.date] = [];
+        byDate[s.date].push(s);
       });
+
+      let html = '';
+      // Iterate date groups in desc order
+      Object.keys(byDate).sort((a, b) => b.localeCompare(a)).forEach((date) => {
+        const courts = byDate[date];
+        const dateLabel = fmtDate(date, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
+
+        // Check if all courts on this date have scores (all games have score_for not null)
+        const allComplete = courts.every((s) =>
+          Object.values(s.games).flat().every((m) => m.default_no_show || m.score_for !== null)
+        );
+        const anyPending = courts.some((s) =>
+          Object.values(s.games).flat().some((m) => !m.default_no_show && m.score_for === null)
+        );
+
+        // Date header with Print Roster button
+        html += `<div class="session-date-group">
+          <div class="row-between mb-8" style="padding:8px 0;border-bottom:2px solid var(--blue-pale);margin-bottom:12px;">
+            <div style="font-size:13px;font-weight:800;color:var(--blue);">📅 ${dateLabel}</div>
+            <button class="btn btn-outline btn-sm" data-action="printRoster" data-date="${esc(date)}" data-ladderid="${currentLadder.id}" style="font-size:11px;">
+              📄 Print Roster
+            </button>
+          </div>`;
+
+        courts.forEach((s) => {
+          // Determine if this court has scores pending
+          const courtGames = Object.values(s.games).flat();
+          const courtPending = courtGames.some((m) => !m.default_no_show && m.score_for === null);
+          const sessionMatchIds = courtGames.map((m) => m.id).join(',');
+
+          html += `<div class="session-block">
+            <div class="row-between mb-8">
+              <div class="row gap-6 align-center">
+                <div class="blue-tag">Court ${s.group}</div>
+                ${courtPending ? '<span style="font-size:10px;font-weight:800;color:var(--orange);text-transform:uppercase;letter-spacing:.5px;padding:2px 8px;background:var(--orange-light);border-radius:99px;">⏳ Scores pending</span>' : ''}
+              </div>
+              <div class="row gap-6">
+                <button class="btn btn-outline btn-sm" data-action="editSession" data-matchids="${sessionMatchIds}" data-date="${esc(s.date)}" data-court="${s.group}">Edit session</button>
+                <button class="btn btn-danger btn-sm" data-action="deleteSession" data-matchids="${sessionMatchIds}" data-date="${esc(s.date)}" data-court="${s.group}">Delete session</button>
+              </div>
+            </div>`;
+
+          Object.entries(s.games).forEach(([gnum, players]) => {
+            const gameIds = players.map((p) => p.id).join(',');
+            const gamePending = players.some((p) => !p.default_no_show && p.score_for === null);
+            html += `<div class="game-row">
+              <div class="row-between gap-6">
+                <div class="row-wrap gap-6">
+                  <span class="label-tag" style="margin-right:4px;">Game ${gnum}</span>`;
+            players.forEach((p) => {
+              const name = p.players ? `${p.players.first_name} ${p.players.last_name}` : 'Unknown';
+              const score = p.score_for !== null ? `${p.score_for}-${p.score_against}` : '—';
+              const pts = p.default_no_show ? '-1' : p.score_for !== null ? `+${p.points_earned}` : '—';
+              const color = p.default_no_show
+                ? 'var(--orange)'
+                : p.score_for !== null
+                  ? (p.is_sub ? 'var(--text-muted)' : 'var(--teal)')
+                  : 'var(--text-muted)';
+              const subTag = p.is_sub ? '<span class="sub-pill">SUB</span>' : '';
+              html += `<span style="margin-right:10px;font-weight:500">${esc(name)}${subTag} <span style="color:${color};font-weight:700">${score}${p.score_for !== null || p.default_no_show ? '/' + pts + 'pts' : ''}</span></span>`;
+            });
+            html += `</div>
+                <div class="row gap-6 flex-shrink-0">
+                  <button class="btn btn-outline btn-sm" data-action="editGame" data-gameids="${gameIds}" data-gnum="${gnum}" data-date="${esc(s.date)}" data-court="${s.group}">Edit</button>
+                </div>
+              </div>
+            </div>`;
+          });
+          html += '</div>'; // session-block
+        });
+        html += '</div>'; // session-date-group
+      });
+
       document.getElementById('sessions-list').innerHTML = html;
     } catch (e) {
       document.getElementById('sessions-list').innerHTML =
@@ -842,9 +877,24 @@
     e.preventDefault();
     const ids = document.getElementById('eg-ids').value.split(',').filter(Boolean);
     const isVoid = document.getElementById('eg-void-game').checked;
+
+    // Require score OR void — don't allow saving blanks when editing
+    if (!isVoid) {
+      const missingScore = ids.some((id) => {
+        const sf = document.getElementById(`eg-sf-${id}`);
+        const sa = document.getElementById(`eg-sa-${id}`);
+        // Skip no-show rows (they never have scores)
+        const ptsEl = document.getElementById(`eg-pts-${id}`);
+        if (!sf) return false; // row not rendered = no-show row, skip
+        return sf.value === '' || sa.value === '';
+      });
+      if (missingScore) {
+        toast('Please enter scores for all players, or mark the game as void.', true);
+        return;
+      }
+    }
+
     try {
-      // Build per-id PATCHes; we still need separate calls because each row has unique values
-      // But we run them in parallel.
       await Promise.all(
         ids.map((id) => {
           const sf = document.getElementById(`eg-sf-${id}`);
@@ -1305,14 +1355,12 @@
       return;
     }
 
-    // Active player count = court players minus the no-show (if any).
-    // The "Game 4 — Closest scores" card is created whenever this count is 4,
-    // regardless of how many raw court players there are.
+    // Active player count
     const activePlayerCount = courtPlayers.filter(
       (p) => !noShowPlayer || p.id !== noShowPlayer.id,
     ).length;
 
-    // Validate game 4 (4-active-players closest scores) has all players selected
+    // Validate Game 4 player selection (4-active-players closest scores)
     if (activePlayerCount === 4) {
       const a1 = document.getElementById('extraA1-4')?.value;
       const a2 = document.getElementById('extraA2-4')?.value;
@@ -1325,115 +1373,426 @@
       }
     }
 
-    // Validate scores
-    const missingScores = [];
-    for (const gameNum of allGameNums) {
+    // ── Determine whether scores are present ─────────────────
+    // If ANY game has a score entered, we require ALL games to have scores (existing behavior).
+    // If NO game has any score, we save as roster-only (null scores, no points).
+    const anyScoreEntered = allGameNums.some((gameNum) => {
       const isVoided = document.getElementById(`void-${gameNum}`)?.checked || false;
-      if (isVoided) continue;
+      if (isVoided) return true; // voided counts as "score provided"
       const sA = document.getElementById(`scoreA-${gameNum}`);
-      const sB = document.getElementById(`scoreB-${gameNum}`);
-      if (!sA || sA.value === '' || !sB || sB.value === '') missingScores.push(gameNum);
+      return sA && sA.value !== '';
+    });
+
+    if (anyScoreEntered) {
+      // ── SCORE MODE: validate all games have scores ──────────
+      const missingScores = [];
+      for (const gameNum of allGameNums) {
+        const isVoided = document.getElementById(`void-${gameNum}`)?.checked || false;
+        if (isVoided) continue;
+        const sA = document.getElementById(`scoreA-${gameNum}`);
+        const sB = document.getElementById(`scoreB-${gameNum}`);
+        if (!sA || sA.value === '' || !sB || sB.value === '') missingScores.push(gameNum);
+      }
+      if (missingScores.length) {
+        toast(
+          `Please enter scores for Game${missingScores.length > 1 ? 's' : ''} ${missingScores.join(', ')} or mark ${missingScores.length > 1 ? 'them' : 'it'} as void.`,
+          true,
+        );
+        return;
+      }
+
+      // Build rows WITH scores
+      for (const gameNum of allGameNums) {
+        const sA = document.getElementById(`scoreA-${gameNum}`);
+        const sB = document.getElementById(`scoreB-${gameNum}`);
+        if (!sA || sA.value === '') continue;
+        const scoreA = parseInt(sA.value, 10);
+        const scoreB = parseInt(sB?.value || 0, 10);
+        const isVoided = document.getElementById(`void-${gameNum}`)?.checked || false;
+        const ptA = isVoided ? 0 : calcPoints(scoreA, scoreB);
+        const ptB = isVoided ? 0 : calcPoints(scoreB, scoreA);
+        let tAIds, tBIds;
+        const isExtraGame = gameNum > 100 || (gameNum === 4 && activePlayerCount === 4);
+        if (isExtraGame) {
+          tAIds = [
+            document.getElementById(`extraA1-${gameNum}`)?.value,
+            document.getElementById(`extraA2-${gameNum}`)?.value,
+          ].filter(Boolean).map(Number);
+          tBIds = [
+            document.getElementById(`extraB1-${gameNum}`)?.value,
+            document.getElementById(`extraB2-${gameNum}`)?.value,
+          ].filter(Boolean).map(Number);
+        } else {
+          tAIds = document.getElementById(`teamA-ids-${gameNum}`)?.value.split(',').filter(Boolean).map(Number) || [];
+          tBIds = document.getElementById(`teamB-ids-${gameNum}`)?.value.split(',').filter(Boolean).map(Number) || [];
+        }
+        tAIds.forEach((pid) => {
+          if (!pid) return;
+          const pA = ladderPlayers.find((p) => p.id === pid);
+          const isSubA = pA?.ladder_status === 'sub';
+          rows.push({
+            session_date: date, court_group: parseInt(courtNum, 10), player_id: pid,
+            game_number: extraGameMap[gameNum] || gameNum,
+            score_for: isVoided ? null : scoreA, score_against: isVoided ? null : scoreB,
+            points_earned: isSubA ? 0 : ptA, is_sub: isSubA,
+            default_no_show: false, ladder_id: currentLadder.id,
+          });
+        });
+        tBIds.forEach((pid) => {
+          if (!pid) return;
+          const pB = ladderPlayers.find((p) => p.id === pid);
+          const isSubB = pB?.ladder_status === 'sub';
+          rows.push({
+            session_date: date, court_group: parseInt(courtNum, 10), player_id: pid,
+            game_number: extraGameMap[gameNum] || gameNum,
+            score_for: isVoided ? null : scoreB, score_against: isVoided ? null : scoreA,
+            points_earned: isSubB ? 0 : ptB, is_sub: isSubB,
+            default_no_show: false, ladder_id: currentLadder.id,
+          });
+        });
+      }
+    } else {
+      // ── ROSTER-ONLY MODE: save players/matchups, no scores ──
+      for (const gameNum of allGameNums) {
+        let tAIds, tBIds;
+        const isExtraGame = gameNum > 100 || (gameNum === 4 && activePlayerCount === 4);
+        if (isExtraGame) {
+          tAIds = [
+            document.getElementById(`extraA1-${gameNum}`)?.value,
+            document.getElementById(`extraA2-${gameNum}`)?.value,
+          ].filter(Boolean).map(Number);
+          tBIds = [
+            document.getElementById(`extraB1-${gameNum}`)?.value,
+            document.getElementById(`extraB2-${gameNum}`)?.value,
+          ].filter(Boolean).map(Number);
+        } else {
+          tAIds = document.getElementById(`teamA-ids-${gameNum}`)?.value.split(',').filter(Boolean).map(Number) || [];
+          tBIds = document.getElementById(`teamB-ids-${gameNum}`)?.value.split(',').filter(Boolean).map(Number) || [];
+        }
+        [...tAIds, ...tBIds].forEach((pid) => {
+          if (!pid) return;
+          const p = ladderPlayers.find((lp) => lp.id === pid);
+          rows.push({
+            session_date: date, court_group: parseInt(courtNum, 10), player_id: pid,
+            game_number: extraGameMap[gameNum] || gameNum,
+            score_for: null, score_against: null,
+            points_earned: 0, is_sub: p?.ladder_status === 'sub',
+            default_no_show: false, ladder_id: currentLadder.id,
+          });
+        });
+      }
     }
-    if (missingScores.length) {
-      toast(
-        `Please enter scores for Game${missingScores.length > 1 ? 's' : ''} ${missingScores.join(', ')} or mark ${missingScores.length > 1 ? 'them' : 'it'} as void.`,
-        true,
-      );
+
+    // No-show player always included regardless of mode
+    if (noShowPlayer) {
+      rows.push({
+        session_date: date, court_group: parseInt(courtNum, 10), player_id: noShowPlayer.id,
+        game_number: 1, score_for: null, score_against: null,
+        points_earned: noShowPenalty, is_sub: noShowPlayer.ladder_status === 'sub',
+        default_no_show: true, ladder_id: currentLadder.id,
+      });
+    }
+
+    if (!rows.length) {
+      toast('No players assigned to games yet.', true);
       return;
     }
 
-    for (const gameNum of allGameNums) {
-      const sA = document.getElementById(`scoreA-${gameNum}`);
-      const sB = document.getElementById(`scoreB-${gameNum}`);
-      if (!sA || sA.value === '') continue;
-      const scoreA = parseInt(sA.value, 10);
-      const scoreB = parseInt(sB?.value || 0, 10);
-      const isVoided = document.getElementById(`void-${gameNum}`)?.checked || false;
-      const ptA = isVoided ? 0 : calcPoints(scoreA, scoreB);
-      const ptB = isVoided ? 0 : calcPoints(scoreB, scoreA);
-      let tAIds, tBIds;
-      const isExtraGame = gameNum > 100 || (gameNum === 4 && activePlayerCount === 4);
-      if (isExtraGame) {
-        tAIds = [
-          document.getElementById(`extraA1-${gameNum}`)?.value,
-          document.getElementById(`extraA2-${gameNum}`)?.value,
-        ]
-          .filter(Boolean)
-          .map(Number);
-        tBIds = [
-          document.getElementById(`extraB1-${gameNum}`)?.value,
-          document.getElementById(`extraB2-${gameNum}`)?.value,
-        ]
-          .filter(Boolean)
-          .map(Number);
-      } else {
-        tAIds =
-          document.getElementById(`teamA-ids-${gameNum}`)?.value.split(',').filter(Boolean).map(Number) ||
-          [];
-        tBIds =
-          document.getElementById(`teamB-ids-${gameNum}`)?.value.split(',').filter(Boolean).map(Number) ||
-          [];
-      }
-      tAIds.forEach((pid) => {
-        if (!pid) return;
-        const pA = ladderPlayers.find((p) => p.id === pid);
-        const isSubA = pA?.ladder_status === 'sub';
-        rows.push({
-          session_date: date,
-          court_group: parseInt(courtNum, 10),
-          player_id: pid,
-          game_number: extraGameMap[gameNum] || gameNum,
-          score_for: isVoided ? null : scoreA,
-          score_against: isVoided ? null : scoreB,
-          points_earned: isSubA ? 0 : ptA,
-          is_sub: isSubA,
-          default_no_show: false,
-          ladder_id: currentLadder.id,
-        });
-      });
-      tBIds.forEach((pid) => {
-        if (!pid) return;
-        const pB = ladderPlayers.find((p) => p.id === pid);
-        const isSubB = pB?.ladder_status === 'sub';
-        rows.push({
-          session_date: date,
-          court_group: parseInt(courtNum, 10),
-          player_id: pid,
-          game_number: extraGameMap[gameNum] || gameNum,
-          score_for: isVoided ? null : scoreB,
-          score_against: isVoided ? null : scoreA,
-          points_earned: isSubB ? 0 : ptB,
-          is_sub: isSubB,
-          default_no_show: false,
-          ladder_id: currentLadder.id,
-        });
-      });
-    }
-    if (noShowPlayer) {
-      rows.push({
-        session_date: date,
-        court_group: parseInt(courtNum, 10),
-        player_id: noShowPlayer.id,
-        game_number: 1,
-        score_for: null,
-        score_against: null,
-        points_earned: noShowPenalty,
-        is_sub: noShowPlayer.ladder_status === 'sub',
-        default_no_show: true,
-        ladder_id: currentLadder.id,
-      });
-    }
-    if (!rows.length) {
-      toast('No scores entered yet.', true);
-      return;
-    }
     try {
-      // Single batch insert — atomic on the server
       await api('matches', 'POST', rows);
-      toast(`Session saved! ${rows.length} entries recorded.`);
+      if (anyScoreEntered) {
+        toast(`Session saved! ${rows.length} entries recorded.`);
+      } else {
+        toast(`Roster saved for Court ${courtNum}. Add scores later in the Sessions tab.`);
+      }
       initEntry();
     } catch (e) {
       toast(`Error: ${e.message}`, true);
+    }
+  };
+
+  /* ─── PRINT ROSTER ─────────────────────────────────────── */
+
+  const printRoster = async (btn) => {
+    const date = btn.dataset.date;
+    const ladderId = parseInt(btn.dataset.ladderid, 10);
+    if (!date || !ladderId) { toast('Missing date or ladder.', true); return; }
+
+    btn.disabled = true;
+    btn.textContent = '⏳ Generating...';
+
+    try {
+      // Fetch all matches for this date + ladder, including player names
+      const matches = await api(
+        `matches?select=*,players(first_name,last_name)&ladder_id=eq.${ladderId}&session_date=eq.${date}&order=court_group,game_number,id`
+      );
+      if (!matches.length) { toast('No sessions found for this date.', true); return; }
+
+      // Group by court
+      const courts = {};
+      matches.forEach((m) => {
+        if (!courts[m.court_group]) courts[m.court_group] = { games: {} };
+        if (!courts[m.court_group].games[m.game_number]) courts[m.court_group].games[m.game_number] = [];
+        courts[m.court_group].games[m.game_number].push(m);
+      });
+
+      // Ladder info for header
+      const ladderName = currentLadder?.name || 'Ladder';
+      const scoringFormat = currentLadder?.scoring_format || '';
+      const dateLabel = fmtDate(date, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+      // Build PDF using jsPDF
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
+
+      const PW = 215.9; // letter width mm
+      const PH = 279.4; // letter height mm
+      const ML = 14;    // margin left
+      const MR = 14;    // margin right
+      const MT = 14;    // margin top
+      const CW = PW - ML - MR; // content width
+
+      const BLUE   = [23, 76, 204];
+      const LIME   = [198, 242, 33];
+      const DARK   = [13, 31, 74];
+      const MUTED  = [107, 122, 153];
+      const BORDER = [214, 223, 245];
+      const WHITE  = [255, 255, 255];
+      const ORANGE = [242, 96, 36];
+
+      const courtNums = Object.keys(courts).map(Number).sort((a, b) => a - b);
+
+      courtNums.forEach((courtNum, courtIdx) => {
+        if (courtIdx > 0) doc.addPage();
+
+        const court = courts[courtNum];
+        const gameNums = Object.keys(court.games).map(Number).sort((a, b) => a - b);
+
+        // Collect all unique players in this court (exclude duplicates from multi-game entries)
+        const playerMap = {};
+        gameNums.forEach((gn) => {
+          court.games[gn].forEach((m) => {
+            if (!m.default_no_show && m.players) {
+              playerMap[m.player_id] = `${m.players.first_name} ${m.players.last_name}`;
+            }
+          });
+        });
+        // No-show player
+        const noShowMatch = Object.values(court.games).flat().find((m) => m.default_no_show);
+        const noShowName = noShowMatch?.players
+          ? `${noShowMatch.players.first_name} ${noShowMatch.players.last_name}` : null;
+
+        const playerList = Object.values(playerMap);
+        const playerCount = playerList.length;
+        const totalPlayers = noShowName ? playerCount + 1 : playerCount;
+
+        let y = MT;
+
+        // ── HEADER BAND ──────────────────────────────────────────
+        doc.setFillColor(...BLUE);
+        doc.rect(0, 0, PW, 22, 'F');
+        // Lime accent stripe
+        doc.setFillColor(...LIME);
+        doc.rect(0, 22, PW, 1.2, 'F');
+
+        // Ladder name
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(13);
+        doc.setTextColor(...WHITE);
+        doc.text(ladderName, ML, 10);
+
+        // Scoring format (right side)
+        if (scoringFormat) {
+          doc.setFontSize(9);
+          doc.setFont('helvetica', 'normal');
+          doc.text(scoringFormat, PW - MR, 10, { align: 'right' });
+        }
+
+        // Date and court
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Date: ${dateLabel}`, ML, 17);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`Court: ${courtNum}`, PW - MR, 17, { align: 'right' });
+
+        y = 30; // after header
+
+        // ── TWO-COLUMN LAYOUT ─────────────────────────────────────
+        // Left col: matchups | Right col: player list
+        const COL_SPLIT = CW * 0.62; // 62% for games, 38% for players
+        const leftW = ML + COL_SPLIT - 4;
+        const rightX = ML + COL_SPLIT + 4;
+        const rightW = PW - MR - rightX;
+
+        // ── RIGHT COLUMN: PLAYERS LIST ────────────────────────────
+        doc.setFontSize(8.5);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(...MUTED);
+        doc.text('PLAYERS', rightX, y);
+
+        let ry = y + 6;
+        const allPlayersForList = noShowName ? [...playerList, noShowName] : playerList;
+        allPlayersForList.forEach((name, i) => {
+          // Row background alternating
+          if (i % 2 === 0) {
+            doc.setFillColor(245, 247, 252);
+            doc.rect(rightX - 1, ry - 4, rightW + 1, 7, 'F');
+          }
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(8);
+          doc.setTextColor(...DARK);
+          doc.text(`${i + 1}.`, rightX, ry);
+          doc.setFont('helvetica', 'normal');
+          const isNoShow = name === noShowName;
+          if (isNoShow) doc.setTextColor(...ORANGE);
+          doc.text(name + (isNoShow ? ' (No show)' : ''), rightX + 6, ry);
+          doc.setTextColor(...DARK);
+          ry += 7.5;
+        });
+
+        // ── LEFT COLUMN: GAMES ────────────────────────────────────
+        doc.setFontSize(8.5);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(...MUTED);
+        doc.text('GAMES', ML, y);
+
+        let gy = y + 6;
+        const SCORE_BOX_W = 10;
+        const SCORE_BOX_H = 7;
+        const GAME_ROW_H = 14; // height per game row (two teams)
+
+        gameNums.forEach((gn) => {
+          const gamePlayers = court.games[gn].filter((m) => !m.default_no_show);
+
+          // Reconstruct team A and team B from the matches
+          // In the DB each player row has score_for = their team's score.
+          // Players with the same score_for value are on the same team.
+          // Group by score_for bucket — but since scores may be null, group by insert order.
+          // Better: we stored players in pairs (tAIds then tBIds) so first half = teamA.
+          // For null scores, just split evenly.
+          const half = Math.ceil(gamePlayers.length / 2);
+          const teamA = gamePlayers.slice(0, half);
+          const teamB = gamePlayers.slice(half);
+
+          const teamANames = teamA.map((m) => m.players ? `${m.players.first_name} ${m.players.last_name}` : '?').join(' & ');
+          const teamBNames = teamB.map((m) => m.players ? `${m.players.first_name} ${m.players.last_name}` : '?').join(' & ');
+
+          // Find who sits out (only for 5+ player courts)
+          const sitMatch = court.games[gn].find((m) => {
+            // sit-out player: present in playerMap but not in this game's gamePlayers
+            return !m.default_no_show && !gamePlayers.find((gp) => gp.player_id === m.player_id);
+          });
+          // Actually detect sit-out differently: compare this game's active players vs full playerList
+          const gamePlayerIds = new Set(gamePlayers.map((m) => m.player_id));
+          const sittingOut = Object.entries(playerMap)
+            .filter(([pid]) => !gamePlayerIds.has(parseInt(pid, 10)))
+            .map(([, name]) => name);
+
+          // Special: game 4 closest scores note
+          const isGame4 = gn === 4 && playerCount === 4;
+          const isExtraGame = gn > gameNums.filter(n => n <= gameNums.length).length;
+
+          // Game header
+          doc.setFillColor(...BLUE);
+          doc.setTextColor(...WHITE);
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(8);
+          doc.rect(ML, gy - 4, leftW - ML, 6, 'F');
+
+          if (isGame4) {
+            doc.text(`GAME ${gn}  —  CLOSEST SCORES MATCH`, ML + 2, gy);
+          } else {
+            doc.text(`GAME ${gn}`, ML + 2, gy);
+          }
+          gy += 4;
+
+          if (isGame4) {
+            // Special game 4 note
+            doc.setFont('helvetica', 'italic');
+            doc.setFontSize(7.5);
+            doc.setTextColor(...MUTED);
+            const note = '4th MATCH will be between the combination of players with the closest score';
+            doc.text(note, ML + 2, gy + 3);
+            // Blank score boxes
+            doc.setDrawColor(...BORDER);
+            doc.setLineWidth(0.4);
+            const bx = leftW - SCORE_BOX_W * 2 - 6;
+            doc.rect(bx, gy - 1, SCORE_BOX_W, SCORE_BOX_H);
+            doc.rect(bx + SCORE_BOX_W + 2, gy - 1, SCORE_BOX_W, SCORE_BOX_H);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(7);
+            doc.setTextColor(...MUTED);
+            doc.text('VS', bx + SCORE_BOX_W + 1, gy + 3, { align: 'center' });
+            gy += 10;
+          } else {
+            // Team A row
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(9);
+            doc.setTextColor(...DARK);
+            doc.text(teamANames, ML + 2, gy + 5);
+
+            // Team B row
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(7.5);
+            doc.setTextColor(...MUTED);
+            doc.text('VS', ML + 2, gy + 10);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(9);
+            doc.setTextColor(...DARK);
+            doc.text(teamBNames, ML + 8, gy + 10);
+
+            // Score boxes (right side of left column)
+            const bx = leftW - SCORE_BOX_W * 2 - 6;
+            doc.setDrawColor(...BORDER);
+            doc.setLineWidth(0.5);
+            doc.setFillColor(...WHITE);
+            doc.rect(bx, gy + 1, SCORE_BOX_W, SCORE_BOX_H, 'FD');
+            doc.rect(bx + SCORE_BOX_W + 3, gy + 1, SCORE_BOX_W, SCORE_BOX_H, 'FD');
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(7);
+            doc.setTextColor(...MUTED);
+            doc.text('—', bx + SCORE_BOX_W + 1.5, gy + 5.5, { align: 'center' });
+
+            // Sits out
+            if (sittingOut.length) {
+              doc.setFont('helvetica', 'italic');
+              doc.setFontSize(7);
+              doc.setTextColor(...ORANGE);
+              doc.text(`Sits out: ${sittingOut.join(', ')}`, ML + 2, gy + 15);
+              gy += 5;
+            }
+
+            gy += 15;
+          }
+
+          // Separator line between games
+          doc.setDrawColor(...BORDER);
+          doc.setLineWidth(0.3);
+          doc.line(ML, gy + 1, leftW, gy + 1);
+          gy += 4;
+        });
+
+        // ── FOOTER ───────────────────────────────────────────────
+        doc.setFillColor(...BLUE);
+        doc.rect(0, PH - 10, PW, 10, 'F');
+        doc.setFillColor(...LIME);
+        doc.rect(0, PH - 10, PW, 0.8, 'F');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(7);
+        doc.setTextColor(...WHITE);
+        doc.text('Ferocia Sports Center  —  ferociasports.com', PW / 2, PH - 4, { align: 'center' });
+      });
+
+      // Download
+      const fileName = `${ladderName.replace(/\s+/g, '_')}_Roster_${date}.pdf`;
+      doc.save(fileName);
+      toast(`✅ Roster downloaded: ${fileName}`);
+    } catch (err) {
+      toast(`Error generating PDF: ${err.message}`, true);
+      console.error('[printRoster]', err);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '📄 Print Roster';
     }
   };
 
@@ -2414,6 +2773,8 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     showShareQR: (btn) => showShareQR(btn),
     // Tournament notify
     closeTournamentNotifyModal: () => closeTournamentNotifyModal(),
+    // Print Roster
+    printRoster: (btn) => printRoster(btn),
   };
 
   document.addEventListener('click', (e) => {
@@ -2475,6 +2836,15 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
       if (sf && sa && pts && sf.value !== '' && sa.value !== '') {
         pts.value = calcPoints(parseInt(sf.value, 10), parseInt(sa.value, 10));
       }
+    }
+    // When any score input changes, update save button label dynamically
+    if (el.classList.contains('score-input')) {
+      const anyScore = document.querySelectorAll('.score-input');
+      const hasAnyScore = [...anyScore].some((inp) => inp.value !== '');
+      const btn = document.getElementById('save-session-btn');
+      const hint = document.getElementById('save-session-hint');
+      if (btn) btn.textContent = hasAnyScore ? 'Save Session' : 'Save Roster';
+      if (hint) hint.style.display = hasAnyScore ? 'none' : '';
     }
     // Extra game / game-4 score inputs
     const egame = el.dataset.egame;
