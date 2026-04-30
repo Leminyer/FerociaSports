@@ -1784,35 +1784,66 @@
             doc.text('—', bx4 + SCORE_BOX_W + 1.5, gy + 5.5, { align: 'center' });
             gy += 15;
           } else {
-            // Roster-only: render blank Game 4 with the note
+            // Roster-only: render blank Game 4 with name lines and note
             doc.setFillColor(...BLUE);
             doc.setTextColor(...WHITE);
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(8);
             doc.rect(ML, gy - 4, leftW - ML, 6, 'F');
             doc.text('GAME 4  —  CLOSEST SCORES MATCH', ML + 2, gy);
-            gy += 4;
+            gy += 6;
 
-            doc.setFont('helvetica', 'italic');
-            doc.setFontSize(7.5);
-            doc.setTextColor(...MUTED);
-            doc.text(
-              '4th MATCH will be between the combination of players with the closest score',
-              ML + 2, gy + 4
-            );
-
-            // Two blank score boxes
-            const bx4 = leftW - SCORE_BOX_W * 2 - 6;
+            // Team A name line
+            const nameLineW = (leftW - ML - 28) / 2;
             doc.setDrawColor(...BORDER);
-            doc.setLineWidth(0.5);
+            doc.setLineWidth(0.4);
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(7);
+            doc.setTextColor(...MUTED);
+            doc.text('Player 1', ML + 2, gy + 3);
+            doc.line(ML + 14, gy + 4, ML + 14 + nameLineW, gy + 4);
+            doc.text('& Player 2', ML + 14 + nameLineW + 2, gy + 3);
+            doc.line(ML + 28 + nameLineW, gy + 4, ML + 28 + nameLineW * 1.8, gy + 4);
+
+            // Score boxes — right side, aligned with Team A row
+            const bx4 = leftW - SCORE_BOX_W * 2 - 6;
             doc.setFillColor(...WHITE);
-            doc.rect(bx4, gy, SCORE_BOX_W, SCORE_BOX_H, 'FD');
-            doc.rect(bx4 + SCORE_BOX_W + 3, gy, SCORE_BOX_W, SCORE_BOX_H, 'FD');
+            doc.setLineWidth(0.5);
+            doc.rect(bx4, gy - 2, SCORE_BOX_W, SCORE_BOX_H, 'FD');
+            doc.rect(bx4 + SCORE_BOX_W + 3, gy - 2, SCORE_BOX_W, SCORE_BOX_H, 'FD');
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(7);
             doc.setTextColor(...MUTED);
-            doc.text('—', bx4 + SCORE_BOX_W + 1.5, gy + 4, { align: 'center' });
-            gy += 14;
+            doc.text('—', bx4 + SCORE_BOX_W + 1.5, gy + 2.5, { align: 'center' });
+            gy += 9;
+
+            // VS separator
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(7);
+            doc.setTextColor(...MUTED);
+            doc.text('VS', ML + 2, gy + 2);
+            gy += 6;
+
+            // Team B name line
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(7);
+            doc.setTextColor(...MUTED);
+            doc.text('Player 3', ML + 2, gy + 3);
+            doc.line(ML + 14, gy + 4, ML + 14 + nameLineW, gy + 4);
+            doc.text('& Player 4', ML + 14 + nameLineW + 2, gy + 3);
+            doc.line(ML + 28 + nameLineW, gy + 4, ML + 28 + nameLineW * 1.8, gy + 4);
+            gy += 10;
+
+            // Note below — full width, no overlap
+            doc.setFont('helvetica', 'italic');
+            doc.setFontSize(7);
+            doc.setTextColor(...MUTED);
+            doc.text(
+              '* 4th MATCH will be between the combination of players with the closest score after games 1, 2 & 3.',
+              ML + 2, gy + 3,
+              { maxWidth: leftW - ML - 2 }
+            );
+            gy += 10;
           }
 
           // Final separator
