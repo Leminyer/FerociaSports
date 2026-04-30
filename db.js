@@ -152,7 +152,9 @@
       case 'PATCH': {
         qb = sbClient.from(table).update(body);
         qb = applyFilters(qb);
-        qb = qb.select(select);
+        // Do NOT chain .select() — anon users may not have SELECT RLS policy
+        // on the table being updated (e.g. subscribers). The update itself
+        // is allowed by the UPDATE policy; requesting rows back is not.
         result = await qb;
         if (result.error) throw new Error(result.error.message);
         return result.data || null;

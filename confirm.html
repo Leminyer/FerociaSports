@@ -67,17 +67,10 @@
     }
 
     try {
-      const rows = await api(
-        `subscribers?confirm_token=eq.${encodeURIComponent(token)}&select=id,status`,
-      );
-      if (!rows || !rows.length) {
-        setState('❌', 'error', 'Link not found', 'This confirmation link has expired or was already used.');
-        return;
-      }
-      if (rows[0].status === 'active') {
-        setState('✅', 'success', 'Already confirmed!', 'Your email is already confirmed. You are subscribed to Ferocia Sports updates.');
-        return;
-      }
+      // PATCH directly — no SELECT needed. The anon UPDATE policy
+      // (subscribers_anon_update_by_token) allows this when the token matches.
+      // If the token was already nulled out (already confirmed) or never existed,
+      // the update affects 0 rows and succeeds silently — we show "already confirmed."
       await api(
         `subscribers?confirm_token=eq.${encodeURIComponent(token)}`,
         'PATCH',
