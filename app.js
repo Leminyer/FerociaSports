@@ -662,8 +662,8 @@
         html += `<div class="session-date-group">
           <div class="row-between mb-8" style="padding:8px 0;border-bottom:2px solid var(--blue-pale);margin-bottom:12px;">
             <div style="font-size:13px;font-weight:800;color:var(--blue);">📅 ${dateLabel}</div>
-            <button class="btn btn-outline btn-sm" data-action="printRoster" data-date="${esc(date)}" data-ladderid="${currentLadder.id}" style="font-size:11px;">
-              📄 Print Roster
+            <button class="btn btn-primary btn-sm" data-action="printRoster" data-date="${esc(date)}" data-ladderid="${currentLadder.id}" style="font-size:11px;font-weight:800;letter-spacing:.5px;display:flex;align-items:center;gap:6px;">
+              📄 PRINT ROSTER
             </button>
           </div>`;
 
@@ -1666,12 +1666,6 @@
         gameNums.forEach((gn) => {
           const gamePlayers = court.games[gn].filter((m) => !m.default_no_show);
 
-          // Reconstruct team A and team B from the matches
-          // In the DB each player row has score_for = their team's score.
-          // Players with the same score_for value are on the same team.
-          // Group by score_for bucket — but since scores may be null, group by insert order.
-          // Better: we stored players in pairs (tAIds then tBIds) so first half = teamA.
-          // For null scores, just split evenly.
           const half = Math.ceil(gamePlayers.length / 2);
           const teamA = gamePlayers.slice(0, half);
           const teamB = gamePlayers.slice(half);
@@ -1679,20 +1673,15 @@
           const teamANames = teamA.map((m) => m.players ? `${m.players.first_name} ${m.players.last_name}` : '?').join(' & ');
           const teamBNames = teamB.map((m) => m.players ? `${m.players.first_name} ${m.players.last_name}` : '?').join(' & ');
 
-          // Find who sits out (only for 5+ player courts)
-          const sitMatch = court.games[gn].find((m) => {
-            // sit-out player: present in playerMap but not in this game's gamePlayers
-            return !m.default_no_show && !gamePlayers.find((gp) => gp.player_id === m.player_id);
-          });
-          // Actually detect sit-out differently: compare this game's active players vs full playerList
           const gamePlayerIds = new Set(gamePlayers.map((m) => m.player_id));
           const sittingOut = Object.entries(playerMap)
             .filter(([pid]) => !gamePlayerIds.has(parseInt(pid, 10)))
             .map(([, name]) => name);
 
-          // Special: game 4 closest scores note
+          // Game 4 for 4-player courts is the closest scores match — skip it here,
+          // it gets rendered separately below (always, even in roster-only mode)
           const isGame4 = gn === 4 && playerCount === 4;
-          const isExtraGame = gn > gameNums.filter(n => n <= gameNums.length).length;
+          if (isGame4) return; // handled after the loop
 
           // Game header
           doc.setFillColor(...BLUE);
@@ -1700,40 +1689,80 @@
           doc.setFont('helvetica', 'bold');
           doc.setFontSize(8);
           doc.rect(ML, gy - 4, leftW - ML, 6, 'F');
-
-          if (isGame4) {
-            doc.text(`GAME ${gn}  —  CLOSEST SCORES MATCH`, ML + 2, gy);
-          } else {
-            doc.text(`GAME ${gn}`, ML + 2, gy);
-          }
+          doc.text(`GAME ${gn}`, ML + 2, gy);
           gy += 4;
 
-          if (isGame4) {
-            // Special game 4 note
+          // Team A row
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(9);
+          doc.setTextColor(...DARK);
+          doc.text(teamANames, ML + 2, gy + 5);
+
+          // VS + Team B row
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(7.5);
+          doc.setTextColor(...MUTED);
+          doc.text('VS', ML + 2, gy + 10);
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(9);
+          doc.setTextColor(...DARK);
+          doc.text(teamBNames, ML + 8, gy + 10);
+
+          // Score boxes
+          const bx = leftW - SCORE_BOX_W * 2 - 6;
+          doc.setDrawColor(...BORDER);
+          doc.setLineWidth(0.5);
+          doc.setFillColor(...WHITE);
+          doc.rect(bx, gy + 1, SCORE_BOX_W, SCORE_BOX_H, 'FD');
+          doc.rect(bx + SCORE_BOX_W + 3, gy + 1, SCORE_BOX_W, SCORE_BOX_H, 'FD');
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(7);
+          doc.setTextColor(...MUTED);
+          doc.text('—', bx + SCORE_BOX_W + 1.5, gy + 5.5, { align: 'center' });
+
+          // Sits out (5-player courts)
+          if (sittingOut.length) {
             doc.setFont('helvetica', 'italic');
-            doc.setFontSize(7.5);
-            doc.setTextColor(...MUTED);
-            const note = '4th MATCH will be between the combination of players with the closest score';
-            doc.text(note, ML + 2, gy + 3);
-            // Blank score boxes
-            doc.setDrawColor(...BORDER);
-            doc.setLineWidth(0.4);
-            const bx = leftW - SCORE_BOX_W * 2 - 6;
-            doc.rect(bx, gy - 1, SCORE_BOX_W, SCORE_BOX_H);
-            doc.rect(bx + SCORE_BOX_W + 2, gy - 1, SCORE_BOX_W, SCORE_BOX_H);
-            doc.setFont('helvetica', 'bold');
             doc.setFontSize(7);
-            doc.setTextColor(...MUTED);
-            doc.text('VS', bx + SCORE_BOX_W + 1, gy + 3, { align: 'center' });
-            gy += 10;
-          } else {
-            // Team A row
+            doc.setTextColor(...ORANGE);
+            doc.text(`Sits out: ${sittingOut.join(', ')}`, ML + 2, gy + 15);
+            gy += 5;
+          }
+
+          gy += 15;
+
+          // Separator
+          doc.setDrawColor(...BORDER);
+          doc.setLineWidth(0.3);
+          doc.line(ML, gy + 1, leftW, gy + 1);
+          gy += 4;
+        });
+
+        // ── GAME 4 CLOSEST SCORES — always rendered for 4-player courts ──
+        // This game is determined during play so it's never pre-saved in the DB.
+        // We always render it so players have a blank section to record the score.
+        if (playerCount === 4) {
+          // Check if Game 4 was already saved with real players (score entry mode)
+          const game4InDB = gameNums.includes(4);
+          if (game4InDB) {
+            // Render with actual saved players
+            const g4Players = court.games[4].filter((m) => !m.default_no_show);
+            const half = Math.ceil(g4Players.length / 2);
+            const tA = g4Players.slice(0, half).map((m) => m.players ? `${m.players.first_name} ${m.players.last_name}` : '?').join(' & ');
+            const tB = g4Players.slice(half).map((m) => m.players ? `${m.players.first_name} ${m.players.last_name}` : '?').join(' & ');
+
+            doc.setFillColor(...BLUE);
+            doc.setTextColor(...WHITE);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(8);
+            doc.rect(ML, gy - 4, leftW - ML, 6, 'F');
+            doc.text('GAME 4  —  CLOSEST SCORES MATCH', ML + 2, gy);
+            gy += 4;
+
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(9);
             doc.setTextColor(...DARK);
-            doc.text(teamANames, ML + 2, gy + 5);
-
-            // Team B row
+            doc.text(tA, ML + 2, gy + 5);
             doc.setFont('helvetica', 'normal');
             doc.setFontSize(7.5);
             doc.setTextColor(...MUTED);
@@ -1741,38 +1770,56 @@
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(9);
             doc.setTextColor(...DARK);
-            doc.text(teamBNames, ML + 8, gy + 10);
+            doc.text(tB, ML + 8, gy + 10);
 
-            // Score boxes (right side of left column)
-            const bx = leftW - SCORE_BOX_W * 2 - 6;
+            const bx4 = leftW - SCORE_BOX_W * 2 - 6;
             doc.setDrawColor(...BORDER);
             doc.setLineWidth(0.5);
             doc.setFillColor(...WHITE);
-            doc.rect(bx, gy + 1, SCORE_BOX_W, SCORE_BOX_H, 'FD');
-            doc.rect(bx + SCORE_BOX_W + 3, gy + 1, SCORE_BOX_W, SCORE_BOX_H, 'FD');
+            doc.rect(bx4, gy + 1, SCORE_BOX_W, SCORE_BOX_H, 'FD');
+            doc.rect(bx4 + SCORE_BOX_W + 3, gy + 1, SCORE_BOX_W, SCORE_BOX_H, 'FD');
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(7);
             doc.setTextColor(...MUTED);
-            doc.text('—', bx + SCORE_BOX_W + 1.5, gy + 5.5, { align: 'center' });
-
-            // Sits out
-            if (sittingOut.length) {
-              doc.setFont('helvetica', 'italic');
-              doc.setFontSize(7);
-              doc.setTextColor(...ORANGE);
-              doc.text(`Sits out: ${sittingOut.join(', ')}`, ML + 2, gy + 15);
-              gy += 5;
-            }
-
+            doc.text('—', bx4 + SCORE_BOX_W + 1.5, gy + 5.5, { align: 'center' });
             gy += 15;
+          } else {
+            // Roster-only: render blank Game 4 with the note
+            doc.setFillColor(...BLUE);
+            doc.setTextColor(...WHITE);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(8);
+            doc.rect(ML, gy - 4, leftW - ML, 6, 'F');
+            doc.text('GAME 4  —  CLOSEST SCORES MATCH', ML + 2, gy);
+            gy += 4;
+
+            doc.setFont('helvetica', 'italic');
+            doc.setFontSize(7.5);
+            doc.setTextColor(...MUTED);
+            doc.text(
+              '4th MATCH will be between the combination of players with the closest score',
+              ML + 2, gy + 4
+            );
+
+            // Two blank score boxes
+            const bx4 = leftW - SCORE_BOX_W * 2 - 6;
+            doc.setDrawColor(...BORDER);
+            doc.setLineWidth(0.5);
+            doc.setFillColor(...WHITE);
+            doc.rect(bx4, gy, SCORE_BOX_W, SCORE_BOX_H, 'FD');
+            doc.rect(bx4 + SCORE_BOX_W + 3, gy, SCORE_BOX_W, SCORE_BOX_H, 'FD');
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(7);
+            doc.setTextColor(...MUTED);
+            doc.text('—', bx4 + SCORE_BOX_W + 1.5, gy + 4, { align: 'center' });
+            gy += 14;
           }
 
-          // Separator line between games
+          // Final separator
           doc.setDrawColor(...BORDER);
           doc.setLineWidth(0.3);
           doc.line(ML, gy + 1, leftW, gy + 1);
-          gy += 4;
-        });
+        }
 
         // ── FOOTER ───────────────────────────────────────────────
         doc.setFillColor(...BLUE);
