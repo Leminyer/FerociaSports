@@ -1360,8 +1360,20 @@
       (p) => !noShowPlayer || p.id !== noShowPlayer.id,
     ).length;
 
+    // ── Determine whether scores are present ─────────────────
+    // If ANY game has a score entered, we require ALL games to have scores (existing behavior).
+    // If NO game has any score, we save as roster-only (null scores, no points).
+    const anyScoreEntered = allGameNums.some((gameNum) => {
+      const isVoided = document.getElementById(`void-${gameNum}`)?.checked || false;
+      if (isVoided) return true; // voided counts as "score provided"
+      const sA = document.getElementById(`scoreA-${gameNum}`);
+      return sA && sA.value !== '';
+    });
+
     // Validate Game 4 player selection (4-active-players closest scores)
-    if (activePlayerCount === 4) {
+    // Only required when scores are being entered — in roster-only mode,
+    // Game 4 players are determined during play so we skip this check.
+    if (anyScoreEntered && activePlayerCount === 4) {
       const a1 = document.getElementById('extraA1-4')?.value;
       const a2 = document.getElementById('extraA2-4')?.value;
       const b1 = document.getElementById('extraB1-4')?.value;
@@ -1372,16 +1384,6 @@
         return;
       }
     }
-
-    // ── Determine whether scores are present ─────────────────
-    // If ANY game has a score entered, we require ALL games to have scores (existing behavior).
-    // If NO game has any score, we save as roster-only (null scores, no points).
-    const anyScoreEntered = allGameNums.some((gameNum) => {
-      const isVoided = document.getElementById(`void-${gameNum}`)?.checked || false;
-      if (isVoided) return true; // voided counts as "score provided"
-      const sA = document.getElementById(`scoreA-${gameNum}`);
-      return sA && sA.value !== '';
-    });
 
     if (anyScoreEntered) {
       // ── SCORE MODE: validate all games have scores ──────────
