@@ -1791,50 +1791,54 @@
             doc.setFontSize(8);
             doc.rect(ML, gy - 4, leftW - ML, 6, 'F');
             doc.text('GAME 4  —  CLOSEST SCORES MATCH', ML + 2, gy);
-            gy += 6;
+            gy += 8;
 
-            // Team A name line
-            const nameLineW = (leftW - ML - 28) / 2;
+            const bx4 = leftW - SCORE_BOX_W * 2 - 6;
+            const nameLineEnd = bx4 - 4; // name line stops before score boxes
+
             doc.setDrawColor(...BORDER);
             doc.setLineWidth(0.4);
             doc.setFont('helvetica', 'normal');
             doc.setFontSize(7);
             doc.setTextColor(...MUTED);
-            doc.text('Player 1', ML + 2, gy + 3);
-            doc.line(ML + 14, gy + 4, ML + 14 + nameLineW, gy + 4);
-            doc.text('& Player 2', ML + 14 + nameLineW + 2, gy + 3);
-            doc.line(ML + 28 + nameLineW, gy + 4, ML + 28 + nameLineW * 1.8, gy + 4);
 
-            // Score boxes — right side, aligned with Team A row
-            const bx4 = leftW - SCORE_BOX_W * 2 - 6;
+            // Team A — two players on separate lines, score boxes on the right
+            doc.text('1.', ML + 2, gy + 3);
+            doc.line(ML + 8, gy + 4, nameLineEnd, gy + 4);          // name write line
+
+            doc.text('2.', ML + 2, gy + 10);
+            doc.line(ML + 8, gy + 11, nameLineEnd, gy + 11);
+
+            // Score boxes aligned to right of Team A rows
             doc.setFillColor(...WHITE);
             doc.setLineWidth(0.5);
-            doc.rect(bx4, gy - 2, SCORE_BOX_W, SCORE_BOX_H, 'FD');
-            doc.rect(bx4 + SCORE_BOX_W + 3, gy - 2, SCORE_BOX_W, SCORE_BOX_H, 'FD');
+            doc.rect(bx4, gy, SCORE_BOX_W, SCORE_BOX_H * 1.8, 'FD');         // taller box spans both player rows
+            doc.rect(bx4 + SCORE_BOX_W + 3, gy, SCORE_BOX_W, SCORE_BOX_H * 1.8, 'FD');
             doc.setFont('helvetica', 'bold');
-            doc.setFontSize(7);
+            doc.setFontSize(8);
             doc.setTextColor(...MUTED);
-            doc.text('—', bx4 + SCORE_BOX_W + 1.5, gy + 2.5, { align: 'center' });
-            gy += 9;
+            doc.text('—', bx4 + SCORE_BOX_W + 1.5, gy + 7, { align: 'center' });
+            gy += 16;
 
-            // VS separator
+            // VS
             doc.setFont('helvetica', 'bold');
-            doc.setFontSize(7);
+            doc.setFontSize(7.5);
             doc.setTextColor(...MUTED);
             doc.text('VS', ML + 2, gy + 2);
-            gy += 6;
+            gy += 7;
 
-            // Team B name line
+            // Team B — two players on separate lines
             doc.setFont('helvetica', 'normal');
             doc.setFontSize(7);
             doc.setTextColor(...MUTED);
-            doc.text('Player 3', ML + 2, gy + 3);
-            doc.line(ML + 14, gy + 4, ML + 14 + nameLineW, gy + 4);
-            doc.text('& Player 4', ML + 14 + nameLineW + 2, gy + 3);
-            doc.line(ML + 28 + nameLineW, gy + 4, ML + 28 + nameLineW * 1.8, gy + 4);
-            gy += 10;
+            doc.text('3.', ML + 2, gy + 3);
+            doc.line(ML + 8, gy + 4, nameLineEnd, gy + 4);
 
-            // Note below — full width, no overlap
+            doc.text('4.', ML + 2, gy + 10);
+            doc.line(ML + 8, gy + 11, nameLineEnd, gy + 11);
+            gy += 16;
+
+            // Note — full width below everything
             doc.setFont('helvetica', 'italic');
             doc.setFontSize(7);
             doc.setTextColor(...MUTED);
