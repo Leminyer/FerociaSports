@@ -900,38 +900,60 @@
         grouped[key].games[m.game_number].push(m);
       });
 
-      // Group courts by date for the Print Roster button (one per date)
+      // Group courts by date
       const byDate = {};
       Object.values(grouped).forEach((s) => {
         if (!byDate[s.date]) byDate[s.date] = [];
         byDate[s.date].push(s);
       });
 
+      const sortedDates = Object.keys(byDate).sort((a, b) => b.localeCompare(a));
+
       let html = '';
-      // Iterate date groups in desc order
-      Object.keys(byDate).sort((a, b) => b.localeCompare(a)).forEach((date) => {
+
+      sortedDates.forEach((date, dateIdx) => {
         const courts = byDate[date];
         const dateLabel = fmtDate(date, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
+        const isFirst = dateIdx === 0; // most recent — auto-expanded
+        const groupId = `sdg-${date.replace(/-/g, '')}`;
 
-        // Check if all courts on this date have scores (all games have score_for not null)
-        const allComplete = courts.every((s) =>
-          Object.values(s.games).flat().every((m) => m.default_no_show || m.score_for !== null)
-        );
-        const anyPending = courts.some((s) =>
+        // Count pending courts for the collapsed header indicator
+        const pendingCount = courts.filter((s) =>
           Object.values(s.games).flat().some((m) => !m.default_no_show && m.score_for === null)
-        );
+        ).length;
+        const courtCount = courts.length;
 
-        // Date header with Print Roster button
-        html += `<div class="session-date-group">
-          <div class="row-between mb-8" style="padding:8px 0;border-bottom:2px solid var(--blue-pale);margin-bottom:12px;">
-            <div style="font-size:13px;font-weight:800;color:var(--blue);">📅 ${dateLabel}</div>
-            <button class="btn btn-primary btn-sm" data-action="printRoster" data-date="${esc(date)}" data-ladderid="${currentLadder.id}" style="font-size:11px;font-weight:800;letter-spacing:.5px;display:flex;align-items:center;gap:6px;">
+        // Header row — always visible, clickable to toggle
+        html += `<div class="session-date-group" id="${groupId}">
+          <div class="session-date-header ${isFirst ? 'open' : ''}"
+               data-action="toggleSessionGroup" data-groupid="${groupId}"
+               style="display:flex;align-items:center;justify-content:space-between;
+                      padding:10px 12px;border-radius:8px;cursor:pointer;
+                      background:var(--blue-pale);margin-bottom:4px;
+                      border:1.5px solid var(--border);user-select:none;">
+            <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">
+              <span style="font-size:14px;font-weight:800;color:var(--blue);transition:transform .2s;
+                           display:inline-block;" class="sdg-chevron ${isFirst ? 'sdg-chevron-open' : ''}">▶</span>
+              <div>
+                <div style="font-size:13px;font-weight:800;color:var(--blue);">📅 ${dateLabel}</div>
+                <div style="font-size:11px;font-weight:600;color:var(--text-muted);margin-top:2px;">
+                  ${courtCount} court${courtCount !== 1 ? 's' : ''}
+                  ${pendingCount ? `<span style="color:var(--orange);margin-left:8px;">⏳ ${pendingCount} pending scores</span>` : ''}
+                </div>
+              </div>
+            </div>
+            <button class="btn btn-primary btn-sm" data-action="printRoster"
+                    data-date="${esc(date)}" data-ladderid="${currentLadder.id}"
+                    style="font-size:11px;font-weight:800;flex-shrink:0;margin-left:12px;"
+                    onclick="event.stopPropagation();">
               📄 PRINT ROSTER
             </button>
           </div>`;
 
+        // Collapsible content — hidden unless this is the most recent date
+        html += `<div class="session-date-body" style="display:${isFirst ? 'block' : 'none'};margin-bottom:8px;">`;
+
         courts.forEach((s) => {
-          // Determine if this court has scores pending
           const courtGames = Object.values(s.games).flat();
           const courtPending = courtGames.some((m) => !m.default_no_show && m.score_for === null);
           const sessionMatchIds = courtGames.map((m) => m.id).join(',');
@@ -950,7 +972,6 @@
 
           Object.entries(s.games).forEach(([gnum, players]) => {
             const gameIds = players.map((p) => p.id).join(',');
-            const gamePending = players.some((p) => !p.default_no_show && p.score_for === null);
             html += `<div class="game-row">
               <div class="row-between gap-6">
                 <div class="row-wrap gap-6">
@@ -974,8 +995,11 @@
               </div>
             </div>`;
           });
+
           html += '</div>'; // session-block
         });
+
+        html += '</div>'; // session-date-body
         html += '</div>'; // session-date-group
       });
 
@@ -983,6 +1007,35 @@
     } catch (e) {
       document.getElementById('sessions-list').innerHTML =
         `<div class="empty">Error: ${esc(e.message)}</div>`;
+    }
+  };
+
+  // Accordion toggle — one date open at a time
+  const toggleSessionGroup = (btn) => {
+    const groupId = btn.dataset.groupid;
+    const clickedGroup = document.getElementById(groupId);
+    if (!clickedGroup) return;
+
+    const clickedBody    = clickedGroup.querySelector('.session-date-body');
+    const clickedHeader  = clickedGroup.querySelector('.session-date-header');
+    const clickedChevron = clickedGroup.querySelector('.sdg-chevron');
+    const isOpen = clickedHeader.classList.contains('open');
+
+    // Close ALL groups first
+    document.querySelectorAll('.session-date-group').forEach((g) => {
+      g.querySelector('.session-date-body').style.display = 'none';
+      g.querySelector('.session-date-header').classList.remove('open');
+      const ch = g.querySelector('.sdg-chevron');
+      ch.classList.remove('sdg-chevron-open');
+      ch.style.transform = '';
+    });
+
+    // If the clicked one was closed, open it
+    if (!isOpen) {
+      clickedBody.style.display = 'block';
+      clickedHeader.classList.add('open');
+      clickedChevron.classList.add('sdg-chevron-open');
+      clickedChevron.style.transform = 'rotate(90deg)';
     }
   };
 
@@ -3379,6 +3432,8 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     printRoster: (btn) => printRoster(btn),
     // Print Standings
     printStandings: () => printStandings(),
+    // Session accordion
+    toggleSessionGroup: (btn) => toggleSessionGroup(btn),
   };
 
   document.addEventListener('click', (e) => {

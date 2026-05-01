@@ -133,3 +133,9 @@
 .lp-status-select { font-size:11px; font-weight:700; padding:3px 8px; border:0.5px solid var(--border); border-radius:99px; font-family:'Montserrat',sans-serif; cursor:pointer; }
 .lp-status-active { background:var(--teal-light); color:var(--teal); }
 .lp-status-sub    { background:var(--orange-light); color:var(--orange); }
+
+/* Session accordion */
+.sdg-chevron           { transition: transform .2s ease; display:inline-block; font-size:11px; color:var(--blue); }
+.sdg-chevron-open      { transform: rotate(90deg); }
+.session-date-header   { transition: background .15s; }
+.session-date-header:hover { background: var(--blue-pale) !important; filter: brightness(0.96); }
