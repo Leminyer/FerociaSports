@@ -2968,6 +2968,12 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
       return;
     }
 
+    // Add admin as last recipient to receive a copy and verify delivery
+    const allRecipients = [
+      ...emailPlayers,
+      { first_name: 'Ferocia', last_name: 'Admin', email: CFG.ADMIN_EMAIL },
+    ];
+
     const encoded = btoa(String(currentLadder.id));
     const baseUrl =
       window.location.origin + window.location.pathname.replace('index.html', '') + 'players.html';
@@ -2982,7 +2988,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     let sent = 0;
     const failedRecipients = [];
 
-    for (const player of emailPlayers) {
+    for (const player of allRecipients) {
       const ok = await sendOneEmail(CFG.EMAILJS.SERVICE, CFG.EMAILJS.TEMPLATES.LADDER_NOTIFY, {
         player_name: `${player.first_name} ${player.last_name}`,
         player_email: player.email,
@@ -2995,9 +3001,8 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
       } else {
         failedRecipients.push(player.email);
       }
-      sendBtn.textContent = `Sending... ${sent + failedRecipients.length}/${emailPlayers.length}`;
-      // Throttle so we don't trip rate limits
-      if (sent + failedRecipients.length < emailPlayers.length) {
+      sendBtn.textContent = `Sending... ${sent + failedRecipients.length}/${allRecipients.length}`;
+      if (sent + failedRecipients.length < allRecipients.length) {
         await sleep(CFG.EMAIL_THROTTLE_MS);
       }
     }
@@ -3109,7 +3114,13 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     let sent = 0;
     const failedRecipients = [];
 
-    for (const player of _emailPlayers) {
+    // Add admin as last recipient to receive a copy and verify delivery
+    const allTourneyRecipients = [
+      ..._emailPlayers,
+      { first_name: 'Ferocia', last_name: 'Admin', email: CFG.ADMIN_EMAIL },
+    ];
+
+    for (const player of allTourneyRecipients) {
       const playerMsg = message.replace('{{player_name}}', `${player.first_name} ${player.last_name}`);
       const ok = await sendOneEmail(CFG.EMAILJS.SERVICE, CFG.EMAILJS.TEMPLATES.LADDER_NOTIFY, {
         player_name: `${player.first_name} ${player.last_name}`,
@@ -3120,8 +3131,8 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
       });
       if (ok) sent++;
       else failedRecipients.push(player.email);
-      sendBtn.textContent = `Sending... ${sent + failedRecipients.length}/${_emailPlayers.length}`;
-      if (sent + failedRecipients.length < _emailPlayers.length) {
+      sendBtn.textContent = `Sending... ${sent + failedRecipients.length}/${allTourneyRecipients.length}`;
+      if (sent + failedRecipients.length < allTourneyRecipients.length) {
         await sleep(CFG.EMAIL_THROTTLE_MS);
       }
     }
@@ -3259,8 +3270,16 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     let sent = 0;
     const failedRecipients = [];
 
-    for (const sub of subs) {
-      const unsubUrl = `${baseUrl}unsubscribe.html?t=${sub.unsubscribe_token}`;
+    // Add admin as last recipient to receive a copy and verify delivery
+    const allPromoRecipients = [
+      ...subs,
+      { first_name: 'Ferocia', last_name: 'Admin', email: CFG.ADMIN_EMAIL, unsubscribe_token: null },
+    ];
+
+    for (const sub of allPromoRecipients) {
+      const unsubUrl = sub.unsubscribe_token
+        ? `${baseUrl}unsubscribe.html?t=${sub.unsubscribe_token}`
+        : `${baseUrl}unsubscribe.html`;
       const ok = await sendOneEmail(CFG.EMAILJS.SERVICE, CFG.EMAILJS.TEMPLATES.PROMO, {
         player_name: `${sub.first_name} ${sub.last_name}`,
         player_email: sub.email,
@@ -3270,8 +3289,8 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
       });
       if (ok) sent++;
       else failedRecipients.push(sub.email);
-      sendBtn.textContent = `Sending... ${sent + failedRecipients.length}/${subs.length}`;
-      if (sent + failedRecipients.length < subs.length) {
+      sendBtn.textContent = `Sending... ${sent + failedRecipients.length}/${allPromoRecipients.length}`;
+      if (sent + failedRecipients.length < allPromoRecipients.length) {
         await sleep(CFG.EMAIL_THROTTLE_MS);
       }
     }

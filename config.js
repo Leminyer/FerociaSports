@@ -29,6 +29,11 @@ window.FEROCIA_CONFIG = Object.freeze({
     }),
   }),
 
+  // Admin email — receives a copy of ladder notify, tournament notify, and promo emails
+  // so the admin can verify the email looks correct and confirm delivery.
+  // Not added to subscription confirmation emails.
+  ADMIN_EMAIL: 'contact@ferociasports.com',
+
   // Throttle between EmailJS sends to stay under their rate limit
   // and give the user visible progress feedback.
   EMAIL_THROTTLE_MS: 600,
