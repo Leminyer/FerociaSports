@@ -1847,8 +1847,168 @@
 
       const courtNums = Object.keys(courts).map(Number).sort((a, b) => a - b);
 
+      // ══════════════════════════════════════════════════════
+      // SUMMARY PAGE — page 1: all courts with player list
+      // ══════════════════════════════════════════════════════
+
+      // ── Header ────────────────────────────────────────────
+      doc.setFillColor(...BLUE);
+      doc.rect(0, 0, PW, 22, 'F');
+      doc.setFillColor(...LIME);
+      doc.rect(0, 22, PW, 1.2, 'F');
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(13);
+      doc.setTextColor(...WHITE);
+      doc.text(ladderName, ML, 10, { maxWidth: CW * 0.65 });
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.text(dateLabel, PW - MR, 10, { align: 'right' });
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setTextColor(...LIME);
+      doc.text('COURT ASSIGNMENTS', ML, 17);
+
+      // ── Two-column grid ────────────────────────────────────
+      const SUM_PAGE_BOTTOM = PH - 12;
+      const COL_W  = (CW - 8) / 2;   // width of each column (8mm gap between)
+      const COL1_X = ML;
+      const COL2_X = ML + COL_W + 8;
+
+      const COURT_HDR_H = 7;          // blue court header bar height
+      const ROW_H_SUM   = 6;          // player name row height
+      const COURT_GAP   = 5;          // vertical gap between courts
+
+      let col = 0;                    // 0 = left column, 1 = right column
+      let yL  = 28;                   // y cursor for left column
+      let yR  = 28;                   // y cursor for right column
+
+      // Helper: draw one court block in the summary, returns new y after drawing
+      const drawSummaryCourtBlock = (courtNum, playerNames, noShowName, startX, startY) => {
+        const totalRows = playerNames.length + (noShowName ? 1 : 0);
+        const blockH    = COURT_HDR_H + totalRows * ROW_H_SUM;
+
+        // Court header band
+        doc.setFillColor(...BLUE);
+        doc.rect(startX, startY, COL_W, COURT_HDR_H, 'F');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8.5);
+        doc.setTextColor(...WHITE);
+        doc.text(`Court ${courtNum}`, startX + COL_W / 2, startY + 5, { align: 'center' });
+
+        // Player rows
+        let ry = startY + COURT_HDR_H;
+        playerNames.forEach((name, i) => {
+          if (i % 2 === 0) {
+            doc.setFillColor(245, 247, 252);
+            doc.rect(startX, ry, COL_W, ROW_H_SUM, 'F');
+          } else {
+            doc.setFillColor(...WHITE);
+            doc.rect(startX, ry, COL_W, ROW_H_SUM, 'F');
+          }
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(8);
+          doc.setTextColor(...DARK);
+          doc.text(name, startX + 3, ry + 4.2);
+          ry += ROW_H_SUM;
+        });
+
+        // No-show player (if any)
+        if (noShowName) {
+          doc.setFillColor(255, 245, 240);
+          doc.rect(startX, ry, COL_W, ROW_H_SUM, 'F');
+          doc.setFont('helvetica', 'italic');
+          doc.setFontSize(8);
+          doc.setTextColor(...ORANGE);
+          doc.text(`${noShowName} (No show)`, startX + 3, ry + 4.2);
+          ry += ROW_H_SUM;
+        }
+
+        // Border around the whole block
+        doc.setDrawColor(...BORDER);
+        doc.setLineWidth(0.4);
+        doc.rect(startX, startY, COL_W, blockH, 'S');
+
+        return startY + blockH;
+      };
+
+      courtNums.forEach((courtNum) => {
+        const court = courts[courtNum];
+        const gameNums = Object.keys(court.games).map(Number).sort((a, b) => a - b);
+
+        // Collect unique active players for this court
+        const pMap = {};
+        gameNums.forEach((gn) => {
+          court.games[gn].forEach((m) => {
+            if (!m.default_no_show && m.players) {
+              pMap[m.player_id] = `${m.players.first_name} ${m.players.last_name}`;
+            }
+          });
+        });
+        const playerNames = Object.values(pMap);
+        const noShowMatch = Object.values(court.games).flat().find((m) => m.default_no_show);
+        const noShowName  = noShowMatch?.players
+          ? `${noShowMatch.players.first_name} ${noShowMatch.players.last_name}` : null;
+
+        const totalRows = playerNames.length + (noShowName ? 1 : 0);
+        const blockH    = COURT_HDR_H + totalRows * ROW_H_SUM + COURT_GAP;
+
+        // Decide which column to place this court in
+        // Strategy: always place in the shorter column
+        const useLeft = yL <= yR;
+        const startX  = useLeft ? COL1_X : COL2_X;
+        const startY  = useLeft ? yL     : yR;
+
+        // Check if block fits on current page — if not, add a new summary page
+        if (startY + blockH > SUM_PAGE_BOTTOM) {
+          // Add footer to current summary page
+          doc.setFillColor(...BLUE);
+          doc.rect(0, PH - 10, PW, 10, 'F');
+          doc.setFillColor(...LIME);
+          doc.rect(0, PH - 10, PW, 0.8, 'F');
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(7);
+          doc.setTextColor(...WHITE);
+          doc.text('Ferocia Sports Center  —  ferociasports.com', PW / 2, PH - 4, { align: 'center' });
+
+          doc.addPage();
+          // Continuation header
+          doc.setFillColor(...BLUE);
+          doc.rect(0, 0, PW, 14, 'F');
+          doc.setFillColor(...LIME);
+          doc.rect(0, 14, PW, 1.0, 'F');
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(9);
+          doc.setTextColor(...WHITE);
+          doc.text(`${ladderName} — Court Assignments (continued)`, ML, 9, { maxWidth: CW });
+          yL = 20; yR = 20;
+        }
+
+        const newY = drawSummaryCourtBlock(courtNum, playerNames, noShowName,
+          useLeft ? COL1_X : COL2_X,
+          useLeft ? yL     : yR);
+
+        if (useLeft) yL = newY + COURT_GAP;
+        else         yR = newY + COURT_GAP;
+      });
+
+      // Footer on last summary page
+      doc.setFillColor(...BLUE);
+      doc.rect(0, PH - 10, PW, 10, 'F');
+      doc.setFillColor(...LIME);
+      doc.rect(0, PH - 10, PW, 0.8, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7);
+      doc.setTextColor(...WHITE);
+      doc.text('Ferocia Sports Center  —  ferociasports.com', PW / 2, PH - 4, { align: 'center' });
+
+      // ══════════════════════════════════════════════════════
+      // INDIVIDUAL COURT PAGES — one per court
+      // ══════════════════════════════════════════════════════
       courtNums.forEach((courtNum, courtIdx) => {
-        if (courtIdx > 0) doc.addPage();
+        doc.addPage(); // every court starts on a new page (summary is already page 1)
 
         const court = courts[courtNum];
         const gameNums = Object.keys(court.games).map(Number).sort((a, b) => a - b);
