@@ -1543,8 +1543,27 @@
       const scoringFormat = currentLadder?.scoring_format || '';
       const dateLabel = fmtDate(date, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
-      // Build PDF using jsPDF
-      const { jsPDF } = window.jspdf;
+      // ── PRE-GENERATE SUBSCRIBE QR as canvas (once, reused for all courts) ──────
+      // QRCode.js renders to a hidden canvas; jsPDF reads it as an image.
+      const subscribeUrl = 'https://ferociasports.com/subscribe.html';
+      const qrCanvas = await new Promise((resolve) => {
+        const container = document.createElement('div');
+        container.style.cssText = 'position:fixed;left:-9999px;top:-9999px;';
+        document.body.appendChild(container);
+        const qr = new QRCode(container, {
+          text: subscribeUrl,
+          width: 128, height: 128,
+          colorDark: '#0d1f4a',
+          colorLight: '#ffffff',
+          correctLevel: QRCode.CorrectLevel.H,
+        });
+        // QRCode.js renders synchronously into an img then canvas
+        setTimeout(() => {
+          const canvas = container.querySelector('canvas');
+          resolve(canvas);
+          document.body.removeChild(container);
+        }, 100);
+      });
       const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
 
       const PW = 215.9; // letter width mm
@@ -1622,7 +1641,7 @@
         // ── PRE-CALCULATE CONTENT HEIGHT TO ENSURE ONE PAGE PER COURT ──
         // We measure how tall all the content will be, then derive a scale factor
         // so everything fits between y=30 (below header) and PH-12 (above footer).
-        const AVAILABLE_H = PH - 30 - 12; // usable vertical space in mm
+        const AVAILABLE_H = PH - 30 - 12 - 29; // header=30, footer=12, subscribe panel=29
 
         // Estimate total content height at scale=1
         const LINE_H_BASE  = 7;
@@ -1851,16 +1870,16 @@
 
             gy += BOX_H + SEP_H;
 
-            // Note — bold, larger, with icon — clearly visible
+            // Note — bold, larger, blue — clearly visible, no emoji (jsPDF Helvetica doesn't support them)
             doc.setFont('helvetica', 'bold');
-            doc.setFontSize(8 * scale);
+            doc.setFontSize(8.5 * scale);
             doc.setTextColor(...BLUE);
             doc.text(
-              '🎯 4th MATCH: determined by the combination of players with the CLOSEST score after games 1, 2 & 3.',
+              '*** 4th MATCH: determined by the combination of players with the CLOSEST score after games 1, 2 & 3. ***',
               ML + 2, gy + 4 * scale,
               { maxWidth: leftW - ML - 2 }
             );
-            gy += 10 * scale;
+            gy += 12 * scale;
           }
 
           // Final separator
@@ -1868,6 +1887,49 @@
           doc.setLineWidth(0.2);
           doc.line(ML, gy, leftW, gy);
         }
+
+        // ── SUBSCRIBE PANEL — below court content, above footer ──
+        const PANEL_Y    = PH - 10 - 28;  // 28mm panel above 10mm footer
+        const PANEL_H    = 26;
+        const QR_SIZE    = 20;             // QR square size in mm
+        const QR_X       = ML;
+        const QR_Y       = PANEL_Y + (PANEL_H - QR_SIZE) / 2;
+        const TEXT_X     = ML + QR_SIZE + 5;
+
+        // Lime separator line above panel
+        doc.setDrawColor(...LIME);
+        doc.setLineWidth(1.0);
+        doc.line(0, PANEL_Y - 1, PW, PANEL_Y - 1);
+
+        // Light background for the panel
+        doc.setFillColor(248, 252, 235); // very light lime tint
+        doc.rect(0, PANEL_Y, PW, PANEL_H, 'F');
+
+        // QR code
+        if (qrCanvas) {
+          try {
+            doc.addImage(qrCanvas, 'PNG', QR_X, QR_Y, QR_SIZE, QR_SIZE);
+          } catch (_) { /* skip QR if canvas failed */ }
+        }
+
+        // Invite text
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9.5);
+        doc.setTextColor(...BLUE);
+        doc.text('Join the Ferocia Sports community!', TEXT_X, PANEL_Y + 8);
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(...DARK);
+        doc.text(
+          'Scan to get ladder results, tournament news and\nevent invites before anyone else.',
+          TEXT_X, PANEL_Y + 14,
+        );
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(7.5);
+        doc.setTextColor(...MUTED);
+        doc.text('ferociasports.com/subscribe.html', TEXT_X, PANEL_Y + 23);
 
         // ── FOOTER ───────────────────────────────────────────────
         doc.setFillColor(...BLUE);
