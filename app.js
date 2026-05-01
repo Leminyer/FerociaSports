@@ -610,6 +610,209 @@
       </table>`;
   };
 
+  /* ─── PRINT STANDINGS ──────────────────────────────────── */
+
+  const printStandings = async () => {
+    const players = allPlayers._ranked;
+    if (!players || !players.length) {
+      toast('No standings to print. Load a ladder first.', true);
+      return;
+    }
+
+    const btn = document.querySelector('[data-action="printStandings"]');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Generating...'; }
+
+    try {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
+
+      const PW = 215.9;
+      const PH = 279.4;
+      const ML = 20;
+      const MR = 20;
+      const CW = PW - ML - MR;
+
+      const BLUE   = [23,  76,  204];
+      const LIME   = [198, 242, 33];
+      const DARK   = [13,  31,  74];
+      const MUTED  = [107, 122, 153];
+      const WHITE  = [255, 255, 255];
+      const GOLD   = [255, 215, 0];
+      const SILVER = [192, 192, 192];
+      const BRONZE = [205, 127, 50];
+      const ORANGE = [242, 96,  36];
+
+      // Title: "Standings Update — April 30, 2026"
+      const today = new Date();
+      const dateStr = today.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+      const ladderName = currentLadder?.name || 'Ladder';
+
+      // ── HEADER ───────────────────────────────────────────────
+      doc.setFillColor(...BLUE);
+      doc.rect(0, 0, PW, 22, 'F');
+      doc.setFillColor(...LIME);
+      doc.rect(0, 22, PW, 1.2, 'F');
+
+      // Ladder name (left)
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12);
+      doc.setTextColor(...WHITE);
+      doc.text(ladderName, ML, 10);
+
+      // Subtitle: Standings Update + date (right)
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.text(`Standings Update — ${dateStr}`, PW - MR, 10, { align: 'right' });
+
+      // Season label below
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setTextColor(...LIME);
+      doc.text('SEASON STANDINGS', ML, 17);
+
+      // ── TABLE ────────────────────────────────────────────────
+      let y = 28;
+
+      // Column definitions matching the image
+      const COL = {
+        rank:   { x: ML,          w: 14,  label: 'Rank',   align: 'center' },
+        player: { x: ML + 14,     w: 110, label: 'Player', align: 'left'   },
+        gender: { x: ML + 124,    w: 22,  label: 'Gender', align: 'center' },
+        points: { x: ML + 146,    w: CW - 146, label: 'Points', align: 'center' },
+      };
+
+      // Header row
+      doc.setFillColor(...BLUE);
+      doc.rect(ML, y, CW, 7, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setTextColor(...WHITE);
+      Object.values(COL).forEach(({ x, w, label, align }) => {
+        const tx = align === 'center' ? x + w / 2 : x + 2;
+        doc.text(label, tx, y + 5, { align });
+      });
+      y += 7;
+
+      // Subs section separator tracking
+      let subsStarted = false;
+      const ROW_H = 6.2;
+
+      // Active players
+      players.forEach((p, i) => {
+        // Alternating row background
+        if (i % 2 === 0) {
+          doc.setFillColor(245, 247, 252);
+          doc.rect(ML, y, CW, ROW_H, 'F');
+        } else {
+          doc.setFillColor(...WHITE);
+          doc.rect(ML, y, CW, ROW_H, 'F');
+        }
+
+        const rank = i + 1;
+        const rankColor = rank === 1 ? GOLD : rank === 2 ? SILVER : rank === 3 ? BRONZE : DARK;
+
+        // Rank badge circle
+        const cx = COL.rank.x + COL.rank.w / 2;
+        const cy = y + ROW_H / 2;
+        if (rank <= 3) {
+          doc.setFillColor(...rankColor);
+          doc.circle(cx, cy, 2.8, 'F');
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(7);
+          doc.setTextColor(...WHITE);
+        } else {
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(8);
+          doc.setTextColor(...MUTED);
+        }
+        doc.text(`${rank}`, cx, cy + 1, { align: 'center' });
+
+        // Player name
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8.5);
+        doc.setTextColor(...DARK);
+        doc.text(`${p.first_name} ${p.last_name}`, COL.player.x + 2, y + ROW_H / 2 + 1.2);
+
+        // Gender
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7.5);
+        doc.setTextColor(...MUTED);
+        const gender = p.gender === 'Male' ? 'M' : p.gender === 'Female' ? 'F' : '-';
+        doc.text(gender, COL.gender.x + COL.gender.w / 2, y + ROW_H / 2 + 1.2, { align: 'center' });
+
+        // Points pill
+        const pts = `${p._points} pts`;
+        const ptsX = COL.points.x + COL.points.w / 2;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8);
+        doc.setTextColor(...BLUE);
+        doc.text(pts, ptsX, y + ROW_H / 2 + 1.2, { align: 'center' });
+
+        // Thin row border
+        doc.setDrawColor(220, 228, 245);
+        doc.setLineWidth(0.15);
+        doc.line(ML, y + ROW_H, ML + CW, y + ROW_H);
+
+        y += ROW_H;
+      });
+
+      // ── SUBS SECTION ─────────────────────────────────────────
+      const subs = ladderPlayers.filter(p => p.ladder_status === 'sub');
+      if (subs.length) {
+        // Subs header
+        y += 3;
+        doc.setFillColor(...MUTED);
+        doc.rect(ML, y, CW, 6.5, 'F');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8);
+        doc.setTextColor(...WHITE);
+        doc.text('Subs', ML + CW / 2, y + 4.5, { align: 'center' });
+        y += 6.5;
+
+        subs.forEach((p, i) => {
+          if (i % 2 === 0) {
+            doc.setFillColor(248, 248, 248);
+            doc.rect(ML, y, CW, ROW_H, 'F');
+          }
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(8.5);
+          doc.setTextColor(...DARK);
+          doc.text(`${p.first_name} ${p.last_name}`, COL.player.x + 2, y + ROW_H / 2 + 1.2);
+          const gender = p.gender === 'Male' ? 'M' : p.gender === 'Female' ? 'F' : '-';
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(7.5);
+          doc.setTextColor(...MUTED);
+          doc.text(gender, COL.gender.x + COL.gender.w / 2, y + ROW_H / 2 + 1.2, { align: 'center' });
+          doc.setDrawColor(220, 228, 245);
+          doc.setLineWidth(0.15);
+          doc.line(ML, y + ROW_H, ML + CW, y + ROW_H);
+          y += ROW_H;
+        });
+      }
+
+      // ── FOOTER ───────────────────────────────────────────────
+      doc.setFillColor(...BLUE);
+      doc.rect(0, PH - 10, PW, 10, 'F');
+      doc.setFillColor(...LIME);
+      doc.rect(0, PH - 10, PW, 0.8, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7);
+      doc.setTextColor(...WHITE);
+      doc.text('Ferocia Sports Center  —  ferociasports.com', PW / 2, PH - 4, { align: 'center' });
+
+      // Download
+      const safeDate = dateStr.replace(/,?\s+/g, '_');
+      const fileName = `${ladderName.replace(/\s+/g, '_')}_Standings_${safeDate}.pdf`;
+      doc.save(fileName);
+      toast(`✅ Standings downloaded: ${fileName}`);
+    } catch (err) {
+      toast(`Error generating PDF: ${err.message}`, true);
+      console.error('[printStandings]', err);
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = '📄 Print Standings'; }
+    }
+  };
+
   /* ─── SESSIONS ─────────────────────────────────────────── */
 
   const loadSessions = async () => {
@@ -2935,6 +3138,8 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     closeTournamentNotifyModal: () => closeTournamentNotifyModal(),
     // Print Roster
     printRoster: (btn) => printRoster(btn),
+    // Print Standings
+    printStandings: () => printStandings(),
   };
 
   document.addEventListener('click', (e) => {
