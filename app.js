@@ -212,13 +212,28 @@
             `<option value="${l.id}">${esc(l.name)}${l.status === 'closed' ? ' (closed)' : ''}</option>`,
         )
         .join('');
-    sel.value = '';
-    currentLadder = null;
+
+    // Restore previously selected ladder (survives tab switches)
+    const savedId = sessionStorage.getItem('ferocia_selected_ladder_id');
+    const savedLadder = savedId ? allLadders.find((l) => l.id === parseInt(savedId, 10)) : null;
+    if (savedLadder) {
+      sel.value = savedLadder.id;
+      currentLadder = savedLadder;
+    } else {
+      sel.value = '';
+      currentLadder = null;
+    }
   };
 
   const onLadderChange = async () => {
     const id = parseInt(document.getElementById('ladder-selector').value, 10);
     currentLadder = allLadders.find((l) => l.id === id) || null;
+    // Persist selection so tab switches don't lose it
+    if (currentLadder) {
+      sessionStorage.setItem('ferocia_selected_ladder_id', currentLadder.id);
+    } else {
+      sessionStorage.removeItem('ferocia_selected_ladder_id');
+    }
     updateLadderBanner();
     await loadLadderPlayers();
     document.getElementById('page-home').classList.remove('active');
@@ -389,7 +404,10 @@
       await api(`matches?ladder_id=eq.${id}`, 'DELETE');
       await api(`ladder_players?ladder_id=eq.${id}`, 'DELETE');
       await api(`ladders?id=eq.${id}`, 'DELETE');
-      if (currentLadder && currentLadder.id === id) currentLadder = null;
+      if (currentLadder && currentLadder.id === id) {
+        currentLadder = null;
+        sessionStorage.removeItem('ferocia_selected_ladder_id');
+      }
       toast(`Ladder "${name}" deleted.`);
       await loadLadderSelector();
       loadLaddersPage();
@@ -653,22 +671,22 @@
       doc.setFillColor(...LIME);
       doc.rect(0, 22, PW, 1.2, 'F');
 
-      // Ladder name (left)
+      // Ladder name — full width, top line
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(12);
+      doc.setFontSize(11);
       doc.setTextColor(...WHITE);
-      doc.text(ladderName, ML, 10);
+      doc.text(ladderName, ML, 11, { maxWidth: CW });
 
-      // Subtitle: Standings Update + date (right)
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(9);
-      doc.text(`Standings Update — ${dateStr}`, PW - MR, 10, { align: 'right' });
-
-      // Season label below
+      // Second line: SEASON STANDINGS (left) + date (right) — same baseline
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(8);
       doc.setTextColor(...LIME);
-      doc.text('SEASON STANDINGS', ML, 17);
+      doc.text('SEASON STANDINGS', ML, 18);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(...LIME);
+      doc.text(`Standings Update — ${dateStr}`, PW - MR, 18, { align: 'right' });
 
       // ── TABLE ────────────────────────────────────────────────
       let y = 28;
