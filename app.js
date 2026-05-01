@@ -1670,175 +1670,184 @@
           const teamA = gamePlayers.slice(0, half);
           const teamB = gamePlayers.slice(half);
 
-          const teamANames = teamA.map((m) => m.players ? `${m.players.first_name} ${m.players.last_name}` : '?').join(' & ');
-          const teamBNames = teamB.map((m) => m.players ? `${m.players.first_name} ${m.players.last_name}` : '?').join(' & ');
+          const teamANames = teamA.map((m) => m.players ? `${m.players.first_name} ${m.players.last_name}` : '?');
+          const teamBNames = teamB.map((m) => m.players ? `${m.players.first_name} ${m.players.last_name}` : '?');
 
           const gamePlayerIds = new Set(gamePlayers.map((m) => m.player_id));
           const sittingOut = Object.entries(playerMap)
             .filter(([pid]) => !gamePlayerIds.has(parseInt(pid, 10)))
             .map(([, name]) => name);
 
-          // Game 4 for 4-player courts is the closest scores match — skip it here,
-          // it gets rendered separately below (always, even in roster-only mode)
+          // Game 4 for 4-player courts handled separately after the loop
           const isGame4 = gn === 4 && playerCount === 4;
-          if (isGame4) return; // handled after the loop
+          if (isGame4) return;
 
-          // Game header
-          doc.setFillColor(...BLUE);
-          doc.setTextColor(...WHITE);
+          // ── Layout matching paper format ───────────────────────
+          // Left side: numbered player names stacked, "Vs" between teams
+          // Right side: ONE tall box split by horizontal line (Team A score top, Team B score bottom)
+
+          const NAME_COL_W = leftW - ML - 22;  // name area width
+          const BOX_X = ML + NAME_COL_W + 2;   // score box x position
+          const BOX_W = 18;                     // score box width
+          const LINE_H = 7;                     // height per player name row
+          const VS_H = 5;                       // height of VS row
+
+          // Calculate total height for this game
+          const teamACount = teamANames.length; // 1 or 2 players
+          const teamBCount = teamBNames.length;
+          const totalH = teamACount * LINE_H + VS_H + teamBCount * LINE_H + (sittingOut.length ? 6 : 0);
+          const BOX_H = teamACount * LINE_H + VS_H + teamBCount * LINE_H;
+
+          // Game number label
           doc.setFont('helvetica', 'bold');
-          doc.setFontSize(8);
-          doc.rect(ML, gy - 4, leftW - ML, 6, 'F');
-          doc.text(`GAME ${gn}`, ML + 2, gy);
-          gy += 4;
-
-          // Team A row
-          doc.setFont('helvetica', 'bold');
-          doc.setFontSize(9);
-          doc.setTextColor(...DARK);
-          doc.text(teamANames, ML + 2, gy + 5);
-
-          // VS + Team B row
-          doc.setFont('helvetica', 'normal');
           doc.setFontSize(7.5);
           doc.setTextColor(...MUTED);
-          doc.text('VS', ML + 2, gy + 10);
-          doc.setFont('helvetica', 'bold');
-          doc.setFontSize(9);
-          doc.setTextColor(...DARK);
-          doc.text(teamBNames, ML + 8, gy + 10);
+          doc.text(`${gn}`, ML, gy + 4);
 
-          // Score boxes
-          const bx = leftW - SCORE_BOX_W * 2 - 6;
-          doc.setDrawColor(...BORDER);
+          // Score box — tall rectangle matching full game height, divided by horizontal line
+          doc.setDrawColor(...DARK);
           doc.setLineWidth(0.5);
           doc.setFillColor(...WHITE);
-          doc.rect(bx, gy + 1, SCORE_BOX_W, SCORE_BOX_H, 'FD');
-          doc.rect(bx + SCORE_BOX_W + 3, gy + 1, SCORE_BOX_W, SCORE_BOX_H, 'FD');
-          doc.setFont('helvetica', 'bold');
+          doc.rect(BOX_X, gy, BOX_W, BOX_H, 'FD');
+          // Horizontal dividing line at midpoint (between team A and team B scores)
+          const divY = gy + teamACount * LINE_H + VS_H / 2;
+          doc.line(BOX_X, divY, BOX_X + BOX_W, divY);
+
+          // Team A names
+          let ly = gy;
+          teamANames.forEach((name) => {
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(8.5);
+            doc.setTextColor(...DARK);
+            doc.text(name, ML + 5, ly + 5, { maxWidth: NAME_COL_W - 6 });
+            ly += LINE_H;
+          });
+
+          // VS
+          doc.setFont('helvetica', 'normal');
           doc.setFontSize(7);
           doc.setTextColor(...MUTED);
-          doc.text('—', bx + SCORE_BOX_W + 1.5, gy + 5.5, { align: 'center' });
+          doc.text('Vs', ML + 5, ly + 4);
+          ly += VS_H;
+
+          // Team B names
+          teamBNames.forEach((name) => {
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(8.5);
+            doc.setTextColor(...DARK);
+            doc.text(name, ML + 5, ly + 5, { maxWidth: NAME_COL_W - 6 });
+            ly += LINE_H;
+          });
 
           // Sits out (5-player courts)
           if (sittingOut.length) {
             doc.setFont('helvetica', 'italic');
-            doc.setFontSize(7);
+            doc.setFontSize(6.5);
             doc.setTextColor(...ORANGE);
-            doc.text(`Sits out: ${sittingOut.join(', ')}`, ML + 2, gy + 15);
-            gy += 5;
+            doc.text(`Sits out: ${sittingOut.join(', ')}`, ML + 5, ly + 4);
+            ly += 6;
           }
 
-          gy += 15;
+          gy += totalH + 3;
 
-          // Separator
+          // Thin separator line between games
           doc.setDrawColor(...BORDER);
-          doc.setLineWidth(0.3);
-          doc.line(ML, gy + 1, leftW, gy + 1);
-          gy += 4;
+          doc.setLineWidth(0.2);
+          doc.line(ML, gy, leftW, gy);
+          gy += 3;
         });
 
         // ── GAME 4 CLOSEST SCORES — always rendered for 4-player courts ──
-        // This game is determined during play so it's never pre-saved in the DB.
-        // We always render it so players have a blank section to record the score.
         if (playerCount === 4) {
-          // Check if Game 4 was already saved with real players (score entry mode)
           const game4InDB = gameNums.includes(4);
+
+          const NAME_COL_W = leftW - ML - 22;
+          const BOX_X = ML + NAME_COL_W + 2;
+          const BOX_W = 18;
+          const LINE_H = 7;
+          const VS_H = 5;
+
           if (game4InDB) {
             // Render with actual saved players
             const g4Players = court.games[4].filter((m) => !m.default_no_show);
             const half = Math.ceil(g4Players.length / 2);
-            const tA = g4Players.slice(0, half).map((m) => m.players ? `${m.players.first_name} ${m.players.last_name}` : '?').join(' & ');
-            const tB = g4Players.slice(half).map((m) => m.players ? `${m.players.first_name} ${m.players.last_name}` : '?').join(' & ');
-
-            doc.setFillColor(...BLUE);
-            doc.setTextColor(...WHITE);
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(8);
-            doc.rect(ML, gy - 4, leftW - ML, 6, 'F');
-            doc.text('GAME 4  —  CLOSEST SCORES MATCH', ML + 2, gy);
-            gy += 4;
+            const tA = g4Players.slice(0, half).map((m) => m.players ? `${m.players.first_name} ${m.players.last_name}` : '?');
+            const tB = g4Players.slice(half).map((m) => m.players ? `${m.players.first_name} ${m.players.last_name}` : '?');
+            const BOX_H = tA.length * LINE_H + VS_H + tB.length * LINE_H;
 
             doc.setFont('helvetica', 'bold');
-            doc.setFontSize(9);
-            doc.setTextColor(...DARK);
-            doc.text(tA, ML + 2, gy + 5);
-            doc.setFont('helvetica', 'normal');
             doc.setFontSize(7.5);
             doc.setTextColor(...MUTED);
-            doc.text('VS', ML + 2, gy + 10);
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(9);
-            doc.setTextColor(...DARK);
-            doc.text(tB, ML + 8, gy + 10);
+            doc.text('4', ML, gy + 4);
 
-            const bx4 = leftW - SCORE_BOX_W * 2 - 6;
-            doc.setDrawColor(...BORDER);
+            doc.setDrawColor(...DARK);
             doc.setLineWidth(0.5);
             doc.setFillColor(...WHITE);
-            doc.rect(bx4, gy + 1, SCORE_BOX_W, SCORE_BOX_H, 'FD');
-            doc.rect(bx4 + SCORE_BOX_W + 3, gy + 1, SCORE_BOX_W, SCORE_BOX_H, 'FD');
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(7);
-            doc.setTextColor(...MUTED);
-            doc.text('—', bx4 + SCORE_BOX_W + 1.5, gy + 5.5, { align: 'center' });
-            gy += 15;
+            doc.rect(BOX_X, gy, BOX_W, BOX_H, 'FD');
+            const divY = gy + tA.length * LINE_H + VS_H / 2;
+            doc.line(BOX_X, divY, BOX_X + BOX_W, divY);
+
+            let ly = gy;
+            tA.forEach((name) => {
+              doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(...DARK);
+              doc.text(name, ML + 5, ly + 5, { maxWidth: NAME_COL_W - 6 });
+              ly += LINE_H;
+            });
+            doc.setFont('helvetica', 'normal'); doc.setFontSize(7); doc.setTextColor(...MUTED);
+            doc.text('Vs', ML + 5, ly + 4);
+            ly += VS_H;
+            tB.forEach((name) => {
+              doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(...DARK);
+              doc.text(name, ML + 5, ly + 5, { maxWidth: NAME_COL_W - 6 });
+              ly += LINE_H;
+            });
+            gy += BOX_H + 3;
+
           } else {
-            // Roster-only: render blank Game 4 with name lines and note
-            doc.setFillColor(...BLUE);
-            doc.setTextColor(...WHITE);
+            // Roster-only: 4 blank name lines + split box + note
+            const BOX_H = LINE_H * 2 + VS_H + LINE_H * 2;
+
+            // Game number
             doc.setFont('helvetica', 'bold');
-            doc.setFontSize(8);
-            doc.rect(ML, gy - 4, leftW - ML, 6, 'F');
-            doc.text('GAME 4  —  CLOSEST SCORES MATCH', ML + 2, gy);
-            gy += 8;
-
-            const bx4 = leftW - SCORE_BOX_W * 2 - 6;
-            const nameLineEnd = bx4 - 4; // name line stops before score boxes
-
-            doc.setDrawColor(...BORDER);
-            doc.setLineWidth(0.4);
-            doc.setFont('helvetica', 'normal');
-            doc.setFontSize(7);
+            doc.setFontSize(7.5);
             doc.setTextColor(...MUTED);
+            doc.text('4', ML, gy + 4);
 
-            // Team A — two players on separate lines, score boxes on the right
-            doc.text('1.', ML + 2, gy + 3);
-            doc.line(ML + 8, gy + 4, nameLineEnd, gy + 4);          // name write line
-
-            doc.text('2.', ML + 2, gy + 10);
-            doc.line(ML + 8, gy + 11, nameLineEnd, gy + 11);
-
-            // Score boxes aligned to right of Team A rows
-            doc.setFillColor(...WHITE);
+            // Score box
+            doc.setDrawColor(...DARK);
             doc.setLineWidth(0.5);
-            doc.rect(bx4, gy, SCORE_BOX_W, SCORE_BOX_H * 1.8, 'FD');         // taller box spans both player rows
-            doc.rect(bx4 + SCORE_BOX_W + 3, gy, SCORE_BOX_W, SCORE_BOX_H * 1.8, 'FD');
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(8);
-            doc.setTextColor(...MUTED);
-            doc.text('—', bx4 + SCORE_BOX_W + 1.5, gy + 7, { align: 'center' });
-            gy += 16;
+            doc.setFillColor(...WHITE);
+            doc.rect(BOX_X, gy, BOX_W, BOX_H, 'FD');
+            const divY = gy + LINE_H * 2 + VS_H / 2;
+            doc.line(BOX_X, divY, BOX_X + BOX_W, divY);
+
+            // Blank name lines — Team A
+            doc.setDrawColor(...BORDER);
+            doc.setLineWidth(0.3);
+            let ly = gy;
+            [1, 2].forEach((n) => {
+              doc.setFont('helvetica', 'normal'); doc.setFontSize(7); doc.setTextColor(...MUTED);
+              doc.text(`${n}.`, ML + 2, ly + 5);
+              doc.line(ML + 8, ly + 5.5, BOX_X - 3, ly + 5.5);
+              ly += LINE_H;
+            });
 
             // VS
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(7.5);
-            doc.setTextColor(...MUTED);
-            doc.text('VS', ML + 2, gy + 2);
-            gy += 7;
+            doc.setFont('helvetica', 'normal'); doc.setFontSize(7); doc.setTextColor(...MUTED);
+            doc.text('Vs', ML + 5, ly + 4);
+            ly += VS_H;
 
-            // Team B — two players on separate lines
-            doc.setFont('helvetica', 'normal');
-            doc.setFontSize(7);
-            doc.setTextColor(...MUTED);
-            doc.text('3.', ML + 2, gy + 3);
-            doc.line(ML + 8, gy + 4, nameLineEnd, gy + 4);
+            // Blank name lines — Team B
+            [3, 4].forEach((n) => {
+              doc.setFont('helvetica', 'normal'); doc.setFontSize(7); doc.setTextColor(...MUTED);
+              doc.text(`${n}.`, ML + 2, ly + 5);
+              doc.line(ML + 8, ly + 5.5, BOX_X - 3, ly + 5.5);
+              ly += LINE_H;
+            });
 
-            doc.text('4.', ML + 2, gy + 10);
-            doc.line(ML + 8, gy + 11, nameLineEnd, gy + 11);
-            gy += 16;
+            gy += BOX_H + 4;
 
-            // Note — full width below everything
+            // Note below
             doc.setFont('helvetica', 'italic');
             doc.setFontSize(7);
             doc.setTextColor(...MUTED);
@@ -1852,8 +1861,8 @@
 
           // Final separator
           doc.setDrawColor(...BORDER);
-          doc.setLineWidth(0.3);
-          doc.line(ML, gy + 1, leftW, gy + 1);
+          doc.setLineWidth(0.2);
+          doc.line(ML, gy, leftW, gy);
         }
 
         // ── FOOTER ───────────────────────────────────────────────
