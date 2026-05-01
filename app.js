@@ -699,7 +699,55 @@
         points: { x: ML + 146,    w: CW - 146, label: 'Points', align: 'center' },
       };
 
-      // Header row
+      // Page break threshold — stop before footer
+      const PAGE_BOTTOM = PH - 14;
+      const ROW_H = 6.2;
+
+      // Helper: draw footer on current page, add new page, draw continuation header, return new y
+      const addPageBreak = () => {
+        // Footer on current page
+        doc.setFillColor(...BLUE);
+        doc.rect(0, PH - 10, PW, 10, 'F');
+        doc.setFillColor(...LIME);
+        doc.rect(0, PH - 10, PW, 0.8, 'F');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(7);
+        doc.setTextColor(...WHITE);
+        doc.text('Ferocia Sports Center  —  ferociasports.com', PW / 2, PH - 4, { align: 'center' });
+
+        doc.addPage();
+
+        // Continuation header (smaller than first page)
+        doc.setFillColor(...BLUE);
+        doc.rect(0, 0, PW, 14, 'F');
+        doc.setFillColor(...LIME);
+        doc.rect(0, 14, PW, 1.0, 'F');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9);
+        doc.setTextColor(...WHITE);
+        doc.text(ladderName, ML, 9, { maxWidth: CW * 0.7 });
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7.5);
+        doc.setTextColor(...LIME);
+        doc.text('(continued)', PW - MR, 9, { align: 'right' });
+
+        let ny = 20;
+
+        // Repeat table column headers
+        doc.setFillColor(...BLUE);
+        doc.rect(ML, ny, CW, 7, 'F');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8);
+        doc.setTextColor(...WHITE);
+        Object.values(COL).forEach(({ x, w, label, align }) => {
+          const tx = align === 'center' ? x + w / 2 : x + 2;
+          doc.text(label, tx, ny + 5, { align });
+        });
+        ny += 7;
+        return ny;
+      };
+
+      // Draw table header
       doc.setFillColor(...BLUE);
       doc.rect(ML, y, CW, 7, 'F');
       doc.setFont('helvetica', 'bold');
@@ -711,25 +759,22 @@
       });
       y += 7;
 
-      // Subs section separator tracking
-      let subsStarted = false;
-      const ROW_H = 6.2;
-
       // Active players
       players.forEach((p, i) => {
-        // Alternating row background
+        // Page break check
+        if (y + ROW_H > PAGE_BOTTOM) y = addPageBreak();
+
         if (i % 2 === 0) {
           doc.setFillColor(245, 247, 252);
-          doc.rect(ML, y, CW, ROW_H, 'F');
         } else {
           doc.setFillColor(...WHITE);
-          doc.rect(ML, y, CW, ROW_H, 'F');
         }
+        doc.rect(ML, y, CW, ROW_H, 'F');
 
         const rank = i + 1;
         const rankColor = rank === 1 ? GOLD : rank === 2 ? SILVER : rank === 3 ? BRONZE : DARK;
 
-        // Rank badge circle
+        // Rank badge
         const cx = COL.rank.x + COL.rank.w / 2;
         const cy = y + ROW_H / 2;
         if (rank <= 3) {
@@ -758,15 +803,13 @@
         const gender = p.gender === 'Male' ? 'M' : p.gender === 'Female' ? 'F' : '-';
         doc.text(gender, COL.gender.x + COL.gender.w / 2, y + ROW_H / 2 + 1.2, { align: 'center' });
 
-        // Points pill
-        const pts = `${p._points} pts`;
-        const ptsX = COL.points.x + COL.points.w / 2;
+        // Points
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(8);
         doc.setTextColor(...BLUE);
-        doc.text(pts, ptsX, y + ROW_H / 2 + 1.2, { align: 'center' });
+        doc.text(`${p._points} pts`, COL.points.x + COL.points.w / 2, y + ROW_H / 2 + 1.2, { align: 'center' });
 
-        // Thin row border
+        // Row border
         doc.setDrawColor(220, 228, 245);
         doc.setLineWidth(0.15);
         doc.line(ML, y + ROW_H, ML + CW, y + ROW_H);
@@ -777,7 +820,9 @@
       // ── SUBS SECTION ─────────────────────────────────────────
       const subs = ladderPlayers.filter(p => p.ladder_status === 'sub');
       if (subs.length) {
-        // Subs header
+        // Page break check before subs header
+        if (y + 6.5 + ROW_H > PAGE_BOTTOM) y = addPageBreak();
+
         y += 3;
         doc.setFillColor(...MUTED);
         doc.rect(ML, y, CW, 6.5, 'F');
@@ -788,6 +833,9 @@
         y += 6.5;
 
         subs.forEach((p, i) => {
+          // Page break check
+          if (y + ROW_H > PAGE_BOTTOM) y = addPageBreak();
+
           if (i % 2 === 0) {
             doc.setFillColor(248, 248, 248);
             doc.rect(ML, y, CW, ROW_H, 'F');
