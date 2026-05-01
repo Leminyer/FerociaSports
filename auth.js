@@ -210,14 +210,18 @@
       showLoginModal();
     }
 
-    // Always subscribe — this catches both the initial login AND any
-    // future sign-in/sign-out events.
+    // Subscribe to future auth events — but only fire onAuthed for a genuine
+    // new sign-in, NOT for token refresh events (TOKEN_REFRESHED) which
+    // Supabase fires when the user returns to the tab after a period away.
+    // Firing onAuthed on every token refresh resets app state (e.g. the
+    // ladder dropdown) which is the bug we are fixing here.
+    let booted = !!session; // already booted if we had a session above
     onAuthStateChange((newSession, event) => {
-      if (event === 'SIGNED_IN' && newSession) {
+      if (event === 'SIGNED_IN' && newSession && !booted) {
+        booted = true;
         hideLoginModal();
         onAuthed(newSession);
       } else if (event === 'SIGNED_OUT') {
-        // Reload puts the page back into "show login" state cleanly.
         window.location.reload();
       }
     });
