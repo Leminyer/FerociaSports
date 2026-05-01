@@ -917,10 +917,13 @@
         const isFirst = dateIdx === 0; // most recent — auto-expanded
         const groupId = `sdg-${date.replace(/-/g, '')}`;
 
-        // Count pending courts for the collapsed header indicator
-        const pendingCount = courts.filter((s) =>
-          Object.values(s.games).flat().some((m) => !m.default_no_show && m.score_for === null)
-        ).length;
+        // Count pending games (not courts) for the collapsed header indicator
+        const pendingGames = courts.reduce((total, s) => {
+          const gameNums = Object.keys(s.games);
+          return total + gameNums.filter((gnum) =>
+            s.games[gnum].some((m) => !m.default_no_show && m.score_for === null)
+          ).length;
+        }, 0);
         const courtCount = courts.length;
 
         // Header row — always visible, clickable to toggle
@@ -938,7 +941,7 @@
                 <div style="font-size:13px;font-weight:800;color:var(--blue);">📅 ${dateLabel}</div>
                 <div style="font-size:11px;font-weight:600;color:var(--text-muted);margin-top:2px;">
                   ${courtCount} court${courtCount !== 1 ? 's' : ''}
-                  ${pendingCount ? `<span style="color:var(--orange);margin-left:8px;">⏳ ${pendingCount} pending scores</span>` : ''}
+                  ${pendingGames ? `<span style="color:var(--orange);margin-left:8px;">⏳ ${pendingGames} game${pendingGames !== 1 ? 's' : ''} pending scores</span>` : ''}
                 </div>
               </div>
             </div>
