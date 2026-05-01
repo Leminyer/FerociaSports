@@ -1869,7 +1869,7 @@
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(8);
       doc.setTextColor(...LIME);
-      doc.text('COURT ASSIGNMENTS', ML, 17);
+      doc.text('COURT ASSIGNMENTS', ML, 19);
 
       // ── Two-column grid ────────────────────────────────────
       const SUM_PAGE_BOTTOM = PH - 12;
