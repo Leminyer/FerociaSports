@@ -39,10 +39,10 @@
     document.getElementById('subnav-ladder-options').style.display = 'none';
     document.getElementById('subnav-tournament-options').style.display = 'none';
     document.getElementById('tab-home').classList.add('active');
-    // Clear saved ladder — in-app navigation back to Home resets the selection.
-    // Tab switches are handled separately via visibilitychange and do NOT call goHome.
-    sessionStorage.removeItem('ferocia_selected_ladder_id');
-    sessionStorage.removeItem('ferocia_ladder_visited');
+    // Reset ladder selection when navigating away to Home
+    currentLadder = null;
+    const sel = document.getElementById('ladder-selector');
+    if (sel) sel.value = '';
   };
 
   const switchMainTab = (tab) => {
@@ -81,10 +81,14 @@
     tournOpts.style.display = tab === 'tournament' ? 'flex' : 'none';
     if (tab === 'ladder') {
       const standingsBtn = document.querySelector('#subnav-ladder-options button[data-page="ladder"]');
-      loadLadderSelector().then(() => {
-        if (currentLadder) showPage('ladder', standingsBtn);
-        else document.querySelectorAll('.page').forEach((p) => p.classList.remove('active'));
-      });
+      if (currentLadder) {
+        // Ladder already selected — just show the standings, don't reset the dropdown
+        showPage('ladder', standingsBtn);
+      } else {
+        loadLadderSelector().then(() => {
+          document.querySelectorAll('.page').forEach((p) => p.classList.remove('active'));
+        });
+      }
     } else {
       loadTournamentSelector();
       const tvBtn = document.querySelector('#subnav-tournament-options button[data-page="tournament-view"]');
@@ -217,32 +221,14 @@
         )
         .join('');
 
-    // Restore previously selected ladder only if user explicitly selected it
-    // this session (ferocia_ladder_visited flag is set on manual selection).
-    // This prevents auto-selecting on first visit after a page reload.
-    const savedId = sessionStorage.getItem('ferocia_selected_ladder_id');
-    const userSelected = sessionStorage.getItem('ferocia_ladder_visited');
-    const savedLadder = (savedId && userSelected) ? allLadders.find((l) => l.id === parseInt(savedId, 10)) : null;
-    if (savedLadder) {
-      sel.value = savedLadder.id;
-      currentLadder = savedLadder;
-    } else {
-      sel.value = '';
-      currentLadder = null;
-    }
+    // Show blank selection — user must pick a ladder
+    sel.value = '';
+    currentLadder = null;
   };
 
   const onLadderChange = async () => {
     const id = parseInt(document.getElementById('ladder-selector').value, 10);
     currentLadder = allLadders.find((l) => l.id === id) || null;
-    // Persist selection so tab switches don't lose it
-    if (currentLadder) {
-      sessionStorage.setItem('ferocia_selected_ladder_id', currentLadder.id);
-      sessionStorage.setItem('ferocia_ladder_visited', '1');
-    } else {
-      sessionStorage.removeItem('ferocia_selected_ladder_id');
-      sessionStorage.removeItem('ferocia_ladder_visited');
-    }
     updateLadderBanner();
     await loadLadderPlayers();
     document.getElementById('page-home').classList.remove('active');
@@ -415,8 +401,6 @@
       await api(`ladders?id=eq.${id}`, 'DELETE');
       if (currentLadder && currentLadder.id === id) {
         currentLadder = null;
-        sessionStorage.removeItem('ferocia_selected_ladder_id');
-        sessionStorage.removeItem('ferocia_ladder_visited');
       }
       toast(`Ladder "${name}" deleted.`);
       await loadLadderSelector();
