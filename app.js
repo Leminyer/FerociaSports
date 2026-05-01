@@ -1564,6 +1564,7 @@
           document.body.removeChild(container);
         }, 100);
       });
+      const { jsPDF } = window.jspdf;
       const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
 
       const PW = 215.9; // letter width mm
