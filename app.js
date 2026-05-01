@@ -8,11 +8,6 @@
 (function () {
   'use strict';
 
-  // Clear the ladder selection on every fresh page load.
-  // We re-set it only after the user explicitly picks a ladder,
-  // so tab switches restore the selection but page reloads start fresh.
-  sessionStorage.removeItem('ferocia_selected_ladder_id');
-  sessionStorage.removeItem('ferocia_ladder_visited');
   const CFG = window.FEROCIA_CONFIG;
   if (!CFG) {
     console.error('[Ferocia] config.js must load before app.js');
@@ -44,6 +39,10 @@
     document.getElementById('subnav-ladder-options').style.display = 'none';
     document.getElementById('subnav-tournament-options').style.display = 'none';
     document.getElementById('tab-home').classList.add('active');
+    // Clear saved ladder — in-app navigation back to Home resets the selection.
+    // Tab switches are handled separately via visibilitychange and do NOT call goHome.
+    sessionStorage.removeItem('ferocia_selected_ladder_id');
+    sessionStorage.removeItem('ferocia_ladder_visited');
   };
 
   const switchMainTab = (tab) => {
