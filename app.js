@@ -1619,29 +1619,62 @@
 
         y = 30; // after header
 
+        // ── PRE-CALCULATE CONTENT HEIGHT TO ENSURE ONE PAGE PER COURT ──
+        // We measure how tall all the content will be, then derive a scale factor
+        // so everything fits between y=30 (below header) and PH-12 (above footer).
+        const AVAILABLE_H = PH - 30 - 12; // usable vertical space in mm
+
+        // Estimate total content height at scale=1
+        const LINE_H_BASE  = 7;
+        const VS_H_BASE    = 5;
+        const SEP_H_BASE   = 6;   // separator between games
+        const LABEL_H_BASE = 6;   // "GAMES" / "PLAYERS" label row
+        const NOTE_H_BASE  = 12;  // game 4 note text
+
+        let estimatedH = LABEL_H_BASE;
+        const gameNumsForEst = Object.keys(court.games).map(Number).sort((a,b)=>a-b);
+        gameNumsForEst.forEach((gn) => {
+          if (gn === 4 && playerCount === 4) return; // handled separately
+          const gp = court.games[gn].filter(m => !m.default_no_show);
+          const half = Math.ceil(gp.length / 2);
+          const tACount = half;
+          const tBCount = gp.length - half;
+          const hasSitOut = Object.keys(playerMap).length > gp.length;
+          estimatedH += tACount * LINE_H_BASE + VS_H_BASE + tBCount * LINE_H_BASE + (hasSitOut ? 6 : 0) + SEP_H_BASE;
+        });
+        if (playerCount === 4) {
+          estimatedH += LINE_H_BASE * 2 + VS_H_BASE + LINE_H_BASE * 2 + SEP_H_BASE + NOTE_H_BASE;
+        }
+
+        // Scale: shrink if content is taller than available space, keep 1.0 if it fits
+        const scale = Math.min(1.0, AVAILABLE_H / estimatedH);
+
+        // Scaled measurements — all drawing uses these
+        const LINE_H  = LINE_H_BASE  * scale;
+        const VS_H    = VS_H_BASE    * scale;
+        const SEP_H   = SEP_H_BASE   * scale;
+
         // ── TWO-COLUMN LAYOUT ─────────────────────────────────────
-        // Left col: matchups | Right col: player list
-        const COL_SPLIT = CW * 0.62; // 62% for games, 38% for players
-        const leftW = ML + COL_SPLIT - 4;
+        const COL_SPLIT = CW * 0.62;
+        const leftW  = ML + COL_SPLIT - 4;
         const rightX = ML + COL_SPLIT + 4;
         const rightW = PW - MR - rightX;
 
         // ── RIGHT COLUMN: PLAYERS LIST ────────────────────────────
-        doc.setFontSize(8.5);
+        doc.setFontSize(8.5 * scale);
         doc.setFont('helvetica', 'bold');
         doc.setTextColor(...MUTED);
         doc.text('PLAYERS', rightX, y);
 
-        let ry = y + 6;
+        let ry = y + 6 * scale;
         const allPlayersForList = noShowName ? [...playerList, noShowName] : playerList;
         allPlayersForList.forEach((name, i) => {
-          // Row background alternating
           if (i % 2 === 0) {
             doc.setFillColor(245, 247, 252);
-            doc.rect(rightX - 1, ry - 4, rightW + 1, 7, 'F');
+            doc.rect(rightX - 1, ry - 4 * scale, rightW + 1, 7 * scale, 'F');
           }
           doc.setFont('helvetica', 'bold');
-          doc.setFontSize(8);
+          doc.setFontSize(8 * scale);
           doc.setTextColor(...DARK);
           doc.text(`${i + 1}.`, rightX, ry);
           doc.setFont('helvetica', 'normal');
@@ -1649,123 +1682,96 @@
           if (isNoShow) doc.setTextColor(...ORANGE);
           doc.text(name + (isNoShow ? ' (No show)' : ''), rightX + 6, ry);
           doc.setTextColor(...DARK);
-          ry += 7.5;
+          ry += 7.5 * scale;
         });
 
         // ── LEFT COLUMN: GAMES ────────────────────────────────────
-        doc.setFontSize(8.5);
+        doc.setFontSize(8.5 * scale);
         doc.setFont('helvetica', 'bold');
         doc.setTextColor(...MUTED);
         doc.text('GAMES', ML, y);
 
-        let gy = y + 6;
-        const SCORE_BOX_W = 10;
-        const SCORE_BOX_H = 7;
-        const GAME_ROW_H = 14; // height per game row (two teams)
+        let gy = y + 6 * scale;
+        const NAME_COL_W = leftW - ML - 22;
+        const BOX_X      = ML + NAME_COL_W + 2;
+        const BOX_W      = 18;
 
+        // ── GAME LOOP ─────────────────────────────────────────────
         gameNums.forEach((gn) => {
           const gamePlayers = court.games[gn].filter((m) => !m.default_no_show);
-
           const half = Math.ceil(gamePlayers.length / 2);
-          const teamA = gamePlayers.slice(0, half);
-          const teamB = gamePlayers.slice(half);
-
-          const teamANames = teamA.map((m) => m.players ? `${m.players.first_name} ${m.players.last_name}` : '?');
-          const teamBNames = teamB.map((m) => m.players ? `${m.players.first_name} ${m.players.last_name}` : '?');
-
+          const teamANames = gamePlayers.slice(0, half).map((m) => m.players ? `${m.players.first_name} ${m.players.last_name}` : '?');
+          const teamBNames = gamePlayers.slice(half).map((m) => m.players ? `${m.players.first_name} ${m.players.last_name}` : '?');
           const gamePlayerIds = new Set(gamePlayers.map((m) => m.player_id));
           const sittingOut = Object.entries(playerMap)
             .filter(([pid]) => !gamePlayerIds.has(parseInt(pid, 10)))
             .map(([, name]) => name);
 
-          // Game 4 for 4-player courts handled separately after the loop
-          const isGame4 = gn === 4 && playerCount === 4;
-          if (isGame4) return;
+          if (gn === 4 && playerCount === 4) return; // handled after loop
 
-          // ── Layout matching paper format ───────────────────────
-          // Left side: numbered player names stacked, "Vs" between teams
-          // Right side: ONE tall box split by horizontal line (Team A score top, Team B score bottom)
+          const tACount = teamANames.length;
+          const tBCount = teamBNames.length;
+          const BOX_H  = tACount * LINE_H + VS_H + tBCount * LINE_H;
+          const totalH = BOX_H + (sittingOut.length ? 6 * scale : 0);
 
-          const NAME_COL_W = leftW - ML - 22;  // name area width
-          const BOX_X = ML + NAME_COL_W + 2;   // score box x position
-          const BOX_W = 18;                     // score box width
-          const LINE_H = 7;                     // height per player name row
-          const VS_H = 5;                       // height of VS row
-
-          // Calculate total height for this game
-          const teamACount = teamANames.length; // 1 or 2 players
-          const teamBCount = teamBNames.length;
-          const totalH = teamACount * LINE_H + VS_H + teamBCount * LINE_H + (sittingOut.length ? 6 : 0);
-          const BOX_H = teamACount * LINE_H + VS_H + teamBCount * LINE_H;
-
-          // Game number label
+          // Game number
           doc.setFont('helvetica', 'bold');
-          doc.setFontSize(7.5);
+          doc.setFontSize(7.5 * scale);
           doc.setTextColor(...MUTED);
-          doc.text(`${gn}`, ML, gy + 4);
+          doc.text(`${gn}`, ML, gy + 4 * scale);
 
-          // Score box — tall rectangle matching full game height, divided by horizontal line
+          // Score box — tall, split by horizontal line
           doc.setDrawColor(...DARK);
           doc.setLineWidth(0.5);
           doc.setFillColor(...WHITE);
           doc.rect(BOX_X, gy, BOX_W, BOX_H, 'FD');
-          // Horizontal dividing line at midpoint (between team A and team B scores)
-          const divY = gy + teamACount * LINE_H + VS_H / 2;
+          const divY = gy + tACount * LINE_H + VS_H / 2;
           doc.line(BOX_X, divY, BOX_X + BOX_W, divY);
 
           // Team A names
           let ly = gy;
           teamANames.forEach((name) => {
             doc.setFont('helvetica', 'bold');
-            doc.setFontSize(8.5);
+            doc.setFontSize(8.5 * scale);
             doc.setTextColor(...DARK);
-            doc.text(name, ML + 5, ly + 5, { maxWidth: NAME_COL_W - 6 });
+            doc.text(name, ML + 5, ly + 5 * scale, { maxWidth: NAME_COL_W - 6 });
             ly += LINE_H;
           });
 
-          // VS
+          // Vs
           doc.setFont('helvetica', 'normal');
-          doc.setFontSize(7);
+          doc.setFontSize(7 * scale);
           doc.setTextColor(...MUTED);
-          doc.text('Vs', ML + 5, ly + 4);
+          doc.text('Vs', ML + 5, ly + 4 * scale);
           ly += VS_H;
 
           // Team B names
           teamBNames.forEach((name) => {
             doc.setFont('helvetica', 'bold');
-            doc.setFontSize(8.5);
+            doc.setFontSize(8.5 * scale);
             doc.setTextColor(...DARK);
-            doc.text(name, ML + 5, ly + 5, { maxWidth: NAME_COL_W - 6 });
+            doc.text(name, ML + 5, ly + 5 * scale, { maxWidth: NAME_COL_W - 6 });
             ly += LINE_H;
           });
 
-          // Sits out (5-player courts)
+          // Sits out
           if (sittingOut.length) {
             doc.setFont('helvetica', 'italic');
-            doc.setFontSize(6.5);
+            doc.setFontSize(6.5 * scale);
             doc.setTextColor(...ORANGE);
-            doc.text(`Sits out: ${sittingOut.join(', ')}`, ML + 5, ly + 4);
-            ly += 6;
+            doc.text(`Sits out: ${sittingOut.join(', ')}`, ML + 5, ly + 4 * scale);
           }
 
-          gy += totalH + 3;
-
-          // Thin separator line between games
+          gy += totalH + SEP_H / 2;
           doc.setDrawColor(...BORDER);
           doc.setLineWidth(0.2);
           doc.line(ML, gy, leftW, gy);
-          gy += 3;
+          gy += SEP_H / 2;
         });
 
         // ── GAME 4 CLOSEST SCORES — always rendered for 4-player courts ──
         if (playerCount === 4) {
           const game4InDB = gameNums.includes(4);
-
-          const NAME_COL_W = leftW - ML - 22;
-          const BOX_X = ML + NAME_COL_W + 2;
-          const BOX_W = 18;
-          const LINE_H = 7;
-          const VS_H = 5;
 
           if (game4InDB) {
             // Render with actual saved players
@@ -1776,87 +1782,85 @@
             const BOX_H = tA.length * LINE_H + VS_H + tB.length * LINE_H;
 
             doc.setFont('helvetica', 'bold');
-            doc.setFontSize(7.5);
+            doc.setFontSize(7.5 * scale);
             doc.setTextColor(...MUTED);
-            doc.text('4', ML, gy + 4);
+            doc.text('4', ML, gy + 4 * scale);
 
             doc.setDrawColor(...DARK);
             doc.setLineWidth(0.5);
             doc.setFillColor(...WHITE);
             doc.rect(BOX_X, gy, BOX_W, BOX_H, 'FD');
-            const divY = gy + tA.length * LINE_H + VS_H / 2;
-            doc.line(BOX_X, divY, BOX_X + BOX_W, divY);
+            const divY4 = gy + tA.length * LINE_H + VS_H / 2;
+            doc.line(BOX_X, divY4, BOX_X + BOX_W, divY4);
 
             let ly = gy;
             tA.forEach((name) => {
-              doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(...DARK);
-              doc.text(name, ML + 5, ly + 5, { maxWidth: NAME_COL_W - 6 });
+              doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5 * scale); doc.setTextColor(...DARK);
+              doc.text(name, ML + 5, ly + 5 * scale, { maxWidth: NAME_COL_W - 6 });
               ly += LINE_H;
             });
-            doc.setFont('helvetica', 'normal'); doc.setFontSize(7); doc.setTextColor(...MUTED);
-            doc.text('Vs', ML + 5, ly + 4);
+            doc.setFont('helvetica', 'normal'); doc.setFontSize(7 * scale); doc.setTextColor(...MUTED);
+            doc.text('Vs', ML + 5, ly + 4 * scale);
             ly += VS_H;
             tB.forEach((name) => {
-              doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(...DARK);
-              doc.text(name, ML + 5, ly + 5, { maxWidth: NAME_COL_W - 6 });
+              doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5 * scale); doc.setTextColor(...DARK);
+              doc.text(name, ML + 5, ly + 5 * scale, { maxWidth: NAME_COL_W - 6 });
               ly += LINE_H;
             });
-            gy += BOX_H + 3;
+            gy += BOX_H + SEP_H;
 
           } else {
-            // Roster-only: 4 blank name lines + split box + note
+            // Roster-only: blank name lines + split box + bold note
             const BOX_H = LINE_H * 2 + VS_H + LINE_H * 2;
 
-            // Game number
             doc.setFont('helvetica', 'bold');
-            doc.setFontSize(7.5);
+            doc.setFontSize(7.5 * scale);
             doc.setTextColor(...MUTED);
-            doc.text('4', ML, gy + 4);
+            doc.text('4', ML, gy + 4 * scale);
 
-            // Score box
             doc.setDrawColor(...DARK);
             doc.setLineWidth(0.5);
             doc.setFillColor(...WHITE);
             doc.rect(BOX_X, gy, BOX_W, BOX_H, 'FD');
-            const divY = gy + LINE_H * 2 + VS_H / 2;
-            doc.line(BOX_X, divY, BOX_X + BOX_W, divY);
+            const divY4 = gy + LINE_H * 2 + VS_H / 2;
+            doc.line(BOX_X, divY4, BOX_X + BOX_W, divY4);
 
             // Blank name lines — Team A
             doc.setDrawColor(...BORDER);
             doc.setLineWidth(0.3);
             let ly = gy;
             [1, 2].forEach((n) => {
-              doc.setFont('helvetica', 'normal'); doc.setFontSize(7); doc.setTextColor(...MUTED);
-              doc.text(`${n}.`, ML + 2, ly + 5);
-              doc.line(ML + 8, ly + 5.5, BOX_X - 3, ly + 5.5);
+              doc.setFont('helvetica', 'normal'); doc.setFontSize(7 * scale); doc.setTextColor(...MUTED);
+              doc.text(`${n}.`, ML + 2, ly + 5 * scale);
+              doc.line(ML + 8, ly + 5.5 * scale, BOX_X - 3, ly + 5.5 * scale);
               ly += LINE_H;
             });
 
-            // VS
-            doc.setFont('helvetica', 'normal'); doc.setFontSize(7); doc.setTextColor(...MUTED);
-            doc.text('Vs', ML + 5, ly + 4);
+            // Vs
+            doc.setFont('helvetica', 'normal'); doc.setFontSize(7 * scale); doc.setTextColor(...MUTED);
+            doc.text('Vs', ML + 5, ly + 4 * scale);
             ly += VS_H;
 
             // Blank name lines — Team B
             [3, 4].forEach((n) => {
-              doc.setFont('helvetica', 'normal'); doc.setFontSize(7); doc.setTextColor(...MUTED);
-              doc.text(`${n}.`, ML + 2, ly + 5);
-              doc.line(ML + 8, ly + 5.5, BOX_X - 3, ly + 5.5);
+              doc.setFont('helvetica', 'normal'); doc.setFontSize(7 * scale); doc.setTextColor(...MUTED);
+              doc.text(`${n}.`, ML + 2, ly + 5 * scale);
+              doc.line(ML + 8, ly + 5.5 * scale, BOX_X - 3, ly + 5.5 * scale);
               ly += LINE_H;
             });
 
-            gy += BOX_H + 4;
+            gy += BOX_H + SEP_H;
 
-            // Note below
-            doc.setFont('helvetica', 'italic');
-            doc.setFontSize(7);
-            doc.setTextColor(...MUTED);
+            // Note — bold, larger, with icon — clearly visible
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(8 * scale);
+            doc.setTextColor(...BLUE);
             doc.text(
-              '* 4th MATCH will be between the combination of players with the closest score after games 1, 2 & 3.',
-              ML + 2, gy + 3,
+              '🎯 4th MATCH: determined by the combination of players with the CLOSEST score after games 1, 2 & 3.',
+              ML + 2, gy + 4 * scale,
               { maxWidth: leftW - ML - 2 }
             );
-            gy += 10;
+            gy += 10 * scale;
           }
 
           // Final separator
