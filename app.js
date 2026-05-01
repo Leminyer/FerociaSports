@@ -213,9 +213,12 @@
         )
         .join('');
 
-    // Restore previously selected ladder (survives tab switches)
+    // Restore previously selected ladder only if user explicitly selected it
+    // this session (ferocia_ladder_visited flag is set on manual selection).
+    // This prevents auto-selecting on first visit after a page reload.
     const savedId = sessionStorage.getItem('ferocia_selected_ladder_id');
-    const savedLadder = savedId ? allLadders.find((l) => l.id === parseInt(savedId, 10)) : null;
+    const userSelected = sessionStorage.getItem('ferocia_ladder_visited');
+    const savedLadder = (savedId && userSelected) ? allLadders.find((l) => l.id === parseInt(savedId, 10)) : null;
     if (savedLadder) {
       sel.value = savedLadder.id;
       currentLadder = savedLadder;
@@ -231,8 +234,10 @@
     // Persist selection so tab switches don't lose it
     if (currentLadder) {
       sessionStorage.setItem('ferocia_selected_ladder_id', currentLadder.id);
+      sessionStorage.setItem('ferocia_ladder_visited', '1');
     } else {
       sessionStorage.removeItem('ferocia_selected_ladder_id');
+      sessionStorage.removeItem('ferocia_ladder_visited');
     }
     updateLadderBanner();
     await loadLadderPlayers();
@@ -407,6 +412,7 @@
       if (currentLadder && currentLadder.id === id) {
         currentLadder = null;
         sessionStorage.removeItem('ferocia_selected_ladder_id');
+        sessionStorage.removeItem('ferocia_ladder_visited');
       }
       toast(`Ladder "${name}" deleted.`);
       await loadLadderSelector();
