@@ -303,12 +303,12 @@
           (l.start_date ? `Started: ${fmtDate(l.start_date)}` : 'No start date') +
           (l.end_date ? ` · Ends: ${fmtDate(l.end_date)}` : '');
         return `
-          <div class="list-row-flex">
-            <div>
+          <div class="list-row" style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
+            <div style="flex:1;min-width:0;">
               <div class="text-bold text-14">${esc(l.name)}</div>
               <div class="text-muted-12 mt-4">${dates}</div>
             </div>
-            <div class="row-wrap">
+            <div class="row-wrap" style="flex-shrink:0;justify-content:flex-end;">
               <span class="badge badge-${l.status === 'active' ? 'active' : 'inactive'}">${esc(l.status)}</span>
               <button class="btn btn-outline btn-sm" data-action="openLadderPlayers" data-lid="${l.id}" data-lname="${esc(l.name)}">Players</button>
               <button class="btn btn-outline btn-sm" data-action="openEditLadder" data-lid="${l.id}">Edit</button>
