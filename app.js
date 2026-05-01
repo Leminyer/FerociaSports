@@ -303,7 +303,7 @@
           (l.start_date ? `Started: ${fmtDate(l.start_date)}` : 'No start date') +
           (l.end_date ? ` · Ends: ${fmtDate(l.end_date)}` : '');
         return `
-          <div class="list-row" style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
+          <div class="list-row" style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px;">
             <div style="flex:1;min-width:0;">
               <div class="text-bold text-14">${esc(l.name)}</div>
               <div class="text-muted-12 mt-4">${dates}</div>
