@@ -268,8 +268,8 @@ footer{
     <div><div class="pill-label">Junior Programs</div><div class="pill-sub">Development & drills</div></div>
   </div>
   <div class="pill">
-    <span class="pill-icon">🏟️</span>
-    <div><div class="pill-label">30 Courts</div><div class="pill-sub">Patch Reef Park, Boca Raton</div></div>
+    <span class="pill-icon">🛒</span>
+    <div><div class="pill-label">Our Products</div><div class="pill-sub">Store coming soon</div></div>
   </div>
 </div>
 
@@ -315,6 +315,16 @@ footer{
   <div class="modal-inner">
     <button class="modal-close" id="modal-close">✕</button>
     <img id="modal-img" src="" alt="Event flyer">
+    <div id="modal-reg" style="display:none;margin-top:14px;text-align:center;">
+      <a id="modal-reg-link" href="" target="_blank" rel="noopener"
+         style="display:inline-block;font-family:'Montserrat',sans-serif;font-size:13px;
+                font-weight:800;letter-spacing:1px;text-transform:uppercase;
+                background:var(--lime);color:var(--dark);border-radius:8px;
+                padding:13px 28px;text-decoration:none;transition:opacity .2s;"
+         onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
+        Register Now
+      </a>
+    </div>
   </div>
 </div>
 
@@ -360,12 +370,22 @@ footer{
       const img = ev.flyer_url
         ? `<img class="ecard-img" src="${esc(ev.flyer_url)}" alt="${esc(ev.title)}" loading="lazy">`
         : `<div class="ecard-placeholder">🏓</div>`;
-      return `<div class="ecard" data-flyer="${esc(ev.flyer_url||'')}" onclick="openFlyer(this)">
+      const regBtn = ev.registration_url
+        ? `<a href="${esc(ev.registration_url)}" target="_blank" rel="noopener"
+              onclick="event.stopPropagation();"
+              style="display:block;margin-top:12px;font-family:'Montserrat',sans-serif;
+                     font-size:12px;font-weight:800;letter-spacing:1px;text-transform:uppercase;
+                     background:var(--lime);color:var(--dark);border-radius:6px;
+                     padding:10px 16px;text-align:center;text-decoration:none;">
+             Register Now
+           </a>` : '';
+      return `<div class="ecard" data-flyer="${esc(ev.flyer_url||'')}" data-reg="${esc(ev.registration_url||'')}" onclick="openFlyer(this)">
         ${img}
         <div class="ecard-body">
           <div class="ecard-date">📅 ${dateLabel}</div>
           <div class="ecard-title">${esc(ev.title)}</div>
           ${ev.description?`<div class="ecard-desc">${esc(ev.description)}</div>`:''}
+          ${regBtn}
         </div>
       </div>`;
     }).join('');
@@ -376,6 +396,16 @@ footer{
     const url = card.dataset.flyer;
     if (!url) return;
     document.getElementById('modal-img').src = url;
+    // Show registration link if available
+    const reg = card.dataset.reg;
+    const modalReg = document.getElementById('modal-reg');
+    const modalRegLink = document.getElementById('modal-reg-link');
+    if (reg) {
+      modalRegLink.href = reg;
+      modalReg.style.display = 'block';
+    } else {
+      modalReg.style.display = 'none';
+    }
     document.getElementById('flyer-modal').classList.add('open');
   };
   document.getElementById('modal-close').addEventListener('click', () => {

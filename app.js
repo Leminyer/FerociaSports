@@ -3255,8 +3255,20 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
               ${isPast ? '⏰ Past — ' : '📅 '}${dateLabel}
             </div>
             ${ev.description ? `<div style="font-size:12px;color:var(--text-muted);margin-top:4px;font-weight:500;">${esc(ev.description)}</div>` : ''}
+            ${ev.registration_url ? `<div style="font-size:11px;color:var(--blue);font-weight:600;margin-top:4px;">🔗 <a href="${esc(ev.registration_url)}" target="_blank" rel="noopener" style="color:var(--blue);">${esc(ev.registration_url)}</a></div>` : ''}
           </div>
-          <button class="btn btn-danger btn-sm" data-action="deleteEvent" data-evid="${ev.id}" data-evflyer="${esc(ev.flyer_url || '')}" style="flex-shrink:0;">Delete</button>
+          <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;">
+            <button class="btn btn-outline btn-sm" data-action="openEditEventModal"
+              data-evid="${ev.id}"
+              data-evtitle="${esc(ev.title)}"
+              data-evdate="${esc(ev.event_date)}"
+              data-evdesc="${esc(ev.description || '')}"
+              data-evreg="${esc(ev.registration_url || '')}"
+              data-evflyer="${esc(ev.flyer_url || '')}">Edit</button>
+            <button class="btn btn-danger btn-sm" data-action="deleteEvent"
+              data-evid="${ev.id}"
+              data-evflyer="${esc(ev.flyer_url || '')}">Delete</button>
+          </div>
         </div>`;
       }).join('');
     } catch (err) {
@@ -3266,10 +3278,11 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
 
   const createEvent = async (e) => {
     e.preventDefault();
-    const title = document.getElementById('event-title').value.trim();
-    const date  = document.getElementById('event-date').value;
-    const desc  = document.getElementById('event-description').value.trim();
-    const file  = document.getElementById('event-flyer').files[0];
+    const title   = document.getElementById('event-title').value.trim();
+    const date    = document.getElementById('event-date').value;
+    const desc    = document.getElementById('event-description').value.trim();
+    const regUrl  = document.getElementById('event-reg-url').value.trim();
+    const file    = document.getElementById('event-flyer').files[0];
 
     if (!title || !date) { toast('Title and date are required.', true); return; }
     if (file && file.size > 5 * 1024 * 1024) { toast('Flyer must be under 5MB.', true); return; }
@@ -3281,14 +3294,9 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     try {
       let flyer_url = null;
 
-      // Upload flyer to Supabase Storage if provided
       if (file) {
         const ext = file.name.split('.').pop().toLowerCase();
         const fileName = `${Date.now()}_${title.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '').slice(0, 40)}.${ext}`;
-        const { data: sbData } = window.supabase
-          ? window.supabase : { data: null };
-
-        // Use fetch with the Supabase storage REST API directly
         const uploadRes = await fetch(
           `${CFG.SUPABASE_URL}/storage/v1/object/event-flyers/${fileName}`,
           {
@@ -3308,7 +3316,13 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
         flyer_url = `${STORAGE_URL}/${fileName}`;
       }
 
-      await api('events', 'POST', { title, event_date: date, description: desc || null, flyer_url });
+      await api('events', 'POST', {
+        title,
+        event_date: date,
+        description: desc || null,
+        registration_url: regUrl || null,
+        flyer_url,
+      });
       toast(`Event "${title}" created!`);
       document.getElementById('create-event-form').reset();
       document.getElementById('event-flyer-preview').style.display = 'none';
@@ -3350,6 +3364,109 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
       await renderEventsList();
     } catch (err) {
       toast(`Error: ${err.message}`, true);
+    }
+  };
+
+  const openEditEventModal = (btn) => {
+    document.getElementById('edit-event-id').value        = btn.dataset.evid;
+    document.getElementById('edit-event-title').value     = btn.dataset.evtitle;
+    document.getElementById('edit-event-date').value      = btn.dataset.evdate;
+    document.getElementById('edit-event-description').value = btn.dataset.evdesc;
+    document.getElementById('edit-event-reg-url').value   = btn.dataset.evreg;
+    document.getElementById('edit-event-old-flyer').value = btn.dataset.evflyer;
+    // Show current flyer preview if exists
+    const flyerEl = document.getElementById('edit-event-current-flyer');
+    const flyerImg = document.getElementById('edit-event-flyer-img');
+    if (btn.dataset.evflyer) {
+      flyerImg.src = btn.dataset.evflyer;
+      flyerEl.style.display = 'block';
+    } else {
+      flyerEl.style.display = 'none';
+    }
+    // Reset file input
+    document.getElementById('edit-event-flyer').value = '';
+    // Show modal
+    const modal = document.getElementById('edit-event-modal');
+    modal.style.display = 'flex';
+  };
+
+  const closeEditEventModal = () => {
+    document.getElementById('edit-event-modal').style.display = 'none';
+  };
+
+  const editEvent = async (e) => {
+    e.preventDefault();
+    const id       = parseInt(document.getElementById('edit-event-id').value, 10);
+    const title    = document.getElementById('edit-event-title').value.trim();
+    const date     = document.getElementById('edit-event-date').value;
+    const desc     = document.getElementById('edit-event-description').value.trim();
+    const regUrl   = document.getElementById('edit-event-reg-url').value.trim();
+    const file     = document.getElementById('edit-event-flyer').files[0];
+    const oldFlyer = document.getElementById('edit-event-old-flyer').value;
+
+    if (!title || !date) { toast('Title and date are required.', true); return; }
+    if (file && file.size > 5 * 1024 * 1024) { toast('Flyer must be under 5MB.', true); return; }
+
+    const btn = document.getElementById('edit-event-btn');
+    btn.disabled = true;
+    btn.textContent = 'Saving...';
+
+    try {
+      let flyer_url = oldFlyer || null;
+
+      if (file) {
+        // Delete old flyer from storage if it exists
+        if (oldFlyer) {
+          const oldFileName = oldFlyer.split('/event-flyers/')[1];
+          if (oldFileName) {
+            const session = await window.supabase.auth.getSession();
+            await fetch(
+              `${CFG.SUPABASE_URL}/storage/v1/object/event-flyers/${oldFileName}`,
+              {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${session.data.session.access_token}` },
+              }
+            ).catch(() => {}); // non-critical
+          }
+        }
+        // Upload new flyer
+        const ext = file.name.split('.').pop().toLowerCase();
+        const fileName = `${Date.now()}_${title.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '').slice(0, 40)}.${ext}`;
+        const uploadRes = await fetch(
+          `${CFG.SUPABASE_URL}/storage/v1/object/event-flyers/${fileName}`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${(await window.supabase.auth.getSession()).data.session.access_token}`,
+              'Content-Type': file.type,
+              'x-upsert': 'false',
+            },
+            body: file,
+          }
+        );
+        if (!uploadRes.ok) {
+          const err = await uploadRes.json().catch(() => ({}));
+          throw new Error(err.message || `Upload failed: ${uploadRes.status}`);
+        }
+        flyer_url = `${STORAGE_URL}/${fileName}`;
+      }
+
+      await api(`events?id=eq.${id}`, 'PATCH', {
+        title,
+        event_date: date,
+        description: desc || null,
+        registration_url: regUrl || null,
+        flyer_url,
+      });
+
+      toast(`Event "${title}" updated!`);
+      closeEditEventModal();
+      await renderEventsList();
+    } catch (err) {
+      toast(`Error: ${err.message}`, true);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Save Changes';
     }
   };
 
@@ -3579,6 +3696,8 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     closeTournamentNotifyModal: () => closeTournamentNotifyModal(),
     // Events management
     deleteEvent: (btn) => deleteEvent(btn),
+    openEditEventModal: (btn) => openEditEventModal(btn),
+    closeEditEventModal: () => closeEditEventModal(),
     // Print Roster
     printRoster: (btn) => printRoster(btn),
     // Print Standings
@@ -3695,6 +3814,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
   document.getElementById('edit-session-form').addEventListener('submit', saveEditSession);
   document.getElementById('notify-form').addEventListener('submit', sendNotifications);
   document.getElementById('create-event-form')?.addEventListener('submit', createEvent);
+  document.getElementById('edit-event-form')?.addEventListener('submit', editEvent);
   document.getElementById('promo-form').addEventListener('submit', sendPromoEmail);
   document.getElementById('t-notify-form').addEventListener('submit', sendTournamentNotify);
   document.getElementById('sub-status-filter')?.addEventListener('change', loadSubscribers);
