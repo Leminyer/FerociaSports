@@ -2530,6 +2530,9 @@
   };
 
   const initAddPlayer = () => {
+    // Reset the entire form every time the tab is opened
+    const form = document.querySelector('#page-add-player form');
+    if (form) form.reset();
     document.getElementById('p-joined').value = todayISO();
   };
 
@@ -2667,10 +2670,18 @@
     }
     if (reasonErrEl) reasonErrEl.style.display = 'none';
 
+    // Email is required
+    const editEmail = document.getElementById('edit-email').value.trim();
+    if (!editEmail) {
+      toast('Email address is required.', true);
+      document.getElementById('edit-email').focus();
+      return;
+    }
+
     const body = {
       first_name: document.getElementById('edit-first').value.trim(),
       last_name: document.getElementById('edit-last').value.trim(),
-      email: document.getElementById('edit-email').value.trim() || null,
+      email: editEmail,
       phone: document.getElementById('edit-phone').value.trim() || null,
       gender: document.getElementById('edit-gender').value || null,
       status: newStatus,
