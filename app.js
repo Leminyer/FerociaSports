@@ -3049,6 +3049,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
       const ok = await sendOneEmail(CFG.EMAILJS.SERVICE, CFG.EMAILJS.TEMPLATES.LADDER_NOTIFY, {
         player_name: `${player.first_name} ${player.last_name}`,
         player_email: player.email,
+        email_title: 'Pickleball Ladder',
         subject,
         message,
         leaderboard_url: leaderboardUrl,
@@ -3182,6 +3183,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
       const ok = await sendOneEmail(CFG.EMAILJS.SERVICE, CFG.EMAILJS.TEMPLATES.LADDER_NOTIFY, {
         player_name: `${player.first_name} ${player.last_name}`,
         player_email: player.email,
+        email_title: _tournamentName,
         subject,
         message: playerMsg,
         leaderboard_url: resultsUrl,
