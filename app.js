@@ -3580,6 +3580,8 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     closeTournamentNotifyModal: () => closeTournamentNotifyModal(),
     // Events management
     deleteEvent: (btn) => deleteEvent(btn),
+    // Print Roster
+    printRoster: (btn) => printRoster(btn),
     // Print Standings
     printStandings: () => printStandings(),
     // Session accordion
