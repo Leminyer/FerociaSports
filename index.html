@@ -49,7 +49,7 @@ header{
 }
 .hero-bg{
   position:absolute;inset:0;
-  background-image:url('https://images.unsplash.com/photo-1625735435014-39ab5c84b3fb?auto=format&fit=crop&w=1920&q=85');
+  background-image:url('https://source.unsplash.com/1920x1080/?pickleball,sport,court');
   background-size:cover;background-position:center 40%;
   transform:scale(1.04);transition:transform 8s ease;
 }
@@ -341,7 +341,7 @@ footer{
   const heroBg = document.getElementById('hero-bg');
   const img = new Image();
   img.onload = () => heroBg.classList.add('loaded');
-  img.src = 'https://images.unsplash.com/photo-1625735435014-39ab5c84b3fb?auto=format&fit=crop&w=1920&q=85';
+  img.src = 'https://source.unsplash.com/1920x1080/?pickleball,sport,court';
 
   // ── QR Code ───────────────────────────────────────────────────────────
   new QRCode(document.getElementById('landing-qr'), {
