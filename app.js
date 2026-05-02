@@ -2535,17 +2535,43 @@
 
   const addPlayer = async (e) => {
     e.preventDefault();
-    const body = {
-      first_name: document.getElementById('p-first').value.trim(),
-      last_name: document.getElementById('p-last').value.trim(),
-      email: document.getElementById('p-email').value.trim() || null,
-      phone: document.getElementById('p-phone').value.trim() || null,
-      gender: document.getElementById('p-gender').value || null,
-      status: document.getElementById('p-status').value,
-      date_joined: document.getElementById('p-joined').value || null,
-      current_rank: 999,
-    };
+    const firstName = document.getElementById('p-first').value.trim();
+    const lastName  = document.getElementById('p-last').value.trim();
+    const email     = document.getElementById('p-email').value.trim();
+
+    // Email is required
+    if (!email) {
+      toast('Email address is required.', true);
+      document.getElementById('p-email').focus();
+      return;
+    }
+
+    // Disable button immediately to prevent double-click
+    const saveBtn = document.getElementById('add-player-btn');
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving...'; }
+
     try {
+      // ── Duplicate check: block if same first name + last name + email already exists ──
+      const duplicate = await api(
+        `players?first_name=eq.${encodeURIComponent(firstName)}&last_name=eq.${encodeURIComponent(lastName)}&email=eq.${encodeURIComponent(email)}&select=id&limit=1`
+      );
+      if (duplicate.length) {
+        toast(`A player named ${firstName} ${lastName} with this email already exists in the system.`, true);
+        return;
+      }
+
+      // ── All clear — save the player ───────────────────────────────────────
+      const body = {
+        first_name: firstName,
+        last_name: lastName,
+        email,
+        phone: document.getElementById('p-phone').value.trim() || null,
+        gender: document.getElementById('p-gender').value || null,
+        status: document.getElementById('p-status').value,
+        date_joined: document.getElementById('p-joined').value || null,
+        current_rank: 999,
+      };
+
       await api('players', 'POST', body);
       toast(`${body.first_name} ${body.last_name} added successfully!`);
       e.target.reset();
@@ -2553,6 +2579,9 @@
       allPlayers = [];
     } catch (err) {
       toast(`Error: ${err.message}`, true);
+    } finally {
+      // Always re-enable the button regardless of outcome
+      if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Add player'; }
     }
   };
 
