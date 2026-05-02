@@ -100,6 +100,18 @@
   .loading { text-align:center; color:var(--text-muted); font-size:13px; font-weight:600; padding:32px 0; }
   .error { color:var(--orange); font-size:13px; font-weight:600; padding:24px; text-align:center; }
 
+  /* REGISTERED TEAMS GRID */
+  .teams-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:12px; margin-bottom:8px; }
+  .team-card { background:var(--white); border:0.5px solid var(--border); border-radius:var(--radius-sm); padding:14px 16px; display:flex; align-items:center; gap:14px; transition:box-shadow .15s; }
+  .team-card:hover { box-shadow:0 4px 16px rgba(23,76,204,.1); }
+  .team-seed { width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:800; flex-shrink:0; background:var(--blue-pale); color:var(--blue); }
+  .team-seed.s1 { background:var(--gold); color:#7a5800; }
+  .team-seed.s2 { background:var(--silver); color:#555; }
+  .team-seed.s3 { background:var(--bronze); color:#fff; }
+  .team-info { min-width:0; }
+  .team-name { font-size:13px; font-weight:800; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .team-players { font-size:11px; font-weight:600; color:var(--text-muted); margin-top:3px; line-height:1.4; }
+
   /* FOOTER */
   footer { text-align:center; padding:32px 16px; font-size:12px; color:var(--text-muted); display:flex; align-items:center; justify-content:center; gap:10px; }
   .footer-logo { height:22px; display:inline-block; vertical-align:middle; }
@@ -404,10 +416,20 @@
     // ── TEAMS LIST (no matches yet) ──
     if (!rrMatches.length && !bracketMatches.length && teams.length) {
       html += `<div class="phase-label">Registered Teams</div>
-        <div class="card"><table>
-          <thead><tr><th>#</th><th>Team</th></tr></thead>
-          <tbody>${teams.map((t,i) => `<tr><td>${i+1}</td><td class="text-bold">${esc(t.name)}</td></tr>`).join('')}</tbody>
-        </table></div>`;
+        <div class="teams-grid">
+          ${teams.map((t, i) => {
+            const seed = i + 1;
+            const seedClass = seed === 1 ? 's1' : seed === 2 ? 's2' : seed === 3 ? 's3' : '';
+            const players = getPlayerNames(t);
+            return `<div class="team-card">
+              <div class="team-seed ${seedClass}">${seed}</div>
+              <div class="team-info">
+                <div class="team-name">${esc(t.name)}</div>
+                ${players ? `<div class="team-players">${esc(players)}</div>` : ''}
+              </div>
+            </div>`;
+          }).join('')}
+        </div>`;
     }
 
     if (!html) html = '<div class="empty">No results available yet for this category.</div>';
