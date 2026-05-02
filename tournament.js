@@ -699,6 +699,11 @@ function renderTournamentDetail(t, categories) {
           style="background:var(--teal);border-color:var(--teal);">
           ✉ Notify Players
         </button>
+        <button class="t-btn t-btn-primary" id="t-print-roster-btn"
+          onclick="printTournamentRoster(${t.id}, ${JSON.stringify(t.name)}, ${JSON.stringify(t.date || '')}, ${JSON.stringify(categories.map(c => ({id:c.id, name:c.name})))})"
+          title="Print roster for all categories">
+          📄 Print Roster
+        </button>
       </div>
     </div>
     <div class="t-tournament-hero" style="position:relative;">
@@ -2257,4 +2262,310 @@ function calcBestOfWinner(bestOf, teamAId, teamBId, gameScores) {
   if (winsA >= needed) return { winnerId: teamAId, winsA, winsB };
   if (winsB >= needed) return { winnerId: teamBId, winsA, winsB };
   return { winnerId: null, winsA, winsB };
+}
+
+/* ─── PRINT TOURNAMENT ROSTER ─────────────────────────── */
+async function printTournamentRoster(tournamentId, tournamentName, tournamentDate, categories) {
+  const btn = document.getElementById('t-print-roster-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Generating...'; }
+
+  try {
+    const { jsPDF } = window.jspdf;
+    if (!jsPDF) throw new Error('jsPDF not loaded. Make sure the jsPDF script is included.');
+
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
+
+    const PW = 215.9, PH = 279.4, ML = 14, MR = 14, MT = 14;
+    const CW = PW - ML - MR;
+    const BLUE   = [23, 76, 204];
+    const LIME   = [198, 242, 33];
+    const DARK   = [13, 31, 74];
+    const MUTED  = [107, 122, 153];
+    const BORDER = [214, 223, 245];
+    const WHITE  = [255, 255, 255];
+    const GOLD   = [255, 215, 0];
+    const SILVER = [192, 192, 192];
+    const BRONZE = [205, 127, 50];
+    const TEAL   = [36, 188, 150];
+
+    const dateLabel = tournamentDate
+      ? new Date(tournamentDate + 'T12:00:00').toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric', year:'numeric' })
+      : '';
+
+    // Helper: draw page header for a category
+    const drawHeader = (catName) => {
+      doc.setFillColor(...BLUE);
+      doc.rect(0, 0, PW, 22, 'F');
+      doc.setFillColor(...LIME);
+      doc.rect(0, 22, PW, 1.2, 'F');
+      // Tournament name
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.setTextColor(...WHITE);
+      doc.text(tournamentName, ML, 9, { maxWidth: CW * 0.65 });
+      // Date top right
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8.5);
+      doc.text(dateLabel, PW - MR, 9, { align: 'right' });
+      // Category name bottom left in lime
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.setTextColor(...LIME);
+      doc.text(catName, ML, 18);
+    };
+
+    // Helper: draw page footer
+    const drawFooter = () => {
+      doc.setFillColor(...BLUE);
+      doc.rect(0, PH - 10, PW, 10, 'F');
+      doc.setFillColor(...LIME);
+      doc.rect(0, PH - 10, PW, 0.8, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7);
+      doc.setTextColor(...WHITE);
+      doc.text('Ferocia Sports Center  —  ferociasports.com', PW / 2, PH - 4, { align: 'center' });
+    };
+
+    const PAGE_BOTTOM = PH - 14;
+    const LEFT_W  = CW * 0.42;   // teams list column
+    const RIGHT_X = ML + LEFT_W + 6;
+    const RIGHT_W = PW - MR - RIGHT_X;
+
+    for (let ci = 0; ci < categories.length; ci++) {
+      const cat = categories[ci];
+      if (ci > 0) doc.addPage();
+
+      drawHeader(cat.name);
+      let y = 30;
+
+      // Fetch data for this category
+      const [teams, rrMatches, bracketMatches] = await Promise.all([
+        tApi(`tournament_teams?category_id=eq.${cat.id}&select=*&order=id`),
+        tApi(`tournament_rr_matches?category_id=eq.${cat.id}&select=*&order=round,court`),
+        tApi(`tournament_bracket_matches?category_id=eq.${cat.id}&select=*&order=id`),
+      ]);
+
+      // Build team map for name lookup
+      const teamMap = {};
+      teams.forEach(t => { teamMap[t.id] = t; });
+
+      // ── LEFT COLUMN: Teams list ─────────────────────────
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setTextColor(...MUTED);
+      doc.text('TEAMS', ML, y);
+      y += 5;
+
+      const ROW_H = 8.5;
+
+      teams.forEach((team, i) => {
+        const seed = i + 1;
+        const seedColor = seed === 1 ? GOLD : seed === 2 ? SILVER : seed === 3 ? BRONZE : BLUE;
+        const isTop3 = seed <= 3;
+
+        // Alternating row background
+        if (i % 2 === 0) {
+          doc.setFillColor(245, 247, 252);
+          doc.rect(ML, y, LEFT_W, ROW_H, 'F');
+        }
+
+        // Seed badge
+        const cx = ML + 5, cy = y + ROW_H / 2;
+        doc.setFillColor(...seedColor);
+        doc.circle(cx, cy, 3.2, 'F');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(6.5);
+        doc.setTextColor(...(isTop3 && seed !== 2 ? WHITE : seed === 2 ? [85,85,85] : WHITE));
+        doc.text(String(seed), cx, cy + 0.8, { align: 'center' });
+
+        // Team name
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8);
+        doc.setTextColor(...DARK);
+        doc.text(team.name, ML + 11, y + 4, { maxWidth: LEFT_W - 14 });
+
+        // Player names
+        const pIds = [team.player1_id, team.player2_id, team.player3_id, team.player4_id].filter(Boolean);
+        const pNames = pIds.map(id => {
+          const p = tAllPlayers.find(x => x.id === id);
+          return p ? `${p.first_name} ${p.last_name}` : null;
+        }).filter(Boolean).join(' & ');
+
+        if (pNames) {
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(6.5);
+          doc.setTextColor(...MUTED);
+          doc.text(pNames, ML + 11, y + 7.2, { maxWidth: LEFT_W - 14 });
+        }
+
+        y += ROW_H;
+
+        // Page break check
+        if (y + ROW_H > PAGE_BOTTOM && i < teams.length - 1) {
+          drawFooter();
+          doc.addPage();
+          drawHeader(cat.name);
+          y = 30;
+        }
+      });
+
+      // ── RIGHT COLUMN: Schedule ──────────────────────────
+      // Reset y to just below header for right column
+      let ry = 30;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setTextColor(...MUTED);
+      doc.text('SCHEDULE', RIGHT_X, ry);
+      ry += 5;
+
+      const MATCH_H = 9;
+
+      // RR Matches grouped by round
+      if (rrMatches.length) {
+        const rounds = [...new Set(rrMatches.map(m => m.round))].sort((a, b) => a - b);
+        rounds.forEach(round => {
+          if (ry + MATCH_H > PAGE_BOTTOM) return; // skip if no room
+          // Round label
+          doc.setFillColor(...BLUE);
+          doc.rect(RIGHT_X, ry, RIGHT_W, 6, 'F');
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(7);
+          doc.setTextColor(...WHITE);
+          doc.text(`Round ${round}`, RIGHT_X + 3, ry + 4.2);
+          ry += 7;
+
+          rrMatches.filter(m => m.round === round).forEach(m => {
+            if (ry + MATCH_H > PAGE_BOTTOM) return;
+            const tA = teamMap[m.team_a_id];
+            const tB = teamMap[m.team_b_id];
+            const nameA = tA ? tA.name : 'TBD';
+            const nameB = tB ? tB.name : 'TBD';
+            const courtLabel = m.court ? `C${m.court}` : '';
+
+            if (m.round % 2 === 0) {
+              doc.setFillColor(245, 247, 252);
+              doc.rect(RIGHT_X, ry, RIGHT_W, MATCH_H, 'F');
+            }
+
+            // Court badge
+            if (courtLabel) {
+              doc.setFillColor(...TEAL);
+              doc.setFont('helvetica', 'bold');
+              doc.setFontSize(6);
+              doc.setTextColor(...WHITE);
+              doc.roundedRect(RIGHT_X + 1, ry + 1.5, 9, 5.5, 1, 1, 'F');
+              doc.text(courtLabel, RIGHT_X + 5.5, ry + 5.2, { align: 'center' });
+            }
+
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(7.5);
+            doc.setTextColor(...DARK);
+            doc.text(nameA, RIGHT_X + 13, ry + 4);
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(6.5);
+            doc.setTextColor(...MUTED);
+            doc.text('vs', RIGHT_X + 13, ry + 7.5);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(7.5);
+            doc.setTextColor(...DARK);
+            doc.text(nameB, RIGHT_X + 20, ry + 7.5);
+
+            // Score boxes
+            const bx = RIGHT_X + RIGHT_W - 16;
+            doc.setDrawColor(...BORDER);
+            doc.setLineWidth(0.4);
+            doc.setFillColor(...WHITE);
+            doc.rect(bx, ry + 1.5, 6.5, MATCH_H - 3, 'FD');
+            doc.rect(bx + 7.5, ry + 1.5, 6.5, MATCH_H - 3, 'FD');
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(6);
+            doc.setTextColor(...MUTED);
+            doc.text('—', bx + 7, ry + 5.5, { align: 'center' });
+
+            doc.setDrawColor(...BORDER);
+            doc.setLineWidth(0.2);
+            doc.line(RIGHT_X, ry + MATCH_H, RIGHT_X + RIGHT_W, ry + MATCH_H);
+            ry += MATCH_H;
+          });
+        });
+      }
+
+      // Bracket Matches grouped by round name
+      if (bracketMatches.length) {
+        const roundNames = [...new Set(bracketMatches.map(m => m.round_name))];
+        roundNames.forEach(roundName => {
+          if (ry + MATCH_H > PAGE_BOTTOM) return;
+          // Round label
+          doc.setFillColor(...DARK);
+          doc.rect(RIGHT_X, ry, RIGHT_W, 6, 'F');
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(7);
+          doc.setTextColor(...WHITE);
+          doc.text(roundName, RIGHT_X + 3, ry + 4.2);
+          ry += 7;
+
+          bracketMatches.filter(m => m.round_name === roundName).forEach((m, mi) => {
+            if (ry + MATCH_H > PAGE_BOTTOM) return;
+            const tA = m.team_a_id ? teamMap[m.team_a_id] : null;
+            const tB = m.team_b_id ? teamMap[m.team_b_id] : null;
+            const nameA = m.status === 'bye' && !tA ? 'BYE' : (tA ? tA.name : 'TBD');
+            const nameB = m.status === 'bye' && !tB ? 'BYE' : (tB ? tB.name : 'TBD');
+
+            if (mi % 2 === 0) {
+              doc.setFillColor(245, 247, 252);
+              doc.rect(RIGHT_X, ry, RIGHT_W, MATCH_H, 'F');
+            }
+
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(7.5);
+            doc.setTextColor(...DARK);
+            doc.text(nameA, RIGHT_X + 3, ry + 4);
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(6.5);
+            doc.setTextColor(...MUTED);
+            doc.text('vs', RIGHT_X + 3, ry + 7.5);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(7.5);
+            doc.setTextColor(...DARK);
+            doc.text(nameB, RIGHT_X + 10, ry + 7.5);
+
+            // Score boxes
+            const bx = RIGHT_X + RIGHT_W - 16;
+            doc.setDrawColor(...BORDER);
+            doc.setLineWidth(0.4);
+            doc.setFillColor(...WHITE);
+            doc.rect(bx, ry + 1.5, 6.5, MATCH_H - 3, 'FD');
+            doc.rect(bx + 7.5, ry + 1.5, 6.5, MATCH_H - 3, 'FD');
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(6);
+            doc.setTextColor(...MUTED);
+            doc.text('—', bx + 7, ry + 5.5, { align: 'center' });
+
+            doc.setDrawColor(...BORDER);
+            doc.setLineWidth(0.2);
+            doc.line(RIGHT_X, ry + MATCH_H, RIGHT_X + RIGHT_W, ry + MATCH_H);
+            ry += MATCH_H;
+          });
+        });
+      }
+
+      if (!rrMatches.length && !bracketMatches.length) {
+        doc.setFont('helvetica', 'italic');
+        doc.setFontSize(8);
+        doc.setTextColor(...MUTED);
+        doc.text('No schedule generated yet.', RIGHT_X, ry + 6);
+      }
+
+      drawFooter();
+    }
+
+    const safeName = tournamentName.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '').slice(0, 40);
+    doc.save(`${safeName}_Roster.pdf`);
+    tToast(`Roster downloaded!`);
+  } catch (err) {
+    tToast(`Error generating PDF: ${err.message}`, true);
+    console.error('[printTournamentRoster]', err);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '📄 Print Roster'; }
+  }
 }
