@@ -175,6 +175,7 @@
     if (name === 'ladders') loadLaddersPage();
     if (name === 'add-player') initAddPlayer();
     if (name === 'share') loadSharePage();
+    if (name === 'events') loadEventsPage();
     if (name === 'promotions' && typeof loadPromotionsPage !== 'undefined') loadPromotionsPage();
     if (name === 't-tournaments' && typeof loadTournamentModule !== 'undefined') loadTournamentModule();
     // Management pages: ensure correct subnav is visible
@@ -2747,9 +2748,9 @@
     }
 
     const baseLadderUrl =
-      window.location.origin + window.location.pathname.replace('index.html', '') + 'players.html';
+      window.location.origin + window.location.pathname.replace('admin.html', '') + 'players.html';
     const baseTourneyUrl =
-      window.location.origin + window.location.pathname.replace('index.html', '') + 'tournament-results.html';
+      window.location.origin + window.location.pathname.replace('admin.html', '') + 'tournament-results.html';
 
     const renderShareRow = (item, url, btnId, statusColor, statusLabel) => `
       <div class="list-row share-row" data-name="${esc(item.name).toLowerCase()}" data-url="${esc(url)}">
@@ -3032,7 +3033,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
 
     const encoded = btoa(String(currentLadder.id));
     const baseUrl =
-      window.location.origin + window.location.pathname.replace('index.html', '') + 'players.html';
+      window.location.origin + window.location.pathname.replace('admin.html', '') + 'players.html';
     const leaderboardUrl = `${baseUrl}?l=${encoded}`;
 
     const sendBtn = document.getElementById('notify-send-btn');
@@ -3158,7 +3159,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
 
     // Build tournament results URL
     const baseTourneyUrl =
-      window.location.origin + window.location.pathname.replace('index.html', '') + 'tournament-results.html';
+      window.location.origin + window.location.pathname.replace('admin.html', '') + 'tournament-results.html';
     const resultsUrl = `${baseTourneyUrl}?t=${btoa(String(_tournamentId))}`;
 
     const sendBtn = document.getElementById('t-notify-send-btn');
@@ -3204,6 +3205,150 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
       const failedList = failedRecipients.slice(0, 3).join(', ');
       const more = failedRecipients.length > 3 ? ` (+${failedRecipients.length - 3} more)` : '';
       toast(`Sent ${sent}. Failed: ${failedList}${more}`, true);
+    }
+  };
+
+  /* ─── EVENTS ────────────────────────────────────────────── */
+
+  const STORAGE_URL = `${CFG.SUPABASE_URL}/storage/v1/object/public/event-flyers`;
+
+  const loadEventsPage = async () => {
+    // Wire flyer preview
+    const flyerInput = document.getElementById('event-flyer');
+    if (flyerInput && !flyerInput._wired) {
+      flyerInput._wired = true;
+      flyerInput.addEventListener('change', () => {
+        const file = flyerInput.files[0];
+        const preview = document.getElementById('event-flyer-preview');
+        const img = document.getElementById('event-flyer-img');
+        if (file) {
+          img.src = URL.createObjectURL(file);
+          preview.style.display = '';
+        } else {
+          preview.style.display = 'none';
+        }
+      });
+    }
+    await renderEventsList();
+  };
+
+  const renderEventsList = async () => {
+    const el = document.getElementById('events-list');
+    if (!el) return;
+    try {
+      const events = await api('events?select=*&order=event_date.asc');
+      if (!events.length) {
+        el.innerHTML = '<div class="empty">No events yet. Create your first one above.</div>';
+        return;
+      }
+      el.innerHTML = events.map((ev) => {
+        const dateLabel = fmtDate(ev.event_date, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+        const isPast = new Date(ev.event_date) < new Date(new Date().toDateString());
+        return `<div class="list-row" style="display:flex;align-items:flex-start;gap:16px;">
+          ${ev.flyer_url
+            ? `<img src="${esc(ev.flyer_url)}" style="width:60px;height:75px;object-fit:cover;border-radius:6px;border:0.5px solid var(--border);flex-shrink:0;">`
+            : `<div style="width:60px;height:75px;background:var(--gray);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">📋</div>`}
+          <div style="flex:1;min-width:0;">
+            <div class="text-bold text-14">${esc(ev.title)}</div>
+            <div style="font-size:12px;font-weight:700;color:${isPast ? 'var(--text-muted)' : 'var(--teal)'};margin-top:2px;">
+              ${isPast ? '⏰ Past — ' : '📅 '}${dateLabel}
+            </div>
+            ${ev.description ? `<div style="font-size:12px;color:var(--text-muted);margin-top:4px;font-weight:500;">${esc(ev.description)}</div>` : ''}
+          </div>
+          <button class="btn btn-danger btn-sm" data-action="deleteEvent" data-evid="${ev.id}" data-evflyer="${esc(ev.flyer_url || '')}" style="flex-shrink:0;">Delete</button>
+        </div>`;
+      }).join('');
+    } catch (err) {
+      el.innerHTML = `<div class="empty">Error: ${esc(err.message)}</div>`;
+    }
+  };
+
+  const createEvent = async (e) => {
+    e.preventDefault();
+    const title = document.getElementById('event-title').value.trim();
+    const date  = document.getElementById('event-date').value;
+    const desc  = document.getElementById('event-description').value.trim();
+    const file  = document.getElementById('event-flyer').files[0];
+
+    if (!title || !date) { toast('Title and date are required.', true); return; }
+    if (file && file.size > 5 * 1024 * 1024) { toast('Flyer must be under 5MB.', true); return; }
+
+    const btn = document.getElementById('create-event-btn');
+    btn.disabled = true;
+    btn.textContent = 'Saving...';
+
+    try {
+      let flyer_url = null;
+
+      // Upload flyer to Supabase Storage if provided
+      if (file) {
+        const ext = file.name.split('.').pop().toLowerCase();
+        const fileName = `${Date.now()}_${title.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '').slice(0, 40)}.${ext}`;
+        const { data: sbData } = window.supabase
+          ? window.supabase : { data: null };
+
+        // Use fetch with the Supabase storage REST API directly
+        const uploadRes = await fetch(
+          `${CFG.SUPABASE_URL}/storage/v1/object/event-flyers/${fileName}`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${(await window.supabase.auth.getSession()).data.session.access_token}`,
+              'Content-Type': file.type,
+              'x-upsert': 'false',
+            },
+            body: file,
+          }
+        );
+        if (!uploadRes.ok) {
+          const err = await uploadRes.json().catch(() => ({}));
+          throw new Error(err.message || `Upload failed: ${uploadRes.status}`);
+        }
+        flyer_url = `${STORAGE_URL}/${fileName}`;
+      }
+
+      await api('events', 'POST', { title, event_date: date, description: desc || null, flyer_url });
+      toast(`Event "${title}" created!`);
+      document.getElementById('create-event-form').reset();
+      document.getElementById('event-flyer-preview').style.display = 'none';
+      await renderEventsList();
+    } catch (err) {
+      toast(`Error: ${err.message}`, true);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Create Event';
+    }
+  };
+
+  const deleteEvent = async (btn) => {
+    const id = parseInt(btn.dataset.evid, 10);
+    const flyerUrl = btn.dataset.evflyer;
+    const ok = await confirmModal({
+      title: 'Delete event?',
+      message: 'This will permanently delete the event and its flyer.',
+      okLabel: 'Delete',
+    });
+    if (!ok) return;
+    try {
+      // Delete flyer from storage if it exists
+      if (flyerUrl) {
+        const fileName = flyerUrl.split('/event-flyers/')[1];
+        if (fileName) {
+          const session = await window.supabase.auth.getSession();
+          await fetch(
+            `${CFG.SUPABASE_URL}/storage/v1/object/event-flyers/${fileName}`,
+            {
+              method: 'DELETE',
+              headers: { 'Authorization': `Bearer ${session.data.session.access_token}` },
+            }
+          );
+        }
+      }
+      await api(`events?id=eq.${id}`, 'DELETE');
+      toast('Event deleted.');
+      await renderEventsList();
+    } catch (err) {
+      toast(`Error: ${err.message}`, true);
     }
   };
 
@@ -3264,7 +3409,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
 
   const generateQR = () => {
     const baseUrl =
-      window.location.origin + window.location.pathname.replace('index.html', '') + 'subscribe.html';
+      window.location.origin + window.location.pathname.replace('admin.html', '') + 'subscribe.html';
     document.getElementById('subscribe-url-display').textContent = baseUrl;
     document.getElementById('qr-container').style.display = 'block';
     const qrEl = document.getElementById('qr-code');
@@ -3322,7 +3467,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     _emailInFlight = true;
 
     emailjs.init({ publicKey: CFG.EMAILJS.PUBLIC_KEY });
-    const baseUrl = window.location.origin + window.location.pathname.replace('index.html', '');
+    const baseUrl = window.location.origin + window.location.pathname.replace('admin.html', '');
     let sent = 0;
     const failedRecipients = [];
 
@@ -3431,8 +3576,8 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     showShareQR: (btn) => showShareQR(btn),
     // Tournament notify
     closeTournamentNotifyModal: () => closeTournamentNotifyModal(),
-    // Print Roster
-    printRoster: (btn) => printRoster(btn),
+    // Events management
+    deleteEvent: (btn) => deleteEvent(btn),
     // Print Standings
     printStandings: () => printStandings(),
     // Session accordion
@@ -3546,6 +3691,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
   document.getElementById('tournament-selector')?.addEventListener('change', onTournamentChange);
   document.getElementById('edit-session-form').addEventListener('submit', saveEditSession);
   document.getElementById('notify-form').addEventListener('submit', sendNotifications);
+  document.getElementById('create-event-form')?.addEventListener('submit', createEvent);
   document.getElementById('promo-form').addEventListener('submit', sendPromoEmail);
   document.getElementById('t-notify-form').addEventListener('submit', sendTournamentNotify);
   document.getElementById('sub-status-filter')?.addEventListener('change', loadSubscribers);

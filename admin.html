@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ferocia Pickleball Ladder</title>
+<link rel="stylesheet" href="tournament.css">
+<link rel="stylesheet" href="app.css">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="db.js"></script>
+<script src="auth.js"></script>
+<script src="assets.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<style>
+  :root {
+    --blue:#174CCC;--blue-light:#9CE3FF;--blue-pale:#e8f0ff;
+    --teal:#24BC96;--teal-light:#d4f5ed;
+    --lime:#C6F221;--lime-dark:#7a9200;
+    --orange:#F26024;--orange-light:#fde8d8;
+    --gray:#EFEFEF;--gray-dk:#888;
+    --white:#ffffff;--text:#0d1f4a;--text-muted:#6b7a99;
+    --border:#d6dff5;--bg:#f4f6fc;
+    --radius:10px;--radius-sm:6px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Montserrat',sans-serif;background:var(--bg);color:var(--text);font-size:14px;}
+
+  header{background:var(--blue);padding:0 24px;display:flex;align-items:center;justify-content:space-between;height:68px;border-bottom:3px solid var(--lime);}
+  .header-left{display:flex;flex-direction:column;justify-content:center;gap:4px;}
+  .header-logo{height:32px;max-width:140px;width:auto;object-fit:contain;display:block;}
+  .header-tagline{font-size:11px;font-weight:800;letter-spacing:4px;text-transform:uppercase;color:var(--lime);padding-left:2px;}
+  .date-tag{font-size:11px;color:var(--blue-light);font-weight:600;}
+
+
+
+  nav{background:var(--white);border-bottom:0.5px solid var(--border);display:flex;padding:0 24px;overflow-x:auto;}
+  nav button{background:none;border:none;padding:13px 14px;font-size:11px;font-family:'Montserrat',sans-serif;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:var(--text-muted);cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;transition:color .15s;}
+  nav button.active{color:var(--blue);border-bottom-color:var(--lime);}
+  nav button:hover{color:var(--text);}
+
+  main{max-width:960px;margin:0 auto;padding:24px 16px;}
+  .page{display:none;}.page.active{display:block;}
+
+  .card{background:var(--white);border:0.5px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px;}
+  .card-title{font-size:11px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:16px;}
+
+  .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:24px;}
+  .stat{background:var(--blue);border-radius:var(--radius);padding:16px;border-left:4px solid var(--lime);}
+  .stat-label{font-size:9px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--blue-light);margin-bottom:6px;}
+  .stat-value{font-size:22px;font-weight:800;color:white;line-height:1.1;}
+  .stat.lime{background:var(--lime);border-left-color:var(--blue);}
+  .stat.lime .stat-label{color:var(--lime-dark);}
+  .stat.lime .stat-value{color:var(--text);font-size:14px;font-weight:700;}
+
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th{text-align:left;padding:8px 12px;font-size:10px;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;border-bottom:0.5px solid var(--border);}
+  td{padding:11px 12px;border-bottom:0.5px solid var(--border);}
+  tr:last-child td{border-bottom:none;}
+  tr:hover td{background:var(--bg);}
+
+  .rank-badge{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;font-size:12px;font-weight:800;background:var(--gray);color:var(--gray-dk);}
+  .rank-badge.top1{background:var(--lime);color:var(--lime-dark);}
+  .rank-badge.top2{background:#e0e0e0;color:#555;}
+  .rank-badge.top3{background:var(--orange-light);color:var(--orange);}
+
+  .badge{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:3px 9px;border-radius:99px;}
+  .badge-active{background:var(--teal-light);color:var(--teal);}
+  .badge-sub{background:var(--orange-light);color:var(--orange);}
+  .badge-inactive{background:var(--gray);color:var(--gray-dk);}
+  .badge-closed{background:#eee;color:#888;}
+
+  .points-pill{display:inline-block;font-size:12px;font-weight:700;padding:3px 10px;border-radius:99px;background:var(--blue-pale);color:var(--blue);}
+
+  form{display:flex;flex-direction:column;gap:14px;}
+  .form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .form-group{display:flex;flex-direction:column;gap:5px;}
+  label{font-size:10px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:var(--text-muted);}
+  input,select,textarea{padding:9px 12px;border:0.5px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:'Montserrat',sans-serif;color:var(--text);background:var(--white);outline:none;}
+  input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 0 2px rgba(23,76,204,.12);}
+
+  .btn{padding:10px 20px;border-radius:var(--radius-sm);font-size:11px;font-family:'Montserrat',sans-serif;font-weight:800;letter-spacing:1px;text-transform:uppercase;cursor:pointer;border:none;transition:opacity .15s,transform .1s;}
+  .btn:hover{opacity:.88;}.btn:active{transform:scale(.98);}
+  .btn-primary{background:var(--blue);color:white;}
+  .btn-teal{background:var(--teal);color:white;}
+  .btn-lime{background:var(--lime);color:var(--text);}
+  .btn-danger{background:var(--orange-light);color:var(--orange);border:0.5px solid #f5c4b3;}
+  .btn-sm{padding:5px 12px;font-size:10px;}
+  .btn-outline{background:none;border:0.5px solid var(--border);color:var(--text-muted);}
+
+  .toast{position:fixed;bottom:24px;right:24px;background:var(--text);color:white;padding:12px 18px;border-radius:var(--radius-sm);font-size:13px;font-family:'Montserrat',sans-serif;font-weight:600;opacity:0;transition:opacity .3s;pointer-events:none;z-index:999;}
+  .toast.show{opacity:1;}
+
+  .empty{text-align:center;padding:40px;color:var(--text-muted);font-size:13px;}
+  .loading{text-align:center;padding:32px;color:var(--text-muted);font-size:13px;}
+  .section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+  .section-header h2{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-muted);}
+
+  .points-ref{background:var(--blue);border-radius:var(--radius);padding:16px 20px;margin-bottom:20px;}
+  .points-ref-title{font-size:10px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--lime);margin-bottom:10px;}
+
+  .success-banner{display:none;background:var(--teal-light);border:1.5px solid var(--teal);border-radius:var(--radius);padding:16px 20px;margin-bottom:16px;align-items:center;gap:12px;}
+  .success-icon{width:32px;height:32px;background:var(--teal);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+
+  .modal-bg{display:none;position:fixed;inset:0;background:rgba(13,31,74,.5);z-index:100;align-items:center;justify-content:center;}
+  .modal-bg.open{display:flex;}
+  .modal{background:var(--white);border-radius:var(--radius);padding:24px;width:100%;max-width:520px;margin:16px;max-height:90vh;overflow-y:auto;border-top:4px solid var(--blue);}
+  .modal-title{font-size:13px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--blue);margin-bottom:18px;}
+  .modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px;}
+
+  footer{text-align:center;padding:28px 16px;margin-top:8px;border-top:3px solid var(--lime);background:var(--blue);}
+  .footer-tag{display:block;font-size:9px;font-weight:800;letter-spacing:3px;text-transform:uppercase;color:var(--blue-light);margin-bottom:10px;}
+  .footer-logo{height:28px;width:auto;}
+
+  nav button:disabled{opacity:0.35;cursor:not-allowed;pointer-events:none;}
+
+  /* Two-tab nav */
+  .main-nav{background:var(--blue);display:flex;padding:0 24px;border-bottom:3px solid var(--lime);}
+  .main-nav-btn{background:none;border:none;padding:12px 20px;font-size:12px;font-family:'Montserrat',sans-serif;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,0.6);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-3px;transition:color .15s;-webkit-appearance:none;appearance:none;}
+  .main-nav-btn.active{color:white;border-bottom-color:var(--lime);}
+  .main-nav-btn:hover{color:white;}
+
+  /* Sub nav */
+  .sub-nav{background:var(--white);border-bottom:0.5px solid var(--border);display:flex;padding:0 24px;overflow-x:auto;}
+  .sub-nav button{background:none;border:none;padding:11px 14px;font-size:11px;font-family:'Montserrat',sans-serif;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:var(--text-muted);cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;transition:color .15s;-webkit-appearance:none;appearance:none;}
+  .sub-nav button.active{color:var(--blue);border-bottom-color:var(--blue);}
+  .sub-nav button:hover{color:var(--text);}
+  .sub-nav button:disabled{opacity:0.35;cursor:not-allowed;pointer-events:none;}
+
+  /* Ladder selector inside sub-nav */
+  .sub-nav-ladder{display:flex;align-items:center;gap:8px;padding:6px 14px 6px 0;border-right:1px solid var(--border);margin-right:4px;}
+  .sub-nav-ladder label{font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);white-space:nowrap;}
+  .sub-nav-ladder select{background:none;border:1px solid var(--border);color:var(--text);padding:3px 8px;border-radius:var(--radius-sm);font-size:12px;font-family:'Montserrat',sans-serif;font-weight:700;max-width:300px;min-width:200px;}
+
+  .page-disabled{pointer-events:none;opacity:0.4;user-select:none;}
+
+  @media(max-width:600px){
+    .form-row{grid-template-columns:1fr;}
+    main{padding:16px 12px;}
+    .stats-grid{grid-template-columns:1fr 1fr;}
+    .header-logo{height:26px;}
+    .ladder-bar{flex-wrap:wrap;gap:8px;}
+  }
+</style>
+</head>
+<body>
+
+<!-- Auth: handled by Supabase Auth + RLS. See auth.js / SUPABASE_SETUP.sql. -->
+
+<header>
+  <div class="header-left">
+    <img class="header-logo" data-asset="ferociaLogo" alt="Ferocia">
+    <div class="header-tagline">Ferocia Sports Center</div>
+  </div>
+  <div style="display:flex;align-items:center;gap:14px;">
+    <span class="date-tag" id="last-updated"></span>
+    <button id="sign-out-btn" data-action="signOut" type="button"
+      style="background:rgba(255,255,255,0.12);color:#fff;border:1px solid rgba(255,255,255,0.25);
+             padding:6px 12px;border-radius:6px;font-size:11px;font-weight:700;letter-spacing:.5px;
+             text-transform:uppercase;cursor:pointer;font-family:Montserrat,sans-serif;display:none;">
+      Sign out
+    </button>
+  </div>
+</header>
+
+<div class="main-nav">
+  <button class="main-nav-btn" id="tab-home">🏠 Home</button>
+</div>
+
+<div class="sub-nav" id="subnav-programs">
+  <button class="active" id="prog-tab-ladder" data-action="switchProgramTab" data-tab="ladder">Ladder</button>
+  <button id="prog-tab-tournament" data-action="switchProgramTab" data-tab="tournament">Tournaments</button>
+</div>
+
+<!-- Ladder sub-options -->
+<div class="sub-nav" id="subnav-ladder-options" style="background:var(--bg);border-bottom:0.5px solid var(--border);">
+  <div class="sub-nav-ladder">
+    <label>Ladder</label>
+    <select id="ladder-selector"></select>
+  </div>
+  <button data-page="ladder" data-action="showPage">Standings</button>
+  <button data-page="sessions" data-action="showPage">Sessions</button>
+  <button data-page="entry" data-action="showPage">Record Session</button>
+</div>
+
+<!-- Tournament sub-options -->
+<div class="sub-nav" id="subnav-tournament-options" style="display:none;background:var(--bg);border-bottom:0.5px solid var(--border);">
+  <div class="sub-nav-ladder">
+    <label>Tournament</label>
+    <select id="tournament-selector">
+      <option value="">-- Select a tournament --</option>
+    </select>
+  </div>
+  <button data-page="tournament-view" data-action="showPage">Overview</button>
+</div>
+
+<div class="sub-nav" id="subnav-management" style="display:none;">
+  <button data-action="showPage" data-page="players">Players</button>
+  <button data-action="showPage" data-page="add-player">Add Player</button>
+  <button data-action="showPage" data-page="ladders">Ladders</button>
+  <button data-action="showPage" data-page="t-tournaments">Tournaments</button>
+  <button data-action="showPage" data-page="events">Events</button>
+  <button data-action="showPage" data-page="promotions">Promotions</button>
+  <button data-action="showPage" data-page="share">Share Links</button>
+</div>
+
+<div id="ladder-banner" style="display:none;"></div>
+
+<main>
+
+  <!-- PROGRAMS LANDING PAGE -->
+  <div id="page-programs-home" class="page">
+    <div style="text-align:center;padding:48px 24px 32px;">
+      <div style="font-size:13px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);margin-bottom:32px;">Programs</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:480px;margin:0 auto;">
+        <div data-action="switchProgramTab" data-tab="ladder"
+          style="background:var(--blue);border-radius:var(--radius);padding:28px 20px;cursor:pointer;transition:opacity .15s;"
+          onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
+          <div style="font-size:32px;margin-bottom:12px;">🏅</div>
+          <div style="font-size:14px;font-weight:800;color:white;letter-spacing:.5px;text-transform:uppercase;">Ladder</div>
+          <div style="font-size:11px;color:var(--blue-light);margin-top:4px;font-weight:500;">Standings & Sessions</div>
+        </div>
+        <div data-action="switchProgramTab" data-tab="tournament"
+          style="background:var(--orange);border-radius:var(--radius);padding:28px 20px;cursor:pointer;transition:opacity .15s;"
+          onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
+          <div style="font-size:32px;margin-bottom:12px;">🏆</div>
+          <div style="font-size:14px;font-weight:800;color:white;letter-spacing:.5px;text-transform:uppercase;">Tournaments</div>
+          <div style="font-size:11px;color:var(--orange-light);margin-top:4px;font-weight:500;">Brackets & Results</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- WELCOME / HOME -->
+  <div id="page-home" class="page active">
+    <div style="text-align:center;padding:48px 24px 32px;">
+      <div style="font-size:48px;margin-bottom:16px;">🏓</div>
+      <div style="font-size:22px;font-weight:800;color:var(--blue);margin-bottom:8px;letter-spacing:-0.5px;">Welcome to Ferocia Pickleball</div>
+      <div style="font-size:14px;color:var(--text-muted);font-weight:500;max-width:400px;margin:0 auto 40px;">Select a section below to get started.</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:480px;margin:0 auto;">
+        <div data-action="switchTab" data-tab="programs"
+          style="background:var(--blue);border-radius:var(--radius);padding:28px 20px;cursor:pointer;transition:opacity .15s;"
+          onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
+          <div style="font-size:32px;margin-bottom:12px;">🏆</div>
+          <div style="font-size:14px;font-weight:800;color:white;letter-spacing:.5px;text-transform:uppercase;">Programs</div>
+          <div style="font-size:11px;color:var(--blue-light);margin-top:4px;font-weight:500;">Ladders & Tournaments</div>
+        </div>
+        <div data-action="switchTab" data-tab="management"
+          style="background:var(--teal);border-radius:var(--radius);padding:28px 20px;cursor:pointer;transition:opacity .15s;"
+          onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
+          <div style="font-size:32px;margin-bottom:12px;">⚙️</div>
+          <div style="font-size:14px;font-weight:800;color:white;letter-spacing:.5px;text-transform:uppercase;">Management</div>
+          <div style="font-size:11px;color:var(--teal-light);margin-top:4px;font-weight:500;">Players, Ladders & Settings</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- STANDINGS -->
+  <div id="page-ladder" class="page active">
+    <div class="stats-grid" id="ladder-stats"></div>
+    <div class="card">
+      <div class="section-header">
+        <h2>Season Standings</h2>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <button type="button" class="btn btn-sm" data-action="openNotifyPlayers" style="background:var(--teal);color:white;border:none;">Notify Players</button>
+          <button type="button" class="btn btn-primary btn-sm" data-action="printStandings" style="font-size:11px;font-weight:800;">📄 Print Standings</button>
+          <select id="gender-filter" style="font-size:12px;padding:5px 10px;width:auto;font-family:'Montserrat',sans-serif;font-weight:600;">
+            <option value="all">All players</option>
+            <option value="Male">Men</option>
+            <option value="Female">Women</option>
+          </select>
+        </div>
+      </div>
+      <div id="ladder-table"><div class="loading">Loading standings...</div></div>
+    </div>
+  </div>
+
+  <!-- SESSIONS -->
+  <div id="page-sessions" class="page">
+    <div class="card">
+      <div class="section-header"><h2>Session History</h2></div>
+      <div id="sessions-list"><div class="loading">Loading sessions...</div></div>
+    </div>
+  </div>
+
+  <!-- RECORD SESSION -->
+  <div id="page-entry" class="page">
+    <div id="entry-no-ladder" style="display:none;" class="card">
+      <div style="text-align:center;padding:20px;">
+        <div style="font-size:14px;font-weight:700;color:var(--text-muted);margin-bottom:8px;">No ladder selected</div>
+        <div style="font-size:13px;color:var(--text-muted);">Please select a ladder from the bar above, or create one in the Ladders tab.</div>
+      </div>
+    </div>
+    <div id="entry-form">
+      <div class="points-ref">
+        <div class="points-ref-title">Points Reference</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px;">
+          <div style="display:flex;align-items:center;gap:14px;background:rgba(255,255,255,0.08);border-radius:8px;padding:12px 16px;"><span style="font-size:26px;font-weight:800;color:var(--lime);min-width:40px;text-align:center;">+4</span><span style="font-size:14px;color:white;font-weight:600;">Win the match</span></div>
+          <div style="display:flex;align-items:center;gap:14px;background:rgba(255,255,255,0.08);border-radius:8px;padding:12px 16px;"><span style="font-size:26px;font-weight:800;color:var(--lime);min-width:40px;text-align:center;">+3</span><span style="font-size:14px;color:white;font-weight:600;">Lose by 1-2 pts <span style="color:var(--blue-light);font-weight:500;">(11-10, 11-9)</span></span></div>
+          <div style="display:flex;align-items:center;gap:14px;background:rgba(255,255,255,0.08);border-radius:8px;padding:12px 16px;"><span style="font-size:26px;font-weight:800;color:var(--lime);min-width:40px;text-align:center;">+2</span><span style="font-size:14px;color:white;font-weight:600;">Lose by 3-4 pts <span style="color:var(--blue-light);font-weight:500;">(11-8, 11-7)</span></span></div>
+          <div style="display:flex;align-items:center;gap:14px;background:rgba(255,255,255,0.08);border-radius:8px;padding:12px 16px;"><span style="font-size:26px;font-weight:800;color:var(--lime);min-width:40px;text-align:center;">+1</span><span style="font-size:14px;color:white;font-weight:600;">Lose by 5-8 pts <span style="color:var(--blue-light);font-weight:500;">(11-6 to 11-3)</span></span></div>
+          <div style="display:flex;align-items:center;gap:14px;background:rgba(255,255,255,0.08);border-radius:8px;padding:12px 16px;"><span style="font-size:26px;font-weight:800;color:var(--lime);min-width:40px;text-align:center;">+0</span><span style="font-size:14px;color:white;font-weight:600;">Lose by 9+ pts <span style="color:var(--blue-light);font-weight:500;">(11-2 or worse)</span></span></div>
+          <div style="display:flex;align-items:center;gap:14px;background:rgba(242,96,36,0.2);border-radius:8px;padding:12px 16px;border:1px solid rgba(242,96,36,0.4);"><span style="font-size:26px;font-weight:800;color:#F26024;min-width:40px;text-align:center;">-1</span><span style="font-size:14px;color:white;font-weight:600;">Default / No-show</span></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Step 1 — Session details</div>
+        <div class="form-row">
+          <div class="form-group"><label>Session date</label><input type="date" id="session-date"></div>
+          <div class="form-group"><label>Court number</label><input type="number" id="court-number" min="1" placeholder="e.g. 19"></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Step 2 — Players on this court</div>
+        <div style="margin-bottom:10px;font-size:12px;color:var(--text-muted);font-weight:500;">Add 4 or 5 players. Only players enrolled in this ladder will appear.</div>
+        <div id="court-players-list"></div>
+        <div style="margin-top:10px;position:relative;">
+          <div style="border:0.5px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;">
+            <div style="padding:8px 10px;background:var(--bg);border-bottom:0.5px solid var(--border);">
+              <input type="text" id="player-search-entry" placeholder="Type to search players..." autocomplete="off"
+                style="width:100%;border:none;background:transparent;font-size:13px;font-family:Montserrat,sans-serif;outline:none;color:var(--text);">
+            </div>
+            <div id="player-search-results" style="max-height:220px;overflow-y:auto;background:var(--white);">
+              <div id="player-dropdown-list"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="card" id="games-setup-card" style="display:none;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+          <div class="card-title" style="margin:0;">Step 3 — Record games</div>
+          <button class="btn btn-outline btn-sm" data-action="addExtraGame">+ Add game</button>
+        </div>
+        <div id="games-container"></div>
+      </div>
+      <div id="save-btn-wrap" style="display:none;margin-bottom:24px;">
+        <button class="btn btn-primary" data-action="submitSession" id="save-session-btn" style="width:100%;">Save Roster</button>
+        <div style="font-size:13px;font-weight:700;color:var(--teal);text-align:center;margin-top:10px;line-height:1.4;" id="save-session-hint">
+          💡 Scores are optional — save the roster now and add scores later in the Sessions tab.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PLAYERS -->
+  <div id="page-players" class="page">
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <div class="card-title" style="margin:0;">All Players</div>
+        <span id="players-count" style="font-size:12px;font-weight:700;color:var(--text-muted);background:var(--gray);padding:3px 10px;border-radius:99px;"></span>
+      </div>
+      <div style="display:flex;gap:10px;margin-bottom:14px;">
+        <input type="text" id="player-search" placeholder="Search by name..."
+          style="flex:1;padding:10px 14px;font-size:13px;border:0.5px solid var(--border);border-radius:var(--radius-sm);font-family:'Montserrat',sans-serif;">
+        <select id="player-status-filter"
+          style="font-size:12px;padding:5px 10px;font-family:'Montserrat',sans-serif;font-weight:600;border:0.5px solid var(--border);border-radius:var(--radius-sm);">
+          <option value="all">All status</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
+      </div>
+      <div id="players-table"><div class="loading">Loading players...</div></div>
+    </div>
+  </div>
+
+  <!-- LADDERS -->
+  <div id="page-ladders" class="page">
+    <div class="card">
+      <div class="card-title">Create New Ladder</div>
+      <form id="create-ladder-form">
+        <div class="form-group"><label>Ladder name</label><input type="text" id="new-ladder-name" required placeholder="e.g. Spring Ladder 2026"></div>
+        <div class="form-row">
+          <div class="form-group"><label>Start date</label><input type="date" id="new-ladder-start"></div>
+          <div class="form-group"><label>End date</label><input type="date" id="new-ladder-end"></div>
+        </div>
+        <button type="submit" class="btn btn-primary">Create ladder</button>
+      </form>
+    </div>
+    <div class="card">
+      <div class="card-title">All Ladders</div>
+      <div id="ladders-list"><div class="loading">Loading ladders...</div></div>
+    </div>
+  </div>
+
+  <!-- ADD PLAYER -->
+  <div id="page-add-player" class="page">
+    <div class="success-banner" id="player-success">
+      <div class="success-icon">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8l3.5 3.5L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div>
+        <div style="font-weight:800;font-size:14px;color:#085041" id="success-name"></div>
+        <div style="font-size:12px;color:var(--teal);margin-top:2px;font-weight:500;">Player added successfully.</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Add New Player</div>
+      <form>
+        <div class="form-row">
+          <div class="form-group"><label>First name</label><input type="text" id="p-first" required placeholder="First name"></div>
+          <div class="form-group"><label>Last name</label><input type="text" id="p-last" required placeholder="Last name"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Email</label><input type="email" id="p-email" placeholder="email@example.com"></div>
+          <div class="form-group"><label>Phone</label><input type="text" id="p-phone" placeholder="555-000-0000"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Gender</label>
+            <select id="p-gender">
+              <option value="">-- Select --</option>
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+              
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Status</label>
+            <select id="p-status">
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group"><label>Date joined</label><input type="date" id="p-joined"></div>
+        <button type="submit" class="btn btn-primary">Add player</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- TOURNAMENTS LIST PAGE — REMOVED (was broken legacy page).
+       Tournament management now uses page-t-tournaments below. -->
+
+  <!-- TOURNAMENT VIEW PAGE (read-only Programs view) -->
+  <div id="page-tournament-view" class="page">
+    <div id="tournament-view-content"><div class="empty">Select a tournament to view details.</div></div>
+  </div>
+
+  <!-- EVENTS PAGE -->
+  <div id="page-events" class="page">
+
+    <!-- Create event -->
+    <div class="card">
+      <div class="card-title">Create New Event</div>
+      <form id="create-event-form">
+        <div class="form-group">
+          <label>Event Title *</label>
+          <input type="text" id="event-title" placeholder="e.g. May Tournament 2026" style="width:100%;" required>
+        </div>
+        <div class="form-group">
+          <label>Event Date *</label>
+          <input type="date" id="event-date" style="width:100%;" required>
+        </div>
+        <div class="form-group">
+          <label>Description</label>
+          <textarea id="event-description" placeholder="Short description shown on the landing page..." style="width:100%;min-height:80px;resize:vertical;font-family:Montserrat,sans-serif;font-size:13px;padding:10px 12px;border:0.5px solid var(--border);border-radius:var(--radius-sm);outline:none;"></textarea>
+        </div>
+        <div class="form-group">
+          <label>Event Flyer (JPG or PNG)</label>
+          <input type="file" id="event-flyer" accept="image/jpeg,image/png,image/jpg" style="width:100%;font-family:Montserrat,sans-serif;font-size:13px;">
+          <div style="font-size:11px;color:var(--text-muted);margin-top:4px;font-weight:500;">Recommended: 800×1000px or similar portrait format. Max 5MB.</div>
+        </div>
+        <div id="event-flyer-preview" style="display:none;margin-top:8px;">
+          <img id="event-flyer-img" style="max-height:200px;border-radius:8px;border:0.5px solid var(--border);">
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%;margin-top:8px;" id="create-event-btn">Create Event</button>
+      </form>
+    </div>
+
+    <!-- Events list -->
+    <div class="card">
+      <div class="card-title">Upcoming Events</div>
+      <div id="events-list"><div class="loading">Loading events...</div></div>
+    </div>
+
+  </div>
+
+  <!-- PROMOTIONS PAGE -->
+  <div id="page-promotions" class="page">
+
+    <!-- QR Code card -->
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+        <div class="card-title" style="margin:0;">Subscribe QR Code</div>
+        <button class="btn btn-primary btn-sm" data-action="generateQR">Generate QR</button>
+      </div>
+      <div style="font-size:12px;color:var(--text-muted);font-weight:500;margin-bottom:12px;">
+        Show this QR code to anyone who wants to join your promotional list. They'll be taken directly to the registration form.
+      </div>
+      <div id="qr-container" style="display:none;">
+        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+          <div id="qr-code" style="background:white;padding:12px;border-radius:8px;border:1px solid var(--border);"></div>
+          <div>
+            <div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">Subscription URL</div>
+            <div style="font-size:12px;color:var(--blue);font-weight:600;word-break:break-all;" id="subscribe-url-display"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Subscribers list -->
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <div class="card-title" style="margin:0;">Subscribers <span id="sub-count" style="font-size:11px;background:var(--gray);padding:2px 8px;border-radius:99px;font-weight:700;color:var(--text-muted);margin-left:6px;"></span></div>
+        <div style="display:flex;gap:8px;">
+          <select id="sub-status-filter" style="font-size:12px;padding:5px 10px;font-family:'Montserrat',sans-serif;font-weight:600;border:0.5px solid var(--border);border-radius:var(--radius-sm);">
+            <option value="all">All</option>
+            <option value="active">Active</option>
+            <option value="pending">Pending</option>
+            <option value="unsubscribed">Unsubscribed</option>
+          </select>
+          <button type="button" class="btn btn-primary btn-sm" data-action="openSendPromo">Send Promo Email</button>
+        </div>
+      </div>
+      <div style="margin-bottom:14px;">
+        <input type="text" id="sub-search" placeholder="Search by name or email..."
+          style="width:100%;padding:10px 14px;font-size:13px;border:0.5px solid var(--border);border-radius:var(--radius-sm);font-family:'Montserrat',sans-serif;">
+      </div>
+      <div id="subscribers-table"><div class="loading">Loading subscribers...</div></div>
+    </div>
+  </div>
+
+  <!-- TOURNAMENT MODULE PAGE -->
+  <div id="page-t-tournaments" class="page">
+    <div id="t-content"><div class="loading">Loading tournaments...</div></div>
+  </div>
+
+  <!-- TOURNAMENT MODAL -->
+  <div class="t-modal-bg" id="t-modal">
+    <div class="t-modal">
+      <div class="t-modal-title" id="t-modal-title">Modal</div>
+      <div id="t-modal-body"></div>
+    </div>
+  </div>
+
+  <!-- SHARE PAGE -->
+  <div id="page-share" class="page">
+    <div class="card">
+      <div class="card-title">Share Links</div>
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:20px;font-weight:500;">
+        Generate read-only links for players to view standings and results. IDs are encoded so players cannot guess other links.
+      </div>
+
+      <!-- Tabs -->
+      <div style="display:flex;gap:0;border-bottom:0.5px solid var(--border);margin-bottom:20px;">
+        <button class="share-tab active" data-tab="ladders" data-action="switchShareTab" style="background:none;border:none;padding:10px 20px;font-size:12px;font-family:'Montserrat',sans-serif;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-1px;">
+          🏓 Ladders
+        </button>
+        <button class="share-tab" data-tab="tournaments" data-action="switchShareTab" style="background:none;border:none;padding:10px 20px;font-size:12px;font-family:'Montserrat',sans-serif;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-1px;">
+          🏆 Tournaments
+        </button>
+      </div>
+
+      <!-- Ladder tab -->
+      <div id="share-tab-ladders">
+        <input type="text" id="share-search-ladders" placeholder="Search ladders..." style="width:100%;padding:10px 12px;border:0.5px solid var(--border);border-radius:var(--radius-sm);font-family:'Montserrat',sans-serif;font-size:13px;margin-bottom:16px;outline:none;">
+        <div id="share-ladder-list"><div class="loading">Loading...</div></div>
+      </div>
+
+      <!-- Tournament tab -->
+      <div id="share-tab-tournaments" style="display:none;">
+        <input type="text" id="share-search-tournaments" placeholder="Search tournaments..." style="width:100%;padding:10px 12px;border:0.5px solid var(--border);border-radius:var(--radius-sm);font-family:'Montserrat',sans-serif;font-size:13px;margin-bottom:16px;outline:none;">
+        <div id="share-tournament-list"><div class="loading">Loading...</div></div>
+      </div>
+
+      <!-- QR display area (shown when a link is selected) -->
+      <div id="share-qr-panel" style="display:none;margin-top:20px;padding:20px;background:var(--blue-pale);border-radius:var(--radius-sm);text-align:center;">
+        <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:10px;">QR Code</div>
+        <div id="share-qr-code" style="display:inline-block;background:white;padding:12px;border-radius:8px;"></div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:10px;word-break:break-all;" id="share-qr-url"></div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<footer>
+  <span class="footer-tag">Brought to you by</span>
+  <img class="footer-logo" data-asset="ferociaLogo" alt="Ferocia Sports">
+</footer>
+
+<!-- Edit ladder modal -->
+<div class="modal-bg" id="edit-ladder-modal">
+  <div class="modal">
+    <div class="modal-title">Edit Ladder</div>
+    <form id="edit-ladder-form">
+      <input type="hidden" id="edit-ladder-id">
+      <div class="form-group"><label>Ladder name</label><input type="text" id="edit-ladder-name" required placeholder="e.g. Spring Ladder 2026"></div>
+      <div class="form-row">
+        <div class="form-group"><label>Start date</label><input type="date" id="edit-ladder-start"></div>
+        <div class="form-group"><label>End date</label><input type="date" id="edit-ladder-end"></div>
+      </div>
+      <div class="form-group">
+        <label>Status</label>
+        <select id="edit-ladder-status">
+          <option value="active">Active</option>
+          <option value="closed">Closed</option>
+        </select>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-danger btn-sm" data-action="closeEditLadderModal">Cancel</button>
+        <button type="submit" class="btn btn-primary btn-sm">Save changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Edit player modal -->
+<div class="modal-bg" id="edit-modal">
+  <div class="modal">
+    <div class="modal-title">Edit Player</div>
+    <form id="edit-player-form">
+      <input type="hidden" id="edit-id">
+      <input type="hidden" id="edit-original-status">
+      <div class="form-row">
+        <div class="form-group"><label>First name</label><input type="text" id="edit-first" required></div>
+        <div class="form-group"><label>Last name</label><input type="text" id="edit-last" required></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Email</label><input type="email" id="edit-email"></div>
+        <div class="form-group"><label>Phone</label><input type="text" id="edit-phone"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Gender</label>
+          <select id="edit-gender">
+            <option value="">-- Select --</option>
+            <option value="Male">Male</option>
+            <option value="Female">Female</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Status</label>
+          <select id="edit-status">
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Inactivation reason — shown only when status is/becomes 'inactive' -->
+      <div class="form-group" id="edit-reason-group" style="display:none;">
+        <label>Reason for inactivating <span style="color:var(--orange);">*</span></label>
+        <textarea id="edit-reason" rows="3" placeholder="Why is this player inactive? (required)"
+          style="padding:9px 12px;border:0.5px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:'Montserrat',sans-serif;color:var(--text);background:var(--white);outline:none;resize:vertical;"></textarea>
+        <div id="edit-reason-error" class="text-muted-12" style="display:none;color:var(--orange);font-weight:600;margin-top:4px;">Please enter a reason.</div>
+      </div>
+
+      <!-- History trigger — shown only when there's at least one entry -->
+      <div id="edit-history-link-wrap" style="display:none;">
+        <button type="button" class="btn btn-outline btn-sm" data-action="openPlayerHistory" id="edit-history-link"
+          style="font-size:11px;">
+          📋 View status history (<span id="edit-history-count">0</span>)
+        </button>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-danger btn-sm" data-action="closeModal">Cancel</button>
+        <button type="submit" class="btn btn-primary btn-sm">Save changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Player status history modal -->
+<div class="modal-bg" id="player-history-modal">
+  <div class="modal" style="max-width:560px;">
+    <div class="modal-title" id="player-history-title">Status history</div>
+    <div id="player-history-content" style="max-height:60vh;overflow-y:auto;font-size:13px;">
+      <div class="loading" style="padding:24px;text-align:center;color:var(--text-muted);">Loading...</div>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-outline btn-sm" data-action="closePlayerHistory">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Ladder players modal -->
+<div class="modal-bg" id="lp-modal">
+  <div class="modal">
+    <div class="modal-title" id="lp-modal-title">Players</div>
+    <div style="border:0.5px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;">
+      <div style="padding:8px 12px;background:var(--bg);border-bottom:0.5px solid var(--border);">
+        <input type="text" id="lp-search" placeholder="Search player..." autocomplete="off"
+          style="width:100%;border:none;background:transparent;font-size:13px;font-family:Montserrat,sans-serif;outline:none;color:var(--text);">
+      </div>
+      <div style="max-height:55vh;overflow-y:auto;" id="lp-enrolled"></div>
+    </div>
+    <div class="modal-actions" style="flex-direction:column;gap:8px;align-items:stretch;">
+      <div style="font-size:11px;color:var(--text-muted);text-align:center;font-weight:500;">
+        Status changes (Active/Sub) save automatically. Use Save changes to enroll or remove players.
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button type="button" class="btn btn-outline btn-sm" data-action="closeLpModal">Close</button>
+        <button type="button" class="btn btn-primary btn-sm" id="lp-save-btn" data-action="lpSaveChanges">Save changes</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Edit session modal -->
+<div class="modal-bg" id="edit-session-modal">
+  <div class="modal">
+    <div class="modal-title">Edit Session</div>
+    <form id="edit-session-form">
+      <input type="hidden" id="es-ids">
+      <input type="hidden" id="es-orig-date">
+      <input type="hidden" id="es-orig-court">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Session date</label>
+          <input type="date" id="es-date" required>
+        </div>
+        <div class="form-group">
+          <label>Court number</label>
+          <input type="number" id="es-court" min="1" required placeholder="e.g. 19">
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-danger btn-sm" data-action="closeEditSessionModal">Cancel</button>
+        <button type="submit" class="btn btn-primary btn-sm" id="es-save-btn">Save changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Edit tournament / add team / record match modals removed.
+     They belonged to the legacy tournament code that has been deleted.
+     The new tournament module (tournament.js) uses #t-modal instead. -->
+
+<!-- Notify Players Modal -->
+<div class="modal-bg" id="notify-modal">
+  <div class="modal" style="max-width:560px;">
+    <div class="modal-title">✉️ Notify Players</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:16px;font-weight:500;" id="notify-recipient-count"></div>
+    <form id="notify-form">
+      <div class="form-group">
+        <label>Notification type</label>
+        <select id="notify-type" style="width:100%;">
+          <option value="welcome">👋 Welcome & Guidelines</option>
+          <option value="scores">📊 Scores Updated</option>
+          <option value="reminder">⏰ Session Reminder</option>
+          <option value="end">🏆 End of Ladder</option>
+          <option value="custom">✏️ Custom Message</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Subject</label>
+        <input type="text" id="notify-subject" style="width:100%;">
+      </div>
+      <div class="form-group">
+        <label>Message</label>
+        <textarea id="notify-message" style="width:100%;min-height:140px;resize:vertical;font-family:Montserrat,sans-serif;font-size:13px;padding:10px 12px;border:0.5px solid var(--border);border-radius:var(--radius-sm);outline:none;"></textarea>
+      </div>
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;font-weight:500;">
+        The leaderboard link will be automatically included in every email.
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-outline btn-sm" data-action="closeNotifyModal">Cancel</button>
+        <button type="submit" class="btn btn-primary btn-sm" id="notify-send-btn">Send emails</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Tournament Notify Players Modal -->
+<div class="modal-bg" id="tournament-notify-modal">
+  <div class="modal" style="max-width:560px;">
+    <div class="modal-title">✉️ Notify Tournament Players</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:16px;font-weight:500;" id="t-notify-recipient-count"></div>
+    <form id="t-notify-form">
+      <div class="form-group">
+        <label>Subject</label>
+        <input type="text" id="t-notify-subject" style="width:100%;" placeholder="e.g. 🏆 Check your tournament results!">
+      </div>
+      <div class="form-group">
+        <label>Message</label>
+        <textarea id="t-notify-message" style="width:100%;min-height:140px;resize:vertical;font-family:Montserrat,sans-serif;font-size:13px;padding:10px 12px;border:0.5px solid var(--border);border-radius:var(--radius-sm);outline:none;"></textarea>
+      </div>
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;font-weight:500;">
+        The tournament results link will be automatically included in every email.
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-outline btn-sm" data-action="closeTournamentNotifyModal">Cancel</button>
+        <button type="submit" class="btn btn-primary btn-sm" id="t-notify-send-btn">Send emails</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Send Promo Modal -->
+<div class="modal-bg" id="promo-modal">
+  <div class="modal" style="max-width:560px;">
+    <div class="modal-title">✉️ Send Promotional Email</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:16px;font-weight:500;" id="promo-recipient-count"></div>
+    <form id="promo-form">
+      <div class="form-group">
+        <label>Subject</label>
+        <input type="text" id="promo-subject" placeholder="e.g. New Ladder Starting Soon!" style="width:100%;">
+      </div>
+      <div class="form-group">
+        <label>Message</label>
+        <textarea id="promo-message" style="width:100%;min-height:160px;resize:vertical;font-family:Montserrat,sans-serif;font-size:13px;padding:10px 12px;border:0.5px solid var(--border);border-radius:var(--radius-sm);outline:none;" placeholder="Write your promotional message here..."></textarea>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-outline btn-sm" data-action="closePromoModal">Cancel</button>
+        <button type="submit" class="btn btn-primary btn-sm" id="promo-send-btn">Send emails</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Edit game modal -->
+<div class="modal-bg" id="edit-game-modal">
+  <div class="modal">
+    <div class="modal-title">Edit Game</div>
+    <form id="edit-game-form">
+      <div id="edit-game-body"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-danger btn-sm" data-action="closeEditGameModal">Cancel</button>
+        <button type="submit" class="btn btn-primary btn-sm">Save changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="success-banner" style="display:none;position:fixed;top:24px;left:50%;transform:translateX(-50%);z-index:998;width:90%;max-width:500px;box-shadow:0 4px 20px rgba(0,0,0,0.15);">
+  <div style="background:var(--teal-light);border:1.5px solid var(--teal);border-radius:var(--radius);padding:18px 24px;display:flex;align-items:center;gap:14px;">
+    <div style="width:36px;height:36px;background:var(--teal);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+      <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M3 8l3.5 3.5L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <div style="font-weight:800;font-size:15px;color:#085041;" id="success-banner-msg"></div>
+  </div>
+</div>
+
+<div id="error-banner" style="display:none;position:fixed;top:24px;left:50%;transform:translateX(-50%);z-index:998;width:90%;max-width:500px;box-shadow:0 4px 20px rgba(0,0,0,0.15);">
+  <div style="background:var(--orange-light);border:1.5px solid var(--orange);border-radius:var(--radius);padding:18px 24px;display:flex;align-items:center;gap:14px;">
+    <div style="width:36px;height:36px;background:var(--orange);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+      <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M3 3l10 10M13 3L3 13" stroke="white" stroke-width="2.5" stroke-linecap="round"/></svg>
+    </div>
+    <div style="font-weight:800;font-size:15px;color:#712B13;" id="error-banner-msg"></div>
+  </div>
+</div>
+<script src="app.js"></script>
+<script src="tournament.js"></script>
+</body>
+</html>
