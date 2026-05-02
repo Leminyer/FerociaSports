@@ -700,7 +700,12 @@ function renderTournamentDetail(t, categories) {
           ✉ Notify Players
         </button>
         <button class="t-btn t-btn-primary" id="t-print-roster-btn"
-          onclick="printTournamentRoster(${t.id}, ${JSON.stringify(t.name)}, ${JSON.stringify(t.date || '')}, ${JSON.stringify(categories.map(c => ({id:c.id, name:c.name})))})"
+          onclick="printTournamentRoster(this)"
+          data-tid="${t.id}"
+          data-tname="${tEsc(t.name)}"
+          data-tdate="${tEsc(t.date || '')}"
+          data-catids="${categories.map(c => c.id).join(',')}"
+          data-catnames="${categories.map(c => tEsc(c.name)).join('||')}"
           title="Print roster for all categories">
           📄 Print Roster
         </button>
@@ -2265,11 +2270,17 @@ function calcBestOfWinner(bestOf, teamAId, teamBId, gameScores) {
 }
 
 /* ─── PRINT TOURNAMENT ROSTER ─────────────────────────── */
-async function printTournamentRoster(tournamentId, tournamentName, tournamentDate, categories) {
-  const btn = document.getElementById('t-print-roster-btn');
+async function printTournamentRoster(btn) {
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Generating...'; }
 
   try {
+    // Read all data from button attributes — safe, no JSON injection risk
+    const tournamentName = btn.dataset.tname || '';
+    const tournamentDate = btn.dataset.tdate || '';
+    const catIds   = (btn.dataset.catids || '').split(',').filter(Boolean).map(Number);
+    const catNames = (btn.dataset.catnames || '').split('||');
+    const categories = catIds.map((id, i) => ({ id, name: catNames[i] || '' }));
+
     const { jsPDF } = window.jspdf;
     if (!jsPDF) throw new Error('jsPDF not loaded. Make sure the jsPDF script is included.');
 
