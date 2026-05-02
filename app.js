@@ -929,16 +929,16 @@
 
         // Header row — always visible, clickable to toggle
         html += `<div class="session-date-group" id="${groupId}">
-          <div class="session-date-header ${isFirst ? 'open' : ''}"
-               data-action="toggleSessionGroup" data-groupid="${groupId}"
-               style="display:flex;align-items:center;justify-content:space-between;
-                      padding:10px 12px;border-radius:8px;cursor:pointer;
-                      background:var(--blue-pale);margin-bottom:4px;
-                      border:1.5px solid var(--border);user-select:none;">
-            <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+            <div class="session-date-header ${isFirst ? 'open' : ''}"
+                 data-action="toggleSessionGroup" data-groupid="${groupId}"
+                 style="display:flex;align-items:center;gap:10px;flex:1;
+                        padding:10px 12px;border-radius:8px;cursor:pointer;
+                        background:var(--blue-pale);
+                        border:1.5px solid var(--border);user-select:none;">
               <span style="font-size:14px;font-weight:800;color:var(--blue);transition:transform .2s;
                            display:inline-block;" class="sdg-chevron ${isFirst ? 'sdg-chevron-open' : ''}">▶</span>
-              <div>
+              <div style="flex:1;min-width:0;">
                 <div style="font-size:13px;font-weight:800;color:var(--blue);">📅 ${dateLabel}</div>
                 <div style="font-size:11px;font-weight:600;color:var(--text-muted);margin-top:2px;">
                   ${courtCount} court${courtCount !== 1 ? 's' : ''}
@@ -948,8 +948,7 @@
             </div>
             <button class="btn btn-primary btn-sm" data-action="printRoster"
                     data-date="${esc(date)}" data-ladderid="${currentLadder.id}"
-                    style="font-size:11px;font-weight:800;flex-shrink:0;margin-left:12px;"
-                    onclick="event.stopPropagation();">
+                    style="font-size:11px;font-weight:800;flex-shrink:0;white-space:nowrap;">
               📄 PRINT ROSTER
             </button>
           </div>`;
