@@ -178,12 +178,20 @@
     btn.textContent = 'Processing...';
 
     try {
-      // Check if email already exists
-      const existing = await api(
-        `subscribers?email=eq.${encodeURIComponent(email)}&select=id,status`,
+      // Duplicate check: block if same first name + last name + email already exists
+      // regardless of status (active or pending) to prevent duplicate records
+      const duplicate = await api(
+        `subscribers?first_name=eq.${encodeURIComponent(first)}&last_name=eq.${encodeURIComponent(last)}&email=eq.${encodeURIComponent(email)}&select=id,status&limit=1`
       );
-      if (existing && existing.length && existing[0].status === 'active') {
-        showFieldError('s-email', 'err-email', 'This email is already subscribed!');
+      if (duplicate && duplicate.length) {
+        const status = duplicate[0].status;
+        if (status === 'active') {
+          showFieldError('s-email', 'err-email', 'You are already subscribed! Check your inbox for updates.');
+        } else if (status === 'pending') {
+          showFieldError('s-email', 'err-email', 'You have a pending subscription. Please check your email and click the confirmation link.');
+        } else {
+          showFieldError('s-email', 'err-email', 'This name and email are already registered.');
+        }
         btn.disabled = false;
         btn.textContent = 'Subscribe Now';
         return;
