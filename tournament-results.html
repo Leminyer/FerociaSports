@@ -112,6 +112,23 @@
   .team-name { font-size:13px; font-weight:800; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .team-players { font-size:11px; font-weight:600; color:var(--text-muted); margin-top:3px; line-height:1.4; }
 
+  /* RR MATCH ROWS */
+  .rr-rounds { margin-top:16px; }
+  .rr-round-label { font-size:10px; font-weight:800; letter-spacing:1.5px; text-transform:uppercase; color:var(--white); background:var(--blue); padding:5px 12px; border-radius:99px; display:inline-block; margin:12px 0 8px; }
+  .rr-match-row { display:flex; align-items:center; gap:8px; padding:8px 12px; background:var(--white); border:0.5px solid var(--border); border-radius:var(--radius-sm); margin-bottom:6px; }
+  .rr-match-row:hover { background:var(--bg); }
+  .rr-court-badge { font-size:10px; font-weight:800; color:var(--teal); background:var(--teal-light); padding:3px 8px; border-radius:99px; flex-shrink:0; white-space:nowrap; }
+  .rr-team-block { flex:1; min-width:0; }
+  .rr-team-name { font-size:13px; font-weight:800; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .rr-team-players { font-size:11px; font-weight:500; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .rr-vs { font-size:10px; font-weight:800; color:var(--text-muted); flex-shrink:0; padding:0 4px; }
+  .rr-score-block { display:flex; align-items:center; gap:6px; flex-shrink:0; }
+  .rr-score { font-size:15px; font-weight:800; min-width:24px; text-align:center; }
+  .rr-score.winner { color:var(--teal); }
+  .rr-score.loser  { color:var(--orange); }
+  .rr-score.pending { color:var(--text-muted); font-size:12px; }
+  .rr-score-sep { font-size:13px; font-weight:700; color:var(--border); }
+
   /* FOOTER */
   footer { text-align:center; padding:32px 16px; font-size:12px; color:var(--text-muted); display:flex; align-items:center; justify-content:center; gap:10px; }
   .footer-logo { height:22px; display:inline-block; vertical-align:middle; }
@@ -382,6 +399,50 @@
   }
 
   // ── Main category renderer ───────────────────────────────────
+  // ── RR match results renderer ─────────────────────────────────────────
+  function renderRRMatches(matches, tMap) {
+    const completed = matches.filter(m => m.status === 'completed' || m.status === 'forfeited');
+    if (!completed.length) return '';
+
+    const rounds = [...new Set(completed.map(m => m.round))].sort((a, b) => a - b);
+
+    let html = '<div class="rr-rounds">';
+    rounds.forEach(round => {
+      html += `<div class="rr-round-label">Round ${round}</div>`;
+      completed.filter(m => m.round === round).forEach(m => {
+        const tA = tMap[m.team_a_id];
+        const tB = tMap[m.team_b_id];
+        const nameA = tA ? esc(tA.name) : 'TBD';
+        const nameB = tB ? esc(tB.name) : 'TBD';
+        const playersA = tA ? getPlayerNames(tA) : '';
+        const playersB = tB ? getPlayerNames(tB) : '';
+        const aWon = m.winner_id === m.team_a_id;
+        const bWon = m.winner_id === m.team_b_id;
+        const ffA = m.forfeit_team_id === m.team_a_id;
+        const ffB = m.forfeit_team_id === m.team_b_id;
+        const court = m.court ? `<span class="rr-court-badge">Court ${m.court}</span>` : '';
+        html += `<div class="rr-match-row">
+          ${court}
+          <div class="rr-team-block" style="text-align:right;">
+            <div class="rr-team-name">${nameA}${ffA ? ' <span style="font-size:10px;color:var(--orange);">(FF)</span>' : ''}</div>
+            ${playersA ? `<div class="rr-team-players">${esc(playersA)}</div>` : ''}
+          </div>
+          <div class="rr-score-block">
+            <span class="rr-score ${aWon?'winner':'loser'}">${m.score_a??'—'}</span>
+            <span class="rr-score-sep">—</span>
+            <span class="rr-score ${bWon?'winner':'loser'}">${m.score_b??'—'}</span>
+          </div>
+          <div class="rr-team-block">
+            <div class="rr-team-name">${nameB}${ffB ? ' <span style="font-size:10px;color:var(--orange);">(FF)</span>' : ''}</div>
+            ${playersB ? `<div class="rr-team-players">${esc(playersB)}</div>` : ''}
+          </div>
+        </div>`;
+      });
+    });
+    html += '</div>';
+    return html;
+  }
+
   function renderCategory(catId) {
     const teams        = allTeams.filter(t => t.category_id===catId);
     const rrMatches    = allRR.filter(m => m.category_id===catId);
@@ -423,12 +484,13 @@
               <span style="font-size:11px;color:var(--text-muted);font-weight:700;">${gTeams.length} teams</span>
             </div>
             ${doneSome ? renderStandingsTable(gStandings) : '<div class="empty" style="padding:12px 0;">No matches played yet.</div>'}
+            ${renderRRMatches(gMatches, tMap)}
           </div>`;
         });
       } else {
         const standings = calcStandings(teams, rrMatches);
         const doneSome  = rrMatches.some(m => m.status==='completed');
-        html += `<div class="card">${doneSome ? renderStandingsTable(standings) : '<div class="empty">No matches played yet.</div>'}</div>`;
+        html += `<div class="card">${doneSome ? renderStandingsTable(standings) : '<div class="empty">No matches played yet.</div>'}${renderRRMatches(rrMatches, tMap)}</div>`;
       }
     }
 
