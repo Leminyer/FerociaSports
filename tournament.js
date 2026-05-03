@@ -1071,7 +1071,7 @@ function renderBracket(matches, tMap, tournament) {
             ${m.court ? `<div style="font-size:9px;font-weight:800;letter-spacing:1px;color:#6b7a99;padding:4px 14px;background:#f4f6fc;border-bottom:1px solid #d6dff5;">COURT ${m.court}</div>` : ''}
             <div class="t-bracket-team ${winA ? 't-bracket-winner' : ''} ${!m.team_a_id ? 't-bracket-tbd' : ''}">
               <div style="flex:1;">
-                <div style="font-weight:700;">${tEsc(teamA?.name || (m.status === 'bye' ? 'BYE' : 'TBD'))}</div>
+                <div style="font-weight:700;">${tEsc(teamA?.name || (m.status === 'bye' ? 'BYE' : 'TBD'))}${m.forfeit_team_id === m.team_a_id ? ' <span class="t-forfeit-badge">FF</span>' : ''}</div>
                 ${teamA ? `<div style="font-size:10px;color:#6b7a99;font-weight:500;margin-top:1px;">${getTeamPlayerNames(teamA)}</div>` : ''}
               </div>
               ${isDone ? `<span class="t-bracket-score ${winA ? 't-bracket-score-win' : ''}">${m.score_a}</span>` : ''}
@@ -1079,7 +1079,7 @@ function renderBracket(matches, tMap, tournament) {
             <div class="t-bracket-divider"></div>
             <div class="t-bracket-team ${winB ? 't-bracket-winner' : ''} ${!m.team_b_id ? 't-bracket-tbd' : ''}">
               <div style="flex:1;">
-                <div style="font-weight:700;">${tEsc(teamB?.name || (m.status === 'bye' ? 'BYE' : 'TBD'))}</div>
+                <div style="font-weight:700;">${tEsc(teamB?.name || (m.status === 'bye' ? 'BYE' : 'TBD'))}${m.forfeit_team_id === m.team_b_id ? ' <span class="t-forfeit-badge">FF</span>' : ''}</div>
                 ${teamB ? `<div style="font-size:10px;color:#6b7a99;font-weight:500;margin-top:1px;">${getTeamPlayerNames(teamB)}</div>` : ''}
               </div>
               ${isDone ? `<span class="t-bracket-score ${winB ? 't-bracket-score-win' : ''}">${m.score_b}</span>` : ''}
@@ -1874,7 +1874,7 @@ async function saveMatch(type, matchId, teamAId, teamBId, catId) {
       </div>
       <div class="t-form-actions">
         <button type="button" class="t-btn t-btn-ghost" onclick="openScoreModal('${type}', ${matchId}, ${teamAId}, ${teamBId}, ${catId})">Go Back</button>
-        <button type="button" class="t-btn t-btn-danger" onclick="processForfeit('${type}', ${matchId}, ${teamAId}, ${teamBId}, ${catId}, ${forfeitTeamId})">Confirm Forfeit</button>
+        <button type="button" class="t-btn t-btn-danger" onclick="processForfeit('${type}', ${matchId}, ${teamAId}, ${teamBId}, ${catId}, ${forfeitTeamId}, ${courtNum})">Confirm Forfeit</button>
       </div>
     `;
     return;
@@ -2094,7 +2094,7 @@ function openForfeitModal(type, matchId, teamAId, teamBId, catId, teamAName, tea
   `;
 }
 
-async function processForfeit(type, matchId, teamAId, teamBId, catId, forfeitTeamId) {
+async function processForfeit(type, matchId, teamAId, teamBId, catId, forfeitTeamId, courtNum) {
   // Get category to know the play-to score
   const [cat] = await tApi(`tournament_categories?id=eq.${catId}&select=*`);
   const rrFormat = cat.rr_format || 'play11_win1';
@@ -2102,20 +2102,23 @@ async function processForfeit(type, matchId, teamAId, teamBId, catId, forfeitTea
   const winnerId = forfeitTeamId === teamAId ? teamBId : teamAId;
   const scoreA = forfeitTeamId === teamAId ? 0 : playTo;
   const scoreB = forfeitTeamId === teamBId ? 0 : playTo;
+  const court = courtNum && !isNaN(parseInt(courtNum)) ? parseInt(courtNum) : null;
 
   try {
-    // Save this match as forfeited
+    // Save this match as forfeited — include court if provided
     if (type === 'rr') {
       await tApi(`tournament_rr_matches?id=eq.${matchId}`, 'PATCH', {
         score_a: scoreA, score_b: scoreB,
         winner_id: winnerId, status: 'completed',
-        forfeit_team_id: forfeitTeamId
+        forfeit_team_id: forfeitTeamId,
+        ...(court ? { court } : {}),
       });
     } else {
       await tApi(`tournament_bracket_matches?id=eq.${matchId}`, 'PATCH', {
         score_a: scoreA, score_b: scoreB,
         winner_id: winnerId, status: 'completed',
-        forfeit_team_id: forfeitTeamId
+        forfeit_team_id: forfeitTeamId,
+        ...(court ? { court } : {}),
       });
       await advanceBracket(matchId, winnerId, forfeitTeamId, catId);
     }
