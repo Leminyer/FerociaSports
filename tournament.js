@@ -2496,6 +2496,7 @@ async function printTournamentRoster(btn) {
             const tB = teamMap[m.team_b_id];
             const nameA = tA ? tA.name : 'TBD';
             const nameB = tB ? tB.name : 'TBD';
+            const matchLabel = `${nameA}  vs  ${nameB}`;
             const courtLabel = m.court ? `C${m.court}` : '';
 
             if (m.round % 2 === 0) {
@@ -2513,18 +2514,11 @@ async function printTournamentRoster(btn) {
               doc.text(courtLabel, RIGHT_X + 5.5, ry + 5.2, { align: 'center' });
             }
 
+            // A5 vs A6 — all on one line
             doc.setFont('helvetica', 'bold');
-            doc.setFontSize(7.5);
+            doc.setFontSize(8);
             doc.setTextColor(...DARK);
-            doc.text(nameA, RIGHT_X + 13, ry + 4);
-            doc.setFont('helvetica', 'normal');
-            doc.setFontSize(6.5);
-            doc.setTextColor(...MUTED);
-            doc.text('vs', RIGHT_X + 13, ry + 7.5);
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(7.5);
-            doc.setTextColor(...DARK);
-            doc.text(nameB, RIGHT_X + 20, ry + 7.5);
+            doc.text(matchLabel, RIGHT_X + 13, ry + MATCH_H / 2 + 1.5, { maxWidth: RIGHT_W - 30 });
 
             // Score boxes
             const bx = RIGHT_X + RIGHT_W - 16;
@@ -2536,7 +2530,7 @@ async function printTournamentRoster(btn) {
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(6);
             doc.setTextColor(...MUTED);
-            doc.text('—', bx + 7, ry + 5.5, { align: 'center' });
+            doc.text('—', bx + 7, ry + MATCH_H / 2 + 1, { align: 'center' });
 
             doc.setDrawColor(...BORDER);
             doc.setLineWidth(0.2);
@@ -2566,24 +2560,18 @@ async function printTournamentRoster(btn) {
             const tB = m.team_b_id ? teamMap[m.team_b_id] : null;
             const nameA = m.status === 'bye' && !tA ? 'BYE' : (tA ? tA.name : 'TBD');
             const nameB = m.status === 'bye' && !tB ? 'BYE' : (tB ? tB.name : 'TBD');
+            const matchLabel = `${nameA}  vs  ${nameB}`;
 
             if (mi % 2 === 0) {
               doc.setFillColor(245, 247, 252);
               doc.rect(RIGHT_X, ry, RIGHT_W, MATCH_H, 'F');
             }
 
+            // A5 vs A6 — all on one line
             doc.setFont('helvetica', 'bold');
-            doc.setFontSize(7.5);
+            doc.setFontSize(8);
             doc.setTextColor(...DARK);
-            doc.text(nameA, RIGHT_X + 3, ry + 4);
-            doc.setFont('helvetica', 'normal');
-            doc.setFontSize(6.5);
-            doc.setTextColor(...MUTED);
-            doc.text('vs', RIGHT_X + 3, ry + 7.5);
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(7.5);
-            doc.setTextColor(...DARK);
-            doc.text(nameB, RIGHT_X + 10, ry + 7.5);
+            doc.text(matchLabel, RIGHT_X + 3, ry + MATCH_H / 2 + 1.5, { maxWidth: RIGHT_W - 20 });
 
             // Score boxes
             const bx = RIGHT_X + RIGHT_W - 16;
@@ -2595,7 +2583,7 @@ async function printTournamentRoster(btn) {
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(6);
             doc.setTextColor(...MUTED);
-            doc.text('—', bx + 7, ry + 5.5, { align: 'center' });
+            doc.text('—', bx + 7, ry + MATCH_H / 2 + 1, { align: 'center' });
 
             doc.setDrawColor(...BORDER);
             doc.setLineWidth(0.2);
