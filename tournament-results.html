@@ -234,34 +234,47 @@
     renderCategory(parseInt(selectEl.value, 10));
   });
 
-  // ── Standings calculator ─────────────────────────────────────
+  // ── Standings calculator — matches admin tCalcStandings exactly ──────
   function calcStandings(teams, matches) {
     const stats = {};
     teams.forEach(t => {
-      stats[t.id] = { id:t.id, name:t.name, w:0, l:0, pts_for:0, pts_against:0, forfeited:false };
+      stats[t.id] = { id:t.id, name:t.name, w:0, l:0, bye:0, pts_for:0, pts_against:0, played:0, forfeited:false };
     });
-    matches.forEach(m => {
-      if (m.status === 'bye' || !m.score_a || !m.score_b) return;
-      if (m.status === 'completed' || m.status === 'forfeited') {
-        const aWins = parseInt(m.score_a,10) > parseInt(m.score_b,10);
-        if (stats[m.team_a_id]) {
-          stats[m.team_a_id].pts_for     += parseInt(m.score_a,10);
-          stats[m.team_a_id].pts_against += parseInt(m.score_b,10);
-          if (m.status==='forfeited' && m.winner_id===m.team_b_id) { stats[m.team_a_id].l++; stats[m.team_a_id].forfeited=true; }
-          else { aWins ? stats[m.team_a_id].w++ : stats[m.team_a_id].l++; }
-        }
-        if (stats[m.team_b_id]) {
-          stats[m.team_b_id].pts_for     += parseInt(m.score_b,10);
-          stats[m.team_b_id].pts_against += parseInt(m.score_a,10);
-          if (m.status==='forfeited' && m.winner_id===m.team_a_id) { stats[m.team_b_id].l++; stats[m.team_b_id].forfeited=true; }
-          else { aWins ? stats[m.team_b_id].l++ : stats[m.team_b_id].w++; }
-        }
+    // Mark forfeited teams
+    matches.filter(m => m.forfeit_team_id).forEach(m => {
+      if (stats[m.forfeit_team_id]) stats[m.forfeit_team_id].forfeited = true;
+    });
+    // Count only completed matches — use winner_id (not score comparison) to determine winner
+    // Note: score_a/score_b can legitimately be 0, so we check m.score_a !== null, not !m.score_a
+    matches.filter(m => m.status === 'completed').forEach(m => {
+      if (!stats[m.team_a_id] || !stats[m.team_b_id]) return;
+      stats[m.team_a_id].pts_for     += m.score_a !== null ? parseInt(m.score_a, 10) : 0;
+      stats[m.team_a_id].pts_against += m.score_b !== null ? parseInt(m.score_b, 10) : 0;
+      stats[m.team_b_id].pts_for     += m.score_b !== null ? parseInt(m.score_b, 10) : 0;
+      stats[m.team_b_id].pts_against += m.score_a !== null ? parseInt(m.score_a, 10) : 0;
+      stats[m.team_a_id].played++;
+      stats[m.team_b_id].played++;
+      if (m.winner_id === m.team_a_id) {
+        stats[m.team_a_id].w++;
+        stats[m.team_b_id].l++;
+      } else if (m.winner_id === m.team_b_id) {
+        stats[m.team_b_id].w++;
+        stats[m.team_a_id].l++;
       }
     });
-    return Object.values(stats).sort((a,b) => {
+    // Bye wins
+    matches.filter(m => m.status === 'bye').forEach(m => {
+      if (stats[m.team_a_id]) stats[m.team_a_id].bye++;
+    });
+    // Sort: forfeited last, then pts_for → diff → wins → losses
+    return Object.values(stats).sort((a, b) => {
       if (a.forfeited !== b.forfeited) return a.forfeited ? 1 : -1;
       if (b.pts_for !== a.pts_for) return b.pts_for - a.pts_for;
-      return (b.pts_for-b.pts_against)-(a.pts_for-a.pts_against);
+      const diffA = a.pts_for - a.pts_against;
+      const diffB = b.pts_for - b.pts_against;
+      if (diffB !== diffA) return diffB - diffA;
+      if (b.w !== a.w) return b.w - a.w;
+      return a.l - b.l;
     });
   }
 
