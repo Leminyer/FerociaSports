@@ -325,11 +325,11 @@
           const bWon  = done && m.winner_id === m.team_b_id;
           return `<div class="bracket-match">
             <div class="bracket-team ${aWon?'winner':''} ${isBye&&!tB?'bye':''}">
-              <span class="bracket-team-name">${tA?esc(tA.name):'<em style="color:var(--text-muted)">TBD</em>'}</span>
+              <span class="bracket-team-name">${tA?esc(tA.name):'<em style="color:var(--text-muted)">TBD</em>'}${m.forfeit_team_id===m.team_a_id?' <span style="font-size:10px;font-weight:800;color:var(--orange);">(FF)</span>':''}</span>
               ${done?`<span class="bracket-score">${m.score_a??''}</span>`:''}
             </div>
             <div class="bracket-team ${bWon?'winner':''} ${isBye?'bye':''}">
-              <span class="bracket-team-name">${tB?esc(tB.name):isBye?'<em style="color:var(--teal)">BYE</em>':'<em style="color:var(--text-muted)">TBD</em>'}</span>
+              <span class="bracket-team-name">${tB?esc(tB.name):isBye?'<em style="color:var(--teal)">BYE</em>':'<em style="color:var(--text-muted)">TBD</em>'}${m.forfeit_team_id===m.team_b_id?' <span style="font-size:10px;font-weight:800;color:var(--orange);">(FF)</span>':''}</span>
               ${done?`<span class="bracket-score">${m.score_b??''}</span>`:''}
             </div>
           </div>`;
