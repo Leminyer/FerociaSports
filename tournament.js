@@ -2466,7 +2466,6 @@ async function printTournamentRoster(btn) {
       });
 
       // ── RIGHT COLUMN: Schedule ──────────────────────────
-      // Reset y to just below header for right column
       let ry = 30;
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(8);
@@ -2475,23 +2474,42 @@ async function printTournamentRoster(btn) {
       ry += 5;
 
       const MATCH_H = 9;
+      let schedOnFirstPage = true;
+
+      // Add a new page for schedule overflow — use full width on continuation pages
+      const addSchedulePage = () => {
+        drawFooter();
+        doc.addPage();
+        drawHeader(cat.name);
+        schedOnFirstPage = false;
+        ry = 30;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8);
+        doc.setTextColor(...MUTED);
+        doc.text('SCHEDULE (continued)', ML, ry);
+        ry += 5;
+      };
+
+      const schedX = () => schedOnFirstPage ? RIGHT_X : ML;
+      const schedW = () => schedOnFirstPage ? RIGHT_W : CW;
 
       // RR Matches grouped by round
       if (rrMatches.length) {
         const rounds = [...new Set(rrMatches.map(m => m.round))].sort((a, b) => a - b);
         rounds.forEach(round => {
-          if (ry + MATCH_H > PAGE_BOTTOM) return; // skip if no room
-          // Round label
+          if (ry + 6 + MATCH_H > PAGE_BOTTOM) addSchedulePage();
+
           doc.setFillColor(...BLUE);
-          doc.rect(RIGHT_X, ry, RIGHT_W, 6, 'F');
+          doc.rect(schedX(), ry, schedW(), 6, 'F');
           doc.setFont('helvetica', 'bold');
           doc.setFontSize(7);
           doc.setTextColor(...WHITE);
-          doc.text(`Round ${round}`, RIGHT_X + 3, ry + 4.2);
+          doc.text(`Round ${round}`, schedX() + 3, ry + 4.2);
           ry += 7;
 
           rrMatches.filter(m => m.round === round).forEach(m => {
-            if (ry + MATCH_H > PAGE_BOTTOM) return;
+            if (ry + MATCH_H > PAGE_BOTTOM) addSchedulePage();
+
             const tA = teamMap[m.team_a_id];
             const tB = teamMap[m.team_b_id];
             const nameA = tA ? tA.name : 'TBD';
@@ -2501,27 +2519,24 @@ async function printTournamentRoster(btn) {
 
             if (m.round % 2 === 0) {
               doc.setFillColor(245, 247, 252);
-              doc.rect(RIGHT_X, ry, RIGHT_W, MATCH_H, 'F');
+              doc.rect(schedX(), ry, schedW(), MATCH_H, 'F');
             }
 
-            // Court badge
             if (courtLabel) {
               doc.setFillColor(...TEAL);
               doc.setFont('helvetica', 'bold');
               doc.setFontSize(6);
               doc.setTextColor(...WHITE);
-              doc.roundedRect(RIGHT_X + 1, ry + 1.5, 9, 5.5, 1, 1, 'F');
-              doc.text(courtLabel, RIGHT_X + 5.5, ry + 5.2, { align: 'center' });
+              doc.roundedRect(schedX() + 1, ry + 1.5, 9, 5.5, 1, 1, 'F');
+              doc.text(courtLabel, schedX() + 5.5, ry + 5.2, { align: 'center' });
             }
 
-            // A5 vs A6 — all on one line
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(8);
             doc.setTextColor(...DARK);
-            doc.text(matchLabel, RIGHT_X + 13, ry + MATCH_H / 2 + 1.5, { maxWidth: RIGHT_W - 30 });
+            doc.text(matchLabel, schedX() + 13, ry + MATCH_H / 2 + 1.5, { maxWidth: schedW() - 30 });
 
-            // Score boxes
-            const bx = RIGHT_X + RIGHT_W - 16;
+            const bx = schedX() + schedW() - 16;
             doc.setDrawColor(...BORDER);
             doc.setLineWidth(0.4);
             doc.setFillColor(...WHITE);
@@ -2534,7 +2549,7 @@ async function printTournamentRoster(btn) {
 
             doc.setDrawColor(...BORDER);
             doc.setLineWidth(0.2);
-            doc.line(RIGHT_X, ry + MATCH_H, RIGHT_X + RIGHT_W, ry + MATCH_H);
+            doc.line(schedX(), ry + MATCH_H, schedX() + schedW(), ry + MATCH_H);
             ry += MATCH_H;
           });
         });
@@ -2544,18 +2559,19 @@ async function printTournamentRoster(btn) {
       if (bracketMatches.length) {
         const roundNames = [...new Set(bracketMatches.map(m => m.round_name))];
         roundNames.forEach(roundName => {
-          if (ry + MATCH_H > PAGE_BOTTOM) return;
-          // Round label
+          if (ry + 6 + MATCH_H > PAGE_BOTTOM) addSchedulePage();
+
           doc.setFillColor(...DARK);
-          doc.rect(RIGHT_X, ry, RIGHT_W, 6, 'F');
+          doc.rect(schedX(), ry, schedW(), 6, 'F');
           doc.setFont('helvetica', 'bold');
           doc.setFontSize(7);
           doc.setTextColor(...WHITE);
-          doc.text(roundName, RIGHT_X + 3, ry + 4.2);
+          doc.text(roundName, schedX() + 3, ry + 4.2);
           ry += 7;
 
           bracketMatches.filter(m => m.round_name === roundName).forEach((m, mi) => {
-            if (ry + MATCH_H > PAGE_BOTTOM) return;
+            if (ry + MATCH_H > PAGE_BOTTOM) addSchedulePage();
+
             const tA = m.team_a_id ? teamMap[m.team_a_id] : null;
             const tB = m.team_b_id ? teamMap[m.team_b_id] : null;
             const nameA = m.status === 'bye' && !tA ? 'BYE' : (tA ? tA.name : 'TBD');
@@ -2564,17 +2580,15 @@ async function printTournamentRoster(btn) {
 
             if (mi % 2 === 0) {
               doc.setFillColor(245, 247, 252);
-              doc.rect(RIGHT_X, ry, RIGHT_W, MATCH_H, 'F');
+              doc.rect(schedX(), ry, schedW(), MATCH_H, 'F');
             }
 
-            // A5 vs A6 — all on one line
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(8);
             doc.setTextColor(...DARK);
-            doc.text(matchLabel, RIGHT_X + 3, ry + MATCH_H / 2 + 1.5, { maxWidth: RIGHT_W - 20 });
+            doc.text(matchLabel, schedX() + 3, ry + MATCH_H / 2 + 1.5, { maxWidth: schedW() - 20 });
 
-            // Score boxes
-            const bx = RIGHT_X + RIGHT_W - 16;
+            const bx = schedX() + schedW() - 16;
             doc.setDrawColor(...BORDER);
             doc.setLineWidth(0.4);
             doc.setFillColor(...WHITE);
@@ -2587,7 +2601,7 @@ async function printTournamentRoster(btn) {
 
             doc.setDrawColor(...BORDER);
             doc.setLineWidth(0.2);
-            doc.line(RIGHT_X, ry + MATCH_H, RIGHT_X + RIGHT_W, ry + MATCH_H);
+            doc.line(schedX(), ry + MATCH_H, schedX() + schedW(), ry + MATCH_H);
             ry += MATCH_H;
           });
         });
@@ -2597,7 +2611,7 @@ async function printTournamentRoster(btn) {
         doc.setFont('helvetica', 'italic');
         doc.setFontSize(8);
         doc.setTextColor(...MUTED);
-        doc.text('No schedule generated yet.', RIGHT_X, ry + 6);
+        doc.text('No schedule generated yet.', schedX(), ry + 6);
       }
 
       drawFooter();
