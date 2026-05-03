@@ -2405,67 +2405,52 @@ async function printTournamentRoster(btn) {
       const teamMap = {};
       teams.forEach(t => { teamMap[t.id] = t; });
 
-      // ── LEFT COLUMN: Teams list ─────────────────────────
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8);
-      doc.setTextColor(...MUTED);
-      doc.text('TEAMS', ML, y);
-      y += 5;
-
+      // ── Helper: draw teams list in left column ─────────────────────────
       const ROW_H = 8.5;
-
-      teams.forEach((team, i) => {
-        const seed = i + 1;
-        const seedColor = seed === 1 ? GOLD : seed === 2 ? SILVER : seed === 3 ? BRONZE : BLUE;
-        const isTop3 = seed <= 3;
-
-        // Alternating row background
-        if (i % 2 === 0) {
-          doc.setFillColor(245, 247, 252);
-          doc.rect(ML, y, LEFT_W, ROW_H, 'F');
-        }
-
-        // Seed badge
-        const cx = ML + 5, cy = y + ROW_H / 2;
-        doc.setFillColor(...seedColor);
-        doc.circle(cx, cy, 3.2, 'F');
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(6.5);
-        doc.setTextColor(...(isTop3 && seed !== 2 ? WHITE : seed === 2 ? [85,85,85] : WHITE));
-        doc.text(String(seed), cx, cy + 0.8, { align: 'center' });
-
-        // Team name
+      const drawTeamsList = (startY) => {
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(8);
-        doc.setTextColor(...DARK);
-        doc.text(team.name, ML + 11, y + 4, { maxWidth: LEFT_W - 14 });
-
-        // Player names
-        const pIds = [team.player1_id, team.player2_id, team.player3_id, team.player4_id].filter(Boolean);
-        const pNames = pIds.map(id => {
-          const p = tAllPlayers.find(x => x.id === id);
-          return p ? `${p.first_name} ${p.last_name}` : null;
-        }).filter(Boolean).join(' & ');
-
-        if (pNames) {
-          doc.setFont('helvetica', 'normal');
+        doc.setTextColor(...MUTED);
+        doc.text('TEAMS', ML, startY);
+        let ty = startY + 5;
+        teams.forEach((team, i) => {
+          const seed = i + 1;
+          const seedColor = seed === 1 ? GOLD : seed === 2 ? SILVER : seed === 3 ? BRONZE : BLUE;
+          const isTop3 = seed <= 3;
+          if (i % 2 === 0) {
+            doc.setFillColor(245, 247, 252);
+            doc.rect(ML, ty, LEFT_W, ROW_H, 'F');
+          }
+          const cx = ML + 5, cy = ty + ROW_H / 2;
+          doc.setFillColor(...seedColor);
+          doc.circle(cx, cy, 3.2, 'F');
+          doc.setFont('helvetica', 'bold');
           doc.setFontSize(6.5);
-          doc.setTextColor(...MUTED);
-          doc.text(pNames, ML + 11, y + 7.2, { maxWidth: LEFT_W - 14 });
-        }
+          doc.setTextColor(...(isTop3 && seed !== 2 ? WHITE : seed === 2 ? [85,85,85] : WHITE));
+          doc.text(String(seed), cx, cy + 0.8, { align: 'center' });
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(8);
+          doc.setTextColor(...DARK);
+          doc.text(team.name, ML + 11, ty + 4, { maxWidth: LEFT_W - 14 });
+          const pIds = [team.player1_id, team.player2_id, team.player3_id, team.player4_id].filter(Boolean);
+          const pNames = pIds.map(id => {
+            const p = tAllPlayers.find(x => x.id === id);
+            return p ? `${p.first_name} ${p.last_name}` : null;
+          }).filter(Boolean).join(' & ');
+          if (pNames) {
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(6.5);
+            doc.setTextColor(...MUTED);
+            doc.text(pNames, ML + 11, ty + 7.2, { maxWidth: LEFT_W - 14 });
+          }
+          ty += ROW_H;
+        });
+      };
 
-        y += ROW_H;
+      // ── LEFT COLUMN: Teams list (page 1) ─────────────────────────────
+      drawTeamsList(y);
 
-        // Page break check
-        if (y + ROW_H > PAGE_BOTTOM && i < teams.length - 1) {
-          drawFooter();
-          doc.addPage();
-          drawHeader(cat.name);
-          y = 30;
-        }
-      });
-
-      // ── RIGHT COLUMN: Schedule ──────────────────────────
+      // ── RIGHT COLUMN: Schedule ────────────────────────────────────────
       let ry = 30;
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(8);
@@ -2474,30 +2459,31 @@ async function printTournamentRoster(btn) {
       ry += 5;
 
       const MATCH_H = 9;
-      let schedOnFirstPage = true;
 
-      // Add a new page for schedule overflow — use full width on continuation pages
+      // Add a new page — repeat teams list on left, schedule continues on right
+      // so both columns always match page 1 layout exactly.
       const addSchedulePage = () => {
         drawFooter();
         doc.addPage();
         drawHeader(cat.name);
-        schedOnFirstPage = false;
         ry = 30;
+        drawTeamsList(ry);
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(8);
         doc.setTextColor(...MUTED);
-        doc.text('SCHEDULE (continued)', ML, ry);
+        doc.text('SCHEDULE (continued)', RIGHT_X, ry);
         ry += 5;
       };
 
-      const schedX = () => schedOnFirstPage ? RIGHT_X : ML;
-      const schedW = () => schedOnFirstPage ? RIGHT_W : CW;
+      // Always use right column — same position on every page
+      const schedX = () => RIGHT_X;
+      const schedW = () => RIGHT_W;
 
       // RR Matches grouped by round
       if (rrMatches.length) {
         const rounds = [...new Set(rrMatches.map(m => m.round))].sort((a, b) => a - b);
         rounds.forEach(round => {
-          if (ry + 6 + MATCH_H > PAGE_BOTTOM) addSchedulePage();
+          if (ry + 6 + MATCH_H * 2 > PAGE_BOTTOM) addSchedulePage(); // keep header with at least 2 match rows
 
           doc.setFillColor(...BLUE);
           doc.rect(schedX(), ry, schedW(), 6, 'F');
@@ -2559,7 +2545,7 @@ async function printTournamentRoster(btn) {
       if (bracketMatches.length) {
         const roundNames = [...new Set(bracketMatches.map(m => m.round_name))];
         roundNames.forEach(roundName => {
-          if (ry + 6 + MATCH_H > PAGE_BOTTOM) addSchedulePage();
+          if (ry + 6 + MATCH_H * 2 > PAGE_BOTTOM) addSchedulePage(); // keep header with at least 2 match rows
 
           doc.setFillColor(...DARK);
           doc.rect(schedX(), ry, schedW(), 6, 'F');
