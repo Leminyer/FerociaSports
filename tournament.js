@@ -1805,6 +1805,9 @@ async function openScoreModal(type, matchId, teamAId, teamBId, catId) {
     </div>
     <div class="t-form-actions">
       <button type="button" class="t-btn t-btn-ghost" onclick="closeTModal()">Cancel</button>
+      <button type="button" class="t-btn t-btn-outline" onclick="saveCourtOnly('${type}', ${matchId}, ${catId})"
+        title="Save court number without entering scores yet"
+        style="font-size:12px;">Save Court</button>
       <button type="button" class="t-btn t-btn-primary" onclick="saveScore('${type}', ${matchId}, ${teamAId}, ${teamBId}, ${catId})">Save Result</button>
     </div>
   `;
@@ -1821,6 +1824,27 @@ async function openScoreModal(type, matchId, teamAId, teamBId, catId) {
     });
   });
   openTModal();
+}
+
+async function saveCourtOnly(type, matchId, catId) {
+  const courtVal = document.getElementById('t-court-num')?.value;
+  const courtNum = parseInt(courtVal);
+  if (!courtVal || isNaN(courtNum) || courtNum < 1) {
+    tToast('Please enter a valid court number.', true);
+    return;
+  }
+  try {
+    const table = type === 'rr' ? 'tournament_rr_matches' : 'tournament_bracket_matches';
+    await tApi(`${table}?id=eq.${matchId}`, 'PATCH', { court: courtNum });
+    tToast(`Court ${courtNum} saved.`);
+    closeTModal();
+    tCurrentCategoryId = catId;
+    const [t] = await tApi(`tournaments?id=eq.${tCurrentTournamentId}&select=*`);
+    const categories = await tApi(`tournament_categories?tournament_id=eq.${tCurrentTournamentId}&select=*&order=id`);
+    renderTournamentDetail(t, categories);
+  } catch(err) {
+    tToast(`Error saving court: ${err.message}`, true);
+  }
 }
 
 async function saveScore(type, matchId, teamAId, teamBId, catId) {
