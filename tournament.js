@@ -1521,6 +1521,18 @@ async function generateBracket(catId, tournamentId) {
   const format = document.getElementById(`finals-elim-${catId}`).value;
   const scoreFormat = document.getElementById(`finals-score-format-${catId}`)?.value || 'play11_win2';
 
+  // ── Check all RR matches have scores before generating bracket ────────
+  const allRR = await tApi(`tournament_rr_matches?category_id=eq.${catId}&select=id,round,court,status,team_a_id,team_b_id`);
+  const pending = allRR.filter(m => m.status !== 'completed' && m.status !== 'bye');
+  if (pending.length > 0) {
+    const details = pending.map(m => `Round ${m.round}${m.court ? ', Court ' + m.court : ''}`).join(' — ');
+    tToast(
+      `Cannot generate bracket: ${pending.length} match${pending.length > 1 ? 'es are' : ' is'} missing scores.\n${details}`,
+      true
+    );
+    return;
+  }
+
   // Detect best-of format for finals
   const isBestOf = scoreFormat === 'best_of_3' || scoreFormat === 'best_of_5';
   const finalsBestOf = scoreFormat === 'best_of_3' ? 3 : scoreFormat === 'best_of_5' ? 5 : 1;
@@ -1805,10 +1817,7 @@ async function openScoreModal(type, matchId, teamAId, teamBId, catId) {
     </div>
     <div class="t-form-actions">
       <button type="button" class="t-btn t-btn-ghost" onclick="closeTModal()">Cancel</button>
-      <button type="button" class="t-btn t-btn-outline" onclick="saveCourtOnly('${type}', ${matchId}, ${catId})"
-        title="Save court number without entering scores yet"
-        style="font-size:12px;">Save Court</button>
-      <button type="button" class="t-btn t-btn-primary" onclick="saveScore('${type}', ${matchId}, ${teamAId}, ${teamBId}, ${catId})">Save Result</button>
+      <button type="button" class="t-btn t-btn-primary" onclick="saveMatch('${type}', ${matchId}, ${teamAId}, ${teamBId}, ${catId})">Save</button>
     </div>
   `;
     // Live score preview
@@ -1826,29 +1835,19 @@ async function openScoreModal(type, matchId, teamAId, teamBId, catId) {
   openTModal();
 }
 
-async function saveCourtOnly(type, matchId, catId) {
-  const courtVal = document.getElementById('t-court-num')?.value;
+async function saveMatch(type, matchId, teamAId, teamBId, catId) {
+  // ── Court number ─────────────────────────────────────────────────────
+  const courtVal = document.getElementById('t-court-num')?.value?.trim();
   const courtNum = parseInt(courtVal);
-  if (!courtVal || isNaN(courtNum) || courtNum < 1) {
-    tToast('Please enter a valid court number.', true);
+  const courtFilled = courtVal && !isNaN(courtNum) && courtNum >= 1;
+
+  if (!courtFilled) {
+    tToast('Please enter a court number.', true);
+    document.getElementById('t-court-num')?.focus();
     return;
   }
-  try {
-    const table = type === 'rr' ? 'tournament_rr_matches' : 'tournament_bracket_matches';
-    await tApi(`${table}?id=eq.${matchId}`, 'PATCH', { court: courtNum });
-    tToast(`Court ${courtNum} saved.`);
-    closeTModal();
-    tCurrentCategoryId = catId;
-    const [t] = await tApi(`tournaments?id=eq.${tCurrentTournamentId}&select=*`);
-    const categories = await tApi(`tournament_categories?tournament_id=eq.${tCurrentTournamentId}&select=*&order=id`);
-    renderTournamentDetail(t, categories);
-  } catch(err) {
-    tToast(`Error saving court: ${err.message}`, true);
-  }
-}
 
-async function saveScore(type, matchId, teamAId, teamBId, catId) {
-  // Check if forfeit is selected
+  // ── Check if forfeit is selected ─────────────────────────────────────
   const forfeitA = document.getElementById('t-forfeit-a')?.checked;
   const forfeitB = document.getElementById('t-forfeit-b')?.checked;
 
@@ -1881,60 +1880,82 @@ async function saveScore(type, matchId, teamAId, teamBId, catId) {
     return;
   }
 
-  // Check whether the modal rendered game-by-game inputs (when best_of > 1)
-  // or the single score-pair inputs. This must match the condition used in
-  // openScoreModal at line ~1719: `const singlesMatch = bestOf > 1;`
-  // Previously this also required isSingles(catName), which caused a null
-  // .value crash for non-singles categories with best_of > 1 formats.
+  // ── Determine if scores are filled ───────────────────────────────────
   const [catCheck] = await tApi(`tournament_categories?id=eq.${catId}&select=name,best_of`);
   const bestOf = catCheck?.best_of || 1;
   const useGameByGame = bestOf > 1;
 
+  let scoresProvided = false;
   let sa, sb, winnerId, gamesToSave = null;
+
   if (useGameByGame) {
     const gameScores = [];
     for (let i = 0; i < bestOf; i++) {
       const ga = parseInt(document.getElementById(`t-game-a-${i}`)?.value);
       const gb = parseInt(document.getElementById(`t-game-b-${i}`)?.value);
-      if (!isNaN(ga) && !isNaN(gb)) gameScores.push({score_a: ga, score_b: gb});
+      if (!isNaN(ga) && !isNaN(gb)) gameScores.push({ score_a: ga, score_b: gb });
     }
-    if (!gameScores.length) { tToast('Please enter at least one game score.', true); return; }
-    const result = calcBestOfWinner(bestOf, teamAId, teamBId, gameScores);
-    if (!result.winnerId) { tToast('Match not complete yet — keep entering games.', true); return; }
-    winnerId = result.winnerId;
-    sa = result.winsA;   // store games won as score_a/score_b
-    sb = result.winsB;
-    gamesToSave = gameScores;
+    if (gameScores.length > 0) {
+      scoresProvided = true;
+      const result = calcBestOfWinner(bestOf, teamAId, teamBId, gameScores);
+      if (!result.winnerId) {
+        tToast('Match not complete yet — keep entering games.', true);
+        return;
+      }
+      winnerId = result.winnerId;
+      sa = result.winsA;
+      sb = result.winsB;
+      gamesToSave = gameScores;
+    }
   } else {
-    sa = parseInt(document.getElementById('t-score-a').value);
-    sb = parseInt(document.getElementById('t-score-b').value);
-    if (isNaN(sa) || isNaN(sb)) { tToast('Please enter both scores.', true); return; }
-    winnerId = sa > sb ? teamAId : teamBId;
+    const aVal = document.getElementById('t-score-a')?.value?.trim();
+    const bVal = document.getElementById('t-score-b')?.value?.trim();
+    if (aVal !== '' || bVal !== '') {
+      // At least one score entered — require both
+      sa = parseInt(aVal);
+      sb = parseInt(bVal);
+      if (isNaN(sa) || isNaN(sb)) {
+        tToast('Please enter both scores or leave both blank to save court only.', true);
+        return;
+      }
+      winnerId = sa > sb ? teamAId : teamBId;
+      scoresProvided = true;
+    }
   }
 
   try {
-    const courtNum = parseInt(document.getElementById('t-court-num')?.value) || null;
-    if (type === 'rr') {
-      await tApi(`tournament_rr_matches?id=eq.${matchId}`, 'PATCH', {
+    if (scoresProvided) {
+      // Save court + scores + mark completed
+      const table = type === 'rr' ? 'tournament_rr_matches' : 'tournament_bracket_matches';
+      await tApi(`${table}?id=eq.${matchId}`, 'PATCH', {
+        court: courtNum,
         score_a: sa, score_b: sb, winner_id: winnerId, status: 'completed',
-        ...(courtNum ? {court: courtNum} : {}),
-        ...(gamesToSave ? {games: gamesToSave} : {})
+        ...(gamesToSave ? { games: gamesToSave } : {}),
       });
+      if (type === 'bracket') {
+        await advanceBracket(matchId, winnerId, teamAId === winnerId ? teamBId : teamAId, catId);
+      }
+      tToast('Result saved!');
     } else {
-      await tApi(`tournament_bracket_matches?id=eq.${matchId}`, 'PATCH', {
-        score_a: sa, score_b: sb, winner_id: winnerId, status: 'completed',
-        ...(courtNum ? {court: courtNum} : {}),
-        ...(gamesToSave ? {games: gamesToSave} : {})
-      });
-      await advanceBracket(matchId, winnerId, teamAId === winnerId ? teamBId : teamAId, catId);
+      // Save court only — keep status unchanged
+      const table = type === 'rr' ? 'tournament_rr_matches' : 'tournament_bracket_matches';
+      await tApi(`${table}?id=eq.${matchId}`, 'PATCH', { court: courtNum });
+      tToast(`Court ${courtNum} saved.`);
     }
-    tToast('Score saved!');
+
     closeTModal();
     tCurrentCategoryId = catId;
     const [t] = await tApi(`tournaments?id=eq.${tCurrentTournamentId}&select=*`);
     const categories = await tApi(`tournament_categories?tournament_id=eq.${tCurrentTournamentId}&select=*&order=id`);
     renderTournamentDetail(t, categories);
-  } catch(err) { tToast(`Error: ${err.message}`, true); }
+  } catch (err) {
+    tToast(`Error: ${err.message}`, true);
+  }
+}
+
+async function saveScore(type, matchId, teamAId, teamBId, catId) {
+  // Legacy alias — calls saveMatch for backward compatibility
+  return saveMatch(type, matchId, teamAId, teamBId, catId);
 }
 
 async function advanceBracket(matchId, winnerId, loserId, catId) {
