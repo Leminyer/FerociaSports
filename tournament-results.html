@@ -269,7 +269,11 @@
   function renderStandingsTable(standings) {
     if (!standings.length) return '<div class="empty">No standings yet.</div>';
     return `<table>
-      <thead><tr><th>#</th><th>Team</th><th>W</th><th>L</th><th>+/-</th></tr></thead>
+      <thead><tr>
+        <th>#</th><th>Team</th>
+        <th>Wins</th><th>Losses</th>
+        <th>Pts For</th><th>Diff</th>
+      </tr></thead>
       <tbody>
         ${standings.map((s,i) => {
           const diff = s.pts_for - s.pts_against;
@@ -277,8 +281,10 @@
           return `<tr>
             <td><span class="rank-badge ${rankClass}">${i+1}</span></td>
             <td class="text-bold">${esc(s.name)}${s.forfeited?` <span style="color:var(--orange);font-size:10px;">(FF)</span>`:''}</td>
-            <td>${s.w}</td><td>${s.l}</td>
-            <td style="color:${diff>=0?'var(--teal)':'var(--orange)'};">${diff>0?'+':''}${diff}</td>
+            <td style="color:var(--teal);font-weight:700;">${s.w}</td>
+            <td style="color:${s.l>0?'var(--orange)':'var(--text-muted)'};font-weight:700;">${s.l}</td>
+            <td style="color:var(--blue);font-weight:700;">${s.pts_for}</td>
+            <td style="color:${diff>=0?'var(--teal)':'var(--orange)'};font-weight:700;">${diff>0?'+':''}${diff}</td>
           </tr>`;
         }).join('')}
       </tbody></table>`;
