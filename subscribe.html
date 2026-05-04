@@ -132,8 +132,22 @@
   const CFG = window.FEROCIA_CONFIG;
   emailjs.init({ publicKey: CFG.EMAILJS.PUBLIC_KEY });
 
-  // RFC-compliant-enough email regex
-  const validateEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  // Strict email validation:
+  // - Local part: letters, digits, dots, hyphens, underscores only
+  // - No consecutive dots, no leading/trailing dots
+  // - Domain: letters, digits, hyphens only
+  // - TLD: 2-10 letters only
+  const validateEmail = (email) => {
+    const e = email.trim().toLowerCase();
+    // Block obviously fake patterns: too many dots in local part, special chars
+    const localPart = e.split('@')[0] || '';
+    const dotCount = (localPart.match(/\./g) || []).length;
+    if (dotCount > 3) return false; // more than 3 dots in local = suspicious
+    // Block special chars: *, #, !, $, %, ^, &, (, ), +, =, [, ], {, }, |, \, /, ?
+    if (/[*#!$%^&()+={}\[\]|\\/?<>,;:]/.test(e)) return false;
+    // Standard structure check
+    return /^[a-zA-Z0-9][a-zA-Z0-9._\-]{0,62}@[a-zA-Z0-9][a-zA-Z0-9.\-]{0,62}\.[a-zA-Z]{2,10}$/.test(e);
+  };
 
   // Random unguessable token for confirm/unsubscribe links
   const generateToken = () =>
