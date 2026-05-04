@@ -79,6 +79,7 @@
         <div class="form-group">
           <label>Phone number</label>
           <input type="tel" id="s-phone" placeholder="555-000-0000">
+          <div class="error-msg" id="err-phone">Please enter a valid phone number.</div>
         </div>
         <div class="form-row">
           <div class="form-group">
@@ -100,6 +101,12 @@
           </div>
         </div>
         <button type="submit" class="btn" id="subscribe-btn">Subscribe Now</button>
+        <!-- Honeypot: hidden from humans, bots fill this automatically -->
+        <!-- position:absolute + opacity:0 + tabindex=-1 makes it invisible but present in DOM -->
+        <div style="position:absolute;left:-9999px;top:-9999px;opacity:0;height:0;overflow:hidden;" aria-hidden="true">
+          <label>Leave this blank</label>
+          <input type="text" id="s-honeypot" name="website" tabindex="-1" autocomplete="off">
+        </div>
       </form>
     </div>
 
@@ -156,21 +163,62 @@
     const gender = document.getElementById('s-gender').value;
     const skill = document.getElementById('s-skill').value;
 
+    // ── Honeypot check — bots fill hidden fields, humans don't ───────────
+    // If this field has any value, it's almost certainly a bot. Silently
+    // show success (so bots don't know they were blocked) but don't save.
+    const honeypot = document.getElementById('s-honeypot').value;
+    if (honeypot) {
+      document.getElementById('form-section').style.display = 'none';
+      document.getElementById('confirm-email-shown').textContent = email;
+      document.getElementById('success-screen').style.display = 'block';
+      return;
+    }
+
     // Validation
     let valid = true;
-    if (!first) { showFieldError('s-first', 'err-first'); valid = false; }
-    else clearFieldError('s-first', 'err-first');
 
-    if (!last) { showFieldError('s-last', 'err-last'); valid = false; }
-    else clearFieldError('s-last', 'err-last');
+    // Name validation — no numbers, no symbols, max 40 chars, min 2 chars
+    const nameRegex = /^[a-zA-ZÀ-ÖØ-öø-ÿ'\-\s]{2,40}$/;
+    if (!first) {
+      showFieldError('s-first', 'err-first', 'Please enter your first name.');
+      valid = false;
+    } else if (!nameRegex.test(first)) {
+      showFieldError('s-first', 'err-first', 'First name can only contain letters (2–40 characters).');
+      valid = false;
+    } else {
+      clearFieldError('s-first', 'err-first');
+    }
+
+    if (!last) {
+      showFieldError('s-last', 'err-last', 'Please enter your last name.');
+      valid = false;
+    } else if (!nameRegex.test(last)) {
+      showFieldError('s-last', 'err-last', 'Last name can only contain letters (2–40 characters).');
+      valid = false;
+    } else {
+      clearFieldError('s-last', 'err-last');
+    }
 
     if (!email || !validateEmail(email)) {
-      document.getElementById('err-email').textContent = 'Please enter a valid email address.';
-      showFieldError('s-email', 'err-email');
+      showFieldError('s-email', 'err-email', 'Please enter a valid email address.');
       valid = false;
     } else {
       clearFieldError('s-email', 'err-email');
     }
+
+    // Phone validation — if entered, must look like a real phone number
+    // Allows: digits, spaces, dashes, dots, parentheses, +, min 7 digits
+    if (phone) {
+      const phoneDigits = phone.replace(/\D/g, '');
+      const phoneValid = /^[\d\s\-\.\+\(\)]{7,20}$/.test(phone) && phoneDigits.length >= 7;
+      if (!phoneValid) {
+        showFieldError('s-phone', 'err-phone', 'Please enter a valid phone number.');
+        valid = false;
+      } else {
+        clearFieldError('s-phone', 'err-phone');
+      }
+    }
+
     if (!valid) return;
 
     const btn = document.getElementById('subscribe-btn');
