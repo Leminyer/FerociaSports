@@ -68,7 +68,7 @@ header{
   border-bottom:4px solid var(--lime);
 }
 .store-hero-eyebrow{font-size:13px;font-weight:800;letter-spacing:4px;text-transform:uppercase;color:var(--lime);margin-bottom:10px;}
-.store-hero-title{font-family:'Bebas Neue',sans-serif;font-size:clamp(56px,10vw,96px);color:var(--white);line-height:1;margin-bottom:12px;}
+.store-hero-title{font-family:'Bebas Neue',sans-serif;font-size:clamp(40px,7vw,72px);color:var(--white);line-height:1;margin-bottom:12px;}
 .store-hero-sub{font-size:14px;font-weight:600;color:rgba(255,255,255,.65);}
 
 /* ── PRODUCTS GRID ── */
@@ -177,11 +177,11 @@ header{
 .qty-btn:hover{border-color:var(--blue);background:var(--blue-pale);}
 .qty-value{font-size:13px;font-weight:800;color:var(--text);min-width:20px;text-align:center;}
 .cart-item-remove{
-  margin-left:auto;background:none;border:1.5px solid var(--border);cursor:pointer;
-  color:var(--muted);font-size:13px;font-weight:800;transition:all .15s;
-  padding:4px 8px;border-radius:6px;line-height:1;
+  margin-left:auto;background:none;border:none;cursor:pointer;
+  color:var(--muted);transition:color .15s;padding:6px;
+  border-radius:6px;display:flex;align-items:center;justify-content:center;
 }
-.cart-item-remove:hover{color:var(--orange);border-color:var(--orange);background:#fff3ee;}
+.cart-item-remove:hover{color:var(--orange);background:#fff3ee;}
 
 .cart-footer{
   padding:16px 24px 24px;border-top:1px solid var(--border);
@@ -317,11 +317,33 @@ const CFG      = window.FEROCIA_CONFIG;
 const FLAT     = CFG.SHIPPING.FLAT_RATE_CENTS;   // 799
 const FREE_MIN = CFG.SHIPPING.FREE_THRESHOLD_CENTS; // 7500
 
-// ── Cart state ────────────────────────────────────────────────────────────
-// { priceId: { name, price, image, quantity } }
-let cart = JSON.parse(localStorage.getItem('ferocia_cart') || '{}');
+// ── Cart state with 1-hour expiration ────────────────────────────────────
+const CART_KEY    = 'ferocia_cart';
+const CART_EXPIRY = 60 * 60 * 1000; // 1 hour in milliseconds
 
-const saveCart = () => localStorage.setItem('ferocia_cart', JSON.stringify(cart));
+const loadCart = () => {
+  try {
+    const raw = localStorage.getItem(CART_KEY);
+    if (!raw) return {};
+    const { data, expiresAt } = JSON.parse(raw);
+    if (Date.now() > expiresAt) {
+      localStorage.removeItem(CART_KEY);
+      return {};
+    }
+    return data || {};
+  } catch (_) {
+    return {};
+  }
+};
+
+const saveCart = () => {
+  localStorage.setItem(CART_KEY, JSON.stringify({
+    data: cart,
+    expiresAt: Date.now() + CART_EXPIRY,
+  }));
+};
+
+let cart = loadCart();
 
 // ── Toast ─────────────────────────────────────────────────────────────────
 const toast = (msg, isError = false) => {
@@ -384,7 +406,15 @@ const renderCart = () => {
           <button class="qty-btn" onclick="changeQty('${priceId}', -1)">−</button>
           <span class="qty-value">${item.quantity}</span>
           <button class="qty-btn" onclick="changeQty('${priceId}', 1)">+</button>
-          <button class="cart-item-remove" onclick="removeItem('${priceId}')" title="Remove from cart">Remove</button>
+          <button class="cart-item-remove" onclick="removeItem('${priceId}')" title="Remove from cart">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
+              <path d="M10 11v6"></path>
+              <path d="M14 11v6"></path>
+              <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path>
+            </svg>
+          </button>
         </div>
       </div>
     </div>
