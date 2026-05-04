@@ -67,8 +67,8 @@ header{
   padding:48px 40px 40px;
   border-bottom:4px solid var(--lime);
 }
-.store-hero-eyebrow{font-size:11px;font-weight:800;letter-spacing:4px;text-transform:uppercase;color:var(--lime);margin-bottom:8px;}
-.store-hero-title{font-family:'Bebas Neue',sans-serif;font-size:clamp(48px,8vw,80px);color:var(--white);line-height:1;margin-bottom:12px;}
+.store-hero-eyebrow{font-size:13px;font-weight:800;letter-spacing:4px;text-transform:uppercase;color:var(--lime);margin-bottom:10px;}
+.store-hero-title{font-family:'Bebas Neue',sans-serif;font-size:clamp(56px,10vw,96px);color:var(--white);line-height:1;margin-bottom:12px;}
 .store-hero-sub{font-size:14px;font-weight:600;color:rgba(255,255,255,.65);}
 
 /* ── PRODUCTS GRID ── */
@@ -177,10 +177,11 @@ header{
 .qty-btn:hover{border-color:var(--blue);background:var(--blue-pale);}
 .qty-value{font-size:13px;font-weight:800;color:var(--text);min-width:20px;text-align:center;}
 .cart-item-remove{
-  margin-left:auto;background:none;border:none;cursor:pointer;
-  color:var(--muted);font-size:14px;transition:color .15s;padding:4px;
+  margin-left:auto;background:none;border:1.5px solid var(--border);cursor:pointer;
+  color:var(--muted);font-size:13px;font-weight:800;transition:all .15s;
+  padding:4px 8px;border-radius:6px;line-height:1;
 }
-.cart-item-remove:hover{color:var(--orange);}
+.cart-item-remove:hover{color:var(--orange);border-color:var(--orange);background:#fff3ee;}
 
 .cart-footer{
   padding:16px 24px 24px;border-top:1px solid var(--border);
@@ -383,7 +384,7 @@ const renderCart = () => {
           <button class="qty-btn" onclick="changeQty('${priceId}', -1)">−</button>
           <span class="qty-value">${item.quantity}</span>
           <button class="qty-btn" onclick="changeQty('${priceId}', 1)">+</button>
-          <button class="cart-item-remove" onclick="removeItem('${priceId}')" title="Remove">🗑</button>
+          <button class="cart-item-remove" onclick="removeItem('${priceId}')" title="Remove from cart">Remove</button>
         </div>
       </div>
     </div>
