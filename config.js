@@ -19,8 +19,8 @@ window.FEROCIA_CONFIG = Object.freeze({
   SUPABASE_URL: 'https://yyocceadorckkfbgnbqk.supabase.co',
   SUPABASE_KEY: 'sb_publishable_Lhc3oHL90kL7O0vO3kJQgQ_BqQfc4Il',
 
-  // Stripe publishable key — safe to expose in frontend code
-  STRIPE_PK: 'pk_live_51TTCbRCTELHGVTTYSr6STPghRhsrPA7x5tUWB5ThLELUBgme5eDgbw7GEBG1UzGC0eRCzBQyiK7g228HFjqxWQEE00XrVTFSXB',
+  // Stripe publishable key — TEST MODE
+  STRIPE_PK: 'pk_test_51TTCbRCTELHGVTTYV9ypxd82P0Y3QYzr1HgKS8H6qWrExB1Bup1L4BJBBCKKhLhZVzsneInGXgxngeA5GtRVeawi00Ncu64wcP',
 
   // Shipping config
   SHIPPING: Object.freeze({
