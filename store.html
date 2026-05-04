@@ -12,7 +12,6 @@
 <meta property="og:type"        content="website">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-<script src="https://js.stripe.com/v3/"></script>
 <script src="config.js"></script>
 <script src="assets.js"></script>
 <style>
@@ -504,28 +503,34 @@ window.checkout = async () => {
   btn.textContent = 'Redirecting to Stripe...';
 
   try {
-    const stripe = Stripe(CFG.STRIPE_PK);
     const lineItems = items.map(([priceId, item]) => ({
       price: priceId,
       quantity: item.quantity,
     }));
 
-    const shipping = cartShippingCents();
-    const shippingOptions = shipping === 0
-      ? [{ shipping_rate_data: { type: 'fixed_amount', fixed_amount: { amount: 0, currency: 'usd' }, display_name: 'Free Shipping', delivery_estimate: { minimum: { unit: 'business_day', value: 3 }, maximum: { unit: 'business_day', value: 7 } } } }]
-      : [{ shipping_rate_data: { type: 'fixed_amount', fixed_amount: { amount: FLAT, currency: 'usd' }, display_name: 'Standard Shipping', delivery_estimate: { minimum: { unit: 'business_day', value: 3 }, maximum: { unit: 'business_day', value: 7 } } } }];
+    const res = await fetch(
+      `${CFG.SUPABASE_URL}/functions/v1/create-checkout`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${CFG.SUPABASE_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          lineItems,
+          subtotalCents:     cartSubtotalCents(),
+          flatRateCents:     FLAT,
+          freeThresholdCents: FREE_MIN,
+        }),
+      }
+    );
 
-    // Create Stripe Checkout Session via Stripe.js
-    const { error } = await stripe.redirectToCheckout({
-      mode: 'payment',
-      lineItems,
-      shippingAddressCollection: { allowedCountries: ['US'] },
-      shippingOptions,
-      successUrl: `${window.location.origin}/store-success.html?session_id={CHECKOUT_SESSION_ID}`,
-      cancelUrl:  `${window.location.origin}/store.html`,
-    });
+    const data = await res.json();
+    if (!res.ok || data.error) throw new Error(data.error || 'Checkout failed');
 
-    if (error) throw new Error(error.message);
+    // Redirect to Stripe hosted checkout page
+    window.location.href = data.url;
+
   } catch (err) {
     toast(`Checkout error: ${err.message}`, true);
     btn.disabled = false;
