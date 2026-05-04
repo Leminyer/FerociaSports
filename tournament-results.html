@@ -85,7 +85,8 @@
   .bracket-team.winner { background:var(--blue-pale); font-weight:800; color:var(--blue); }
   .bracket-team.bye { color:var(--text-muted); font-style:italic; }
   .bracket-score { font-weight:800; font-size:13px; flex-shrink:0; }
-  .bracket-team-name { font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; }
+  .bracket-team-name { font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .bracket-team-players { font-size:10px; font-weight:500; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:1px; }
 
   /* GROUP BLOCKS */
   .group-block { background:var(--bg); border:0.5px solid var(--border); border-radius:var(--radius-sm); padding:14px; margin-bottom:14px; }
@@ -340,13 +341,21 @@
           const done  = m.status === 'completed';
           const aWon  = done && m.winner_id === m.team_a_id;
           const bWon  = done && m.winner_id === m.team_b_id;
+          const playersA = tA ? getPlayerNames(tA) : '';
+          const playersB = tB ? getPlayerNames(tB) : '';
           return `<div class="bracket-match">
             <div class="bracket-team ${aWon?'winner':''} ${isBye&&!tB?'bye':''}">
-              <span class="bracket-team-name">${tA?esc(tA.name):'<em style="color:var(--text-muted)">TBD</em>'}${m.forfeit_team_id===m.team_a_id?' <span style="font-size:10px;font-weight:800;color:var(--orange);">(FF)</span>':''}</span>
+              <div style="flex:1;min-width:0;">
+                <div class="bracket-team-name">${tA?esc(tA.name):'<em style="color:var(--text-muted)">TBD</em>'}${m.forfeit_team_id===m.team_a_id?' <span style="font-size:10px;font-weight:800;color:var(--orange);">(FF)</span>':''}</div>
+                ${playersA?`<div class="bracket-team-players">${esc(playersA)}</div>`:''}
+              </div>
               ${done?`<span class="bracket-score">${m.score_a??''}</span>`:''}
             </div>
             <div class="bracket-team ${bWon?'winner':''} ${isBye?'bye':''}">
-              <span class="bracket-team-name">${tB?esc(tB.name):isBye?'<em style="color:var(--teal)">BYE</em>':'<em style="color:var(--text-muted)">TBD</em>'}${m.forfeit_team_id===m.team_b_id?' <span style="font-size:10px;font-weight:800;color:var(--orange);">(FF)</span>':''}</span>
+              <div style="flex:1;min-width:0;">
+                <div class="bracket-team-name">${tB?esc(tB.name):isBye?'<em style="color:var(--teal)">BYE</em>':'<em style="color:var(--text-muted)">TBD</em>'}${m.forfeit_team_id===m.team_b_id?' <span style="font-size:10px;font-weight:800;color:var(--orange);">(FF)</span>':''}</div>
+                ${playersB?`<div class="bracket-team-players">${esc(playersB)}</div>`:''}
+              </div>
               ${done?`<span class="bracket-score">${m.score_b??''}</span>`:''}
             </div>
           </div>`;
