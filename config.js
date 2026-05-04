@@ -19,6 +19,15 @@ window.FEROCIA_CONFIG = Object.freeze({
   SUPABASE_URL: 'https://yyocceadorckkfbgnbqk.supabase.co',
   SUPABASE_KEY: 'sb_publishable_Lhc3oHL90kL7O0vO3kJQgQ_BqQfc4Il',
 
+  // Stripe publishable key — safe to expose in frontend code
+  STRIPE_PK: 'pk_live_51TTCbRCTELHGVTTYSr6STPghRhsrPA7x5tUWB5ThLELUBgme5eDgbw7GEBG1UzGC0eRCzBQyiK7g228HFjqxWQEE00XrVTFSXB',
+
+  // Shipping config
+  SHIPPING: Object.freeze({
+    FLAT_RATE_CENTS: 799,          // $7.99 flat rate
+    FREE_THRESHOLD_CENTS: 7500,    // $75.00 free shipping threshold
+  }),
+
   EMAILJS: Object.freeze({
     SERVICE: 'service_b9yh0p3',
     PUBLIC_KEY: '6_1uofjtAIBjdqqrn',

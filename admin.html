@@ -203,6 +203,7 @@
   <button data-action="showPage" data-page="ladders">Ladders</button>
   <button data-action="showPage" data-page="t-tournaments">Tournaments</button>
   <button data-action="showPage" data-page="events">Events</button>
+  <button data-action="showPage" data-page="orders">Orders</button>
   <button data-action="showPage" data-page="promotions">Promotions</button>
   <button data-action="showPage" data-page="share">Share Links</button>
 </div>
@@ -439,6 +440,22 @@
   <!-- TOURNAMENT VIEW PAGE (read-only Programs view) -->
   <div id="page-tournament-view" class="page">
     <div id="tournament-view-content"><div class="empty">Select a tournament to view details.</div></div>
+  </div>
+
+  <!-- ORDERS PAGE -->
+  <div id="page-orders" class="page">
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+        <div class="card-title" style="margin:0;">Orders <span id="orders-count" style="font-size:11px;background:var(--gray);padding:2px 8px;border-radius:99px;font-weight:700;color:var(--text-muted);margin-left:6px;"></span></div>
+        <select id="orders-status-filter" class="input" style="width:auto;font-size:12px;padding:6px 10px;" onchange="loadOrdersPage()">
+          <option value="">All Orders</option>
+          <option value="paid">Paid</option>
+          <option value="fulfilled">Fulfilled</option>
+          <option value="pending">Pending</option>
+        </select>
+      </div>
+      <div id="orders-list"><div class="loading">Loading orders...</div></div>
+    </div>
   </div>
 
   <!-- EVENTS PAGE -->

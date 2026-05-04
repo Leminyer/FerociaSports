@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Order Confirmed — Ferocia Gear</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="config.js"></script>
+<script src="assets.js"></script>
+<style>
+:root{--blue:#174CCC;--lime:#C6F221;--teal:#24BC96;--dark:#080f2e;--white:#fff;--bg:#f4f6fc;--text:#0d1f4a;--muted:#6b7a99;--border:#d6dff5;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Montserrat',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column;}
+header{background:var(--dark);display:flex;align-items:center;padding:0 40px;height:64px;border-bottom:2px solid var(--lime);}
+.header-logo{height:30px;}
+main{flex:1;display:flex;align-items:center;justify-content:center;padding:48px 24px;}
+.success-card{background:var(--white);border-radius:16px;border:0.5px solid var(--border);padding:48px 40px;max-width:520px;width:100%;text-align:center;box-shadow:0 8px 40px rgba(23,76,204,.1);}
+.success-icon{width:72px;height:72px;background:var(--teal);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:32px;margin:0 auto 24px;}
+.success-title{font-family:'Bebas Neue',sans-serif;font-size:48px;color:var(--text);margin-bottom:12px;line-height:1;}
+.success-sub{font-size:14px;font-weight:600;color:var(--muted);line-height:1.7;margin-bottom:28px;}
+.success-email{font-weight:800;color:var(--blue);}
+.success-actions{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;}
+.btn-home{font-family:'Montserrat',sans-serif;font-size:12px;font-weight:800;letter-spacing:1px;text-transform:uppercase;background:var(--blue);color:var(--white);border:none;border-radius:8px;padding:12px 24px;cursor:pointer;text-decoration:none;display:inline-block;transition:opacity .15s;}
+.btn-home:hover{opacity:.85;}
+.btn-shop{font-family:'Montserrat',sans-serif;font-size:12px;font-weight:800;letter-spacing:1px;text-transform:uppercase;background:var(--lime);color:var(--dark);border:none;border-radius:8px;padding:12px 24px;cursor:pointer;text-decoration:none;display:inline-block;transition:opacity .15s;}
+.btn-shop:hover{opacity:.85;}
+footer{background:var(--dark);padding:24px 40px;text-align:center;border-top:2px solid var(--lime);}
+.footer-copy{font-size:11px;color:rgba(255,255,255,.35);font-weight:500;}
+</style>
+</head>
+<body>
+<header><img class="header-logo" data-asset="ferociaLogo" alt="Ferocia Sports"></header>
+<main>
+  <div class="success-card">
+    <div class="success-icon">✓</div>
+    <div class="success-title">ORDER CONFIRMED!</div>
+    <p class="success-sub">
+      Thank you for your order! A confirmation email has been sent to
+      <span class="success-email" id="customer-email">your email address</span>.<br><br>
+      Your gear will be shipped within 2–3 business days.
+      We'll send you a tracking number once it's on its way.
+    </p>
+    <div class="success-actions">
+      <a href="index.html" class="btn-home">← Back to Home</a>
+      <a href="store.html" class="btn-shop">Shop More</a>
+    </div>
+  </div>
+</main>
+<footer><div class="footer-copy">© 2026 Ferocia Sports Center. All rights reserved.</div></footer>
+<script>
+// Clear cart after successful purchase
+localStorage.removeItem('ferocia_cart');
+// Show customer email if available
+const params = new URLSearchParams(window.location.search);
+const sessionId = params.get('session_id');
+if (sessionId) {
+  // Could fetch session details here if needed
+  document.getElementById('customer-email').textContent = 'your email address';
+}
+</script>
+</body>
+</html>
