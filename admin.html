@@ -565,23 +565,49 @@
 
     <!-- Subscribers list -->
     <div class="card">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-        <div class="card-title" style="margin:0;">Subscribers <span id="sub-count" style="font-size:11px;background:var(--gray);padding:2px 8px;border-radius:99px;font-weight:700;color:var(--text-muted);margin-left:6px;"></span></div>
-        <div style="display:flex;gap:8px;">
-          <select id="sub-status-filter" style="font-size:12px;padding:5px 10px;font-family:'Montserrat',sans-serif;font-weight:600;border:0.5px solid var(--border);border-radius:var(--radius-sm);">
-            <option value="all">All</option>
-            <option value="active">Active</option>
-            <option value="pending">Pending</option>
-            <option value="unsubscribed">Unsubscribed</option>
+
+      <!-- Header row: title + stats + send button -->
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <div class="card-title" style="margin:0;">Subscribers</div>
+          <span id="sub-count-active" style="font-size:11px;background:var(--teal-light);color:var(--teal);padding:2px 9px;border-radius:99px;font-weight:800;"></span>
+          <span id="sub-count-pending" style="font-size:11px;background:var(--orange-light);color:var(--orange);padding:2px 9px;border-radius:99px;font-weight:800;"></span>
+          <span id="sub-count-unsub" style="font-size:11px;background:var(--gray);color:var(--text-muted);padding:2px 9px;border-radius:99px;font-weight:800;"></span>
+        </div>
+        <button type="button" class="btn btn-primary btn-sm" data-action="openSendPromo">Send Promo Email</button>
+      </div>
+
+      <!-- Search + filter row -->
+      <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+        <input type="text" id="sub-search" placeholder="Search by name or email..."
+          style="flex:1;min-width:180px;padding:9px 14px;font-size:13px;border:0.5px solid var(--border);border-radius:var(--radius-sm);font-family:'Montserrat',sans-serif;">
+        <select id="sub-status-filter" style="font-size:12px;padding:9px 10px;font-family:'Montserrat',sans-serif;font-weight:600;border:0.5px solid var(--border);border-radius:var(--radius-sm);">
+          <option value="all">All Statuses</option>
+          <option value="active">Active</option>
+          <option value="pending">Pending</option>
+          <option value="unsubscribed">Unsubscribed</option>
+        </select>
+      </div>
+
+      <!-- Results info + page size -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+        <div id="sub-results-info" style="font-size:12px;color:var(--text-muted);font-weight:600;"></div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span style="font-size:11px;color:var(--text-muted);font-weight:600;">Per page:</span>
+          <select id="sub-page-size" style="font-size:12px;padding:4px 8px;font-family:'Montserrat',sans-serif;font-weight:600;border:0.5px solid var(--border);border-radius:var(--radius-sm);">
+            <option value="25">25</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
           </select>
-          <button type="button" class="btn btn-primary btn-sm" data-action="openSendPromo">Send Promo Email</button>
         </div>
       </div>
-      <div style="margin-bottom:14px;">
-        <input type="text" id="sub-search" placeholder="Search by name or email..."
-          style="width:100%;padding:10px 14px;font-size:13px;border:0.5px solid var(--border);border-radius:var(--radius-sm);font-family:'Montserrat',sans-serif;">
-      </div>
+
+      <!-- Table -->
       <div id="subscribers-table"><div class="loading">Loading subscribers...</div></div>
+
+      <!-- Pagination controls -->
+      <div id="sub-pagination" style="display:flex;align-items:center;justify-content:space-between;margin-top:16px;flex-wrap:wrap;gap:8px;"></div>
+
     </div>
   </div>
 

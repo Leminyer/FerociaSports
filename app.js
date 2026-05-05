@@ -3590,11 +3590,23 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     await loadSubscribers();
   };
 
+  // ── Subscriber pagination state ─────────────────────────────────────
+  let _subAllRows = [];
+  let _subPage    = 1;
+
   const loadSubscribers = async () => {
-    const filter = document.getElementById('sub-status-filter')?.value || 'all';
-    const search = document.getElementById('sub-search')?.value.toLowerCase().trim() || '';
+    _subPage = 1;
+    await _renderSubscribers();
+  };
+
+  const _renderSubscribers = async () => {
+    const filter   = document.getElementById('sub-status-filter')?.value || 'all';
+    const search   = document.getElementById('sub-search')?.value.toLowerCase().trim() || '';
+    const pageSize = parseInt(document.getElementById('sub-page-size')?.value || '25', 10);
+
     let query = 'subscribers?select=*&order=subscribed_at.desc';
     if (filter !== 'all') query += `&status=eq.${filter}`;
+
     let subs = [];
     try {
       subs = await api(query);
@@ -3603,33 +3615,125 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
         `<div class="empty">Error: ${esc(e.message)}</div>`;
       return;
     }
+
     const filtered = subs.filter((s) => {
       if (!search) return true;
       return `${s.first_name} ${s.last_name} ${s.email}`.toLowerCase().includes(search);
     });
-    document.getElementById('sub-count').textContent = `${filtered.length}`;
+    _subAllRows = filtered;
+
+    // Stats — always from full unfiltered fetch
+    let allSubs = subs;
+    if (filter !== 'all') {
+      try { allSubs = await api('subscribers?select=status'); } catch (_) { allSubs = subs; }
+    }
+    const countActive  = allSubs.filter((s) => s.status === 'active').length;
+    const countPending = allSubs.filter((s) => s.status === 'pending').length;
+    const countUnsub   = allSubs.filter((s) => s.status === 'unsubscribed').length;
+    const elActive  = document.getElementById('sub-count-active');
+    const elPending = document.getElementById('sub-count-pending');
+    const elUnsub   = document.getElementById('sub-count-unsub');
+    if (elActive)  elActive.textContent  = `✓ ${countActive} Active`;
+    if (elPending) elPending.textContent = `⏳ ${countPending} Pending`;
+    if (elUnsub)   elUnsub.textContent   = `✗ ${countUnsub} Unsubscribed`;
+
+    // Pagination math
+    const totalRows  = filtered.length;
+    const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
+    if (_subPage > totalPages) _subPage = totalPages;
+    const start    = (_subPage - 1) * pageSize;
+    const end      = Math.min(start + pageSize, totalRows);
+    const pageRows = filtered.slice(start, end);
+
+    // Results info
+    const infoEl = document.getElementById('sub-results-info');
+    if (infoEl) {
+      infoEl.textContent = totalRows === 0
+        ? 'No subscribers found'
+        : `Showing ${start + 1}–${end} of ${totalRows} subscriber${totalRows !== 1 ? 's' : ''}`;
+    }
+
+    // Table
     const statusColors = {
-      active: 'var(--teal)',
-      pending: 'var(--orange)',
+      active:       'var(--teal)',
+      pending:      'var(--orange)',
       unsubscribed: 'var(--text-muted)',
     };
-    document.getElementById('subscribers-table').innerHTML = filtered.length
-      ? `<table>
-          <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Skill</th><th>Status</th><th>Joined</th></tr></thead>
-          <tbody>${filtered
-            .map(
-              (s) => `<tr>
-                <td class="text-bold">${esc(s.first_name)} ${esc(s.last_name)}</td>
-                <td style="font-size:12px;">${esc(s.email)}</td>
-                <td style="font-size:12px;">${esc(s.phone || '—')}</td>
-                <td style="font-size:12px;text-transform:capitalize;">${esc(s.skill_level || '—')}</td>
-                <td><span class="text-bolder text-uppercase" style="font-size:10px;color:${statusColors[s.status] || 'var(--text-muted)'};">${esc(s.status)}</span></td>
-                <td class="text-muted-12">${fmtDate(s.subscribed_at) || '—'}</td>
-              </tr>`,
-            )
-            .join('')}</tbody>
-        </table>`
+
+    document.getElementById('subscribers-table').innerHTML = pageRows.length
+      ? `<div style="overflow-x:auto;">
+          <table style="width:100%;border-collapse:collapse;">
+            <thead>
+              <tr style="border-bottom:2px solid var(--border);">
+                <th style="text-align:left;padding:8px 10px;font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);white-space:nowrap;">#</th>
+                <th style="text-align:left;padding:8px 10px;font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);">Name</th>
+                <th style="text-align:left;padding:8px 10px;font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);">Email</th>
+                <th style="text-align:left;padding:8px 10px;font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);">Phone</th>
+                <th style="text-align:left;padding:8px 10px;font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);">Skill</th>
+                <th style="text-align:left;padding:8px 10px;font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);">Status</th>
+                <th style="text-align:left;padding:8px 10px;font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);white-space:nowrap;">Joined</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${pageRows.map((s, i) => `
+                <tr style="border-bottom:0.5px solid var(--border);">
+                  <td style="padding:10px 10px;font-size:11px;color:var(--text-muted);font-weight:600;">${start + i + 1}</td>
+                  <td style="padding:10px 10px;font-size:13px;font-weight:700;">${esc(s.first_name)} ${esc(s.last_name)}</td>
+                  <td style="padding:10px 10px;font-size:12px;color:var(--text-muted);">${esc(s.email)}</td>
+                  <td style="padding:10px 10px;font-size:12px;color:var(--text-muted);">${esc(s.phone || '—')}</td>
+                  <td style="padding:10px 10px;font-size:12px;text-transform:capitalize;color:var(--text-muted);">${esc(s.skill_level || '—')}</td>
+                  <td style="padding:10px 10px;">
+                    <span style="font-size:10px;font-weight:800;text-transform:uppercase;color:${statusColors[s.status] || 'var(--text-muted)'};">${esc(s.status)}</span>
+                  </td>
+                  <td style="padding:10px 10px;font-size:12px;color:var(--text-muted);white-space:nowrap;">${fmtDate(s.subscribed_at) || '—'}</td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>`
       : '<div class="empty">No subscribers found.</div>';
+
+    // Pagination controls
+    const paginationEl = document.getElementById('sub-pagination');
+    if (!paginationEl) return;
+    if (totalPages <= 1) { paginationEl.innerHTML = ''; return; }
+
+    const btnStyle = (active) =>
+      `style="padding:5px 11px;font-size:12px;font-weight:700;font-family:'Montserrat',sans-serif;border-radius:var(--radius-sm);border:0.5px solid var(--border);cursor:pointer;background:${active ? 'var(--blue)' : 'white'};color:${active ? 'white' : 'var(--text)'};transition:opacity .15s;"`;
+
+    const pageButtons = [];
+    const delta = 2;
+    const left  = Math.max(1, _subPage - delta);
+    const right = Math.min(totalPages, _subPage + delta);
+    if (left > 1) {
+      pageButtons.push(`<button ${btnStyle(false)} data-sub-page="1">1</button>`);
+      if (left > 2) pageButtons.push(`<span style="padding:0 4px;color:var(--text-muted);">…</span>`);
+    }
+    for (let p = left; p <= right; p++) {
+      pageButtons.push(`<button ${btnStyle(p === _subPage)} data-sub-page="${p}">${p}</button>`);
+    }
+    if (right < totalPages) {
+      if (right < totalPages - 1) pageButtons.push(`<span style="padding:0 4px;color:var(--text-muted);">…</span>`);
+      pageButtons.push(`<button ${btnStyle(false)} data-sub-page="${totalPages}">${totalPages}</button>`);
+    }
+
+    paginationEl.innerHTML = `
+      <div style="font-size:12px;color:var(--text-muted);font-weight:600;">Page ${_subPage} of ${totalPages}</div>
+      <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;">
+        <button ${btnStyle(false)} data-sub-page="${_subPage - 1}" ${_subPage === 1 ? 'disabled style="opacity:.4;cursor:not-allowed;"' : ''}>← Prev</button>
+        ${pageButtons.join('')}
+        <button ${btnStyle(false)} data-sub-page="${_subPage + 1}" ${_subPage === totalPages ? 'disabled style="opacity:.4;cursor:not-allowed;"' : ''}>Next →</button>
+      </div>`;
+
+    paginationEl.querySelectorAll('button[data-sub-page]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const p = parseInt(btn.dataset.subPage, 10);
+        if (p >= 1 && p <= totalPages && p !== _subPage) {
+          _subPage = p;
+          _renderSubscribers();
+          document.getElementById('page-promotions')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
+    });
   };
 
   const generateQR = () => {
@@ -3928,6 +4032,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
   document.getElementById('t-notify-form').addEventListener('submit', sendTournamentNotify);
   document.getElementById('sub-status-filter')?.addEventListener('change', loadSubscribers);
   document.getElementById('sub-search')?.addEventListener('input', loadSubscribers);
+  document.getElementById('sub-page-size')?.addEventListener('change', loadSubscribers);
   document.getElementById('player-status-filter')?.addEventListener('change', filterPlayers);
   document.getElementById('player-search')?.addEventListener('input', filterPlayers);
   document.querySelector('#edit-ladder-modal form')?.addEventListener('submit', saveEditLadder);
