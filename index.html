@@ -242,7 +242,7 @@ footer{
 <body>
 
 <header>
-  <img class="header-logo" id="header-logo" alt="Ferocia Sports">
+  <img class="header-logo" data-asset="ferociaLogo" alt="Ferocia Sports">
   <a href="admin.html" class="staff-btn">Staff Portal</a>
 </header>
 
@@ -344,20 +344,6 @@ footer{
 <script>
 (async () => {
   'use strict';
-
-  // ── Logo — inject from assets.js if available, fallback to direct src ──
-  const logoEl = document.getElementById('header-logo');
-  const applyLogo = () => {
-    if (window.FEROCIA_ASSETS?.ferociaLogo) {
-      logoEl.src = window.FEROCIA_ASSETS.ferociaLogo;
-    }
-  };
-  // assets.js auto-runs on DOMContentLoaded, re-run for our manual element
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', applyLogo);
-  } else {
-    applyLogo();
-  }
 
   // ── QR Code ───────────────────────────────────────────────────────────
   new QRCode(document.getElementById('landing-qr'), {

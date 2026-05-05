@@ -12,10 +12,18 @@ window.FEROCIA_ASSETS = {
 
 (function () {
   function inject() {
+    // Primary: inject via data-asset attribute
     document.querySelectorAll('img[data-asset]').forEach((img) => {
       const key = img.getAttribute('data-asset');
       const src = window.FEROCIA_ASSETS[key];
       if (src) img.src = src;
+    });
+    // Fallback: inject any img whose id matches an asset key
+    Object.keys(window.FEROCIA_ASSETS).forEach((key) => {
+      const el = document.getElementById(key);
+      if (el && el.tagName === 'IMG' && !el.src) {
+        el.src = window.FEROCIA_ASSETS[key];
+      }
     });
   }
   if (document.readyState === 'loading') {
