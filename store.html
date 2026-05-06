@@ -294,7 +294,7 @@ footer{
     </div>
     <div class="cart-totals">
       <div class="cart-total-row"><span>Subtotal</span><span id="cart-subtotal">$0.00</span></div>
-      <div class="cart-total-row"><span>Shipping</span><span id="cart-shipping">$7.99</span></div>
+      <div class="cart-total-row"><span>Shipping</span><span id="cart-shipping">Calculated at checkout</span></div>
       <div class="cart-total-row grand"><span>Total</span><span id="cart-total">$0.00</span></div>
     </div>
     <button class="btn-checkout" id="checkout-btn" onclick="checkout()">
@@ -445,7 +445,8 @@ const renderCart = () => {
 
   document.getElementById('cart-subtotal').textContent = fmt(subtotal);
   document.getElementById('cart-shipping').textContent = isFree ? 'FREE' : 'Calculated at checkout';
-  document.getElementById('cart-total').textContent    = isFree ? fmt(subtotal) : fmt(subtotal + FLAT);
+  document.getElementById('cart-total').textContent    = isFree ? fmt(subtotal) : fmt(subtotal);
+  document.getElementById('cart-total').closest('.cart-total-row').querySelector('span:first-child').textContent = isFree ? 'Total' : 'Subtotal';
   footerEl.style.display = 'flex';
   updateCartBadge();
 };
