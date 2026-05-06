@@ -24,7 +24,7 @@ window.FEROCIA_CONFIG = Object.freeze({
 
   // Shipping config
   SHIPPING: Object.freeze({
-    FLAT_RATE_CENTS: 999,          // $9.99 flat rate
+    FLAT_RATE_CENTS: 000,          // $9.99 flat rate
     FREE_THRESHOLD_CENTS: 7500,    // $75.00 free shipping threshold
   }),
 
