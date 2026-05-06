@@ -289,11 +289,11 @@ footer{
   </div>
   <div class="cart-footer" id="cart-footer" style="display:none;">
     <div class="cart-shipping-msg paid" id="shipping-msg">
-      📦 $7.99 flat rate shipping
+      📦 Loading shipping...
     </div>
     <div class="cart-totals">
       <div class="cart-total-row"><span>Subtotal</span><span id="cart-subtotal">$0.00</span></div>
-      <div class="cart-total-row"><span>Shipping</span><span id="cart-shipping">$7.99</span></div>
+      <div class="cart-total-row"><span>Shipping</span><span id="cart-shipping">—</span></div>
       <div class="cart-total-row grand"><span>Total</span><span id="cart-total">$0.00</span></div>
     </div>
     <button class="btn-checkout" id="checkout-btn" onclick="checkout()">
@@ -313,8 +313,8 @@ footer{
 'use strict';
 
 const CFG      = window.FEROCIA_CONFIG;
-const FLAT     = CFG.SHIPPING.FLAT_RATE_CENTS;   // 799
-const FREE_MIN = CFG.SHIPPING.FREE_THRESHOLD_CENTS; // 7500
+const FLAT     = CFG.SHIPPING.FLAT_RATE_CENTS;        // e.g. 999 = $9.99
+const FREE_MIN = CFG.SHIPPING.FREE_THRESHOLD_CENTS;   // e.g. 7500 = $75.00
 
 // ── Cart state with 1-hour expiration ────────────────────────────────────
 const CART_KEY    = 'ferocia_cart';
@@ -432,7 +432,7 @@ const renderCart = () => {
   } else {
     const needed = FREE_MIN - subtotal;
     msgEl.className = 'cart-shipping-msg paid';
-    msgEl.textContent = `📦 Add ${fmt(needed)} more for free shipping`;
+    msgEl.textContent = `📦 ${fmt(FLAT)} flat rate · Add ${fmt(needed)} more for free shipping`;
   }
 
   document.getElementById('cart-subtotal').textContent = fmt(subtotal);
