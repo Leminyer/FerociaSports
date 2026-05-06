@@ -193,6 +193,7 @@ header{
 }
 .cart-shipping-msg.free{background:#e8faf4;color:var(--teal);}
 .cart-shipping-msg.paid{background:var(--blue-pale);color:var(--blue);}
+.cart-shipping-msg.local{background:#f0fce8;color:#5a8a00;}
 
 .cart-totals{display:flex;flex-direction:column;gap:6px;}
 .cart-total-row{display:flex;justify-content:space-between;font-size:13px;font-weight:600;color:var(--muted);}
@@ -289,11 +290,11 @@ footer{
   </div>
   <div class="cart-footer" id="cart-footer" style="display:none;">
     <div class="cart-shipping-msg paid" id="shipping-msg">
-      📦 Loading shipping...
+      📦 $7.99 flat rate shipping
     </div>
     <div class="cart-totals">
       <div class="cart-total-row"><span>Subtotal</span><span id="cart-subtotal">$0.00</span></div>
-      <div class="cart-total-row"><span>Shipping</span><span id="cart-shipping">—</span></div>
+      <div class="cart-total-row"><span>Shipping</span><span id="cart-shipping">$7.99</span></div>
       <div class="cart-total-row grand"><span>Total</span><span id="cart-total">$0.00</span></div>
     </div>
     <button class="btn-checkout" id="checkout-btn" onclick="checkout()">
@@ -313,8 +314,8 @@ footer{
 'use strict';
 
 const CFG      = window.FEROCIA_CONFIG;
-const FLAT     = CFG.SHIPPING.FLAT_RATE_CENTS;        // e.g. 999 = $9.99
-const FREE_MIN = CFG.SHIPPING.FREE_THRESHOLD_CENTS;   // e.g. 7500 = $75.00
+const FLAT     = CFG.SHIPPING.FLAT_RATE_CENTS;   // 799
+const FREE_MIN = CFG.SHIPPING.FREE_THRESHOLD_CENTS; // 7500
 
 // ── Cart state with 1-hour expiration ────────────────────────────────────
 const CART_KEY    = 'ferocia_cart';
@@ -420,24 +421,31 @@ const renderCart = () => {
   `).join('');
 
   const subtotal = cartSubtotalCents();
-  const shipping = cartShippingCents();
-  const total    = subtotal + shipping;
-  const isFree   = shipping === 0;
+  const isFree   = subtotal >= FREE_MIN;
 
-  // Shipping message
+  // Shipping message — 3 states
   const msgEl = document.getElementById('shipping-msg');
   if (isFree) {
     msgEl.className = 'cart-shipping-msg free';
-    msgEl.textContent = '✅ Free shipping applied!';
+    msgEl.textContent = '✅ Free shipping on orders over $75!';
   } else {
-    const needed = FREE_MIN - subtotal;
     msgEl.className = 'cart-shipping-msg paid';
-    msgEl.textContent = `📦 ${fmt(FLAT)} flat rate · Add ${fmt(needed)} more for free shipping`;
+    msgEl.textContent = `📦 ${fmt(FLAT)} flat rate · Add ${fmt(FREE_MIN - subtotal)} more for free shipping`;
+  }
+
+  // Local delivery promo — always visible
+  let localEl = document.getElementById('shipping-msg-local');
+  if (!localEl) {
+    localEl = document.createElement('div');
+    localEl.id = 'shipping-msg-local';
+    localEl.className = 'cart-shipping-msg local';
+    localEl.textContent = '📍 Free local delivery available for Boca Raton, FL orders';
+    msgEl.insertAdjacentElement('afterend', localEl);
   }
 
   document.getElementById('cart-subtotal').textContent = fmt(subtotal);
-  document.getElementById('cart-shipping').textContent = isFree ? 'FREE' : fmt(shipping);
-  document.getElementById('cart-total').textContent    = fmt(total);
+  document.getElementById('cart-shipping').textContent = isFree ? 'FREE' : 'Calculated at checkout';
+  document.getElementById('cart-total').textContent    = isFree ? fmt(subtotal) : fmt(subtotal + FLAT);
   footerEl.style.display = 'flex';
   updateCartBadge();
 };
@@ -518,8 +526,7 @@ window.checkout = async () => {
         },
         body: JSON.stringify({
           lineItems,
-          subtotalCents:     cartSubtotalCents(),
-          flatRateCents:     FLAT,
+          subtotalCents: cartSubtotalCents(),
           freeThresholdCents: FREE_MIN,
         }),
       }
