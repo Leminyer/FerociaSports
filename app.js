@@ -85,6 +85,61 @@
     document.getElementById('drawer-backdrop')?.classList.remove('open');
   };
 
+  const loadDashboard = async () => {
+    // Show live badge
+    const liveBadge = document.getElementById('dash-live-badge');
+    if (liveBadge) liveBadge.style.display = 'inline-block';
+
+    try {
+      // Parallel fetch: players, ladders, orders, subscribers
+      const [players, ladders, orders, subs] = await Promise.all([
+        api('players?status=eq.active&select=id,first_name,last_name,gender,skill_level,joined_at&order=joined_at.desc'),
+        api('ladders?status=eq.active&select=id,name'),
+        api('orders?status=eq.paid&select=id').catch(() => []),
+        api('subscribers?status=eq.active&select=id').catch(() => []),
+      ]);
+
+      // Stat cards
+      const elP = document.getElementById('dash-active-players');
+      const elL = document.getElementById('dash-open-ladders');
+      const elO = document.getElementById('dash-pending-orders');
+      const elS = document.getElementById('dash-subscribers');
+      if (elP) elP.textContent = players.length;
+      if (elL) elL.textContent = ladders.length;
+      if (elO) elO.textContent = orders.length;
+      if (elS) elS.textContent = subs.length;
+
+      // Recent players — show last 5
+      const recent = players.slice(0, 5);
+      const recentEl = document.getElementById('dash-recent-players');
+      if (!recentEl) return;
+      if (!recent.length) {
+        recentEl.innerHTML = '<div class="empty">No players yet.</div>';
+        return;
+      }
+      const avatarColors = ['#174CCC','#24BC96','#F26024','#9333ea','#0891b2'];
+      recentEl.innerHTML = recent.map((p, i) => {
+        const initials = ((p.first_name||'')[0]||'').toUpperCase() + ((p.last_name||'')[0]||'').toUpperCase();
+        const color = avatarColors[i % avatarColors.length];
+        const sub = [p.gender, p.skill_level].filter(Boolean).join(' · ');
+        return `<div style="display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:0.5px solid var(--border);">
+          <div style="width:40px;height:40px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:15px;color:white;flex-shrink:0;">${esc(initials)}</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:14px;font-weight:700;color:var(--text);">${esc(p.first_name)} ${esc(p.last_name)}</div>
+            ${sub ? `<div style="font-size:11px;color:var(--text-muted);font-weight:600;margin-top:2px;">${esc(sub)}</div>` : ''}
+          </div>
+          <span class="badge badge-active">Active</span>
+        </div>`;
+      }).join('');
+      // Remove border from last item
+      const rows = recentEl.querySelectorAll('div[style*="border-bottom"]');
+      if (rows.length) rows[rows.length-1].style.borderBottom = 'none';
+
+    } catch (e) {
+      console.error('[Dashboard] Error:', e);
+    }
+  };
+
   const goHome = () => {
     document.querySelectorAll('.page').forEach((p) => p.classList.remove('active'));
     document.getElementById('page-home').classList.add('active');
@@ -93,6 +148,7 @@
     currentLadder = null;
     const sel = document.getElementById('ladder-selector');
     if (sel) sel.value = '';
+    loadDashboard();
   };
 
   const switchMainTab = (tab) => {
@@ -3693,7 +3749,16 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
       if (!search) return true;
       return `${s.first_name} ${s.last_name} ${s.email}`.toLowerCase().includes(search);
     });
-    document.getElementById('sub-count').textContent = `${filtered.length}`;
+    // Update status badges
+    const countActive = subs.filter(s => s.status === 'active').length;
+    const countPending = subs.filter(s => s.status === 'pending').length;
+    const countUnsub = subs.filter(s => s.status === 'unsubscribed').length;
+    const elA = document.getElementById('sub-count-active');
+    const elP = document.getElementById('sub-count-pending');
+    const elU = document.getElementById('sub-count-unsub');
+    if (elA) elA.textContent = countActive + ' Active';
+    if (elP) elP.textContent = countPending + ' Pending';
+    if (elU) elU.textContent = countUnsub + ' Unsubscribed';
     const statusColors = {
       active: 'var(--teal)',
       pending: 'var(--orange)',
@@ -3999,6 +4064,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
   document.getElementById('page-home').classList.add('active');
   // Sidebar initialized — set home as active on boot
   sbSetActive('home');
+  loadDashboard();
   // Hide ladder sub-items until a ladder is selected
   ['sb-standings','sb-sessions','sb-entry'].forEach(id => {
     const el = document.getElementById(id);
