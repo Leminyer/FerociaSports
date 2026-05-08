@@ -29,196 +29,70 @@
   let modalLadderId = null;
   let currentTournamentId = null; // used by the read-only tournament selector
 
-  /* ─── SIDEBAR NAVIGATION ───────────────────────────────── */
-
-  // Set active state on sidebar + bottom nav items
-  const sbSetActive = (pageOrKey) => {
-    // Clear all sidebar item active states
-    document.querySelectorAll('.sb-item, .sb-sub-item').forEach(el => el.classList.remove('active'));
-    document.querySelectorAll('.bn-item').forEach(el => el.classList.remove('active'));
-    document.querySelectorAll('.more-drawer-item').forEach(el => el.classList.remove('active'));
-
-    // Activate sidebar item by id (sb-<key>) and bottom nav (bn-<key>)
-    const maps = {
-      'home':         ['sb-home',        'bn-home'],
-      'ladder':       ['sb-standings',   'bn-ladder'],
-      'sessions':     ['sb-sessions',    'bn-ladder'],
-      'entry':        ['sb-entry',       'bn-ladder'],
-      'tournament-view': ['sb-tournament', 'bn-tournament'],
-      'players':      ['sb-players',     'bn-players'],
-      'add-player':   ['sb-add-player',  null],
-      'ladders':      ['sb-ladders',     null],
-      't-tournaments':['sb-t-tournaments', null],
-      'events':       ['sb-events',      null],
-      'orders':       ['sb-orders',      null],
-      'promotions':   ['sb-promotions',  null],
-      'share':        ['sb-share',       null],
-    };
-    const ids = maps[pageOrKey] || [];
-    ids.forEach(id => { if (id) { const el = document.getElementById(id); if (el) el.classList.add('active'); } });
-
-    // Bottom nav: pages in "more" drawer activate the ⋯ button
-    const morePages = ['add-player','ladders','t-tournaments','events','orders','promotions','share'];
-    if (morePages.includes(pageOrKey)) {
-      document.getElementById('bn-more')?.classList.add('active');
-      const mdEl = document.getElementById(`md-${pageOrKey}`);
-      if (mdEl) mdEl.classList.add('active');
-    }
-
-    // Show/hide ladder sub-items and select
-    const isLadderPage = ['ladder','sessions','entry'].includes(pageOrKey);
-    const ladderWrap = document.getElementById('sb-ladder-select-wrap');
-    if (ladderWrap) ladderWrap.style.display = isLadderPage ? 'block' : 'none';
-    ['sb-standings','sb-sessions','sb-entry'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.style.display = isLadderPage ? 'flex' : 'none';
-    });
-
-    // Show/hide tournament select
-    const isTournPage = ['tournament-view'].includes(pageOrKey);
-    const tournWrap = document.getElementById('sb-tourn-select-wrap');
-    if (tournWrap) tournWrap.style.display = isTournPage ? 'block' : 'none';
-  };
-
-  const sbCloseMore = () => {
-    document.getElementById('more-drawer')?.classList.remove('open');
-    document.getElementById('drawer-backdrop')?.classList.remove('open');
-  };
-
-  const loadDashboard = async () => {
-    // Show live badge
-    const liveBadge = document.getElementById('dash-live-badge');
-    if (liveBadge) liveBadge.style.display = 'inline-block';
-
-    try {
-      // Parallel fetch — auth is guaranteed here since we're inside requireAuth
-      const [players, ladders, ordersPaid, subs] = await Promise.all([
-        api('players?status=eq.active&select=id,first_name,last_name,gender,joined_at&order=joined_at.desc'),
-        api('ladders?status=eq.active&select=id,name'),
-        api('orders?status=eq.paid&select=id').catch(() => []),
-        api('subscribers?status=eq.active&select=id').catch(() => []),
-      ]);
-
-      // Stat values
-      const elP = document.getElementById('dash-active-players');
-      const elL = document.getElementById('dash-open-ladders');
-      const elO = document.getElementById('dash-pending-orders');
-      const elS = document.getElementById('dash-subscribers');
-      if (elP) elP.textContent = players.length;
-      if (elL) elL.textContent = ladders.length;
-      if (elO) elO.textContent = ordersPaid.length;
-      if (elS) elS.textContent = subs.length;
-
-      // Sub-tags
-      const ptag = document.getElementById('dash-players-tag');
-      if (ptag) { ptag.textContent = `${players.length} this season`; ptag.style.display = 'inline-block'; }
-      const ltag = document.getElementById('dash-ladders-tag');
-      if (ltag && ladders.length) { ltag.textContent = ladders[0]?.name || `${ladders.length} active`; ltag.style.display = 'inline-block'; }
-      const otag = document.getElementById('dash-orders-tag');
-      if (otag) otag.style.display = ordersPaid.length ? 'inline-block' : 'none';
-      const stag = document.getElementById('dash-subs-tag');
-      if (stag) { stag.textContent = `${subs.length} active`; stag.style.display = 'inline-block'; }
-
-      // Recent players — last 5, matching proposal exactly
-      const recent = players.slice(0, 5);
-      const recentEl = document.getElementById('dash-recent-players');
-      if (!recentEl) return;
-      if (!recent.length) {
-        recentEl.innerHTML = '<div class="empty">No players yet.</div>';
-        return;
-      }
-      const avatarColors = ['#174CCC', '#24BC96', '#F26024', '#9333ea', '#0891b2'];
-      const barColors    = ['#174CCC', '#24BC96', '#F26024', '#9333ea', '#0891b2'];
-      recentEl.innerHTML = recent.map((p, i) => {
-        const initials = ((p.first_name||'')[0]||'').toUpperCase() + ((p.last_name||'')[0]||'').toUpperCase();
-        const color = avatarColors[i % avatarColors.length];
-        const bar   = barColors[i % barColors.length];
-        const sub = [p.gender].filter(Boolean).join(' · ');
-        return `<div style="display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:0.5px solid var(--border);">
-          <div style="width:40px;height:40px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:16px;color:white;flex-shrink:0;letter-spacing:1px;">${esc(initials)}</div>
-          <div style="flex:1;min-width:0;">
-            <div style="font-size:14px;font-weight:800;color:var(--text);margin-bottom:2px;">${esc(p.first_name)} ${esc(p.last_name)}</div>
-            <div style="font-size:11px;color:var(--text-muted);font-weight:600;margin-bottom:6px;">${esc(sub)}</div>
-            <div style="height:3px;width:60px;background:${bar};border-radius:99px;opacity:0.7;"></div>
-          </div>
-          <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
-            <span style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--teal);background:var(--teal-light);padding:3px 8px;border-radius:99px;">Active</span>
-
-          </div>
-        </div>`;
-      }).join('');
-      // Remove border from last item
-      const lastRow = recentEl.querySelector('div:last-child');
-      if (lastRow) lastRow.style.borderBottom = 'none';
-
-    } catch (e) {
-      console.error('[Dashboard] Error:', e);
-      const recentEl = document.getElementById('dash-recent-players');
-      if (recentEl) recentEl.innerHTML = '<div class="empty">Could not load data.</div>';
-    }
-  };
+  /* ─── NAVIGATION ───────────────────────────────────────── */
 
   const goHome = () => {
     document.querySelectorAll('.page').forEach((p) => p.classList.remove('active'));
     document.getElementById('page-home').classList.add('active');
-    sbSetActive('home');
-    sbCloseMore();
+    document.getElementById('subnav-programs').style.display = 'none';
+    document.getElementById('subnav-management').style.display = 'none';
+    document.getElementById('subnav-ladder-options').style.display = 'none';
+    document.getElementById('subnav-tournament-options').style.display = 'none';
+    document.getElementById('tab-home').classList.add('active');
+    // Reset ladder selection when navigating away to Home
     currentLadder = null;
     const sel = document.getElementById('ladder-selector');
     if (sel) sel.value = '';
-    loadDashboard();
   };
 
   const switchMainTab = (tab) => {
-    // Legacy shim — kept so any old tile clicks still work
-    if (tab === 'programs') sbShowLadder();
-    else if (tab === 'management') showPage('players', document.getElementById('sb-players'));
+    document.querySelectorAll('.page').forEach((p) => p.classList.remove('active'));
+    document.getElementById('tab-home').classList.remove('active');
+
+    const ladderOpts = document.getElementById('subnav-ladder-options');
+    const tournOpts = document.getElementById('subnav-tournament-options');
+
+    if (tab === 'programs') {
+      document.getElementById('subnav-programs').style.display = 'flex';
+      document.getElementById('subnav-management').style.display = 'none';
+      if (ladderOpts) ladderOpts.style.display = 'none';
+      if (tournOpts) tournOpts.style.display = 'none';
+      document.getElementById('prog-tab-ladder').classList.remove('active');
+      document.getElementById('prog-tab-tournament').classList.remove('active');
+      document.getElementById('page-programs-home').classList.add('active');
+    } else if (tab === 'management') {
+      document.getElementById('subnav-programs').style.display = 'none';
+      document.getElementById('subnav-management').style.display = 'flex';
+      if (ladderOpts) ladderOpts.style.display = 'none';
+      if (tournOpts) tournOpts.style.display = 'none';
+      const activeBtn = document.querySelector('#subnav-management button.active');
+      if (activeBtn) showPage(activeBtn.dataset.page, activeBtn);
+      else showPage('players', document.querySelector('#subnav-management button'));
+    }
   };
 
   const switchProgramTab = (tab) => {
-    // Legacy shim — kept so old tile clicks still work
-    if (tab === 'ladder') sbShowLadder();
-    else sbShowTournament();
-  };
-
-  const sbShowLadder = () => {
-    sbCloseMore();
-    if (currentLadder) {
-      showPage('ladder', document.getElementById('sb-standings'));
+    const ladderOpts = document.getElementById('subnav-ladder-options');
+    const tournOpts = document.getElementById('subnav-tournament-options');
+    document.getElementById('page-programs-home').classList.remove('active');
+    document.getElementById('prog-tab-ladder').classList.toggle('active', tab === 'ladder');
+    document.getElementById('prog-tab-tournament').classList.toggle('active', tab === 'tournament');
+    ladderOpts.style.display = tab === 'ladder' ? 'flex' : 'none';
+    tournOpts.style.display = tab === 'tournament' ? 'flex' : 'none';
+    if (tab === 'ladder') {
+      const standingsBtn = document.querySelector('#subnav-ladder-options button[data-page="ladder"]');
+      if (currentLadder) {
+        // Ladder already selected — just show the standings, don't reset the dropdown
+        showPage('ladder', standingsBtn);
+      } else {
+        loadLadderSelector().then(() => {
+          document.querySelectorAll('.page').forEach((p) => p.classList.remove('active'));
+        });
+      }
     } else {
-      loadLadderSelector().then(() => {
-        document.querySelectorAll('.page').forEach((p) => p.classList.remove('active'));
-        sbSetActive('ladder');
-      });
-    }
-    // Always show the sub-items
-    const wrap = document.getElementById('sb-ladder-select-wrap');
-    if (wrap) wrap.style.display = 'block';
-    ['sb-standings','sb-sessions','sb-entry'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.style.display = 'flex';
-    });
-    document.getElementById('sb-ladder')?.classList.add('active');
-    document.getElementById('bn-ladder')?.classList.add('active');
-  };
-
-  const sbShowTournament = () => {
-    sbCloseMore();
-    loadTournamentSelector();
-    showPage('tournament-view', document.getElementById('sb-tournament'));
-    const wrap = document.getElementById('sb-tourn-select-wrap');
-    if (wrap) wrap.style.display = 'block';
-  };
-
-  const sbToggleMore = () => {
-    const drawer = document.getElementById('more-drawer');
-    const backdrop = document.getElementById('drawer-backdrop');
-    const isOpen = drawer?.classList.contains('open');
-    if (isOpen) {
-      sbCloseMore();
-    } else {
-      drawer?.classList.add('open');
-      backdrop?.classList.add('open');
+      loadTournamentSelector();
+      const tvBtn = document.querySelector('#subnav-tournament-options button[data-page="tournament-view"]');
+      showPage('tournament-view', tvBtn);
     }
   };
 
@@ -289,10 +163,11 @@
 
   const showPage = (name, btn) => {
     document.querySelectorAll('.page').forEach((p) => p.classList.remove('active'));
-    const pageEl = document.getElementById(`page-${name}`);
-    if (pageEl) pageEl.classList.add('active');
-    sbSetActive(name);
-    sbCloseMore();
+    document
+      .querySelectorAll('.sub-nav:not([style*="display:none"]):not([style*="display: none"]) button')
+      .forEach((b) => b.classList.remove('active'));
+    document.getElementById(`page-${name}`).classList.add('active');
+    if (btn) btn.classList.add('active');
     if (name === 'ladder') loadLadder();
     if (name === 'sessions') loadSessions();
     if (name === 'players') loadPlayers();
@@ -304,6 +179,17 @@
     if (name === 'events') loadEventsPage();
     if (name === 'promotions' && typeof loadPromotionsPage !== 'undefined') loadPromotionsPage();
     if (name === 't-tournaments' && typeof loadTournamentModule !== 'undefined') loadTournamentModule();
+    // Management pages: ensure correct subnav is visible
+    const mgmtPages = ['players', 'add-player', 'ladders', 't-tournaments', 'promotions', 'share'];
+    if (mgmtPages.includes(name)) {
+      document.getElementById('subnav-management').style.display = 'flex';
+      document.getElementById('subnav-programs').style.display = 'none';
+      document.getElementById('subnav-ladder-options').style.display = 'none';
+      document.getElementById('subnav-tournament-options').style.display = 'none';
+      document.getElementById('page-home').classList.remove('active');
+      document.getElementById('page-programs-home').classList.remove('active');
+      document.getElementById('tab-home').classList.remove('active');
+    }
     if (name === 'tournament-view') {
       const el = document.getElementById('tournament-view-content');
       if (el && !currentTournamentId) {
@@ -347,12 +233,22 @@
     currentLadder = allLadders.find((l) => l.id === id) || null;
     updateLadderBanner();
     await loadLadderPlayers();
-    showPage('ladder', document.getElementById('sb-standings'));
+    document.getElementById('page-home').classList.remove('active');
+    document.getElementById('page-programs-home').classList.remove('active');
+    document.getElementById('tab-home').classList.remove('active');
+    document.getElementById('subnav-programs').style.display = 'flex';
+    document.getElementById('subnav-management').style.display = 'none';
+    document.getElementById('prog-tab-ladder').classList.add('active');
+    document.getElementById('prog-tab-tournament').classList.remove('active');
+    document.getElementById('subnav-ladder-options').style.display = 'flex';
+    document.getElementById('subnav-tournament-options').style.display = 'none';
+    const standingsBtn = document.querySelector('#subnav-ladder-options button[data-page="ladder"]');
+    showPage('ladder', standingsBtn);
   };
 
   const updateLadderBanner = () => {
     const ladderPages = ['ladder', 'sessions', 'entry'];
-    const ladderNavBtns = document.querySelectorAll('#sb-standings, #sb-sessions, #sb-entry');
+    const ladderNavBtns = document.querySelectorAll('#subnav-ladder-options button[data-page]');
     if (!currentLadder) {
       ladderNavBtns.forEach((b) => {
         if (ladderPages.includes(b.dataset.page)) b.disabled = true;
@@ -702,91 +598,30 @@
     }
   };
 
-  const getInitials = (first, last) =>
-    ((first || '')[0] || '').toUpperCase() + ((last || '')[0] || '').toUpperCase();
-
-  const renderLadderPodium = (players, label) => {
-    const medals  = ['gold', 'silver', 'bronze'];
-    const crowns  = ['👑', '', ''];
-    const top     = players.slice(0, 3);
-    const order   = top.length === 1 ? [0] : top.length === 2 ? [1, 0] : [1, 0, 2];
-    return `
-      <div class="podium-section">
-        <div class="section-eyebrow">${label === 'Men' ? '🏆 Top Men' : '🏆 Top Women'}</div>
-        <div class="podium">
-          ${order.map((idx) => {
-            if (idx >= top.length) return '';
-            const p     = top[idx];
-            const medal = medals[idx];
-            const crown = crowns[idx];
-            return `
-              <div class="podium-slot">
-                <div class="podium-avatar ${medal}">
-                  ${esc(getInitials(p.first_name, p.last_name))}
-                  ${crown ? `<span class="podium-crown">${crown}</span>` : ''}
-                </div>
-                <div class="podium-name">${esc(p.first_name)}<br>${esc(p.last_name)}</div>
-                <div class="podium-pts">${p._points} pts</div>
-                <div class="podium-bar ${medal}">
-                  <span class="medal">${idx === 0 ? '🥇' : idx === 1 ? '🥈' : '🥉'}</span>
-                </div>
-              </div>`;
-          }).join('')}
-        </div>
-      </div>`;
-  };
-
   const renderLadder = () => {
-    const filter  = document.getElementById('gender-filter').value;
-    const all     = allPlayers._ranked || [];
-    const men     = all.filter((p) => p.gender === 'Male');
-    const women   = all.filter((p) => p.gender === 'Female');
-    const filtered = all.filter((p) => filter === 'all' || p.gender === filter);
-
-    if (!filtered.length) {
+    const filter = document.getElementById('gender-filter').value;
+    const players = (allPlayers._ranked || []).filter((p) => filter === 'all' || p.gender === filter);
+    if (!players.length) {
       document.getElementById('ladder-table').innerHTML =
         '<div class="empty">No players in this ladder yet.</div>';
       return;
     }
-
-    // Podium — shown when not filtering by gender or when enough players exist
-    let html = '';
-    if (filter === 'all' || filter === 'Male')   { if (men.length)   html += renderLadderPodium(men,   'Men'); }
-    if (filter === 'all' || filter === 'Female') { if (women.length) html += renderLadderPodium(women, 'Women'); }
-
-    // Table
-    const rows = filtered.map((p, i) => {
-      const rankClass = i === 0 ? 'top1' : i === 1 ? 'top2' : i === 2 ? 'top3' : '';
-      return `<tr>
-        <td><span class="rank-num ${rankClass}">${i + 1}</span></td>
-        <td>
-          <div class="player-cell">
-            <div class="player-initials ${rankClass}">${esc(getInitials(p.first_name, p.last_name))}</div>
-            <div>
-              <div class="player-name">${esc(p.first_name)} ${esc(p.last_name)}</div>
-              <div class="player-sub">${esc(p.gender || '')}${p.skill_level ? ' · ' + esc(p.skill_level) : ''}</div>
-            </div>
-          </div>
-        </td>
-        <td style="text-align:right;"><span class="points-display">${p._points}</span><span style="font-size:11px;color:var(--text-muted);font-weight:600;margin-left:2px;">pts</span></td>
-      </tr>`;
-    }).join('');
-
-    html += `
-      <div class="card">
-        <table>
-          <thead>
-            <tr>
-              <th style="width:48px;">Rank</th>
-              <th>Player</th>
-              <th style="text-align:right;">Points</th>
-            </tr>
-          </thead>
-          <tbody>${rows}</tbody>
-        </table>
-      </div>`;
-
-    document.getElementById('ladder-table').innerHTML = html;
+    const rows = players
+      .map((p, i) => {
+        const rc = i === 0 ? 'top1' : i === 1 ? 'top2' : i === 2 ? 'top3' : '';
+        return `<tr>
+          <td><span class="rank-badge ${rc}">${i + 1}</span></td>
+          <td class="text-bold">${esc(p.first_name)} ${esc(p.last_name)}</td>
+          <td class="text-muted-12">${esc(p.gender || '-')}</td>
+          <td><span class="points-pill">${p._points} pts</span></td>
+        </tr>`;
+      })
+      .join('');
+    document.getElementById('ladder-table').innerHTML = `
+      <table>
+        <thead><tr><th>Rank</th><th>Player</th><th>Gender</th><th>Points</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
   };
 
   /* ─── PRINT STANDINGS ──────────────────────────────────── */
@@ -3745,16 +3580,33 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
   /* ─── PROMOTIONS ───────────────────────────────────────── */
 
   const loadPromotionsPage = async () => {
-    // showPage() already handles page visibility and sbSetActive
-    // This function only needs to load the data
+    document.querySelectorAll('.page').forEach((p) => p.classList.remove('active'));
+    document.getElementById('page-promotions').classList.add('active');
+    document.getElementById('subnav-management').style.display = 'flex';
+    document.getElementById('tab-home').classList.remove('active');
+    document
+      .querySelectorAll('#subnav-management button')
+      .forEach((b) => b.classList.toggle('active', b.dataset.page === 'promotions'));
     await loadSubscribers();
   };
 
+  // ── Subscriber pagination state ─────────────────────────────────────
+  let _subAllRows = [];
+  let _subPage    = 1;
+
   const loadSubscribers = async () => {
-    const filter = document.getElementById('sub-status-filter')?.value || 'all';
-    const search = document.getElementById('sub-search')?.value.toLowerCase().trim() || '';
+    _subPage = 1;
+    await _renderSubscribers();
+  };
+
+  const _renderSubscribers = async () => {
+    const filter   = document.getElementById('sub-status-filter')?.value || 'all';
+    const search   = document.getElementById('sub-search')?.value.toLowerCase().trim() || '';
+    const pageSize = parseInt(document.getElementById('sub-page-size')?.value || '25', 10);
+
     let query = 'subscribers?select=*&order=subscribed_at.desc';
     if (filter !== 'all') query += `&status=eq.${filter}`;
+
     let subs = [];
     try {
       subs = await api(query);
@@ -3763,42 +3615,125 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
         `<div class="empty">Error: ${esc(e.message)}</div>`;
       return;
     }
+
     const filtered = subs.filter((s) => {
       if (!search) return true;
       return `${s.first_name} ${s.last_name} ${s.email}`.toLowerCase().includes(search);
     });
-    // Update status badges
-    const countActive = subs.filter(s => s.status === 'active').length;
-    const countPending = subs.filter(s => s.status === 'pending').length;
-    const countUnsub = subs.filter(s => s.status === 'unsubscribed').length;
-    const elA = document.getElementById('sub-count-active');
-    const elP = document.getElementById('sub-count-pending');
-    const elU = document.getElementById('sub-count-unsub');
-    if (elA) elA.textContent = countActive + ' Active';
-    if (elP) elP.textContent = countPending + ' Pending';
-    if (elU) elU.textContent = countUnsub + ' Unsubscribed';
+    _subAllRows = filtered;
+
+    // Stats — always from full unfiltered fetch
+    let allSubs = subs;
+    if (filter !== 'all') {
+      try { allSubs = await api('subscribers?select=status'); } catch (_) { allSubs = subs; }
+    }
+    const countActive  = allSubs.filter((s) => s.status === 'active').length;
+    const countPending = allSubs.filter((s) => s.status === 'pending').length;
+    const countUnsub   = allSubs.filter((s) => s.status === 'unsubscribed').length;
+    const elActive  = document.getElementById('sub-count-active');
+    const elPending = document.getElementById('sub-count-pending');
+    const elUnsub   = document.getElementById('sub-count-unsub');
+    if (elActive)  elActive.textContent  = `✓ ${countActive} Active`;
+    if (elPending) elPending.textContent = `⏳ ${countPending} Pending`;
+    if (elUnsub)   elUnsub.textContent   = `✗ ${countUnsub} Unsubscribed`;
+
+    // Pagination math
+    const totalRows  = filtered.length;
+    const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
+    if (_subPage > totalPages) _subPage = totalPages;
+    const start    = (_subPage - 1) * pageSize;
+    const end      = Math.min(start + pageSize, totalRows);
+    const pageRows = filtered.slice(start, end);
+
+    // Results info
+    const infoEl = document.getElementById('sub-results-info');
+    if (infoEl) {
+      infoEl.textContent = totalRows === 0
+        ? 'No subscribers found'
+        : `Showing ${start + 1}–${end} of ${totalRows} subscriber${totalRows !== 1 ? 's' : ''}`;
+    }
+
+    // Table
     const statusColors = {
-      active: 'var(--teal)',
-      pending: 'var(--orange)',
+      active:       'var(--teal)',
+      pending:      'var(--orange)',
       unsubscribed: 'var(--text-muted)',
     };
-    document.getElementById('subscribers-table').innerHTML = filtered.length
-      ? `<table>
-          <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Skill</th><th>Status</th><th>Joined</th></tr></thead>
-          <tbody>${filtered
-            .map(
-              (s) => `<tr>
-                <td class="text-bold">${esc(s.first_name)} ${esc(s.last_name)}</td>
-                <td style="font-size:12px;">${esc(s.email)}</td>
-                <td style="font-size:12px;">${esc(s.phone || '—')}</td>
-                <td style="font-size:12px;text-transform:capitalize;">${esc(s.skill_level || '—')}</td>
-                <td><span class="text-bolder text-uppercase" style="font-size:10px;color:${statusColors[s.status] || 'var(--text-muted)'};">${esc(s.status)}</span></td>
-                <td class="text-muted-12">${fmtDate(s.subscribed_at) || '—'}</td>
-              </tr>`,
-            )
-            .join('')}</tbody>
-        </table>`
+
+    document.getElementById('subscribers-table').innerHTML = pageRows.length
+      ? `<div style="overflow-x:auto;">
+          <table style="width:100%;border-collapse:collapse;">
+            <thead>
+              <tr style="border-bottom:2px solid var(--border);">
+                <th style="text-align:left;padding:8px 10px;font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);white-space:nowrap;">#</th>
+                <th style="text-align:left;padding:8px 10px;font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);">Name</th>
+                <th style="text-align:left;padding:8px 10px;font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);">Email</th>
+                <th style="text-align:left;padding:8px 10px;font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);">Phone</th>
+                <th style="text-align:left;padding:8px 10px;font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);">Skill</th>
+                <th style="text-align:left;padding:8px 10px;font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);">Status</th>
+                <th style="text-align:left;padding:8px 10px;font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);white-space:nowrap;">Joined</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${pageRows.map((s, i) => `
+                <tr style="border-bottom:0.5px solid var(--border);">
+                  <td style="padding:10px 10px;font-size:11px;color:var(--text-muted);font-weight:600;">${start + i + 1}</td>
+                  <td style="padding:10px 10px;font-size:13px;font-weight:700;">${esc(s.first_name)} ${esc(s.last_name)}</td>
+                  <td style="padding:10px 10px;font-size:12px;color:var(--text-muted);">${esc(s.email)}</td>
+                  <td style="padding:10px 10px;font-size:12px;color:var(--text-muted);">${esc(s.phone || '—')}</td>
+                  <td style="padding:10px 10px;font-size:12px;text-transform:capitalize;color:var(--text-muted);">${esc(s.skill_level || '—')}</td>
+                  <td style="padding:10px 10px;">
+                    <span style="font-size:10px;font-weight:800;text-transform:uppercase;color:${statusColors[s.status] || 'var(--text-muted)'};">${esc(s.status)}</span>
+                  </td>
+                  <td style="padding:10px 10px;font-size:12px;color:var(--text-muted);white-space:nowrap;">${fmtDate(s.subscribed_at) || '—'}</td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>`
       : '<div class="empty">No subscribers found.</div>';
+
+    // Pagination controls
+    const paginationEl = document.getElementById('sub-pagination');
+    if (!paginationEl) return;
+    if (totalPages <= 1) { paginationEl.innerHTML = ''; return; }
+
+    const btnStyle = (active) =>
+      `style="padding:5px 11px;font-size:12px;font-weight:700;font-family:'Montserrat',sans-serif;border-radius:var(--radius-sm);border:0.5px solid var(--border);cursor:pointer;background:${active ? 'var(--blue)' : 'white'};color:${active ? 'white' : 'var(--text)'};transition:opacity .15s;"`;
+
+    const pageButtons = [];
+    const delta = 2;
+    const left  = Math.max(1, _subPage - delta);
+    const right = Math.min(totalPages, _subPage + delta);
+    if (left > 1) {
+      pageButtons.push(`<button ${btnStyle(false)} data-sub-page="1">1</button>`);
+      if (left > 2) pageButtons.push(`<span style="padding:0 4px;color:var(--text-muted);">…</span>`);
+    }
+    for (let p = left; p <= right; p++) {
+      pageButtons.push(`<button ${btnStyle(p === _subPage)} data-sub-page="${p}">${p}</button>`);
+    }
+    if (right < totalPages) {
+      if (right < totalPages - 1) pageButtons.push(`<span style="padding:0 4px;color:var(--text-muted);">…</span>`);
+      pageButtons.push(`<button ${btnStyle(false)} data-sub-page="${totalPages}">${totalPages}</button>`);
+    }
+
+    paginationEl.innerHTML = `
+      <div style="font-size:12px;color:var(--text-muted);font-weight:600;">Page ${_subPage} of ${totalPages}</div>
+      <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;">
+        <button ${btnStyle(false)} data-sub-page="${_subPage - 1}" ${_subPage === 1 ? 'disabled style="opacity:.4;cursor:not-allowed;"' : ''}>← Prev</button>
+        ${pageButtons.join('')}
+        <button ${btnStyle(false)} data-sub-page="${_subPage + 1}" ${_subPage === totalPages ? 'disabled style="opacity:.4;cursor:not-allowed;"' : ''}>Next →</button>
+      </div>`;
+
+    paginationEl.querySelectorAll('button[data-sub-page]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const p = parseInt(btn.dataset.subPage, 10);
+        if (p >= 1 && p <= totalPages && p !== _subPage) {
+          _subPage = p;
+          _renderSubscribers();
+          document.getElementById('page-promotions')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
+    });
   };
 
   const generateQR = () => {
@@ -3912,10 +3847,6 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     switchTab: (btn) => switchMainTab(btn.dataset.tab),
     switchProgramTab: (btn) => switchProgramTab(btn.dataset.tab),
     goHome: () => goHome(),
-    sbGoHome: () => goHome(),
-    sbShowLadder: () => sbShowLadder(),
-    sbShowTournament: () => sbShowTournament(),
-    sbToggleMore: () => sbToggleMore(),
     // Court / session entry
     addCourtPlayerBtn: (btn) => addCourtPlayer(parseInt(btn.dataset.pid, 10)),
     markNoShow: (btn) => markNoShow(btn.dataset.pid),
@@ -4080,13 +4011,12 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
   // Default to home page on load
   document.querySelectorAll('.page').forEach((p) => p.classList.remove('active'));
   document.getElementById('page-home').classList.add('active');
-  // Sidebar initialized — set home as active on boot
-  sbSetActive('home');
-  // Hide ladder sub-items until a ladder is selected
-  ['sb-standings','sb-sessions','sb-entry'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.style.display = 'none';
-  });
+  document.getElementById('tab-home').classList.add('active');
+  document.getElementById('subnav-programs').style.display = 'none';
+  document.getElementById('subnav-management').style.display = 'none';
+  document.getElementById('subnav-ladder-options').style.display = 'none';
+  document.getElementById('subnav-tournament-options').style.display = 'none';
+  document.getElementById('tab-home').dataset.action = 'goHome';
 
   // Form listeners — these only attach event handlers, no data fetched yet,
   // so safe to wire up before auth resolves.
@@ -4102,6 +4032,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
   document.getElementById('t-notify-form').addEventListener('submit', sendTournamentNotify);
   document.getElementById('sub-status-filter')?.addEventListener('change', loadSubscribers);
   document.getElementById('sub-search')?.addEventListener('input', loadSubscribers);
+  document.getElementById('sub-page-size')?.addEventListener('change', loadSubscribers);
   document.getElementById('player-status-filter')?.addEventListener('change', filterPlayers);
   document.getElementById('player-search')?.addEventListener('input', filterPlayers);
   document.querySelector('#edit-ladder-modal form')?.addEventListener('submit', saveEditLadder);
@@ -4132,10 +4063,9 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
   window.auth.requireAuth(() => {
     // Show the sign-out button now that we're authenticated
     const signOutBtn = document.getElementById('sign-out-btn');
-    if (signOutBtn) signOutBtn.style.display = 'flex';
+    if (signOutBtn) signOutBtn.style.display = 'inline-block';
 
-    // Kick off the data load — dashboard first since it's the home page
-    loadDashboard();
+    // Kick off the data load
     loadLadderSelector();
 
     // Let tournament.js (and anything else waiting on auth) proceed
