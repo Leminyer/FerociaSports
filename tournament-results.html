@@ -101,10 +101,18 @@
   .podium-team   { font-size:14px; font-weight:800; text-align:center; color:var(--text); }
   .podium-team.champion { color:var(--blue); font-size:16px; }
   .podium-label  { font-size:10px; font-weight:800; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; }
-  .podium-players {
-    font-size:11px; font-weight:600; color:var(--text-muted);
-    text-align:center; line-height:1.4; max-width:140px;
+  .podium-players { display:flex; flex-direction:column; align-items:center; gap:4px; margin-top:2px; }
+  .podium-player-row { display:flex; align-items:center; gap:6px; }
+  .podium-player-avatar {
+    width:22px; height:22px; border-radius:50%;
+    background:var(--blue-pale); color:var(--blue);
+    display:flex; align-items:center; justify-content:center;
+    font-size:8px; font-weight:800; flex-shrink:0;
   }
+  .podium-player-avatar.gold   { background:rgba(255,215,0,0.2); color:#9a6e00; }
+  .podium-player-avatar.silver { background:rgba(192,192,192,0.2); color:#555; }
+  .podium-player-avatar.bronze { background:rgba(205,127,50,0.2); color:#7a3d00; }
+  .podium-player-name { font-size:11px; font-weight:700; color:var(--text-muted); }
   .podium-bar { width:100%; border-radius:10px 10px 0 0; }
   .bar-gold   { background:rgba(255,215,0,.12); border:1.5px solid rgba(255,215,0,.5); border-bottom:none; height:88px; }
   .bar-silver { background:rgba(150,150,150,.1); border:1.5px solid rgba(150,150,150,.4); border-bottom:none; height:64px; }
@@ -494,13 +502,28 @@
     const championPlayers = getPlayerNames(champion);
     const runnerUpPlayers = runnerUp ? getPlayerNames(runnerUp) : '';
     const thirdPlayers    = third ? getPlayerNames(third) : '';
-    const slot = (team, medal, barClass, labelText, isChampion, players) => {
+    const medalClass = { '🥇': 'gold', '🥈': 'silver', '🥉': 'bronze' };
+    const slot = (team, medal, barClass, labelText, isChampion, playerNames) => {
       if (!team) return '';
+      // Split player names (separated by " & ") and render stacked with avatars
+      const nameList = playerNames ? playerNames.split(' & ').map(n => n.trim()).filter(Boolean) : [];
+      const mClass = medalClass[medal] || '';
+      const playersHtml = nameList.length
+        ? `<div class="podium-players">
+            ${nameList.map(name => {
+              const initials = name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0,2);
+              return `<div class="podium-player-row">
+                <div class="podium-player-avatar ${mClass}">${initials}</div>
+                <div class="podium-player-name">${esc(name)}</div>
+              </div>`;
+            }).join('')}
+          </div>`
+        : '';
       return `<div class="podium-slot">
         ${isChampion ? '<div class="podium-crown">👑</div>' : ''}
         <div class="podium-medal">${medal}</div>
         <div class="podium-team ${isChampion ? 'champion' : ''}">${esc(team.name)}</div>
-        ${players ? `<div class="podium-players">${esc(players)}</div>` : ''}
+        ${playersHtml}
         <div class="podium-label">${labelText}</div>
         <div class="podium-bar ${barClass}"></div>
       </div>`;

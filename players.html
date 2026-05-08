@@ -89,12 +89,13 @@
   .page { display:none; } .page.active { display:block; }
 
   /* ── PODIUM ──────────────────────────────────────────── */
-  .podium-section { margin-bottom:40px; }
+  .podium-section { margin-bottom:24px; background:var(--white); border:0.5px solid var(--border); border-radius:var(--radius); padding:24px 20px 0; box-shadow:0 2px 12px rgba(23,76,204,0.05); }
   .section-eyebrow {
     font-size:10px; font-weight:800; letter-spacing:3px;
     text-transform:uppercase; color:var(--text-muted);
     margin-bottom:20px; display:flex; align-items:center; gap:12px;
   }
+  .podium-section-wrap { margin-bottom:24px; }
   .section-eyebrow::after { content:''; flex:1; height:1px; background:var(--border); }
 
   .podium { display:flex; justify-content:center; align-items:flex-end; gap:16px; margin-bottom:16px; }
