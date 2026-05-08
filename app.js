@@ -93,7 +93,7 @@
     try {
       // Parallel fetch — auth is guaranteed here since we're inside requireAuth
       const [players, ladders, ordersPaid, subs] = await Promise.all([
-        api('players?status=eq.active&select=id,first_name,last_name,gender,skill_level,joined_at&order=joined_at.desc'),
+        api('players?status=eq.active&select=id,first_name,last_name,gender,joined_at&order=joined_at.desc'),
         api('ladders?status=eq.active&select=id,name'),
         api('orders?status=eq.paid&select=id').catch(() => []),
         api('subscribers?status=eq.active&select=id').catch(() => []),
@@ -133,8 +133,7 @@
         const initials = ((p.first_name||'')[0]||'').toUpperCase() + ((p.last_name||'')[0]||'').toUpperCase();
         const color = avatarColors[i % avatarColors.length];
         const bar   = barColors[i % barColors.length];
-        const skill = p.skill_level || '';
-        const sub   = [p.gender, p.skill_level].filter(Boolean).join(' · ');
+        const sub = [p.gender].filter(Boolean).join(' · ');
         return `<div style="display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:0.5px solid var(--border);">
           <div style="width:40px;height:40px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:16px;color:white;flex-shrink:0;letter-spacing:1px;">${esc(initials)}</div>
           <div style="flex:1;min-width:0;">
@@ -144,7 +143,7 @@
           </div>
           <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
             <span style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--teal);background:var(--teal-light);padding:3px 8px;border-radius:99px;">Active</span>
-            ${skill ? `<span style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:var(--blue);line-height:1;">${esc(skill)}</span>` : ''}
+
           </div>
         </div>`;
       }).join('');
