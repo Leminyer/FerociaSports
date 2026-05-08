@@ -96,27 +96,39 @@
   /* ── PODIUM ──────────────────────────────────────────── */
   .podium { display:flex; justify-content:center; align-items:flex-end; gap:16px; }
   .podium-slot   { display:flex; flex-direction:column; align-items:center; gap:6px; flex:1; max-width:180px; }
-  .podium-crown  { font-size:26px; }
-  .podium-medal  { font-size:36px; }
-  .podium-team   { font-size:14px; font-weight:800; text-align:center; color:var(--text); }
-  .podium-team.champion { color:var(--blue); font-size:16px; }
-  .podium-label  { font-size:10px; font-weight:800; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; }
-  .podium-players { display:flex; flex-direction:column; align-items:center; gap:4px; margin-top:2px; }
-  .podium-player-row { display:flex; align-items:center; gap:6px; }
-  .podium-player-avatar {
-    width:22px; height:22px; border-radius:50%;
-    background:var(--blue-pale); color:var(--blue);
+  /* Podium — identical to players.html */
+  .podium-section { margin-bottom:24px; }
+  .section-label  { font-size:10px; font-weight:800; letter-spacing:2px; text-transform:uppercase; color:var(--text-muted); margin-bottom:12px; }
+  .podium-crown  { font-size:20px; }
+  .podium-avatar {
+    width:64px; height:64px; border-radius:50%;
     display:flex; align-items:center; justify-content:center;
-    font-size:8px; font-weight:800; flex-shrink:0;
+    font-family:'Bebas Neue',sans-serif; font-size:20px; color:white;
+    position:relative; letter-spacing:1px;
+  }
+  .podium-avatar.gold   { background:linear-gradient(135deg,#FFD700,#FFA500); box-shadow:0 8px 24px rgba(255,180,0,0.4); }
+  .podium-avatar.silver { background:linear-gradient(135deg,#C0C0C0,#A8A8A8); box-shadow:0 8px 24px rgba(192,192,192,0.35); }
+  .podium-avatar.bronze { background:linear-gradient(135deg,#CD7F32,#A0522D); box-shadow:0 8px 24px rgba(180,100,30,0.35); }
+  .podium-team   { font-size:14px; font-weight:800; text-align:center; color:var(--text); line-height:1.3; }
+  .podium-team.champion { color:var(--blue); }
+  .podium-label  { font-size:10px; font-weight:800; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; }
+  .podium-players { display:flex; flex-direction:column; align-items:center; gap:5px; margin-top:2px; }
+  .podium-player-row { display:flex; align-items:center; gap:7px; }
+  .podium-player-avatar {
+    width:24px; height:24px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    font-size:9px; font-weight:800; flex-shrink:0;
   }
   .podium-player-avatar.gold   { background:rgba(255,215,0,0.2); color:#9a6e00; }
   .podium-player-avatar.silver { background:rgba(192,192,192,0.2); color:#555; }
   .podium-player-avatar.bronze { background:rgba(205,127,50,0.2); color:#7a3d00; }
   .podium-player-name { font-size:11px; font-weight:700; color:var(--text-muted); }
-  .podium-bar { width:100%; border-radius:10px 10px 0 0; }
-  .bar-gold   { background:rgba(255,215,0,.12); border:1.5px solid rgba(255,215,0,.5); border-bottom:none; height:88px; }
-  .bar-silver { background:rgba(150,150,150,.1); border:1.5px solid rgba(150,150,150,.4); border-bottom:none; height:64px; }
-  .bar-bronze { background:rgba(205,127,50,.1); border:1.5px solid rgba(205,127,50,.4); border-bottom:none; height:48px; }
+  .podium-pts { font-family:'Bebas Neue',sans-serif; font-size:22px; color:var(--blue); }
+  .podium-bar { width:100%; border-radius:10px 10px 0 0; display:flex; align-items:center; justify-content:center; }
+  .bar-gold   { background:rgba(255,215,0,.12); border:1.5px solid rgba(255,215,0,.35); border-bottom:none; height:88px; }
+  .bar-silver { background:rgba(192,192,192,.12); border:1.5px solid rgba(192,192,192,.35); border-bottom:none; height:64px; }
+  .bar-bronze { background:rgba(205,127,50,.12); border:1.5px solid rgba(205,127,50,.3); border-bottom:none; height:48px; }
+  .podium-bar .medal { font-size:26px; }
 
   /* ── CARDS ───────────────────────────────────────────── */
   .card {
@@ -502,12 +514,16 @@
     const championPlayers = getPlayerNames(champion);
     const runnerUpPlayers = runnerUp ? getPlayerNames(runnerUp) : '';
     const thirdPlayers    = third ? getPlayerNames(third) : '';
-    const medalClass = { '🥇': 'gold', '🥈': 'silver', '🥉': 'bronze' };
+    const medalClass  = { '🥇': 'gold', '🥈': 'silver', '🥉': 'bronze' };
+    const medalEmoji  = { gold: '🥇', silver: '🥈', bronze: '🥉' };
+    // Get initials from team name (first 2 words)
+    const teamInitials = (name) => name.trim().split(/\s+/).map(w => w[0]).join('').toUpperCase().slice(0,2);
+
     const slot = (team, medal, barClass, labelText, isChampion, playerNames) => {
       if (!team) return '';
-      // Split player names (separated by " & ") and render stacked with avatars
+      const mClass   = medalClass[medal] || '';
       const nameList = playerNames ? playerNames.split(' & ').map(n => n.trim()).filter(Boolean) : [];
-      const mClass = medalClass[medal] || '';
+
       const playersHtml = nameList.length
         ? `<div class="podium-players">
             ${nameList.map(name => {
@@ -519,17 +535,23 @@
             }).join('')}
           </div>`
         : '';
+
       return `<div class="podium-slot">
         ${isChampion ? '<div class="podium-crown">👑</div>' : ''}
-        <div class="podium-medal">${medal}</div>
-        <div class="podium-team ${isChampion ? 'champion' : ''}">${esc(team.name)}</div>
+        <div class="podium-avatar ${mClass}">
+          ${teamInitials(team.name)}
+          ${!isChampion ? '' : ''}
+        </div>
+        <div class="podium-name">${esc(team.name)}</div>
         ${playersHtml}
         <div class="podium-label">${labelText}</div>
-        <div class="podium-bar ${barClass}"></div>
+        <div class="podium-bar ${barClass}">
+          <span class="medal">${medalEmoji[mClass] || ''}</span>
+        </div>
       </div>`;
     };
-    return `<div class="section-label">🏆 Final Results</div>
-      <div class="card" style="padding:28px 24px 0;">
+    return `<div class="section-eyebrow">🏆 Final Results</div>
+      <div class="podium-section" style="margin-bottom:24px;">
         <div class="podium">
           ${slot(runnerUp, '🥈', 'bar-silver', '2nd Place', false, runnerUpPlayers)}
           ${slot(champion, '🥇', 'bar-gold',   'Champion',  true,  championPlayers)}

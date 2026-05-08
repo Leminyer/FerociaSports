@@ -72,7 +72,6 @@
   .sub-nav{
     background:var(--white);border-bottom:0.5px solid var(--border);
     display:flex;padding:0 24px;overflow-x:auto;
-    position:sticky;top:128px;z-index:198;
     box-shadow:0 2px 8px rgba(23,76,204,0.06);
   }
   .sub-nav button{
@@ -271,8 +270,42 @@
     .header-divider{display:none;}
     .tile-grid{grid-template-columns:1fr 1fr;gap:10px;}
     .tile{padding:24px 16px;}
-    .sub-nav{top:107px;}
+
   }
+
+  /* ── PODIUM (ladder standings — matches players.html exactly) ─ */
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap');
+  .podium-section { margin-bottom:24px; background:var(--white); border:0.5px solid var(--border); border-radius:var(--radius); padding:24px 20px 0; box-shadow:0 2px 12px rgba(23,76,204,0.05); }
+  .section-eyebrow { font-size:10px; font-weight:800; letter-spacing:3px; text-transform:uppercase; color:var(--text-muted); margin-bottom:20px; display:flex; align-items:center; gap:12px; }
+  .section-eyebrow::after { content:''; flex:1; height:1px; background:var(--border); }
+  .podium { display:flex; justify-content:center; align-items:flex-end; gap:16px; margin-bottom:16px; }
+  .podium-slot { display:flex; flex-direction:column; align-items:center; gap:8px; flex:1; max-width:180px; }
+  .podium-avatar { width:64px; height:64px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:'Bebas Neue',sans-serif; font-size:24px; color:white; position:relative; letter-spacing:1px; }
+  .podium-avatar.gold   { background:linear-gradient(135deg,#FFD700,#FFA500); box-shadow:0 8px 24px rgba(255,180,0,0.4); }
+  .podium-avatar.silver { background:linear-gradient(135deg,#C0C0C0,#A8A8A8); box-shadow:0 8px 24px rgba(192,192,192,0.35); }
+  .podium-avatar.bronze { background:linear-gradient(135deg,#CD7F32,#A0522D); box-shadow:0 8px 24px rgba(180,100,30,0.35); }
+  .podium-crown { position:absolute; top:-16px; font-size:20px; }
+  .podium-name  { font-size:13px; font-weight:800; text-align:center; line-height:1.3; color:var(--text); }
+  .podium-pts   { font-family:'Bebas Neue',sans-serif; font-size:22px; color:var(--blue); }
+  .podium-bar   { width:100%; border-radius:10px 10px 0 0; display:flex; align-items:center; justify-content:center; }
+  .podium-bar.gold   { background:rgba(255,215,0,0.12); border:1.5px solid rgba(255,215,0,0.35); border-bottom:none; height:88px; }
+  .podium-bar.silver { background:rgba(192,192,192,0.12); border:1.5px solid rgba(192,192,192,0.35); border-bottom:none; height:64px; }
+  .podium-bar.bronze { background:rgba(205,127,50,0.12); border:1.5px solid rgba(205,127,50,0.3); border-bottom:none; height:48px; }
+  .podium-bar .medal { font-size:26px; }
+
+  /* ── STANDINGS TABLE (matches players.html exactly) ──── */
+  .rank-num { font-family:'Bebas Neue',sans-serif; font-size:24px; color:var(--text-muted); min-width:32px; display:inline-block; text-align:center; }
+  .rank-num.top1 { color:#c8920a; }
+  .rank-num.top2 { color:#888; }
+  .rank-num.top3 { color:#9e6229; }
+  .player-cell { display:flex; align-items:center; gap:12px; }
+  .player-initials { width:36px; height:36px; border-radius:50%; background:var(--blue-pale); color:var(--blue); display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:800; flex-shrink:0; }
+  .player-initials.top1 { background:rgba(255,215,0,0.15); color:#9a6e00; }
+  .player-initials.top2 { background:rgba(192,192,192,0.2); color:#555; }
+  .player-initials.top3 { background:rgba(205,127,50,0.15); color:#7a3d00; }
+  .player-name { font-size:13px; font-weight:700; color:var(--text); }
+  .player-sub  { font-size:11px; font-weight:600; color:var(--text-muted); margin-top:1px; }
+  .points-display { font-family:'Bebas Neue',sans-serif; font-size:26px; color:var(--blue); }
 </style>
 </head>
 <body>
