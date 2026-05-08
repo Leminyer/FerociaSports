@@ -29,70 +29,122 @@
   let modalLadderId = null;
   let currentTournamentId = null; // used by the read-only tournament selector
 
-  /* ─── NAVIGATION ───────────────────────────────────────── */
+  /* ─── SIDEBAR NAVIGATION ───────────────────────────────── */
+
+  // Set active state on sidebar + bottom nav items
+  const sbSetActive = (pageOrKey) => {
+    // Clear all sidebar item active states
+    document.querySelectorAll('.sb-item, .sb-sub-item').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.bn-item').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.more-drawer-item').forEach(el => el.classList.remove('active'));
+
+    // Activate sidebar item by id (sb-<key>) and bottom nav (bn-<key>)
+    const maps = {
+      'home':         ['sb-home',        'bn-home'],
+      'ladder':       ['sb-standings',   'bn-ladder'],
+      'sessions':     ['sb-sessions',    'bn-ladder'],
+      'entry':        ['sb-entry',       'bn-ladder'],
+      'tournament-view': ['sb-tournament', 'bn-tournament'],
+      'players':      ['sb-players',     'bn-players'],
+      'add-player':   ['sb-add-player',  null],
+      'ladders':      ['sb-ladders',     null],
+      't-tournaments':['sb-t-tournaments', null],
+      'events':       ['sb-events',      null],
+      'orders':       ['sb-orders',      null],
+      'promotions':   ['sb-promotions',  null],
+      'share':        ['sb-share',       null],
+    };
+    const ids = maps[pageOrKey] || [];
+    ids.forEach(id => { if (id) { const el = document.getElementById(id); if (el) el.classList.add('active'); } });
+
+    // Bottom nav: pages in "more" drawer activate the ⋯ button
+    const morePages = ['add-player','ladders','t-tournaments','events','orders','promotions','share'];
+    if (morePages.includes(pageOrKey)) {
+      document.getElementById('bn-more')?.classList.add('active');
+      const mdEl = document.getElementById(`md-${pageOrKey}`);
+      if (mdEl) mdEl.classList.add('active');
+    }
+
+    // Show/hide ladder sub-items and select
+    const isLadderPage = ['ladder','sessions','entry'].includes(pageOrKey);
+    const ladderWrap = document.getElementById('sb-ladder-select-wrap');
+    if (ladderWrap) ladderWrap.style.display = isLadderPage ? 'block' : 'none';
+    ['sb-standings','sb-sessions','sb-entry'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = isLadderPage ? 'flex' : 'none';
+    });
+
+    // Show/hide tournament select
+    const isTournPage = ['tournament-view'].includes(pageOrKey);
+    const tournWrap = document.getElementById('sb-tourn-select-wrap');
+    if (tournWrap) tournWrap.style.display = isTournPage ? 'block' : 'none';
+  };
+
+  const sbCloseMore = () => {
+    document.getElementById('more-drawer')?.classList.remove('open');
+    document.getElementById('drawer-backdrop')?.classList.remove('open');
+  };
 
   const goHome = () => {
     document.querySelectorAll('.page').forEach((p) => p.classList.remove('active'));
     document.getElementById('page-home').classList.add('active');
-    document.getElementById('subnav-programs').style.display = 'none';
-    document.getElementById('subnav-management').style.display = 'none';
-    document.getElementById('subnav-ladder-options').style.display = 'none';
-    document.getElementById('subnav-tournament-options').style.display = 'none';
-    document.getElementById('tab-home').classList.add('active');
-    // Reset ladder selection when navigating away to Home
+    sbSetActive('home');
+    sbCloseMore();
     currentLadder = null;
     const sel = document.getElementById('ladder-selector');
     if (sel) sel.value = '';
   };
 
   const switchMainTab = (tab) => {
-    document.querySelectorAll('.page').forEach((p) => p.classList.remove('active'));
-    document.getElementById('tab-home').classList.remove('active');
-
-    const ladderOpts = document.getElementById('subnav-ladder-options');
-    const tournOpts = document.getElementById('subnav-tournament-options');
-
-    if (tab === 'programs') {
-      document.getElementById('subnav-programs').style.display = 'flex';
-      document.getElementById('subnav-management').style.display = 'none';
-      if (ladderOpts) ladderOpts.style.display = 'none';
-      if (tournOpts) tournOpts.style.display = 'none';
-      document.getElementById('prog-tab-ladder').classList.remove('active');
-      document.getElementById('prog-tab-tournament').classList.remove('active');
-      document.getElementById('page-programs-home').classList.add('active');
-    } else if (tab === 'management') {
-      document.getElementById('subnav-programs').style.display = 'none';
-      document.getElementById('subnav-management').style.display = 'flex';
-      if (ladderOpts) ladderOpts.style.display = 'none';
-      if (tournOpts) tournOpts.style.display = 'none';
-      const activeBtn = document.querySelector('#subnav-management button.active');
-      if (activeBtn) showPage(activeBtn.dataset.page, activeBtn);
-      else showPage('players', document.querySelector('#subnav-management button'));
-    }
+    // Legacy shim — kept so any old tile clicks still work
+    if (tab === 'programs') sbShowLadder();
+    else if (tab === 'management') showPage('players', document.getElementById('sb-players'));
   };
 
   const switchProgramTab = (tab) => {
-    const ladderOpts = document.getElementById('subnav-ladder-options');
-    const tournOpts = document.getElementById('subnav-tournament-options');
-    document.getElementById('page-programs-home').classList.remove('active');
-    document.getElementById('prog-tab-ladder').classList.toggle('active', tab === 'ladder');
-    document.getElementById('prog-tab-tournament').classList.toggle('active', tab === 'tournament');
-    ladderOpts.style.display = tab === 'ladder' ? 'flex' : 'none';
-    tournOpts.style.display = tab === 'tournament' ? 'flex' : 'none';
-    if (tab === 'ladder') {
-      const standingsBtn = document.querySelector('#subnav-ladder-options button[data-page="ladder"]');
-      if (currentLadder) {
-        // Ladder already selected — just show the standings, don't reset the dropdown
-        showPage('ladder', standingsBtn);
-      } else {
-        loadLadderSelector().then(() => {
-          document.querySelectorAll('.page').forEach((p) => p.classList.remove('active'));
-        });
-      }
+    // Legacy shim — kept so old tile clicks still work
+    if (tab === 'ladder') sbShowLadder();
+    else sbShowTournament();
+  };
+
+  const sbShowLadder = () => {
+    sbCloseMore();
+    if (currentLadder) {
+      showPage('ladder', document.getElementById('sb-standings'));
     } else {
-      loadTournamentSelector();
-      const tvBtn = document.querySelector('#subnav-tournament-options button[data-page="tournament-view"]');
-      showPage('tournament-view', tvBtn);
+      loadLadderSelector().then(() => {
+        document.querySelectorAll('.page').forEach((p) => p.classList.remove('active'));
+        sbSetActive('ladder');
+      });
+    }
+    // Always show the sub-items
+    const wrap = document.getElementById('sb-ladder-select-wrap');
+    if (wrap) wrap.style.display = 'block';
+    ['sb-standings','sb-sessions','sb-entry'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'flex';
+    });
+    document.getElementById('sb-ladder')?.classList.add('active');
+    document.getElementById('bn-ladder')?.classList.add('active');
+  };
+
+  const sbShowTournament = () => {
+    sbCloseMore();
+    loadTournamentSelector();
+    showPage('tournament-view', document.getElementById('sb-tournament'));
+    const wrap = document.getElementById('sb-tourn-select-wrap');
+    if (wrap) wrap.style.display = 'block';
+  };
+
+  const sbToggleMore = () => {
+    const drawer = document.getElementById('more-drawer');
+    const backdrop = document.getElementById('drawer-backdrop');
+    const isOpen = drawer?.classList.contains('open');
+    if (isOpen) {
+      sbCloseMore();
+    } else {
+      drawer?.classList.add('open');
+      backdrop?.classList.add('open');
     }
   };
 
@@ -163,11 +215,10 @@
 
   const showPage = (name, btn) => {
     document.querySelectorAll('.page').forEach((p) => p.classList.remove('active'));
-    document
-      .querySelectorAll('.sub-nav:not([style*="display:none"]):not([style*="display: none"]) button')
-      .forEach((b) => b.classList.remove('active'));
-    document.getElementById(`page-${name}`).classList.add('active');
-    if (btn) btn.classList.add('active');
+    const pageEl = document.getElementById(`page-${name}`);
+    if (pageEl) pageEl.classList.add('active');
+    sbSetActive(name);
+    sbCloseMore();
     if (name === 'ladder') loadLadder();
     if (name === 'sessions') loadSessions();
     if (name === 'players') loadPlayers();
@@ -179,17 +230,6 @@
     if (name === 'events') loadEventsPage();
     if (name === 'promotions' && typeof loadPromotionsPage !== 'undefined') loadPromotionsPage();
     if (name === 't-tournaments' && typeof loadTournamentModule !== 'undefined') loadTournamentModule();
-    // Management pages: ensure correct subnav is visible
-    const mgmtPages = ['players', 'add-player', 'ladders', 't-tournaments', 'promotions', 'share'];
-    if (mgmtPages.includes(name)) {
-      document.getElementById('subnav-management').style.display = 'flex';
-      document.getElementById('subnav-programs').style.display = 'none';
-      document.getElementById('subnav-ladder-options').style.display = 'none';
-      document.getElementById('subnav-tournament-options').style.display = 'none';
-      document.getElementById('page-home').classList.remove('active');
-      document.getElementById('page-programs-home').classList.remove('active');
-      document.getElementById('tab-home').classList.remove('active');
-    }
     if (name === 'tournament-view') {
       const el = document.getElementById('tournament-view-content');
       if (el && !currentTournamentId) {
@@ -233,22 +273,12 @@
     currentLadder = allLadders.find((l) => l.id === id) || null;
     updateLadderBanner();
     await loadLadderPlayers();
-    document.getElementById('page-home').classList.remove('active');
-    document.getElementById('page-programs-home').classList.remove('active');
-    document.getElementById('tab-home').classList.remove('active');
-    document.getElementById('subnav-programs').style.display = 'flex';
-    document.getElementById('subnav-management').style.display = 'none';
-    document.getElementById('prog-tab-ladder').classList.add('active');
-    document.getElementById('prog-tab-tournament').classList.remove('active');
-    document.getElementById('subnav-ladder-options').style.display = 'flex';
-    document.getElementById('subnav-tournament-options').style.display = 'none';
-    const standingsBtn = document.querySelector('#subnav-ladder-options button[data-page="ladder"]');
-    showPage('ladder', standingsBtn);
+    showPage('ladder', document.getElementById('sb-standings'));
   };
 
   const updateLadderBanner = () => {
     const ladderPages = ['ladder', 'sessions', 'entry'];
-    const ladderNavBtns = document.querySelectorAll('#subnav-ladder-options button[data-page]');
+    const ladderNavBtns = document.querySelectorAll('#sb-standings, #sb-sessions, #sb-entry');
     if (!currentLadder) {
       ladderNavBtns.forEach((b) => {
         if (ladderPages.includes(b.dataset.page)) b.disabled = true;
@@ -3643,11 +3673,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
   const loadPromotionsPage = async () => {
     document.querySelectorAll('.page').forEach((p) => p.classList.remove('active'));
     document.getElementById('page-promotions').classList.add('active');
-    document.getElementById('subnav-management').style.display = 'flex';
-    document.getElementById('tab-home').classList.remove('active');
-    document
-      .querySelectorAll('#subnav-management button')
-      .forEach((b) => b.classList.toggle('active', b.dataset.page === 'promotions'));
+    sbSetActive('promotions');
     await loadSubscribers();
   };
 
@@ -3804,6 +3830,10 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     switchTab: (btn) => switchMainTab(btn.dataset.tab),
     switchProgramTab: (btn) => switchProgramTab(btn.dataset.tab),
     goHome: () => goHome(),
+    sbGoHome: () => goHome(),
+    sbShowLadder: () => sbShowLadder(),
+    sbShowTournament: () => sbShowTournament(),
+    sbToggleMore: () => sbToggleMore(),
     // Court / session entry
     addCourtPlayerBtn: (btn) => addCourtPlayer(parseInt(btn.dataset.pid, 10)),
     markNoShow: (btn) => markNoShow(btn.dataset.pid),
@@ -3968,12 +3998,13 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
   // Default to home page on load
   document.querySelectorAll('.page').forEach((p) => p.classList.remove('active'));
   document.getElementById('page-home').classList.add('active');
-  document.getElementById('tab-home').classList.add('active');
-  document.getElementById('subnav-programs').style.display = 'none';
-  document.getElementById('subnav-management').style.display = 'none';
-  document.getElementById('subnav-ladder-options').style.display = 'none';
-  document.getElementById('subnav-tournament-options').style.display = 'none';
-  document.getElementById('tab-home').dataset.action = 'goHome';
+  // Sidebar initialized — set home as active on boot
+  sbSetActive('home');
+  // Hide ladder sub-items until a ladder is selected
+  ['sb-standings','sb-sessions','sb-entry'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
 
   // Form listeners — these only attach event handlers, no data fetched yet,
   // so safe to wire up before auth resolves.

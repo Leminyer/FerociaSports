@@ -30,18 +30,22 @@
   *{box-sizing:border-box;margin:0;padding:0;}
   body{font-family:'Montserrat',sans-serif;background:var(--bg);color:var(--text);font-size:14px;}
 
-  /* ── HEADER ──────────────────────────────────────────── */
-  header{
-    background:var(--dark);padding:0 24px;
+  /* ── SIDEBAR LAYOUT ─────────────────────────────────── */
+  :root { --sb-width:220px; --sb-icon:64px; --top-bar:56px; }
+
+  .app-shell { display:flex; min-height:100vh; }
+
+  /* ── TOP BAR ─────────────────────────────────────────── */
+  .top-bar{
+    position:fixed;top:0;left:var(--sb-width);right:0;z-index:200;
+    background:var(--dark);height:var(--top-bar);
+    border-bottom:3px solid var(--lime);
     display:flex;align-items:center;justify-content:space-between;
-    height:64px;border-bottom:3px solid var(--lime);
-    position:sticky;top:0;z-index:200;
+    padding:0 24px;transition:left .25s;
   }
-  .header-left{display:flex;align-items:center;gap:14px;}
-  .header-logo{height:28px;max-width:130px;width:auto;object-fit:contain;display:block;}
-  .header-divider{width:1px;height:22px;background:rgba(255,255,255,0.12);}
-  .header-tagline{font-size:10px;font-weight:800;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,0.35);}
+  .top-bar-left{display:flex;align-items:center;gap:12px;}
   .date-tag{font-size:11px;color:var(--blue-light);font-weight:600;}
+  .top-bar-title{font-size:13px;font-weight:800;color:var(--white);}
   #sign-out-btn{
     background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.7);
     border:1px solid rgba(255,255,255,0.15);
@@ -51,62 +55,165 @@
   }
   #sign-out-btn:hover{background:rgba(255,255,255,0.15);color:white;}
 
-  /* ── MAIN NAV (Programs / Management) ───────────────── */
-  .main-nav{
-    background:var(--dark);display:flex;padding:0 24px;
-    border-bottom:3px solid var(--lime);
-    position:sticky;top:64px;z-index:199;
+  /* ── SIDEBAR ─────────────────────────────────────────── */
+  .sidebar{
+    position:fixed;top:0;left:0;bottom:0;z-index:300;
+    width:var(--sb-width);background:var(--dark);
+    display:flex;flex-direction:column;
+    border-right:1px solid rgba(255,255,255,0.06);
+    overflow-y:auto;overflow-x:hidden;
+    transition:width .25s,transform .25s;
   }
-  .main-nav-btn{
-    background:none;border:none;padding:12px 20px;
-    font-size:11px;font-family:'Montserrat',sans-serif;font-weight:800;
-    letter-spacing:1.5px;text-transform:uppercase;
-    color:rgba(255,255,255,0.45);cursor:pointer;
-    border-bottom:3px solid transparent;margin-bottom:-3px;
-    transition:color .15s;-webkit-appearance:none;appearance:none;
-  }
-  .main-nav-btn.active{color:white;border-bottom-color:var(--lime);}
-  .main-nav-btn:hover{color:rgba(255,255,255,0.8);}
+  .sidebar::-webkit-scrollbar{width:4px;}
+  .sidebar::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:99px;}
 
-  /* ── SUB NAV ─────────────────────────────────────────── */
-  .sub-nav{
-    background:var(--white);border-bottom:0.5px solid var(--border);
-    display:flex;padding:0 24px;overflow-x:auto;
-    box-shadow:0 2px 8px rgba(23,76,204,0.06);
+  .sb-header{
+    display:flex;align-items:center;padding:16px 16px 14px;
+    border-bottom:3px solid var(--lime);flex-shrink:0;
   }
-  .sub-nav button{
-    background:none;border:none;padding:12px 16px;
-    font-size:10px;font-family:'Montserrat',sans-serif;font-weight:800;
-    letter-spacing:1px;text-transform:uppercase;
-    color:var(--text-muted);cursor:pointer;
-    border-bottom:3px solid transparent;white-space:nowrap;
-    transition:color .15s;-webkit-appearance:none;appearance:none;
-  }
-  .sub-nav button.active{color:var(--blue);border-bottom-color:var(--lime);}
-  .sub-nav button:hover{color:var(--text);}
-  .sub-nav button:disabled{opacity:0.35;cursor:not-allowed;pointer-events:none;}
+  .sb-logo{height:26px;width:auto;display:block;}
 
-  .sub-nav-ladder{
+  /* Section groups */
+  .sb-section{padding:8px 0;}
+  .sb-section-label{
+    font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;
+    color:rgba(255,255,255,0.25);padding:10px 16px 4px;white-space:nowrap;overflow:hidden;
+  }
+  .sb-divider{height:1px;background:rgba(255,255,255,0.06);margin:4px 0;}
+
+  /* Nav items */
+  .sb-item{
+    display:flex;align-items:center;gap:11px;
+    padding:9px 16px;cursor:pointer;
+    font-size:12px;font-weight:700;color:rgba(255,255,255,0.5);
+    transition:background .15s,color .15s;
+    border:none;background:none;width:100%;text-align:left;
+    font-family:'Montserrat',sans-serif;white-space:nowrap;
+    border-left:3px solid transparent;
+  }
+  .sb-item:hover{background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.85);}
+  .sb-item.active{
+    color:var(--white);background:rgba(23,76,204,0.35);
+    border-left-color:var(--lime);
+  }
+  .sb-item-icon{font-size:16px;width:20px;text-align:center;flex-shrink:0;line-height:1;}
+  .sb-item-label{flex:1;}
+  .sb-item-badge{
+    background:var(--orange);color:white;border-radius:99px;
+    font-size:9px;font-weight:800;padding:1px 6px;
+  }
+
+  /* Ladder/tournament inline select */
+  .sb-select-wrap{padding:4px 12px 8px 48px;}
+  .sb-select{
+    width:100%;background:rgba(255,255,255,0.06);
+    border:0.5px solid rgba(255,255,255,0.12);
+    color:rgba(255,255,255,0.7);padding:6px 10px;border-radius:var(--radius-sm);
+    font-size:11px;font-family:'Montserrat',sans-serif;font-weight:600;
+    outline:none;cursor:pointer;
+  }
+  .sb-select:focus{border-color:var(--lime);}
+  .sb-select option{background:var(--dark);color:var(--white);}
+
+  /* Sub-items (indented) */
+  .sb-sub-item{
     display:flex;align-items:center;gap:8px;
-    padding:8px 16px 8px 0;
-    border-right:1px solid var(--border);margin-right:6px;
+    padding:7px 16px 7px 48px;cursor:pointer;
+    font-size:11px;font-weight:600;color:rgba(255,255,255,0.4);
+    transition:background .15s,color .15s;
+    border:none;background:none;width:100%;text-align:left;
+    font-family:'Montserrat',sans-serif;white-space:nowrap;
+    border-left:3px solid transparent;
   }
-  .sub-nav-ladder label{
-    font-size:9px;font-weight:800;letter-spacing:1px;
-    text-transform:uppercase;color:var(--text-muted);white-space:nowrap;
-  }
-  .sub-nav-ladder select{
-    background:none;border:0.5px solid var(--border);
-    color:var(--text);padding:5px 10px;border-radius:99px;
-    font-size:12px;font-family:'Montserrat',sans-serif;font-weight:700;
-    max-width:280px;min-width:180px;outline:none;
-  }
-  .sub-nav-ladder select:focus{border-color:var(--blue);}
+  .sb-sub-item:hover{background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.8);}
+  .sb-sub-item.active{color:var(--lime);border-left-color:var(--lime);background:rgba(198,242,33,0.06);}
+  .sb-sub-item:disabled{opacity:0.3;cursor:not-allowed;pointer-events:none;}
 
-  /* ── LAYOUT ──────────────────────────────────────────── */
-  main{max-width:960px;margin:0 auto;padding:28px 20px 48px;}
+  /* Sidebar footer */
+  .sb-footer{margin-top:auto;padding:12px 0;border-top:1px solid rgba(255,255,255,0.06);flex-shrink:0;}
+
+  /* ── MAIN CONTENT AREA ───────────────────────────────── */
+  .main-content{
+    margin-left:var(--sb-width);
+    margin-top:var(--top-bar);
+    min-height:calc(100vh - var(--top-bar));
+    transition:margin-left .25s;
+    width:calc(100% - var(--sb-width));
+  }
+  main{max-width:960px;margin:0 auto;padding:28px 20px 100px;}
   .page{display:none;}.page.active{display:block;}
   .page-disabled{pointer-events:none;opacity:0.4;user-select:none;}
+
+  /* ── BOTTOM NAV (mobile only) ────────────────────────── */
+  .bottom-nav{
+    display:none;position:fixed;bottom:0;left:0;right:0;z-index:300;
+    background:var(--dark);border-top:3px solid var(--lime);
+    padding:6px 0 max(6px, env(safe-area-inset-bottom));
+  }
+  .bottom-nav-inner{display:flex;}
+  .bn-item{
+    flex:1;display:flex;flex-direction:column;align-items:center;
+    gap:3px;padding:4px 0;cursor:pointer;
+    border:none;background:none;font-family:'Montserrat',sans-serif;
+    transition:opacity .15s;
+  }
+  .bn-item:active{opacity:.7;}
+  .bn-icon{font-size:18px;line-height:1;}
+  .bn-label{font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:rgba(255,255,255,0.45);}
+  .bn-item.active .bn-label{color:var(--lime);}
+  .bn-dot{width:4px;height:4px;border-radius:50%;background:transparent;margin-bottom:1px;}
+  .bn-item.active .bn-dot{background:var(--lime);}
+
+  /* More drawer */
+  .more-drawer{
+    position:fixed;bottom:calc(56px + 3px + max(6px, env(safe-area-inset-bottom)));
+    left:0;right:0;z-index:299;
+    background:var(--dark);border-top:1px solid rgba(255,255,255,0.08);
+    transform:translateY(100%);opacity:0;
+    transition:transform .25s,opacity .25s;pointer-events:none;
+  }
+  .more-drawer.open{transform:translateY(0);opacity:1;pointer-events:all;}
+  .more-drawer-item{
+    display:flex;align-items:center;gap:14px;
+    padding:14px 24px;cursor:pointer;
+    border:none;background:none;width:100%;text-align:left;
+    font-size:13px;font-weight:700;color:rgba(255,255,255,0.7);
+    font-family:'Montserrat',sans-serif;
+    border-bottom:0.5px solid rgba(255,255,255,0.06);
+    transition:background .15s;
+  }
+  .more-drawer-item:last-child{border-bottom:none;}
+  .more-drawer-item:hover{background:rgba(255,255,255,0.05);}
+  .more-drawer-item.active{color:var(--lime);}
+  .more-drawer-icon{font-size:18px;width:24px;text-align:center;}
+
+  /* Drawer backdrop */
+  .drawer-backdrop{
+    display:none;position:fixed;inset:0;z-index:298;
+    background:rgba(0,0,0,0.4);
+  }
+  .drawer-backdrop.open{display:block;}
+
+  /* ── RESPONSIVE ──────────────────────────────────────── */
+  @media(max-width:1024px) and (min-width:601px){
+    :root{--sb-width:var(--sb-icon);}
+    .sb-item-label,.sb-section-label,.sb-select-wrap,.sb-sub-item,.sb-footer .sb-item-label{display:none;}
+    .sb-item{padding:12px;justify-content:center;border-left:none;border-bottom:3px solid transparent;}
+    .sb-item.active{border-bottom-color:var(--lime);border-left:none;}
+    .sb-item-badge{display:none;}
+    .sb-header{justify-content:center;padding:14px 8px;}
+    .sb-section-label{display:none;}
+    .sb-logo{height:22px;}
+  }
+  @media(max-width:600px){
+    .sidebar{display:none;}
+    .top-bar{left:0;}
+    .main-content{margin-left:0;margin-top:var(--top-bar);}
+    .bottom-nav{display:block;}
+    main{padding:20px 14px 90px;}
+    .form-row{grid-template-columns:1fr;}
+    .stats-grid{grid-template-columns:1fr 1fr;}
+  }
 
   /* ── CARDS ───────────────────────────────────────────── */
   .card{
@@ -310,59 +417,115 @@
 </head>
 <body>
 
-<header>
-  <div class="header-left">
-    <img class="header-logo" data-asset="ferociaLogo" alt="Ferocia">
-    <div class="header-divider"></div>
-    <div class="header-tagline">Staff Portal</div>
+<div class="app-shell">
+
+<!-- ── SIDEBAR ──────────────────────────────────────────── -->
+<nav class="sidebar" id="sidebar">
+  <div class="sb-header">
+    <img class="sb-logo" data-asset="ferociaLogo" alt="Ferocia">
   </div>
-  <div style="display:flex;align-items:center;gap:12px;">
+
+  <!-- Home -->
+  <div class="sb-section">
+    <button class="sb-item active" id="sb-home" data-action="sbGoHome">
+      <span class="sb-item-icon">🏠</span>
+      <span class="sb-item-label">Home</span>
+    </button>
+  </div>
+
+  <div class="sb-divider"></div>
+
+  <!-- Programs: Ladder -->
+  <div class="sb-section">
+    <div class="sb-section-label">Ladder</div>
+    <button class="sb-item" id="sb-ladder" data-action="sbShowLadder">
+      <span class="sb-item-icon">🏅</span>
+      <span class="sb-item-label">Ladder</span>
+    </button>
+    <div class="sb-select-wrap" id="sb-ladder-select-wrap" style="display:none;">
+      <select class="sb-select" id="ladder-selector"></select>
+    </div>
+    <button class="sb-sub-item" id="sb-standings" data-action="showPage" data-page="ladder">Standings</button>
+    <button class="sb-sub-item" id="sb-sessions" data-action="showPage" data-page="sessions">Sessions</button>
+    <button class="sb-sub-item" id="sb-entry" data-action="showPage" data-page="entry">Record Session</button>
+  </div>
+
+  <div class="sb-divider"></div>
+
+  <!-- Programs: Tournaments -->
+  <div class="sb-section">
+    <div class="sb-section-label">Tournaments</div>
+    <button class="sb-item" id="sb-tournament" data-action="sbShowTournament">
+      <span class="sb-item-icon">🏆</span>
+      <span class="sb-item-label">Tournaments</span>
+    </button>
+    <div class="sb-select-wrap" id="sb-tourn-select-wrap" style="display:none;">
+      <select class="sb-select" id="tournament-selector">
+        <option value="">-- Select --</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="sb-divider"></div>
+
+  <!-- Management -->
+  <div class="sb-section">
+    <div class="sb-section-label">Management</div>
+    <button class="sb-item" id="sb-players" data-action="showPage" data-page="players">
+      <span class="sb-item-icon">👥</span>
+      <span class="sb-item-label">Players</span>
+    </button>
+    <button class="sb-item" id="sb-add-player" data-action="showPage" data-page="add-player">
+      <span class="sb-item-icon">➕</span>
+      <span class="sb-item-label">Add Player</span>
+    </button>
+    <button class="sb-item" id="sb-ladders" data-action="showPage" data-page="ladders">
+      <span class="sb-item-icon">🏓</span>
+      <span class="sb-item-label">Ladders</span>
+    </button>
+    <button class="sb-item" id="sb-t-tournaments" data-action="showPage" data-page="t-tournaments">
+      <span class="sb-item-icon">🎾</span>
+      <span class="sb-item-label">Tournaments</span>
+    </button>
+    <button class="sb-item" id="sb-events" data-action="showPage" data-page="events">
+      <span class="sb-item-icon">📅</span>
+      <span class="sb-item-label">Events</span>
+    </button>
+    <button class="sb-item" id="sb-orders" data-action="showPage" data-page="orders">
+      <span class="sb-item-icon">🛒</span>
+      <span class="sb-item-label">Orders</span>
+    </button>
+    <button class="sb-item" id="sb-promotions" data-action="showPage" data-page="promotions">
+      <span class="sb-item-icon">📣</span>
+      <span class="sb-item-label">Promotions</span>
+    </button>
+    <button class="sb-item" id="sb-share" data-action="showPage" data-page="share">
+      <span class="sb-item-icon">🔗</span>
+      <span class="sb-item-label">Share Links</span>
+    </button>
+  </div>
+
+  <!-- Sidebar footer: sign out -->
+  <div class="sb-footer">
+    <button class="sb-item" id="sign-out-btn" data-action="signOut" type="button" style="display:none;">
+      <span class="sb-item-icon">🚪</span>
+      <span class="sb-item-label">Sign out</span>
+    </button>
+  </div>
+</nav>
+
+<!-- ── TOP BAR ───────────────────────────────────────────── -->
+<div class="top-bar" id="top-bar">
+  <div class="top-bar-left">
     <span class="date-tag" id="last-updated"></span>
-    <button id="sign-out-btn" data-action="signOut" type="button">Sign out</button>
   </div>
-</header>
-
-<div class="main-nav">
-  <button class="main-nav-btn" id="tab-home">🏠 Home</button>
+  <div style="display:flex;align-items:center;gap:10px;"></div>
 </div>
 
-<div class="sub-nav" id="subnav-programs">
-  <button class="active" id="prog-tab-ladder" data-action="switchProgramTab" data-tab="ladder">Ladder</button>
-  <button id="prog-tab-tournament" data-action="switchProgramTab" data-tab="tournament">Tournaments</button>
-</div>
+<!-- ── MAIN CONTENT WRAPPER ──────────────────────────────── -->
+<div class="main-content">
 
-<div class="sub-nav" id="subnav-ladder-options" style="background:var(--bg);border-bottom:0.5px solid var(--border);">
-  <div class="sub-nav-ladder">
-    <label>Ladder</label>
-    <select id="ladder-selector"></select>
-  </div>
-  <button data-page="ladder" data-action="showPage">Standings</button>
-  <button data-page="sessions" data-action="showPage">Sessions</button>
-  <button data-page="entry" data-action="showPage">Record Session</button>
-</div>
-
-<div class="sub-nav" id="subnav-tournament-options" style="display:none;background:var(--bg);border-bottom:0.5px solid var(--border);">
-  <div class="sub-nav-ladder">
-    <label>Tournament</label>
-    <select id="tournament-selector">
-      <option value="">-- Select a tournament --</option>
-    </select>
-  </div>
-  <button data-page="tournament-view" data-action="showPage">Overview</button>
-</div>
-
-<div class="sub-nav" id="subnav-management" style="display:none;">
-  <button data-action="showPage" data-page="players">Players</button>
-  <button data-action="showPage" data-page="add-player">Add Player</button>
-  <button data-action="showPage" data-page="ladders">Ladders</button>
-  <button data-action="showPage" data-page="t-tournaments">Tournaments</button>
-  <button data-action="showPage" data-page="events">Events</button>
-  <button data-action="showPage" data-page="orders">Orders</button>
-  <button data-action="showPage" data-page="promotions">Promotions</button>
-  <button data-action="showPage" data-page="share">Share Links</button>
-</div>
-
-<div id="ladder-banner" style="display:none;"></div>
+<div id="ladder-banner" style="display:none;background:var(--blue-pale);border-bottom:0.5px solid var(--border);padding:10px 24px;font-size:12px;font-weight:700;color:var(--blue);"></div>
 
 <main>
 
@@ -786,10 +949,66 @@
 
 </main>
 
-<footer>
-  <span class="footer-tag">Brought to you by</span>
-  <img class="footer-logo" data-asset="ferociaLogo" alt="Ferocia Sports">
-</footer>
+</div><!-- end .main-content -->
+
+<!-- ── BOTTOM NAV (mobile) ──────────────────────────────── -->
+<nav class="bottom-nav" id="bottom-nav">
+  <div class="bottom-nav-inner">
+    <button class="bn-item active" id="bn-home" data-action="sbGoHome">
+      <div class="bn-dot"></div>
+      <div class="bn-icon">🏠</div>
+      <div class="bn-label">Home</div>
+    </button>
+    <button class="bn-item" id="bn-players" data-action="showPage" data-page="players">
+      <div class="bn-dot"></div>
+      <div class="bn-icon">👥</div>
+      <div class="bn-label">Players</div>
+    </button>
+    <button class="bn-item" id="bn-ladder" data-action="sbShowLadder">
+      <div class="bn-dot"></div>
+      <div class="bn-icon">🏅</div>
+      <div class="bn-label">Ladder</div>
+    </button>
+    <button class="bn-item" id="bn-tournament" data-action="sbShowTournament">
+      <div class="bn-dot"></div>
+      <div class="bn-icon">🏆</div>
+      <div class="bn-label">Tourneys</div>
+    </button>
+    <button class="bn-item" id="bn-more" data-action="sbToggleMore">
+      <div class="bn-dot"></div>
+      <div class="bn-icon">⋯</div>
+      <div class="bn-label">More</div>
+    </button>
+  </div>
+</nav>
+
+<!-- ── MORE DRAWER ───────────────────────────────────────── -->
+<div class="drawer-backdrop" id="drawer-backdrop" data-action="sbToggleMore"></div>
+<div class="more-drawer" id="more-drawer">
+  <button class="more-drawer-item" id="md-ladders" data-action="showPage" data-page="ladders">
+    <span class="more-drawer-icon">🏓</span>Ladders
+  </button>
+  <button class="more-drawer-item" id="md-t-tournaments" data-action="showPage" data-page="t-tournaments">
+    <span class="more-drawer-icon">🎾</span>Tournaments
+  </button>
+  <button class="more-drawer-item" id="md-events" data-action="showPage" data-page="events">
+    <span class="more-drawer-icon">📅</span>Events
+  </button>
+  <button class="more-drawer-item" id="md-orders" data-action="showPage" data-page="orders">
+    <span class="more-drawer-icon">🛒</span>Orders
+  </button>
+  <button class="more-drawer-item" id="md-promotions" data-action="showPage" data-page="promotions">
+    <span class="more-drawer-icon">📣</span>Promotions
+  </button>
+  <button class="more-drawer-item" id="md-share" data-action="showPage" data-page="share">
+    <span class="more-drawer-icon">🔗</span>Share Links
+  </button>
+  <button class="more-drawer-item" id="md-add-player" data-action="showPage" data-page="add-player">
+    <span class="more-drawer-icon">➕</span>Add Player
+  </button>
+</div>
+
+</div><!-- end .app-shell -->
 
 <!-- Edit ladder modal -->
 <div class="modal-bg" id="edit-ladder-modal">
