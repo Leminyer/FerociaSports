@@ -3671,9 +3671,8 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
   /* ─── PROMOTIONS ───────────────────────────────────────── */
 
   const loadPromotionsPage = async () => {
-    document.querySelectorAll('.page').forEach((p) => p.classList.remove('active'));
-    document.getElementById('page-promotions').classList.add('active');
-    sbSetActive('promotions');
+    // showPage() already handles page visibility and sbSetActive
+    // This function only needs to load the data
     await loadSubscribers();
   };
 

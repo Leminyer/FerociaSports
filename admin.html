@@ -508,7 +508,13 @@
   <!-- Sidebar footer: sign out -->
   <div class="sb-footer">
     <button class="sb-item" id="sign-out-btn" data-action="signOut" type="button" style="display:none;">
-      <span class="sb-item-icon">🚪</span>
+      <span class="sb-item-icon" style="display:flex;align-items:center;justify-content:center;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+          <polyline points="16 17 21 12 16 7"/>
+          <line x1="21" y1="12" x2="9" y2="12"/>
+        </svg>
+      </span>
       <span class="sb-item-label">Sign out</span>
     </button>
   </div>
@@ -516,10 +522,10 @@
 
 <!-- ── TOP BAR ───────────────────────────────────────────── -->
 <div class="top-bar" id="top-bar">
-  <div class="top-bar-left">
+  <div class="top-bar-left"></div>
+  <div style="display:flex;align-items:center;gap:10px;">
     <span class="date-tag" id="last-updated"></span>
   </div>
-  <div style="display:flex;align-items:center;gap:10px;"></div>
 </div>
 
 <!-- ── MAIN CONTENT WRAPPER ──────────────────────────────── -->
