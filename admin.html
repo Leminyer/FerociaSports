@@ -58,33 +58,41 @@
     overflow-y:auto;overflow-x:hidden;
     transition:width .25s;
   }
-  .sidebar:hover{width:220px;}
-  .sidebar:hover .sb-item-label,
-  .sidebar:hover .sb-section-label,
-  .sidebar:hover .sb-select-wrap,
-  .sidebar:hover .sb-sub-item,
-  .sidebar:hover .sb-footer .sb-item-label{display:block;}
-  .sidebar:hover .sb-sub-item{display:flex;}
+  body.sidebar-open .sidebar{width:220px;}
   .sidebar::-webkit-scrollbar{width:4px;}
   .sidebar::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:99px;}
 
+  /* Logo header */
   .sb-header{
-    display:flex;align-items:center;justify-content:center;padding:16px 16px 14px;
-    border-bottom:3px solid var(--lime);flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;
+    padding:0;height:56px;flex-shrink:0;
+    border-bottom:3px solid var(--lime);
   }
-  .sidebar:hover .sb-header{justify-content:flex-start;}
-  .sb-logo{height:26px;width:auto;display:block;}
+  .sb-logo-wrap{
+    display:flex;align-items:center;justify-content:center;
+    width:64px;flex-shrink:0;
+  }
+  .sb-logo-full{
+    display:none;height:22px;width:auto;padding-left:8px;
+    white-space:nowrap;overflow:hidden;
+  }
+  body.sidebar-open .sb-logo-full{display:block;}
+  .sb-logo-icon{height:28px;width:28px;border-radius:6px;
+    background:var(--blue);display:flex;align-items:center;justify-content:center;
+    font-family:'Bebas Neue',sans-serif;font-size:18px;color:white;flex-shrink:0;
+  }
 
   /* Section groups */
   .sb-section{padding:8px 0;}
   .sb-section-label{
     font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;
-    color:rgba(255,255,255,0.25);padding:10px 16px 4px;white-space:nowrap;overflow:hidden;
+    color:rgba(255,255,255,0.25);padding:10px 16px 4px;white-space:nowrap;
     display:none;
   }
+  body.sidebar-open .sb-section-label{display:block;}
   .sb-divider{height:1px;background:rgba(255,255,255,0.06);margin:4px 0;}
 
-  /* Nav items */
+  /* Nav items — collapsed (icon only) */
   .sb-item{
     display:flex;align-items:center;gap:11px;
     padding:10px;justify-content:center;cursor:pointer;
@@ -94,29 +102,37 @@
     font-family:'Montserrat',sans-serif;white-space:nowrap;
     border-left:3px solid transparent;
   }
-  .sidebar:hover .sb-item{padding:9px 16px;justify-content:flex-start;}
+  /* Nav items — open state */
+  body.sidebar-open .sb-item{padding:9px 16px;justify-content:flex-start;}
   .sb-item:hover{background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.85);}
+
+  /* Active item — collapsed: blue rounded square */
   .sb-item.active{
-    color:var(--white);
-    background:var(--blue);
+    color:var(--white);background:var(--blue);
     border-radius:var(--radius-sm);
+    margin:2px 6px;width:calc(100% - 12px);
     border-left-color:transparent;
-    margin:0 4px;width:calc(100% - 8px);
   }
-  .sidebar:hover .sb-item.active{
-    border-radius:var(--radius-sm);
+  /* Active item — open: full width, lime left border */
+  body.sidebar-open .sb-item.active{
+    border-radius:0;margin:0;width:100%;
     border-left-color:var(--lime);
-    margin:0;width:100%;
-  }
-  .sb-item-icon{font-size:16px;width:20px;text-align:center;flex-shrink:0;line-height:1;}
-  .sb-item-label{flex:1;display:none;}
-  .sb-item-badge{
-    background:var(--orange);color:white;border-radius:99px;
-    font-size:9px;font-weight:800;padding:1px 6px;
+    background:rgba(23,76,204,0.3);
   }
 
+  .sb-item-icon{font-size:16px;width:20px;text-align:center;flex-shrink:0;line-height:1;}
+  .sb-item-label{flex:1;display:none;overflow:hidden;}
+  body.sidebar-open .sb-item-label{display:block;}
+
+  .sb-item-badge{
+    background:var(--orange);color:white;border-radius:99px;
+    font-size:9px;font-weight:800;padding:1px 6px;display:none;
+  }
+  body.sidebar-open .sb-item-badge{display:inline;}
+
   /* Ladder/tournament inline select */
-  .sb-select-wrap{padding:4px 12px 8px 48px;}
+  .sb-select-wrap{padding:4px 12px 8px 48px;display:none;}
+  body.sidebar-open .sb-select-wrap{display:block;}
   .sb-select{
     width:100%;background:rgba(255,255,255,0.06);
     border:0.5px solid rgba(255,255,255,0.12);
@@ -127,7 +143,7 @@
   .sb-select:focus{border-color:var(--lime);}
   .sb-select option{background:var(--dark);color:var(--white);}
 
-  /* Sub-items (indented) */
+  /* Sub-items — only visible when sidebar is open */
   .sb-sub-item{
     display:none;align-items:center;gap:8px;
     padding:7px 16px 7px 48px;cursor:pointer;
@@ -137,6 +153,7 @@
     font-family:'Montserrat',sans-serif;white-space:nowrap;
     border-left:3px solid transparent;
   }
+  body.sidebar-open .sb-sub-item{display:flex;}
   .sb-sub-item:hover{background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.8);}
   .sb-sub-item.active{color:var(--lime);border-left-color:var(--lime);background:rgba(198,242,33,0.06);}
   .sb-sub-item:disabled{opacity:0.3;cursor:not-allowed;pointer-events:none;}
@@ -144,15 +161,36 @@
   /* Sidebar footer */
   .sb-footer{margin-top:auto;padding:12px 0;border-top:1px solid rgba(255,255,255,0.06);flex-shrink:0;}
 
+  /* Toggle button */
+  .sb-toggle{
+    display:flex;align-items:center;gap:11px;
+    padding:10px;justify-content:center;cursor:pointer;
+    font-size:12px;font-weight:700;color:rgba(255,255,255,0.4);
+    background:none;border:none;width:100%;
+    font-family:'Montserrat',sans-serif;white-space:nowrap;
+    transition:color .15s;border-left:3px solid transparent;
+  }
+  body.sidebar-open .sb-toggle{padding:9px 16px;justify-content:flex-start;}
+  .sb-toggle:hover{color:rgba(255,255,255,0.8);background:rgba(255,255,255,0.05);}
+  .sb-toggle-icon{font-size:16px;width:20px;text-align:center;flex-shrink:0;transition:transform .25s;}
+  body.sidebar-open .sb-toggle-icon{transform:rotate(180deg);}
+  .sb-toggle-label{display:none;}
+  body.sidebar-open .sb-toggle-label{display:block;}
+
   /* ── MAIN CONTENT AREA ───────────────────────────────── */
+  /* ── BODY CLASSES control layout ────────────────────── */
+  /* Default: sidebar collapsed (64px) */
+  /* .sidebar-open: sidebar pinned open (220px) */
+
   .main-content{
     margin-left:64px;
     margin-top:56px;
     min-height:calc(100vh - 56px);
     transition:margin-left .25s;
   }
-  .sidebar:hover ~ .main-content{margin-left:220px;}
-  main{max-width:900px;margin:0 auto;padding:32px 32px 100px;}
+  body.sidebar-open .main-content{margin-left:220px;}
+  body.sidebar-open .top-bar{left:220px;}
+  main{max-width:1100px;margin:0 auto;padding:32px 32px 100px;}
   .page{display:none;}.page.active{display:block;}
   .page-disabled{pointer-events:none;opacity:0.4;user-select:none;}
 
@@ -428,7 +466,10 @@
 <!-- ── SIDEBAR ──────────────────────────────────────────── -->
 <nav class="sidebar" id="sidebar">
   <div class="sb-header">
-    <img class="sb-logo" data-asset="ferociaLogo" alt="Ferocia">
+    <div class="sb-logo-wrap">
+      <div class="sb-logo-icon">F</div>
+    </div>
+    <img class="sb-logo-full" data-asset="ferociaLogo" alt="Ferocia">
   </div>
 
   <!-- Home -->
@@ -513,6 +554,11 @@
 
   <!-- Sidebar footer: sign out -->
   <div class="sb-footer">
+    <!-- Toggle sidebar open/collapsed -->
+    <button class="sb-toggle" id="sb-toggle-btn" type="button" title="Toggle sidebar" onclick="window.sbToggleSidebar()">
+      <span class="sb-toggle-icon">»</span>
+      <span class="sb-toggle-label">Collapse</span>
+    </button>
     <button class="sb-item" id="sign-out-btn" data-action="signOut" type="button" style="display:none;">
       <span class="sb-item-icon">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;">
@@ -1300,5 +1346,29 @@
 
 <script src="app.js"></script>
 <script src="tournament.js"></script>
+<script>
+  // ── Sidebar toggle — persisted in localStorage ──────────────────────
+  (function() {
+    var OPEN_KEY = 'ferocia_sidebar_open';
+    function applyState(open) {
+      if (open) {
+        document.body.classList.add('sidebar-open');
+      } else {
+        document.body.classList.remove('sidebar-open');
+      }
+    }
+    // Restore saved state on load
+    var saved = localStorage.getItem(OPEN_KEY);
+    applyState(saved === '1');
+
+    // Expose toggle function for the button
+    window.sbToggleSidebar = function() {
+      var isOpen = document.body.classList.contains('sidebar-open');
+      var next = !isOpen;
+      applyState(next);
+      localStorage.setItem(OPEN_KEY, next ? '1' : '0');
+    };
+  })();
+</script>
 </body>
 </html>
