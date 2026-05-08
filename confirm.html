@@ -4,25 +4,70 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Confirm Subscription — Ferocia Sports</title>
-<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="db.js"></script>
 <script src="assets.js"></script>
 <style>
+  :root{
+    --blue:#174CCC;--lime:#C6F221;--teal:#24BC96;--teal-light:#d4f5ed;
+    --orange:#F26024;--orange-light:#fde8d8;--blue-pale:#e8f0ff;
+    --dark:#080f2e;--white:#fff;--text:#0d1f4a;--muted:#6b7a99;
+    --border:#d6dff5;--bg:#f0f2f8;--radius:14px;
+  }
   *{box-sizing:border-box;margin:0;padding:0;}
-  body{font-family:'Montserrat',sans-serif;background:#f4f6fc;color:#0d1f4a;min-height:100vh;display:flex;flex-direction:column;}
-  header{background:#174CCC;padding:0 24px;display:flex;align-items:center;height:64px;border-bottom:3px solid #C6F221;}
-  .logo{height:32px;width:auto;}
-  main{flex:1;display:flex;align-items:center;justify-content:center;padding:24px;}
-  .card{background:white;border-radius:12px;padding:48px 36px;max-width:460px;width:100%;text-align:center;box-shadow:0 4px 20px rgba(23,76,204,0.08);}
-  .icon{width:72px;height:72px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 24px;font-size:32px;}
-  .icon.success{background:#d4f5ed;}
-  .icon.error{background:#fde8d8;}
-  .icon.loading{background:#e8f0ff;}
-  h2{font-size:22px;font-weight:800;margin-bottom:12px;}
-  p{font-size:14px;color:#6b7a99;line-height:1.6;}
-  .divider{height:3px;background:linear-gradient(90deg,#174CCC,#C6F221);border-radius:99px;margin:24px 0;}
+  body{font-family:'Montserrat',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column;}
+
+  /* ── HEADER ─────────────────────────────────────────── */
+  header{
+    background:var(--dark);padding:0 28px;
+    display:flex;align-items:center;height:68px;
+    border-bottom:3px solid var(--lime);
+  }
+  .logo{height:30px;width:auto;}
+
+  /* ── MAIN ────────────────────────────────────────────── */
+  main{flex:1;display:flex;align-items:center;justify-content:center;padding:48px 20px;}
+
+  /* ── CARD ────────────────────────────────────────────── */
+  .card{
+    background:var(--white);border-radius:var(--radius);
+    padding:48px 40px;max-width:460px;width:100%;
+    text-align:center;
+    box-shadow:0 8px 40px rgba(23,76,204,0.1);
+    border:0.5px solid var(--border);
+  }
+
+  .icon{
+    width:80px;height:80px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    margin:0 auto 24px;font-size:36px;
+  }
+  .icon.success{background:var(--teal-light);box-shadow:0 8px 24px rgba(36,188,150,0.2);}
+  .icon.error{background:var(--orange-light);box-shadow:0 8px 24px rgba(242,96,36,0.15);}
+  .icon.loading{background:var(--blue-pale);}
+
+  h2{
+    font-family:'Bebas Neue',sans-serif;
+    font-size:32px;color:var(--text);margin-bottom:12px;
+    letter-spacing:1px;
+  }
+  p{font-size:14px;color:var(--muted);line-height:1.7;}
+
+  .divider{
+    height:3px;
+    background:linear-gradient(90deg,var(--blue),var(--lime));
+    border-radius:99px;margin:24px 0;
+  }
+
+  /* ── FOOTER ──────────────────────────────────────────── */
+  footer{
+    text-align:center;padding:28px 16px;
+    border-top:3px solid var(--lime);background:var(--dark);
+  }
+  .footer-tag{display:block;font-size:9px;font-weight:800;letter-spacing:3px;text-transform:uppercase;color:rgba(156,227,255,0.5);margin-bottom:10px;}
+  .footer-logo{height:26px;width:auto;}
 </style>
 </head>
 <body>
@@ -37,11 +82,14 @@
     <p id="msg">Please wait a moment.</p>
   </div>
 </main>
+<footer>
+  <span class="footer-tag">Brought to you by</span>
+  <img class="footer-logo" data-asset="ferociaLogo" alt="Ferocia Sports">
+</footer>
 <script>
 (function () {
   'use strict';
 
-  // Use textContent everywhere so DB content can never be interpreted as HTML.
   const setState = (iconText, iconClass, title, msg) => {
     const iconEl = document.getElementById('icon');
     iconEl.textContent = iconText;
@@ -55,22 +103,16 @@
     const token = params.get('t');
 
     if (!token) {
-      setState('❌', 'error', 'Invalid link', 'This confirmation link is invalid. Please try subscribing again.');
+      setState('❌', 'error', 'Invalid Link', 'This confirmation link is invalid. Please try subscribing again.');
       return;
     }
 
-    // Defensive: the token should be alphanumeric. Reject anything weird before
-    // we paste it into a query (Supabase will percent-encode but better to fail fast).
     if (!/^[A-Za-z0-9_-]+$/.test(token)) {
-      setState('❌', 'error', 'Invalid link', 'This confirmation link is malformed.');
+      setState('❌', 'error', 'Invalid Link', 'This confirmation link is malformed.');
       return;
     }
 
     try {
-      // PATCH directly — no SELECT needed. The anon UPDATE policy
-      // (subscribers_anon_update_by_token) allows this when the token matches.
-      // If the token was already nulled out (already confirmed) or never existed,
-      // the update affects 0 rows and succeeds silently — we show "already confirmed."
       await api(
         `subscribers?confirm_token=eq.${encodeURIComponent(token)}`,
         'PATCH',
@@ -79,11 +121,11 @@
       setState(
         '🎉',
         'success',
-        "You're subscribed!",
+        "You're Subscribed!",
         "Your email has been confirmed. Welcome to the Ferocia Sports community! You'll now receive updates about new ladders, tournaments, and events.",
       );
     } catch (err) {
-      setState('❌', 'error', 'Something went wrong', 'Please try again or contact us at contact@ferociasports.com');
+      setState('❌', 'error', 'Something Went Wrong', 'Please try again or contact us at contact@ferociasports.com');
     }
   })();
 })();
