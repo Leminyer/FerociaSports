@@ -37,8 +37,8 @@
 
   /* ── TOP BAR ─────────────────────────────────────────── */
   .top-bar{
-    position:fixed;top:0;left:var(--sb-width);right:0;z-index:200;
-    background:var(--dark);height:var(--top-bar);
+    position:fixed;top:0;left:220px;right:0;z-index:200;
+    background:var(--dark);height:56px;
     border-bottom:3px solid var(--lime);
     display:flex;align-items:center;justify-content:space-between;
     padding:0 24px;transition:left .25s;
@@ -58,7 +58,7 @@
   /* ── SIDEBAR ─────────────────────────────────────────── */
   .sidebar{
     position:fixed;top:0;left:0;bottom:0;z-index:300;
-    width:var(--sb-width);background:var(--dark);
+    width:220px;background:var(--dark);
     display:flex;flex-direction:column;
     border-right:1px solid rgba(255,255,255,0.06);
     overflow-y:auto;overflow-x:hidden;
@@ -134,11 +134,10 @@
 
   /* ── MAIN CONTENT AREA ───────────────────────────────── */
   .main-content{
-    margin-left:var(--sb-width);
-    margin-top:var(--top-bar);
-    min-height:calc(100vh - var(--top-bar));
+    margin-left:220px;
+    margin-top:56px;
+    min-height:calc(100vh - 56px);
     transition:margin-left .25s;
-    width:calc(100% - var(--sb-width));
   }
   main{max-width:960px;margin:0 auto;padding:28px 20px 100px;}
   .page{display:none;}.page.active{display:block;}
@@ -196,7 +195,9 @@
 
   /* ── RESPONSIVE ──────────────────────────────────────── */
   @media(max-width:1024px) and (min-width:601px){
-    :root{--sb-width:var(--sb-icon);}
+    .sidebar{width:64px;}
+    .top-bar{left:64px;}
+    .main-content{margin-left:64px;}
     .sb-item-label,.sb-section-label,.sb-select-wrap,.sb-sub-item,.sb-footer .sb-item-label{display:none;}
     .sb-item{padding:12px;justify-content:center;border-left:none;border-bottom:3px solid transparent;}
     .sb-item.active{border-bottom-color:var(--lime);border-left:none;}
@@ -208,7 +209,7 @@
   @media(max-width:600px){
     .sidebar{display:none;}
     .top-bar{left:0;}
-    .main-content{margin-left:0;margin-top:var(--top-bar);}
+    .main-content{margin-left:0;margin-top:56px;}
     .bottom-nav{display:block;}
     main{padding:20px 14px 90px;}
     .form-row{grid-template-columns:1fr;}
