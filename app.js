@@ -91,25 +91,35 @@
     if (liveBadge) liveBadge.style.display = 'inline-block';
 
     try {
-      // Parallel fetch: players, ladders, orders, subscribers
-      const [players, ladders, orders, subs] = await Promise.all([
+      // Parallel fetch — auth is guaranteed here since we're inside requireAuth
+      const [players, ladders, ordersPaid, subs] = await Promise.all([
         api('players?status=eq.active&select=id,first_name,last_name,gender,skill_level,joined_at&order=joined_at.desc'),
         api('ladders?status=eq.active&select=id,name'),
         api('orders?status=eq.paid&select=id').catch(() => []),
         api('subscribers?status=eq.active&select=id').catch(() => []),
       ]);
 
-      // Stat cards
+      // Stat values
       const elP = document.getElementById('dash-active-players');
       const elL = document.getElementById('dash-open-ladders');
       const elO = document.getElementById('dash-pending-orders');
       const elS = document.getElementById('dash-subscribers');
       if (elP) elP.textContent = players.length;
       if (elL) elL.textContent = ladders.length;
-      if (elO) elO.textContent = orders.length;
+      if (elO) elO.textContent = ordersPaid.length;
       if (elS) elS.textContent = subs.length;
 
-      // Recent players — show last 5
+      // Sub-tags
+      const ptag = document.getElementById('dash-players-tag');
+      if (ptag) { ptag.textContent = `${players.length} this season`; ptag.style.display = 'inline-block'; }
+      const ltag = document.getElementById('dash-ladders-tag');
+      if (ltag && ladders.length) { ltag.textContent = ladders[0]?.name || `${ladders.length} active`; ltag.style.display = 'inline-block'; }
+      const otag = document.getElementById('dash-orders-tag');
+      if (otag) otag.style.display = ordersPaid.length ? 'inline-block' : 'none';
+      const stag = document.getElementById('dash-subs-tag');
+      if (stag) { stag.textContent = `${subs.length} active`; stag.style.display = 'inline-block'; }
+
+      // Recent players — last 5, matching proposal exactly
       const recent = players.slice(0, 5);
       const recentEl = document.getElementById('dash-recent-players');
       if (!recentEl) return;
@@ -117,26 +127,35 @@
         recentEl.innerHTML = '<div class="empty">No players yet.</div>';
         return;
       }
-      const avatarColors = ['#174CCC','#24BC96','#F26024','#9333ea','#0891b2'];
+      const avatarColors = ['#174CCC', '#24BC96', '#F26024', '#9333ea', '#0891b2'];
+      const barColors    = ['#174CCC', '#24BC96', '#F26024', '#9333ea', '#0891b2'];
       recentEl.innerHTML = recent.map((p, i) => {
         const initials = ((p.first_name||'')[0]||'').toUpperCase() + ((p.last_name||'')[0]||'').toUpperCase();
         const color = avatarColors[i % avatarColors.length];
-        const sub = [p.gender, p.skill_level].filter(Boolean).join(' · ');
+        const bar   = barColors[i % barColors.length];
+        const skill = p.skill_level || '';
+        const sub   = [p.gender, p.skill_level].filter(Boolean).join(' · ');
         return `<div style="display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:0.5px solid var(--border);">
-          <div style="width:40px;height:40px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:15px;color:white;flex-shrink:0;">${esc(initials)}</div>
+          <div style="width:40px;height:40px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:16px;color:white;flex-shrink:0;letter-spacing:1px;">${esc(initials)}</div>
           <div style="flex:1;min-width:0;">
-            <div style="font-size:14px;font-weight:700;color:var(--text);">${esc(p.first_name)} ${esc(p.last_name)}</div>
-            ${sub ? `<div style="font-size:11px;color:var(--text-muted);font-weight:600;margin-top:2px;">${esc(sub)}</div>` : ''}
+            <div style="font-size:14px;font-weight:800;color:var(--text);margin-bottom:2px;">${esc(p.first_name)} ${esc(p.last_name)}</div>
+            <div style="font-size:11px;color:var(--text-muted);font-weight:600;margin-bottom:6px;">${esc(sub)}</div>
+            <div style="height:3px;width:60px;background:${bar};border-radius:99px;opacity:0.7;"></div>
           </div>
-          <span class="badge badge-active">Active</span>
+          <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
+            <span style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--teal);background:var(--teal-light);padding:3px 8px;border-radius:99px;">Active</span>
+            ${skill ? `<span style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:var(--blue);line-height:1;">${esc(skill)}</span>` : ''}
+          </div>
         </div>`;
       }).join('');
       // Remove border from last item
-      const rows = recentEl.querySelectorAll('div[style*="border-bottom"]');
-      if (rows.length) rows[rows.length-1].style.borderBottom = 'none';
+      const lastRow = recentEl.querySelector('div:last-child');
+      if (lastRow) lastRow.style.borderBottom = 'none';
 
     } catch (e) {
       console.error('[Dashboard] Error:', e);
+      const recentEl = document.getElementById('dash-recent-players');
+      if (recentEl) recentEl.innerHTML = '<div class="empty">Could not load data.</div>';
     }
   };
 
@@ -4064,7 +4083,6 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
   document.getElementById('page-home').classList.add('active');
   // Sidebar initialized — set home as active on boot
   sbSetActive('home');
-  loadDashboard();
   // Hide ladder sub-items until a ladder is selected
   ['sb-standings','sb-sessions','sb-entry'].forEach(id => {
     const el = document.getElementById(id);
@@ -4115,9 +4133,10 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
   window.auth.requireAuth(() => {
     // Show the sign-out button now that we're authenticated
     const signOutBtn = document.getElementById('sign-out-btn');
-    if (signOutBtn) signOutBtn.style.display = 'inline-block';
+    if (signOutBtn) signOutBtn.style.display = 'flex';
 
-    // Kick off the data load
+    // Kick off the data load — dashboard first since it's the home page
+    loadDashboard();
     loadLadderSelector();
 
     // Let tournament.js (and anything else waiting on auth) proceed
