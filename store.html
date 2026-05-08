@@ -62,67 +62,64 @@ header{
 /* ── HERO STRIP ──────────────────────────────────────────── */
 .store-hero{
   background:#080f2e;
-  padding:64px 40px 0;
+  padding:36px 40px;
   border-bottom:4px solid var(--lime);
-  overflow:hidden;
-  position:relative;
+  overflow:hidden;position:relative;
 }
-/* Subtle background accent */
 .store-hero::before{
-  content:'';position:absolute;right:-80px;top:-80px;
-  width:480px;height:480px;border-radius:50%;
-  background:radial-gradient(circle,rgba(23,76,204,0.35) 0%,transparent 70%);
+  content:'';position:absolute;right:-60px;top:-60px;
+  width:320px;height:320px;border-radius:50%;
+  background:radial-gradient(circle,rgba(23,76,204,0.3) 0%,transparent 70%);
   pointer-events:none;
 }
 .store-hero-inner{
   max-width:1200px;margin:0 auto;
-  display:flex;align-items:flex-end;gap:48px;flex-wrap:wrap;
+  display:flex;align-items:center;justify-content:space-between;
+  gap:32px;flex-wrap:wrap;position:relative;z-index:1;
 }
-.store-hero-left{flex:1;min-width:260px;padding-bottom:48px;position:relative;z-index:1;}
+.store-hero-left{flex:1;min-width:240px;}
 .store-hero-eyebrow{
   font-size:10px;font-weight:800;letter-spacing:4px;
-  text-transform:uppercase;color:var(--lime);margin-bottom:16px;
+  text-transform:uppercase;color:var(--lime);margin-bottom:10px;
   display:flex;align-items:center;gap:10px;
 }
-.store-hero-eyebrow::after{content:'';width:40px;height:1px;background:rgba(198,242,33,0.4);}
+.store-hero-eyebrow::after{content:'';width:32px;height:1px;background:rgba(198,242,33,0.4);}
 .store-hero-title{
   font-family:'Bebas Neue',sans-serif;
-  font-size:clamp(64px,10vw,120px);color:var(--white);
-  line-height:.9;letter-spacing:2px;margin-bottom:20px;
+  font-size:clamp(36px,5vw,56px);color:var(--white);
+  line-height:1;letter-spacing:2px;margin-bottom:10px;
+  white-space:nowrap;
 }
 .store-hero-title span{color:var(--lime);}
 .store-hero-sub{
-  font-size:14px;font-weight:600;color:rgba(255,255,255,.55);
-  max-width:400px;line-height:1.7;margin-bottom:28px;
+  font-size:13px;font-weight:600;color:rgba(255,255,255,.5);
+  max-width:420px;line-height:1.6;margin-bottom:16px;
 }
 .store-hero-badge{
   display:inline-flex;align-items:center;gap:8px;
-  background:rgba(198,242,33,0.1);border:1px solid rgba(198,242,33,0.25);
-  border-radius:99px;padding:8px 16px;
-  font-size:11px;font-weight:800;letter-spacing:1px;
+  background:rgba(198,242,33,0.1);border:1px solid rgba(198,242,33,0.2);
+  border-radius:99px;padding:6px 14px;
+  font-size:10px;font-weight:800;letter-spacing:1px;
   text-transform:uppercase;color:var(--lime);
 }
-/* Right — stat pills sitting at bottom of hero */
 .store-hero-right{
-  display:flex;flex-direction:column;align-items:flex-end;
-  gap:12px;padding-bottom:48px;flex-shrink:0;
-  position:relative;z-index:1;
+  display:flex;gap:12px;flex-shrink:0;flex-wrap:wrap;
 }
 .store-stat{
   background:rgba(255,255,255,0.05);
-  border:0.5px solid rgba(255,255,255,0.1);
-  border-radius:12px;padding:16px 24px;text-align:right;
-  min-width:160px;
+  border:0.5px solid rgba(255,255,255,0.08);
+  border-radius:10px;padding:12px 18px;text-align:center;
+  min-width:100px;
 }
 .store-stat-val{
   font-family:'Bebas Neue',sans-serif;
-  font-size:36px;color:var(--white);line-height:1;
+  font-size:28px;color:var(--white);line-height:1;
 }
 .store-stat-val span{color:var(--lime);}
 .store-stat-lbl{
-  font-size:10px;font-weight:700;letter-spacing:1.5px;
-  text-transform:uppercase;color:rgba(255,255,255,.4);
-  margin-top:2px;
+  font-size:9px;font-weight:700;letter-spacing:1px;
+  text-transform:uppercase;color:rgba(255,255,255,.35);
+  margin-top:3px;
 }
 
 /* ── PRODUCTS GRID ───────────────────────────────────────── */
@@ -311,9 +308,9 @@ footer{
 /* ── RESPONSIVE ──────────────────────────────────────────── */
 @media(max-width:600px){
   header{padding:0 20px;height:60px;}
-  .store-hero{padding:40px 20px 0;}
+  .store-hero{padding:28px 20px;}
   .store-hero-right{display:none;}
-  .store-hero-left{padding-bottom:40px;}
+  .store-hero-title{white-space:normal;}
   .store-main{padding:32px 16px 48px;}
   footer{padding:24px 20px;flex-direction:column;align-items:flex-start;gap:12px;}
 }
@@ -338,7 +335,7 @@ footer{
   <div class="store-hero-inner">
     <div class="store-hero-left">
       <div class="store-hero-eyebrow">Ferocia Sports Center</div>
-      <div class="store-hero-title">FEROCIA<br><span>GEAR</span></div>
+      <div class="store-hero-title">FEROCIA <span>GEAR</span></div>
       <div class="store-hero-sub">Paddles, accessories and apparel built for serious pickleball players. Gear up and get on the court.</div>
       <div class="store-hero-badge">🛒 Free shipping on orders over $75</div>
     </div>
