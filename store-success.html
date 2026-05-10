@@ -9,45 +9,146 @@
 <script src="config.js"></script>
 <script src="assets.js"></script>
 <style>
-:root{--blue:#174CCC;--lime:#C6F221;--teal:#24BC96;--dark:#080f2e;--white:#fff;--bg:#f4f6fc;--text:#0d1f4a;--muted:#6b7a99;--border:#d6dff5;}
+:root{
+  --blue:#174CCC;--blue-pale:#e8f0ff;--lime:#C6F221;
+  --teal:#24BC96;--teal-light:#d4f5ed;
+  --dark:#080f2e;--white:#fff;--bg:#f0f2f8;
+  --text:#0d1f4a;--muted:#6b7a99;--border:#d6dff5;
+  --radius:14px;
+}
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:'Montserrat',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column;}
-header{background:var(--dark);display:flex;align-items:center;padding:0 40px;height:64px;border-bottom:2px solid var(--lime);}
+
+/* ── HEADER ──────────────────────────────────────────────── */
+header{
+  background:var(--dark);display:flex;align-items:center;
+  padding:0 40px;height:68px;border-bottom:3px solid var(--lime);
+}
 .header-logo{height:30px;}
+
+/* ── MAIN ────────────────────────────────────────────────── */
 main{flex:1;display:flex;align-items:center;justify-content:center;padding:48px 24px;}
-.success-card{background:var(--white);border-radius:16px;border:0.5px solid var(--border);padding:48px 40px;max-width:520px;width:100%;text-align:center;box-shadow:0 8px 40px rgba(23,76,204,.1);}
-.success-icon{width:72px;height:72px;background:var(--teal);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:32px;margin:0 auto 24px;}
-.success-title{font-family:'Bebas Neue',sans-serif;font-size:48px;color:var(--text);margin-bottom:12px;line-height:1;}
-.success-sub{font-size:14px;font-weight:600;color:var(--muted);line-height:1.7;margin-bottom:28px;}
+
+/* ── SUCCESS CARD ────────────────────────────────────────── */
+.success-card{
+  background:var(--white);border-radius:var(--radius);
+  border:0.5px solid var(--border);
+  padding:56px 48px;max-width:520px;width:100%;
+  text-align:center;
+  box-shadow:0 8px 40px rgba(23,76,204,.1);
+}
+
+.success-icon{
+  width:80px;height:80px;background:var(--teal);border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:36px;margin:0 auto 28px;
+  box-shadow:0 8px 24px rgba(36,188,150,0.3);
+}
+
+.success-eyebrow{
+  font-size:10px;font-weight:800;letter-spacing:4px;
+  text-transform:uppercase;color:var(--teal);margin-bottom:10px;
+}
+
+.success-title{
+  font-family:'Bebas Neue',sans-serif;
+  font-size:52px;color:var(--text);margin-bottom:20px;
+  line-height:1;letter-spacing:2px;
+}
+
+.divider{
+  height:3px;background:linear-gradient(90deg,var(--blue),var(--lime));
+  border-radius:99px;margin:0 auto 24px;max-width:80px;
+}
+
+.success-sub{
+  font-size:14px;font-weight:600;color:var(--muted);
+  line-height:1.7;margin-bottom:32px;
+}
 .success-email{font-weight:800;color:var(--blue);}
+
+/* Info pills */
+.info-pills{
+  display:flex;gap:10px;justify-content:center;
+  flex-wrap:wrap;margin-bottom:32px;
+}
+.info-pill{
+  display:flex;align-items:center;gap:6px;
+  background:var(--bg);border:0.5px solid var(--border);
+  border-radius:99px;padding:7px 14px;
+  font-size:11px;font-weight:700;color:var(--muted);
+}
+.info-pill span{color:var(--blue);}
+
+/* Actions */
 .success-actions{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;}
-.btn-home{font-family:'Montserrat',sans-serif;font-size:12px;font-weight:800;letter-spacing:1px;text-transform:uppercase;background:var(--blue);color:var(--white);border:none;border-radius:8px;padding:12px 24px;cursor:pointer;text-decoration:none;display:inline-block;transition:opacity .15s;}
-.btn-home:hover{opacity:.85;}
-.btn-shop{font-family:'Montserrat',sans-serif;font-size:12px;font-weight:800;letter-spacing:1px;text-transform:uppercase;background:var(--lime);color:var(--dark);border:none;border-radius:8px;padding:12px 24px;cursor:pointer;text-decoration:none;display:inline-block;transition:opacity .15s;}
-.btn-shop:hover{opacity:.85;}
-footer{background:var(--dark);padding:24px 40px;text-align:center;border-top:2px solid var(--lime);}
-.footer-copy{font-size:11px;color:rgba(255,255,255,.35);font-weight:500;}
+.btn-home{
+  font-family:'Montserrat',sans-serif;font-size:11px;font-weight:800;
+  letter-spacing:1.5px;text-transform:uppercase;
+  background:var(--blue);color:var(--white);
+  border:none;border-radius:99px;padding:13px 24px;
+  cursor:pointer;text-decoration:none;display:inline-block;
+  transition:opacity .15s,transform .15s;
+}
+.btn-home:hover{opacity:.88;transform:translateY(-1px);}
+.btn-shop{
+  font-family:'Montserrat',sans-serif;font-size:11px;font-weight:800;
+  letter-spacing:1.5px;text-transform:uppercase;
+  background:var(--lime);color:var(--dark);
+  border:none;border-radius:99px;padding:13px 24px;
+  cursor:pointer;text-decoration:none;display:inline-block;
+  transition:opacity .15s,transform .15s;
+}
+.btn-shop:hover{opacity:.88;transform:translateY(-1px);}
+
+/* ── FOOTER — matches admin/all pages ────────────────────── */
+footer{
+  background:var(--dark);padding:28px 40px;
+  text-align:center;border-top:3px solid var(--lime);
+}
+.footer-tag{display:block;font-size:9px;font-weight:800;letter-spacing:3px;text-transform:uppercase;color:rgba(156,227,255,0.5);margin-bottom:10px;}
+.footer-logo{height:26px;width:auto;}
+
+/* ── RESPONSIVE ──────────────────────────────────────────── */
+@media(max-width:480px){
+  .success-card{padding:40px 24px;}
+  header{padding:0 20px;}
+  footer{padding:24px 20px;}
+}
 </style>
 </head>
 <body>
-<header><img class="header-logo" data-asset="ferociaLogo" alt="Ferocia Sports"></header>
+
+<header>
+  <img class="header-logo" data-asset="ferociaLogo" alt="Ferocia Sports">
+</header>
+
 <main>
   <div class="success-card">
     <div class="success-icon">✓</div>
-    <div class="success-title">ORDER CONFIRMED!</div>
+    <div class="success-eyebrow">Ferocia Gear</div>
+    <div class="success-title">Order Confirmed!</div>
+    <div class="divider"></div>
     <p class="success-sub">
       Thank you for your order! A confirmation email has been sent to
-      <span class="success-email" id="customer-email">your email address</span>.<br><br>
-      Your gear will be shipped within 2–3 business days.
-      We'll send you a tracking number once it's on its way.
+      <span class="success-email" id="customer-email">your email address</span>.
     </p>
+    <div class="info-pills">
+      <div class="info-pill">📦 Ships within <span>2–3 business days</span></div>
+      <div class="info-pill">📬 Tracking number <span>on its way</span></div>
+    </div>
     <div class="success-actions">
       <a href="index.html" class="btn-home">← Back to Home</a>
       <a href="store.html" class="btn-shop">Shop More</a>
     </div>
   </div>
 </main>
-<footer><div class="footer-copy">© 2026 Ferocia Sports Center. All rights reserved.</div></footer>
+
+<footer>
+  <span class="footer-tag">Brought to you by</span>
+  <img class="footer-logo" data-asset="ferociaLogo" alt="Ferocia Sports">
+</footer>
+
 <script>
 // Clear cart after successful purchase
 localStorage.removeItem('ferocia_cart');
@@ -55,7 +156,6 @@ localStorage.removeItem('ferocia_cart');
 const params = new URLSearchParams(window.location.search);
 const sessionId = params.get('session_id');
 if (sessionId) {
-  // Could fetch session details here if needed
   document.getElementById('customer-email').textContent = 'your email address';
 }
 </script>

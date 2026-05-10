@@ -2,11 +2,12 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Ferocia Pickleball Ladder</title>
 <link rel="stylesheet" href="tournament.css">
 <link rel="stylesheet" href="app.css">
-<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -23,254 +24,1033 @@
     --orange:#F26024;--orange-light:#fde8d8;
     --gray:#EFEFEF;--gray-dk:#888;
     --white:#ffffff;--text:#0d1f4a;--text-muted:#6b7a99;
-    --border:#d6dff5;--bg:#f4f6fc;
-    --radius:10px;--radius-sm:6px;
+    --border:#d6dff5;--bg:#f0f2f8;
+    --dark:#080f2e;
+    --radius:12px;--radius-sm:8px;
   }
   *{box-sizing:border-box;margin:0;padding:0;}
   body{font-family:'Montserrat',sans-serif;background:var(--bg);color:var(--text);font-size:14px;}
 
-  header{background:var(--blue);padding:0 24px;display:flex;align-items:center;justify-content:space-between;height:68px;border-bottom:3px solid var(--lime);}
-  .header-left{display:flex;flex-direction:column;justify-content:center;gap:4px;}
-  .header-logo{height:32px;max-width:140px;width:auto;object-fit:contain;display:block;}
-  .header-tagline{font-size:11px;font-weight:800;letter-spacing:4px;text-transform:uppercase;color:var(--lime);padding-left:2px;}
+  /* ── SIDEBAR LAYOUT ─────────────────────────────────── */
+  :root { --sb-width:220px; --sb-icon:64px; --top-bar:56px; }
+
+  .app-shell { display:flex; min-height:100vh; }
+
+  /* ── TOP BAR ─────────────────────────────────────────── */
+  .top-bar{
+    position:fixed;top:0;left:64px;right:0;z-index:200;
+    background:var(--dark);height:56px;
+    border-bottom:3px solid var(--lime);
+    display:flex;align-items:center;justify-content:space-between;
+    padding:0 24px;transition:left .25s;
+  }
+
+  .top-bar-left{display:flex;align-items:center;gap:12px;}
   .date-tag{font-size:11px;color:var(--blue-light);font-weight:600;}
+  .top-bar-title{font-size:13px;font-weight:800;color:var(--white);}
+  /* sign-out is an .sb-item — no extra CSS needed, just hidden via inline style until auth */
+
+  /* ── SIDEBAR ─────────────────────────────────────────── */
+  .sidebar{
+    position:fixed;top:0;left:0;bottom:0;z-index:300;
+    width:64px;background:var(--dark);
+    display:flex;flex-direction:column;
+    border-right:1px solid rgba(255,255,255,0.06);
+    overflow-y:auto;overflow-x:hidden;
+    transition:width .25s;
+  }
+  body.sidebar-open .sidebar{width:220px;}
+  .sidebar::-webkit-scrollbar{width:4px;}
+  .sidebar::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:99px;}
+
+  /* Logo header */
+  .sb-header{
+    display:flex;align-items:center;justify-content:center;
+    padding:0 12px;height:56px;flex-shrink:0;
+    border-bottom:3px solid var(--lime);overflow:hidden;
+  }
 
 
+  /* Section groups */
+  .sb-section{padding:8px 0;}
+  .sb-section-label{
+    font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;
+    color:rgba(255,255,255,0.25);padding:10px 16px 4px;white-space:nowrap;
+    display:none;
+  }
+  body.sidebar-open .sb-section-label{display:block;}
+  .sb-divider{height:1px;background:rgba(255,255,255,0.06);margin:4px 0;}
 
-  nav{background:var(--white);border-bottom:0.5px solid var(--border);display:flex;padding:0 24px;overflow-x:auto;}
-  nav button{background:none;border:none;padding:13px 14px;font-size:11px;font-family:'Montserrat',sans-serif;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:var(--text-muted);cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;transition:color .15s;}
-  nav button.active{color:var(--blue);border-bottom-color:var(--lime);}
-  nav button:hover{color:var(--text);}
+  /* Nav items — collapsed (icon only) */
+  .sb-item{
+    display:flex;align-items:center;gap:11px;
+    padding:10px;justify-content:center;cursor:pointer;
+    font-size:12px;font-weight:700;color:rgba(255,255,255,0.5);
+    transition:background .15s,color .15s;
+    border:none;background:none;width:100%;text-align:left;
+    font-family:'Montserrat',sans-serif;white-space:nowrap;
+    border-left:3px solid transparent;
+  }
+  /* Nav items — open state */
+  body.sidebar-open .sb-item{padding:9px 16px;justify-content:flex-start;}
+  .sb-item:hover{background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.85);}
 
-  main{max-width:960px;margin:0 auto;padding:24px 16px;}
+  /* Active item — collapsed: blue rounded square */
+  .sb-item.active{
+    color:var(--white);background:var(--blue);
+    border-radius:var(--radius-sm);
+    margin:2px 6px;width:calc(100% - 12px);
+    border-left-color:transparent;
+  }
+  /* Active item — open: full width, lime left border */
+  body.sidebar-open .sb-item.active{
+    border-radius:0;margin:0;width:100%;
+    border-left-color:var(--lime);
+    background:rgba(23,76,204,0.3);
+  }
+
+  .sb-item-icon{width:20px;text-align:center;flex-shrink:0;line-height:1;display:flex;align-items:center;justify-content:center;color:currentColor;}
+  .sb-item-label{flex:1;display:none;overflow:hidden;}
+  body.sidebar-open .sb-item-label{display:block;}
+
+  .sb-item-badge{
+    background:var(--orange);color:white;border-radius:99px;
+    font-size:9px;font-weight:800;padding:1px 6px;display:none;
+  }
+  body.sidebar-open .sb-item-badge{display:inline;}
+
+  /* Ladder/tournament inline select */
+  .sb-select-wrap{padding:4px 12px 8px 48px;display:none;}
+  body.sidebar-open .sb-select-wrap{display:block;}
+  .sb-select{
+    width:100%;background:rgba(255,255,255,0.06);
+    border:0.5px solid rgba(255,255,255,0.12);
+    color:rgba(255,255,255,0.7);padding:6px 10px;border-radius:var(--radius-sm);
+    font-size:11px;font-family:'Montserrat',sans-serif;font-weight:600;
+    outline:none;cursor:pointer;
+  }
+  .sb-select:focus{border-color:var(--lime);}
+  .sb-select option{background:var(--dark);color:var(--white);}
+
+  /* Sub-items — only visible when sidebar is open */
+  .sb-sub-item{
+    display:none;align-items:center;gap:8px;
+    padding:7px 16px 7px 48px;cursor:pointer;
+    font-size:11px;font-weight:600;color:rgba(255,255,255,0.4);
+    transition:background .15s,color .15s;
+    border:none;background:none;width:100%;text-align:left;
+    font-family:'Montserrat',sans-serif;white-space:nowrap;
+    border-left:3px solid transparent;
+  }
+  body.sidebar-open .sb-sub-item{display:flex;}
+  .sb-sub-item:hover{background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.8);}
+  .sb-sub-item.active{color:var(--lime);border-left-color:var(--lime);background:rgba(198,242,33,0.06);}
+  .sb-sub-item:disabled{opacity:0.3;cursor:not-allowed;pointer-events:none;}
+
+  /* Sidebar footer */
+  .sb-footer{margin-top:auto;padding:12px 0;border-top:1px solid rgba(255,255,255,0.06);flex-shrink:0;}
+
+  /* Toggle button */
+  .sb-toggle{
+    display:flex;align-items:center;gap:11px;
+    padding:10px;justify-content:center;cursor:pointer;
+    font-size:12px;font-weight:700;color:rgba(255,255,255,0.4);
+    background:none;border:none;width:100%;
+    font-family:'Montserrat',sans-serif;white-space:nowrap;
+    transition:color .15s;border-left:3px solid transparent;
+  }
+  body.sidebar-open .sb-toggle{padding:9px 16px;justify-content:flex-start;}
+  .sb-toggle:hover{color:rgba(255,255,255,0.8);background:rgba(255,255,255,0.05);}
+  .sb-toggle-icon{font-size:16px;width:20px;text-align:center;flex-shrink:0;transition:transform .25s;}
+  body.sidebar-open .sb-toggle-icon{transform:rotate(180deg);}
+  .sb-toggle-label{display:none;}
+  body.sidebar-open .sb-toggle-label{display:block;}
+
+  /* ── MAIN CONTENT AREA ───────────────────────────────── */
+  /* ── BODY CLASSES control layout ────────────────────── */
+  /* Default: sidebar collapsed (64px) */
+  /* .sidebar-open: sidebar pinned open (220px) */
+
+  .main-content{
+    flex:1;
+    min-width:0;
+    margin-left:64px;
+    margin-top:56px;
+    min-height:calc(100vh - 56px);
+    transition:margin-left .25s;
+  }
+  body.sidebar-open .main-content{margin-left:220px;}
+  body.sidebar-open .top-bar{left:220px;}
+  main{padding:28px 32px 100px;}
   .page{display:none;}.page.active{display:block;}
+  .page-disabled{pointer-events:none;opacity:0.4;user-select:none;}
 
-  .card{background:var(--white);border:0.5px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px;}
-  .card-title{font-size:11px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:16px;}
+  /* ── BOTTOM NAV (mobile only) ────────────────────────── */
+  .bottom-nav{
+    display:none;position:fixed;bottom:0;left:0;right:0;z-index:300;
+    background:var(--dark);border-top:3px solid var(--lime);
+    padding:6px 0 max(6px, env(safe-area-inset-bottom));
+  }
+  .bottom-nav-inner{display:flex;}
+  .bn-item{
+    flex:1;display:flex;flex-direction:column;align-items:center;
+    gap:3px;padding:4px 0;cursor:pointer;
+    border:none;background:none;font-family:'Montserrat',sans-serif;
+    transition:opacity .15s;
+  }
+  .bn-item:active{opacity:.7;}
+  .bn-icon{font-size:18px;line-height:1;}
+  .bn-label{font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:rgba(255,255,255,0.45);}
+  .bn-item.active .bn-label{color:var(--lime);}
+  .bn-dot{width:4px;height:4px;border-radius:50%;background:transparent;margin-bottom:1px;}
+  .bn-item.active .bn-dot{background:var(--lime);}
 
-  .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:24px;}
-  .stat{background:var(--blue);border-radius:var(--radius);padding:16px;border-left:4px solid var(--lime);}
-  .stat-label{font-size:9px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--blue-light);margin-bottom:6px;}
-  .stat-value{font-size:22px;font-weight:800;color:white;line-height:1.1;}
-  .stat.lime{background:var(--lime);border-left-color:var(--blue);}
-  .stat.lime .stat-label{color:var(--lime-dark);}
-  .stat.lime .stat-value{color:var(--text);font-size:14px;font-weight:700;}
+  /* More drawer */
+  .more-drawer{
+    position:fixed;bottom:calc(56px + 3px + max(6px, env(safe-area-inset-bottom)));
+    left:0;right:0;z-index:299;
+    background:var(--dark);border-top:1px solid rgba(255,255,255,0.08);
+    transform:translateY(100%);opacity:0;
+    transition:transform .25s,opacity .25s;pointer-events:none;
+  }
+  .more-drawer.open{transform:translateY(0);opacity:1;pointer-events:all;}
+  .more-drawer-item{
+    display:flex;align-items:center;gap:14px;
+    padding:14px 24px;cursor:pointer;
+    border:none;background:none;width:100%;text-align:left;
+    font-size:13px;font-weight:700;color:rgba(255,255,255,0.7);
+    font-family:'Montserrat',sans-serif;
+    border-bottom:0.5px solid rgba(255,255,255,0.06);
+    transition:background .15s;
+  }
+  .more-drawer-item:last-child{border-bottom:none;}
+  .more-drawer-item:hover{background:rgba(255,255,255,0.05);}
+  .more-drawer-item.active{color:var(--lime);}
+  .more-drawer-icon{font-size:18px;width:24px;text-align:center;}
 
+  /* Drawer backdrop */
+  .drawer-backdrop{
+    display:none;position:fixed;inset:0;z-index:298;
+    background:rgba(0,0,0,0.4);
+  }
+  .drawer-backdrop.open{display:block;}
+
+  /* ── RESPONSIVE ──────────────────────────────────────── */
+  @media(max-width:1024px) and (min-width:601px){
+    /* Sidebar already 64px by default — nothing extra needed for tablet */
+  }
+  @media(max-width:600px){
+    .sidebar{display:none;}
+    .top-bar{left:0;}
+    .main-content{margin-left:0;margin-top:56px;}
+    .bottom-nav{display:block;}
+    main{padding:20px 14px 90px;}
+    .form-row{grid-template-columns:1fr;}
+    .stats-grid{grid-template-columns:1fr 1fr;}
+  }
+
+  /* ── CARDS ───────────────────────────────────────────── */
+  .card{
+    background:var(--white);border:0.5px solid var(--border);
+    border-radius:var(--radius);padding:24px;margin-bottom:20px;
+    box-shadow:0 2px 12px rgba(23,76,204,0.05);
+  }
+  .card-title{
+    font-size:11px;font-weight:800;letter-spacing:2px;
+    text-transform:uppercase;color:var(--text-muted);margin-bottom:20px;
+  }
+  .section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px;}
+  .section-header h2{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:2px;color:var(--text-muted);}
+
+  /* ── STATS GRID ──────────────────────────────────────── */
+  /* ── KPI CARDS ───────────────────────────────────────── */
+  .stats-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px;}
+  #ladder-stats{grid-template-columns:repeat(4,1fr);}
+  .stat{
+    background:var(--white);border-radius:10px;padding:16px 18px 14px;
+    border:0.5px solid #e0e7f5;border-top:3px solid transparent;
+    box-shadow:0 1px 4px rgba(23,76,204,0.06);
+  }
+  .stat.stat-green{border-top-color:#24BC96;}
+  .stat.stat-blue{border-top-color:#174CCC;}
+  .stat.stat-lime{border-top-color:#C6F221;}
+  .stat.stat-gold{border-top-color:#FFD700;}
+
+  /* Add Player page */
+  .ap-section-title{font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#174CCC;margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+  .ap-section-title::after{content:'';flex:1;height:1px;background:#e8f0ff;}
+  .ap-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .ap-group{display:flex;flex-direction:column;gap:5px;}
+  .ap-label{font-size:10px;font-weight:700;letter-spacing:.3px;text-transform:uppercase;color:#6b7a99;}
+  .ap-input{font-family:'Montserrat',sans-serif;font-size:13px;font-weight:600;padding:9px 12px;border:1px solid #e0e7f5;border-radius:8px;color:#0d1f4a;background:white;outline:none;transition:border-color .15s,background .15s,box-shadow .15s;width:100%;}
+  .ap-input:hover{background:rgba(23,76,204,0.015);border-color:#c5d6f5;}
+  .ap-input:focus{border-color:#174CCC;box-shadow:0 0 0 4px rgba(23,76,204,0.08);background:white;}
+  .ap-input::placeholder{color:#b0bbd6;font-weight:500;}
+  .ap-select-wrap{position:relative;}
+  .ap-select-wrap::after{content:'';position:absolute;right:12px;top:50%;transform:translateY(-50%);width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid #6b7a99;pointer-events:none;}
+  .ap-select{font-family:'Montserrat',sans-serif;font-size:13px;font-weight:600;padding:9px 32px 9px 12px;border:1px solid #e0e7f5;border-radius:8px;color:#0d1f4a;background:white;outline:none;appearance:none;width:100%;cursor:pointer;transition:border-color .15s,background .15s,box-shadow .15s;}
+  .ap-select:hover{background:rgba(23,76,204,0.015);border-color:#c5d6f5;}
+  .ap-select:focus{border-color:#174CCC;box-shadow:0 0 0 4px rgba(23,76,204,0.08);}
+  .ap-submit-btn{width:100%;padding:12px;border:none;border-radius:99px;background:linear-gradient(180deg,#2456d3 0%,#174CCC 100%);color:white;font-family:'Montserrat',sans-serif;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:20px;transition:transform .15s,box-shadow .15s;}
+  .ap-submit-btn:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(23,76,204,0.18);}
+  .ap-textarea{font-family:'Montserrat',sans-serif;font-size:13px;font-weight:600;padding:9px 12px;border:1px solid #e0e7f5;border-radius:8px;color:#0d1f4a;background:white;outline:none;resize:vertical;min-height:90px;width:100%;transition:border-color .15s,background .15s,box-shadow .15s;}
+  .ap-textarea:hover{background:rgba(23,76,204,0.015);border-color:#c5d6f5;}
+  .ap-textarea:focus{border-color:#174CCC;box-shadow:0 0 0 4px rgba(23,76,204,0.08);}
+  .ap-textarea::placeholder{color:#b0bbd6;font-weight:500;}
+  .ev-file-upload{display:flex;align-items:center;gap:10px;padding:9px 12px;border:1px dashed #c5d6f5;border-radius:8px;background:#f8f9ff;cursor:pointer;transition:border-color .15s,background .15s;}
+  .ev-file-upload:hover{background:rgba(23,76,204,0.025);border-color:#174CCC;}
+  .ev-file-upload span{font-size:12px;font-weight:600;color:#6b7a99;}
+  .ev-card{border:0.5px solid #e0e7f5;border-radius:8px;overflow:hidden;margin-bottom:10px;}
+  .ev-card:last-child{margin-bottom:0;}
+  .ev-card-body{padding:10px 12px;}
+  .ev-card-flyer{width:100%;height:100px;object-fit:cover;border-bottom:0.5px solid #e0e7f5;display:block;}
+  .ev-card-flyer-placeholder{width:100%;height:80px;background:#f0f2f8;display:flex;align-items:center;justify-content:center;border-bottom:0.5px solid #e0e7f5;}
+  .ev-date-block{display:flex;align-items:center;gap:10px;margin-bottom:6px;}
+  .ev-date-badge{width:38px;height:38px;border-radius:8px;background:#e8f0ff;display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0;}
+  .ev-date-day{font-family:'Bebas Neue',sans-serif;font-size:18px;color:#174CCC;line-height:1;}
+  .ev-date-mon{font-size:9px;font-weight:700;color:#174CCC;text-transform:uppercase;letter-spacing:.5px;}
+  .ev-card-title{font-size:13px;font-weight:800;color:#0d1f4a;line-height:1.3;flex:1;}
+  .ev-card-desc{font-size:11px;font-weight:600;color:#6b7a99;margin-bottom:8px;line-height:1.5;}
+  .ev-card-actions{display:flex;align-items:center;gap:6px;}
+  .ev-status-pill{font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;padding:3px 8px;border-radius:99px;flex:1;}
+  .ev-pill-upcoming{background:#d4f5ed;color:#085041;}
+  .ev-pill-past{background:#f4f5f8;color:#6b7a99;}
+  .ap-preview-avatar{width:64px;height:64px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:24px;color:white;margin:0 auto 14px;letter-spacing:1px;}
+  .ap-preview-name{font-family:'Bebas Neue',sans-serif;font-size:22px;color:#0d1f4a;text-align:center;letter-spacing:.5px;line-height:1.2;margin-bottom:4px;}
+  .ap-preview-pills{display:flex;align-items:center;justify-content:center;gap:6px;margin-bottom:16px;flex-wrap:wrap;}
+  .ap-preview-divider{height:0.5px;background:#e0e7f5;margin:14px 0;}
+  .ap-preview-row{display:flex;align-items:center;gap:10px;padding:5px 0;}
+  .ap-preview-icon{width:26px;height:26px;border-radius:6px;background:#f0f2f8;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .ap-preview-lbl{font-size:10px;font-weight:700;color:#6b7a99;text-transform:uppercase;letter-spacing:.3px;flex:1;}
+  .ap-preview-val{font-size:12px;font-weight:700;color:#0d1f4a;text-align:right;}
+  .ap-preview-empty{font-size:12px;font-weight:600;color:#d0d5e8;font-style:italic;text-align:right;}
+
+  /* Players table */
+  .player-av{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex-shrink:0;color:white;}
+  .player-cell{display:flex;align-items:center;gap:10px;}
+  .player-row{cursor:pointer;}
+  .player-row:hover td{background:rgba(23,76,204,0.025);}
+  .player-expand-row td{background:#f8f9ff;padding:0;}
+  .player-expand-panel{padding:12px 20px 12px 58px;display:flex;gap:20px;align-items:center;flex-wrap:wrap;border-top:0.5px solid #e0e7f5;}
+  .player-expand-field{display:flex;flex-direction:column;gap:2px;}
+  .player-expand-label{font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#6b7a99;}
+  .player-expand-value{font-size:12px;font-weight:700;color:#0d1f4a;}
+  .player-expand-empty{font-size:12px;font-weight:600;color:#d0d5e8;font-style:italic;}
+  .player-expand-div{width:1px;height:28px;background:#e0e7f5;flex-shrink:0;}
+  .player-ind{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;padding:3px 8px;border-radius:99px;white-space:nowrap;position:relative;cursor:default;}
+  .player-ind-tip{display:none;position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:#0d1f4a;color:white;font-size:10px;font-weight:600;padding:5px 9px;border-radius:6px;white-space:nowrap;z-index:99;pointer-events:none;}
+  .player-ind-tip::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:4px solid transparent;border-top-color:#0d1f4a;}
+  .player-ind:hover .player-ind-tip{display:block;}
+  .pill{font-size:9px;font-weight:800;padding:3px 9px;border-radius:99px;letter-spacing:.5px;text-transform:uppercase;white-space:nowrap;}
+  .pill-ladder{background:#e8f0ff;color:#174CCC;}
+  .pill-tourney{background:rgba(198,242,33,0.25);color:#4a5e00;}
+  .pill-active{background:#d4f5ed;color:#085041;}
+  .pill-inactive{background:#f4f5f8;color:#6b7a99;}
+  .ind-fire{background:#fde8d8;color:#c04a0e;}
+  .ind-crown{background:rgba(255,215,0,0.2);color:#7a5a00;}
+  .ind-bolt{background:#e8f0ff;color:#174CCC;}
+  .ind-new{background:#d4f5ed;color:#085041;}
+  .ind-slip{background:#fff0f0;color:#c62828;}
+  .ind-clock{background:#f0e8ff;color:#5b21b6;}
+  .ind-star{background:#fff8e0;color:#8a6000;}
+  .players-th{font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#0d1f4a;padding:10px 16px;text-align:left;border-bottom:0.5px solid #e0e7f5;background:#fafbff;}
+  .players-td{padding:11px 16px;border-bottom:0.5px solid #f4f5f8;font-size:13px;vertical-align:middle;}
+
+  /* Session summary cards */
+  .sess-summary-row{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px;}
+  .sess-sum-card{background:var(--white);border:0.5px solid #e0e7f5;border-radius:10px;padding:16px 18px 14px;border-top:3px solid transparent;box-shadow:0 1px 4px rgba(23,76,204,0.06);display:flex;flex-direction:column;}
+  .sess-sum-card.sc-blue{border-top-color:#174CCC;}
+  .sess-sum-card.sc-gold{border-top-color:#FFD700;}
+  .sess-sum-card.sc-teal{border-top-color:#24BC96;}
+  .sess-sum-card.sc-orange{border-top-color:#F26024;}
+  .sess-sum-label{font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#0d1f4a;margin-bottom:6px;}
+  .sess-sum-val{font-family:'Bebas Neue',sans-serif;font-size:40px;color:#0d1f4a;line-height:1;margin-bottom:6px;}
+  .sess-sum-val-text{font-family:'Montserrat',sans-serif;font-size:18px;font-weight:800;color:#0d1f4a;line-height:1.2;margin-bottom:6px;}
+  .sess-sum-ctx{font-size:11px;font-weight:600;color:var(--text-muted);margin-top:auto;}
+  .sess-sum-ctx.scc-blue{color:#174CCC;}
+  .sess-sum-ctx.scc-green{color:#24BC96;}
+  .sess-sum-ctx.scc-orange{color:#F26024;}
+  .sess-sum-ctx.scc-gold{color:#9a6e00;}
+
+  /* Court block */
+  .court-block{border:0.5px solid #e0e7f5;border-radius:8px;overflow:hidden;margin-bottom:10px;}
+  .court-block-hdr{display:flex;align-items:center;justify-content:space-between;padding:9px 14px;background:#f8f9ff;border-bottom:0.5px solid #e0e7f5;}
+  .court-block-label{font-size:11px;font-weight:800;color:#174CCC;letter-spacing:.5px;text-transform:uppercase;}
+
+  /* New game row */
+  .sess-game-row{padding:10px 14px;border-bottom:0.5px solid #f4f5f8;display:flex;align-items:center;gap:8px;}
+  .sess-game-row:last-child{border-bottom:none;}
+  .sess-game-label{font-size:11px;font-weight:800;color:#0d1f4a;min-width:60px;letter-spacing:.3px;}
+  .sess-game-body{flex:1;display:flex;align-items:center;gap:6px;}
+  .sess-team-block{flex:1;display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:7px;}
+  .sess-team-win{background:rgba(36,188,150,0.06);border:0.5px solid rgba(36,188,150,0.2);}
+  .sess-team-lose{background:#fafafa;border:0.5px solid #f0f2f8;opacity:0.75;}
+  .sess-team-pending{background:#fffbf0;border:0.5px solid #f0e0b0;}
+  .sess-team-names{flex:1;font-size:12px;font-weight:700;color:#0d1f4a;line-height:1.5;}
+  .sess-team-names.lose{color:#6b7a99;font-weight:600;}
+  .sess-team-names.pending{color:#9a7000;}
+  .sess-team-score{text-align:right;flex-shrink:0;}
+  .sess-score-num{font-family:'Bebas Neue',sans-serif;font-size:24px;font-weight:800;line-height:1;display:block;}
+  .sess-score-win{color:#24BC96;}
+  .sess-score-lose{color:#6b7a99;}
+  .sess-score-pending{color:#c8a000;}
+  .sess-score-pts{font-size:10px;font-weight:700;display:block;margin-top:1px;}
+  .sess-pts-win{color:#24BC96;}
+  .sess-pts-lose{color:#6b7a99;}
+  .sess-pts-pending{color:#c8a000;}
+  .sess-vs{font-size:10px;font-weight:800;color:rgba(23,76,204,0.3);flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:3px;}
+  .sess-vs-line{width:1px;height:16px;background:rgba(23,76,204,0.15);}
+  .sess-edit-btn{width:26px;height:26px;border-radius:6px;border:0.5px solid #e0e7f5;background:var(--white);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;}
+  .sub-pill-blue{display:inline-block;font-size:8px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;background:#e8f0ff;color:#174CCC;padding:1px 5px;border-radius:99px;margin-left:4px;vertical-align:middle;}
+  .stat-leader-name{font-family:'Bebas Neue',sans-serif;font-size:24px;color:#0d1f4a;line-height:1.1;margin-bottom:4px;}
+  .stat-leader-pts{font-family:'Bebas Neue',sans-serif;font-size:30px;color:#174CCC;line-height:1;margin-bottom:3px;}
+  .stat-leader-week{font-size:11px;font-weight:700;color:#24BC96;margin-bottom:2px;}
+  .stat-leader-streak{font-size:11px;font-weight:600;color:#F26024;display:flex;align-items:center;gap:4px;}
+  .stat.stat-orange{border-top-color:#F26024;}
+  /* Share cards */
+  .share-card{background:white;border:0.5px solid #e0e7f5;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px rgba(23,76,204,0.06);transition:box-shadow .15s;margin-bottom:12px;}
+  .share-card:last-child{margin-bottom:0;}
+  .share-card:hover{box-shadow:0 4px 12px rgba(23,76,204,0.1);}
+  .share-card-inner{display:flex;align-items:center;padding:16px 20px;}
+  .share-card-left{flex:1;min-width:0;}
+  .share-card-name{font-size:14px;font-weight:800;color:#0d1f4a;margin-bottom:6px;}
+  .share-card-meta{display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap;}
+  .share-card-stats{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px;}
+  .share-card-stat{font-size:11px;font-weight:600;color:#6b7a99;display:flex;align-items:center;gap:4px;}
+  .share-card-intel{font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;display:inline-flex;align-items:center;gap:4px;}
+  .share-intel-hot{background:#fde8d8;color:#c04a0e;}
+  .share-intel-recent{background:#d4f5ed;color:#085041;}
+  .share-card-url{padding:8px 20px 12px;border-top:0.5px solid #f4f5f8;display:flex;align-items:center;gap:8px;}
+  .share-card-url-text{font-size:11px;font-weight:600;color:#b0bbd6;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:monospace;}
+  .share-card-right{display:flex;flex-direction:column;gap:6px;flex-shrink:0;margin-left:20px;}
+  .share-card-btn{display:flex;align-items:center;gap:6px;font-size:10px;font-weight:700;padding:7px 14px;border-radius:8px;cursor:pointer;white-space:nowrap;border:0.5px solid #e0e7f5;background:white;color:#174CCC;font-family:'Montserrat',sans-serif;transition:all .15s;}
+  .share-card-btn:hover{background:#e8f0ff;border-color:#c5d6f5;}
+  .share-card-btn.primary{background:linear-gradient(180deg,#2456d3 0%,#174CCC 100%);color:white;border:none;}
+  .share-card-btn.preview{background:#f0f2f8;color:#0d1f4a;border-color:#e0e7f5;}
+  .share-tab.active{color:#174CCC !important;border-bottom-color:#C6F221 !important;}
+
+  /* Ladder Participants modal */
+  #lp-search:focus{outline:none !important;box-shadow:none !important;border:none !important;}
+  .lp-select-all-row{display:flex;align-items:center;gap:10px;padding:10px 20px;background:#f8f9ff;border-bottom:0.5px solid #e8edf8;}
+  .lp-player-row-new{display:flex;align-items:center;gap:12px;padding:10px 20px;border-bottom:0.5px solid #f4f5f8;cursor:pointer;transition:all 0.18s ease;}
+  .lp-player-row-new:hover{background:rgba(23,76,204,0.02);}
+  .lp-player-row-new.lp-selected{background:rgba(23,76,204,0.04);border-left:3px solid #174CCC;padding-left:17px;}
+  .lp-player-row-new:last-child{border-bottom:none;}
+  /* Custom checkbox */
+  .lp-cb-box{width:18px;height:18px;border-radius:5px;border:1.5px solid #c5d6f5;background:white;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all 0.18s ease;flex-shrink:0;}
+  .lp-cb-box:hover{border-color:#174CCC;background:rgba(23,76,204,0.04);}
+  .lp-cb-box.lp-cb-checked{background:#174CCC;border-color:#174CCC;box-shadow:0 0 0 3px rgba(23,76,204,0.15);}
+  /* Player avatar */
+  .lp-av{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:white;flex-shrink:0;}
+  .lp-pname{font-size:13px;font-weight:700;color:#0d1f4a;flex:1;}
+  .lp-pname.lp-unenrolled{color:#6b7a99;}
+  /* Segmented status toggle */
+  .lp-seg{display:flex;border-radius:99px;overflow:hidden;border:0.5px solid #e0e7f5;background:#f4f5f8;flex-shrink:0;}
+  .lp-seg-btn{padding:4px 12px;font-size:10px;font-weight:700;cursor:pointer;border:none;background:transparent;font-family:'Montserrat',sans-serif;color:#6b7a99;transition:all 0.15s;line-height:1.4;}
+  .lp-seg-btn.lp-seg-active{background:#174CCC;color:white;border-radius:99px;}
+  .lp-seg-btn.lp-seg-sub{background:#F26024;color:white;border-radius:99px;}
+
+  /* Ladder Operations page */
+  .lop-create-label{font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;}
+  .lop-create-input{font-family:'Montserrat',sans-serif;font-size:12px;font-weight:600;padding:8px 11px;border:1px solid #e0e7f5;border-radius:8px;color:#0d1f4a;background:white;outline:none;width:100%;transition:border-color .15s,box-shadow .15s;}
+  .lop-create-input:focus{border-color:#174CCC;box-shadow:0 0 0 3px rgba(23,76,204,0.08);}
+  .lop-create-input::placeholder{color:#b0bbd6;font-weight:500;}
+  .lop-filter-sel{font-family:'Montserrat',sans-serif;font-size:12px;font-weight:700;padding:7px 28px 7px 12px;border:0.5px solid #e0e7f5;border-radius:99px;color:#0d1f4a;background:white;outline:none;appearance:none;cursor:pointer;}
+  .lop-card{background:white;border:0.5px solid #e0e7f5;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(23,76,204,0.07);margin-bottom:14px;transition:box-shadow .15s;}
+  .lop-card:hover{box-shadow:0 6px 20px rgba(23,76,204,0.11);}
+  .lop-tabs{display:flex;background:white;border-bottom:1.5px solid #e0e7f5;padding:0 20px;}
+  .lop-tab{display:flex;align-items:center;gap:5px;padding:11px 16px;font-size:10px;font-weight:800;letter-spacing:.3px;text-transform:uppercase;color:#6b7a99;cursor:pointer;border:none;background:transparent;font-family:'Montserrat',sans-serif;border-bottom:2px solid transparent;margin-bottom:-1.5px;white-space:nowrap;transition:all .15s;}
+  .lop-tab.active{color:#174CCC;border-bottom-color:#174CCC;background:linear-gradient(180deg,#f4f7ff 0%,white 100%);}
+  .lop-tab:hover:not(.active){color:#174CCC;background:#f8f9ff;}
+  .lop-body{display:grid;grid-template-columns:1fr 1fr auto;}
+  .lop-left{padding:16px 20px;border-right:0.5px solid #f0f2f8;}
+  .lop-center{padding:16px 20px;border-right:0.5px solid #f0f2f8;display:flex;flex-direction:column;gap:7px;}
+  .lop-right{padding:16px 16px;display:flex;flex-direction:column;gap:6px;min-width:155px;}
+  .lop-name{font-size:15px;font-weight:800;color:#0d1f4a;margin-bottom:6px;line-height:1.3;}
+  .lop-status-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;}
+  .lop-active-pill{font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;padding:3px 9px;border-radius:99px;background:#d4f5ed;color:#085041;}
+  .lop-closed-pill{font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;padding:3px 9px;border-radius:99px;background:#f4f5f8;color:#6b7a99;}
+  .lop-next{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:700;color:#174CCC;background:#e8f0ff;padding:3px 9px;border-radius:99px;}
+  .lop-dates{font-size:11px;font-weight:600;color:#6b7a99;display:flex;align-items:center;gap:5px;margin-bottom:10px;}
+  .lop-stats-row{display:flex;align-items:center;gap:14px;margin-bottom:10px;}
+  .lop-stat-val{font-family:'Bebas Neue',sans-serif;font-size:20px;color:#0d1f4a;line-height:1;}
+  .lop-stat-lbl{font-size:9px;font-weight:700;color:#6b7a99;text-transform:uppercase;letter-spacing:.5px;}
+  .lop-progress-lbl{display:flex;justify-content:space-between;margin-bottom:4px;}
+  .lop-progress-lbl span{font-size:10px;font-weight:700;color:#6b7a99;}
+  .lop-progress-lbl .wk{color:#174CCC;}
+  .lop-bar{height:5px;background:#e8f0ff;border-radius:99px;overflow:hidden;}
+  .lop-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,#174CCC,#24BC96);}
+  .lop-intel-title{font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#6b7a99;margin-bottom:3px;}
+  .lop-intel-item{display:flex;align-items:center;gap:8px;padding:7px 10px;background:#f8f9ff;border-radius:7px;border:0.5px solid #f0f2f8;}
+  .lop-intel-icon{width:22px;height:22px;border-radius:5px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .lop-intel-text{font-size:11px;font-weight:700;color:#0d1f4a;}
+  .lop-intel-sub{font-size:10px;font-weight:600;color:#6b7a99;}
+  .lop-action-title{font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#6b7a99;margin-bottom:2px;}
+  .lop-btn{display:flex;align-items:center;gap:6px;padding:7px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Montserrat',sans-serif;border:0.5px solid #e0e7f5;background:white;color:#174CCC;width:100%;transition:all .15s;}
+  .lop-btn:hover:not(:disabled){background:#e8f0ff;border-color:#c5d6f5;}
+  .lop-btn.warn{color:#F26024;border-color:rgba(242,96,36,0.2);}
+  .lop-btn.warn:hover:not(:disabled){background:#fff3e8;}
+  .lop-btn.danger{color:#e53935;border-color:rgba(229,57,53,0.2);}
+  .lop-btn.danger:hover:not(:disabled){background:#fde8d8;}
+  .lop-btn:disabled{opacity:0.35;cursor:not-allowed;}
+
+  /* Launch Campaign modal */
+  .promo-comp-label{font-size:9px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#6b7a99;margin-bottom:5px;}
+  .promo-type-pill{font-size:10px;font-weight:700;padding:5px 14px;border-radius:99px;cursor:pointer;border:0.5px solid #e0e7f5;background:white;color:#6b7a99;font-family:'Montserrat',sans-serif;transition:all .15s;}
+  .promo-type-pill.active{background:#174CCC;color:white;border-color:#174CCC;}
+  .promo-type-pill:hover:not(.active){background:#e8f0ff;border-color:#c5d6f5;color:#174CCC;}
+  .promo-subject-wrap{background:white;border:1px solid #e0e7f5;border-radius:8px;overflow:hidden;transition:border-color .15s,box-shadow .15s;}
+  .promo-subject-wrap:focus-within{border-color:#174CCC;box-shadow:0 0 0 4px rgba(23,76,204,0.08);}
+  .promo-subject-input{width:100%;padding:10px 14px;font-family:'Montserrat',sans-serif;font-size:13px;font-weight:600;color:#0d1f4a;border:none;outline:none;background:transparent;}
+  .promo-subject-input::placeholder{color:#b0bbd6;font-weight:500;}
+  .promo-message-card{background:white;border:1px solid #e0e7f5;border-radius:8px;overflow:hidden;flex:1;display:flex;flex-direction:column;transition:border-color .15s,box-shadow .15s;}
+  .promo-message-card:focus-within{border-color:#174CCC;box-shadow:0 0 0 4px rgba(23,76,204,0.08);}
+  .promo-fmt-toolbar{display:flex;align-items:center;gap:2px;padding:6px 10px;background:#f4f6fb;border-bottom:0.5px solid #e8edf8;}
+  .promo-fmt-btn{width:26px;height:26px;border-radius:5px;border:none;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#6b7a99;transition:background .12s;}
+  .promo-fmt-btn:hover{background:#e8f0ff;color:#174CCC;}
+  .promo-fmt-sep{width:1px;height:16px;background:#e0e7f5;margin:0 4px;flex-shrink:0;}
+  .promo-message-editor{flex:1;min-height:180px;padding:12px 14px;font-family:'Montserrat',sans-serif;font-size:13px;font-weight:500;color:#0d1f4a;border:none;outline:none;line-height:1.6;overflow-y:auto;white-space:pre-wrap;}
+  .promo-message-editor:empty::before{content:attr(data-placeholder);color:#b0bbd6;white-space:pre;}
+  .promo-intel-card{background:#f8f9ff;border:0.5px solid #e8edf8;border-radius:10px;padding:14px;position:relative;overflow:hidden;}
+  .promo-intel-label{font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#6b7a99;margin-bottom:6px;}
+  .promo-intel-val{font-family:'Bebas Neue',sans-serif;font-size:28px;color:#0d1f4a;line-height:1;margin-bottom:3px;}
+  .promo-intel-val-text{font-size:14px;font-weight:800;color:#0d1f4a;margin-bottom:3px;}
+  .promo-intel-sub{font-size:10px;font-weight:600;color:#6b7a99;}
+  .promo-emoji-item{width:26px;height:26px;border:none;background:transparent;cursor:pointer;font-size:16px;border-radius:4px;display:flex;align-items:center;justify-content:center;}
+  .promo-emoji-item:hover{background:#f0f2f8;}
+  .stat-label{font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#0d1f4a;margin-bottom:6px;}
+  .stat-value{font-family:'Bebas Neue',sans-serif;font-size:40px;color:#0d1f4a;line-height:1;margin-bottom:6px;}
+  .stat-ctx{font-size:11px;font-weight:600;display:flex;align-items:center;gap:5px;}
+  .stat-ctx.ctx-green{color:#24BC96;}
+  .stat-ctx.ctx-blue{color:#174CCC;}
+  .stat-ctx.ctx-lime{color:#7a9200;}
+  .stat-ctx.ctx-orange{color:#F26024;}
+
+  /* ── OPERATIONS CENTER ───────────────────────────────── */
+  .ops-card{background:var(--white);border-radius:10px;margin-bottom:14px;overflow:hidden;border:0.5px solid #e0e7f5;box-shadow:0 1px 4px rgba(23,76,204,0.06);}
+  .ops-card-header{background:#174CCC;padding:13px 20px;display:flex;align-items:center;justify-content:space-between;}
+  .ops-card-title{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:white;}
+  .ops-badge{background:#C6F221;color:#080f2e;font-size:9px;font-weight:800;padding:3px 10px;border-radius:99px;}
+  .ops-row{display:flex;align-items:center;border-bottom:0.5px solid #f4f5f8;}
+  .ops-row:last-child{border-bottom:none;}
+  .ops-strip{width:4px;align-self:stretch;flex-shrink:0;}
+  .ops-strip.red{background:#e53935;}
+  .ops-strip.blue{background:#174CCC;}
+  .ops-row-icon{width:44px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .ops-row-icon svg{width:17px;height:17px;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+  .ops-row-body{flex:1;min-width:0;padding:14px 16px 14px 8px;}
+  .ops-row-title{font-size:13px;font-weight:800;color:#0d1f4a;margin-bottom:2px;}
+  .ops-row-ctx{font-size:11px;color:var(--text-muted);font-weight:600;margin-bottom:3px;}
+  .ops-row-metric{font-size:11px;font-weight:700;color:#0d1f4a;}
+  .ops-row-actions{display:flex;flex-direction:column;align-items:flex-end;gap:7px;padding:14px 20px 14px 12px;flex-shrink:0;}
+  .ops-pill{font-size:9px;font-weight:800;padding:3px 9px;border-radius:99px;letter-spacing:.5px;text-transform:uppercase;white-space:nowrap;}
+  .ops-pill.red{background:#fde8d8;color:#7a2e0e;}
+  .ops-pill.blue{background:#e8f0ff;color:#0d2f8a;}
+  .ops-btn-red{font-size:10px;font-weight:800;padding:7px 14px;border-radius:7px;border:none;background:#e53935;color:white;cursor:pointer;white-space:nowrap;}
+  .ops-btn-blue{font-size:10px;font-weight:800;padding:7px 14px;border-radius:7px;border:none;background:#174CCC;color:white;cursor:pointer;white-space:nowrap;}
+  .ops-btn-orange{font-size:10px;font-weight:800;padding:7px 14px;border-radius:7px;border:none;background:#F26024;color:white;cursor:pointer;white-space:nowrap;}
+  .ops-pill.orange{background:#fff3e8;color:#7a3d00;}
+
+  /* ── DASHBOARD TWO-COL ───────────────────────────────── */
+  .dash-two-col{display:grid;grid-template-columns:2fr 1fr;gap:14px;margin-bottom:14px;}
+
+  /* Section titles — consistent across all sections */
+  .dash-section-title{font-size:12px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#0d1f4a;}
+
+  /* Progress bars */
+  .prog-row{padding:11px 0;border-bottom:0.5px solid #f4f5f8;}
+  .prog-row:last-child{border-bottom:none;padding-bottom:0;}
+  .prog-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;}
+  .prog-name{font-size:13px;font-weight:800;color:#0d1f4a;}
+  .prog-type-pill{font-size:9px;font-weight:700;padding:2px 8px;border-radius:99px;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap;}
+  .prog-type-pill.ladder{background:#e8f0ff;color:#0c2a8a;}
+  .prog-type-pill.tournament{background:rgba(198,242,33,0.25);color:#4a5e00;}
+  .prog-meta{font-size:11px;color:var(--text-muted);font-weight:600;margin-bottom:7px;}
+  .prog-bar-row{display:flex;align-items:center;gap:10px;}
+  .prog-bar-bg{flex:1;height:4px;background:#f0f2f8;border-radius:99px;overflow:hidden;}
+  .prog-bar-fill{height:100%;border-radius:99px;}
+  .prog-count{font-size:11px;font-weight:700;white-space:nowrap;}
+
+  /* Events empty state */
+  .ev-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:22px 16px;text-align:center;min-height:130px;}
+  .ev-empty-ico{width:38px;height:38px;background:var(--blue-pale);border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:10px;}
+  .ev-empty-title{font-size:13px;font-weight:800;color:#0d1f4a;margin-bottom:4px;}
+  .ev-empty-rec{font-size:11px;color:var(--text-muted);font-weight:600;margin-bottom:12px;line-height:1.5;}
+  .ev-empty-btn{font-size:10px;font-weight:700;padding:7px 16px;border-radius:99px;background:var(--blue);color:white;border:none;cursor:pointer;}
+
+  /* Quick actions */
+  .qa-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
+  .qa-item{display:flex;align-items:center;gap:9px;padding:10px 12px;background:#f8f9ff;border:0.5px solid #e8edf8;border-radius:8px;cursor:pointer;transition:background .15s;}
+  .qa-item:hover{background:var(--blue-pale);}
+  .qa-icon{width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .qa-label{font-size:11px;font-weight:700;color:#0d1f4a;}
+
+  /* ── TABLES ──────────────────────────────────────────── */
   table{width:100%;border-collapse:collapse;font-size:13px;}
-  th{text-align:left;padding:8px 12px;font-size:10px;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;border-bottom:0.5px solid var(--border);}
-  td{padding:11px 12px;border-bottom:0.5px solid var(--border);}
+  th{
+    text-align:left;padding:10px 14px;
+    font-size:10px;font-weight:800;color:var(--text-muted);
+    text-transform:uppercase;letter-spacing:1px;
+    border-bottom:1.5px solid var(--border);
+  }
+  td{padding:12px 14px;border-bottom:0.5px solid var(--border);}
   tr:last-child td{border-bottom:none;}
-  tr:hover td{background:var(--bg);}
+  tr:hover td{background:#f8f9ff;}
 
-  .rank-badge{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;font-size:12px;font-weight:800;background:var(--gray);color:var(--gray-dk);}
+  /* ── RANK BADGES ─────────────────────────────────────── */
+  .rank-badge{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:28px;height:28px;border-radius:50%;
+    font-size:12px;font-weight:800;background:var(--gray);color:var(--gray-dk);
+  }
   .rank-badge.top1{background:var(--lime);color:var(--lime-dark);}
   .rank-badge.top2{background:#e0e0e0;color:#555;}
   .rank-badge.top3{background:var(--orange-light);color:var(--orange);}
 
-  .badge{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:3px 9px;border-radius:99px;}
+  /* ── BADGES ──────────────────────────────────────────── */
+  .badge{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;padding:4px 10px;border-radius:99px;}
   .badge-active{background:var(--teal-light);color:var(--teal);}
   .badge-sub{background:var(--orange-light);color:var(--orange);}
   .badge-inactive{background:var(--gray);color:var(--gray-dk);}
   .badge-closed{background:#eee;color:#888;}
 
-  .points-pill{display:inline-block;font-size:12px;font-weight:700;padding:3px 10px;border-radius:99px;background:var(--blue-pale);color:var(--blue);}
+  .points-pill{display:inline-block;font-size:12px;font-weight:700;padding:4px 12px;border-radius:99px;background:var(--blue-pale);color:var(--blue);}
 
-  form{display:flex;flex-direction:column;gap:14px;}
+  /* ── FORMS ───────────────────────────────────────────── */
+  form{display:flex;flex-direction:column;gap:16px;}
   .form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
-  .form-group{display:flex;flex-direction:column;gap:5px;}
+  .form-group{display:flex;flex-direction:column;gap:6px;}
   label{font-size:10px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:var(--text-muted);}
-  input,select,textarea{padding:9px 12px;border:0.5px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:'Montserrat',sans-serif;color:var(--text);background:var(--white);outline:none;}
-  input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 0 2px rgba(23,76,204,.12);}
+  input,select,textarea{
+    padding:10px 14px;border:0.5px solid var(--border);
+    border-radius:var(--radius-sm);font-size:13px;
+    font-family:'Montserrat',sans-serif;color:var(--text);
+    background:var(--white);outline:none;transition:border-color .15s;
+  }
+  input:focus,select:focus,textarea:focus{
+    border-color:var(--blue);box-shadow:0 0 0 3px rgba(23,76,204,.08);
+  }
 
-  .btn{padding:10px 20px;border-radius:var(--radius-sm);font-size:11px;font-family:'Montserrat',sans-serif;font-weight:800;letter-spacing:1px;text-transform:uppercase;cursor:pointer;border:none;transition:opacity .15s,transform .1s;}
+  /* ── BUTTONS ─────────────────────────────────────────── */
+  .btn{
+    padding:10px 20px;border-radius:var(--radius-sm);
+    font-size:11px;font-family:'Montserrat',sans-serif;
+    font-weight:800;letter-spacing:1px;text-transform:uppercase;
+    cursor:pointer;border:none;transition:opacity .15s,transform .1s;
+  }
   .btn:hover{opacity:.88;}.btn:active{transform:scale(.98);}
   .btn-primary{background:var(--blue);color:white;}
   .btn-teal{background:var(--teal);color:white;}
-  .btn-lime{background:var(--lime);color:var(--text);}
+  .btn-lime{background:var(--lime);color:var(--dark);}
   .btn-danger{background:var(--orange-light);color:var(--orange);border:0.5px solid #f5c4b3;}
-  .btn-sm{padding:5px 12px;font-size:10px;}
+  .btn-sm{padding:6px 14px;font-size:10px;}
   .btn-outline{background:none;border:0.5px solid var(--border);color:var(--text-muted);}
 
-  .toast{position:fixed;bottom:24px;right:24px;background:var(--text);color:white;padding:12px 18px;border-radius:var(--radius-sm);font-size:13px;font-family:'Montserrat',sans-serif;font-weight:600;opacity:0;transition:opacity .3s;pointer-events:none;z-index:999;}
-  .toast.show{opacity:1;}
+  /* ── POINTS REF ──────────────────────────────────────── */
+  .points-ref{background:#174CCC;border-radius:var(--radius);padding:14px 18px;margin-bottom:20px;}
+  .points-ref-title{font-size:10px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--lime);margin-bottom:14px;}
 
-  .empty{text-align:center;padding:40px;color:var(--text-muted);font-size:13px;}
-  .loading{text-align:center;padding:32px;color:var(--text-muted);font-size:13px;}
-  .section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
-  .section-header h2{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-muted);}
-
-  .points-ref{background:var(--blue);border-radius:var(--radius);padding:16px 20px;margin-bottom:20px;}
-  .points-ref-title{font-size:10px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--lime);margin-bottom:10px;}
-
-  .success-banner{display:none;background:var(--teal-light);border:1.5px solid var(--teal);border-radius:var(--radius);padding:16px 20px;margin-bottom:16px;align-items:center;gap:12px;}
+  /* ── SUCCESS BANNER ──────────────────────────────────── */
+  .success-banner{display:none;background:var(--teal-light);border:1.5px solid var(--teal);border-radius:var(--radius);padding:16px 20px;margin-bottom:20px;align-items:center;gap:12px;}
   .success-icon{width:32px;height:32px;background:var(--teal);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
 
-  .modal-bg{display:none;position:fixed;inset:0;background:rgba(13,31,74,.5);z-index:100;align-items:center;justify-content:center;}
+  /* ── MODALS ──────────────────────────────────────────── */
+  .modal-bg{display:none;position:fixed;inset:0;background:rgba(8,15,46,.6);z-index:300;align-items:center;justify-content:center;backdrop-filter:blur(2px);}
   .modal-bg.open{display:flex;}
-  .modal{background:var(--white);border-radius:var(--radius);padding:24px;width:100%;max-width:520px;margin:16px;max-height:90vh;overflow-y:auto;border-top:4px solid var(--blue);}
-  .modal-title{font-size:13px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--blue);margin-bottom:18px;}
-  .modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px;}
+  .modal{
+    background:var(--white);border-radius:var(--radius);padding:28px;
+    width:100%;max-width:520px;margin:16px;max-height:90vh;overflow-y:auto;
+    border-top:4px solid var(--blue);
+    box-shadow:0 20px 60px rgba(8,15,46,0.3);
+  }
+  .modal-title{font-size:13px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--blue);margin-bottom:20px;}
+  .modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:20px;}
 
-  footer{text-align:center;padding:28px 16px;margin-top:8px;border-top:3px solid var(--lime);background:var(--blue);}
-  .footer-tag{display:block;font-size:9px;font-weight:800;letter-spacing:3px;text-transform:uppercase;color:var(--blue-light);margin-bottom:10px;}
-  .footer-logo{height:28px;width:auto;}
+  /* ── HOME TILES ──────────────────────────────────────── */
+  .tile-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:500px;margin:0 auto;}
+  .tile{
+    border-radius:var(--radius);padding:32px 24px;cursor:pointer;
+    transition:opacity .15s,transform .15s;
+  }
+  .tile:hover{opacity:.9;transform:translateY(-2px);}
+  .tile:active{transform:scale(.98);}
+  .tile-icon{font-size:36px;margin-bottom:14px;}
+  .tile-title{font-size:13px;font-weight:800;color:white;letter-spacing:1px;text-transform:uppercase;}
+  .tile-sub{font-size:11px;margin-top:5px;font-weight:500;}
+  .tile-blue{background:var(--blue);}
+  .tile-blue .tile-sub{color:var(--blue-light);}
+  .tile-teal{background:var(--teal);}
+  .tile-teal .tile-sub{color:var(--teal-light);}
+  .tile-orange{background:var(--orange);}
+  .tile-orange .tile-sub{color:rgba(255,255,255,0.6);}
 
-  nav button:disabled{opacity:0.35;cursor:not-allowed;pointer-events:none;}
+  /* ── TOAST ───────────────────────────────────────────── */
+  .toast{
+    position:fixed;bottom:24px;right:24px;
+    background:var(--dark);color:white;
+    padding:14px 20px;border-radius:var(--radius-sm);
+    font-size:13px;font-family:'Montserrat',sans-serif;font-weight:600;
+    opacity:0;transition:opacity .3s;pointer-events:none;z-index:999;
+    box-shadow:0 8px 24px rgba(8,15,46,0.3);
+    border-left:4px solid var(--lime);
+  }
+  .toast.show{opacity:1;}
 
-  /* Two-tab nav */
-  .main-nav{background:var(--blue);display:flex;padding:0 24px;border-bottom:3px solid var(--lime);}
-  .main-nav-btn{background:none;border:none;padding:12px 20px;font-size:12px;font-family:'Montserrat',sans-serif;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,0.6);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-3px;transition:color .15s;-webkit-appearance:none;appearance:none;}
-  .main-nav-btn.active{color:white;border-bottom-color:var(--lime);}
-  .main-nav-btn:hover{color:white;}
+  /* ── EMPTY / LOADING ─────────────────────────────────── */
+  .empty{text-align:center;padding:48px;color:var(--text-muted);font-size:13px;font-weight:600;}
+  .loading{text-align:center;padding:40px;color:var(--text-muted);font-size:13px;font-weight:600;}
 
-  /* Sub nav */
-  .sub-nav{background:var(--white);border-bottom:0.5px solid var(--border);display:flex;padding:0 24px;overflow-x:auto;}
-  .sub-nav button{background:none;border:none;padding:11px 14px;font-size:11px;font-family:'Montserrat',sans-serif;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:var(--text-muted);cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;transition:color .15s;-webkit-appearance:none;appearance:none;}
-  .sub-nav button.active{color:var(--blue);border-bottom-color:var(--blue);}
-  .sub-nav button:hover{color:var(--text);}
-  .sub-nav button:disabled{opacity:0.35;cursor:not-allowed;pointer-events:none;}
+  /* ── FOOTER ──────────────────────────────────────────── */
+  footer{
+    text-align:center;padding:28px 16px;margin-top:8px;
+    border-top:3px solid var(--lime);background:var(--dark);
+  }
+  .footer-tag{display:block;font-size:9px;font-weight:800;letter-spacing:3px;text-transform:uppercase;color:rgba(156,227,255,0.5);margin-bottom:10px;}
+  .footer-logo{height:26px;width:auto;}
 
-  /* Ladder selector inside sub-nav */
-  .sub-nav-ladder{display:flex;align-items:center;gap:8px;padding:6px 14px 6px 0;border-right:1px solid var(--border);margin-right:4px;}
-  .sub-nav-ladder label{font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);white-space:nowrap;}
-  .sub-nav-ladder select{background:none;border:1px solid var(--border);color:var(--text);padding:3px 8px;border-radius:var(--radius-sm);font-size:12px;font-family:'Montserrat',sans-serif;font-weight:700;max-width:300px;min-width:200px;}
+  /* ── LADDER BANNER ───────────────────────────────────── */
+  #ladder-banner{background:var(--blue-pale);border-bottom:0.5px solid var(--border);padding:10px 24px;font-size:12px;font-weight:700;color:var(--blue);}
 
-  .page-disabled{pointer-events:none;opacity:0.4;user-select:none;}
-
+  /* ── MOBILE ──────────────────────────────────────────── */
   @media(max-width:600px){
     .form-row{grid-template-columns:1fr;}
-    main{padding:16px 12px;}
+    main{padding:20px 14px 48px;}
     .stats-grid{grid-template-columns:1fr 1fr;}
-    .header-logo{height:26px;}
-    .ladder-bar{flex-wrap:wrap;gap:8px;}
+    .header-logo{height:24px;}
+    .header-tagline{display:none;}
+    .header-divider{display:none;}
+    .tile-grid{grid-template-columns:1fr 1fr;gap:10px;}
+    .tile{padding:24px 16px;}
+
   }
+
+  /* ── PODIUM (ladder standings — matches players.html exactly) ─ */
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap');
+  /* Podium: two side by side when all, full width when filtered */
+  .podium-row { display:grid; grid-template-columns:1fr 1fr; gap:0; border-bottom:0.5px solid #e0e7f5; }
+  .podium-row.single { grid-template-columns:1fr; }
+  .podium-half { padding:20px 20px 0; }
+  .podium-half:first-child:not(:only-child) { border-right:0.5px solid #e0e7f5; }
+  .podium-eyebrow { font-size:11px; font-weight:800; letter-spacing:.5px; text-transform:uppercase; color:#0d1f4a; margin-bottom:14px; display:flex; align-items:center; gap:8px; }
+  .podium-eyebrow::after { content:''; flex:1; height:1px; background:#e0e7f5; }
+  .podium-eyebrow svg { flex-shrink:0; }
+  .podium { display:flex; justify-content:center; align-items:flex-end; gap:24px; margin-bottom:0; }
+  .podium-slot { display:flex; flex-direction:column; align-items:center; gap:6px; flex:1; max-width:160px; }
+  .podium-avatar { width:52px; height:52px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:'Bebas Neue',sans-serif; font-size:18px; color:white; position:relative; letter-spacing:1px; }
+  .podium-avatar.gold-first { width:62px; height:62px; font-size:20px; }
+  .podium-avatar.gold   { background:#FFD700; color:#7a5a00; }
+  .podium-avatar.silver { background:#C0C0C0; color:#444; }
+  .podium-avatar.bronze { background:#CD7F32; color:#fff; }
+  .podium-crown { position:absolute; top:-13px; font-size:14px; }
+  .podium-name  { font-size:12px; font-weight:800; text-align:center; line-height:1.3; color:#0d1f4a; white-space:nowrap; }
+  .podium-pts   { font-family:'Bebas Neue',sans-serif; font-size:18px; font-weight:800; color:#174CCC; }
+  .podium-bar   { width:100%; border-radius:7px 7px 0 0; display:flex; align-items:center; justify-content:center; font-size:20px; }
+  .podium-bar.gold   { background:rgba(255,215,0,0.1); border:1.5px solid rgba(255,215,0,0.3); border-bottom:none; height:64px; }
+  .podium-bar.silver { background:rgba(192,192,192,0.1); border:1.5px solid rgba(192,192,192,0.3); border-bottom:none; height:46px; }
+  .podium-bar.bronze { background:rgba(205,127,50,0.1); border:1.5px solid rgba(205,127,50,0.25); border-bottom:none; height:34px; }
+
+  /* ── STANDINGS TABLE (matches players.html exactly) ──── */
+  .rank-num { font-family:'Bebas Neue',sans-serif; font-size:22px; color:var(--text-muted); min-width:32px; display:inline-block; text-align:center; }
+  .rank-num.top1 { color:#c8920a; }
+  .rank-num.top2 { color:#888; }
+  .rank-num.top3 { color:#9e6229; }
+  .player-cell { display:flex; align-items:center; gap:10px; }
+  .player-initials { width:32px; height:32px; border-radius:50%; background:var(--blue-pale); color:var(--blue); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:800; flex-shrink:0; }
+  .player-initials.top1 { background:rgba(255,215,0,0.15); color:#9a6e00; }
+  .player-initials.top2 { background:rgba(192,192,192,0.2); color:#555; }
+  .player-initials.top3 { background:rgba(205,127,50,0.15); color:#7a3d00; }
+  .player-name { font-size:13px; font-weight:700; color:var(--text); }
+  .player-sub  { font-size:11px; font-weight:600; color:var(--text-muted); margin-top:1px; }
+  .points-display { font-family:'Bebas Neue',sans-serif; font-size:24px; font-weight:800; color:var(--blue); }
+  /* Trend column */
+  .trend-up   { display:flex; align-items:center; gap:4px; color:#24BC96; font-size:11px; font-weight:700; justify-content:center; }
+  .trend-dn   { display:flex; align-items:center; gap:4px; color:#F26024; font-size:11px; font-weight:700; justify-content:center; }
+  .trend-fire { display:flex; align-items:center; gap:4px; color:#F26024; font-size:11px; font-weight:700; justify-content:center; }
+  .trend-neu  { color:var(--text-muted); font-size:11px; font-weight:600; text-align:center; }
+  /* Momentum watch */
+  .mom-item   { display:flex; align-items:center; gap:8px; }
+  .mom-icon   { width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .mom-text   { font-size:12px; font-weight:700; color:#0d1f4a; }
+  .mom-sub    { font-size:11px; font-weight:600; color:var(--text-muted); }
+  .mom-divider{ width:1px; height:28px; background:#e0e7f5; flex-shrink:0; }
 </style>
 </head>
 <body>
 
-<!-- Auth: handled by Supabase Auth + RLS. See auth.js / SUPABASE_SETUP.sql. -->
+<div class="app-shell">
 
-<header>
-  <div class="header-left">
-    <img class="header-logo" data-asset="ferociaLogo" alt="Ferocia">
-    <div class="header-tagline">Ferocia Sports Center</div>
-  </div>
-  <div style="display:flex;align-items:center;gap:14px;">
-    <span class="date-tag" id="last-updated"></span>
-    <button id="sign-out-btn" data-action="signOut" type="button"
-      style="background:rgba(255,255,255,0.12);color:#fff;border:1px solid rgba(255,255,255,0.25);
-             padding:6px 12px;border-radius:6px;font-size:11px;font-weight:700;letter-spacing:.5px;
-             text-transform:uppercase;cursor:pointer;font-family:Montserrat,sans-serif;display:none;">
-      Sign out
+<!-- ── SIDEBAR ──────────────────────────────────────────── -->
+<nav class="sidebar" id="sidebar">
+  <div class="sb-header"></div>
+
+  <!-- Home -->
+  <div class="sb-section">
+    <button class="sb-item active" id="sb-home" data-action="sbGoHome">
+      <span class="sb-item-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" ><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></span>
+      <span class="sb-item-label">Home</span>
     </button>
   </div>
-</header>
 
-<div class="main-nav">
-  <button class="main-nav-btn" id="tab-home">🏠 Home</button>
-</div>
+  <div class="sb-divider"></div>
 
-<div class="sub-nav" id="subnav-programs">
-  <button class="active" id="prog-tab-ladder" data-action="switchProgramTab" data-tab="ladder">Ladder</button>
-  <button id="prog-tab-tournament" data-action="switchProgramTab" data-tab="tournament">Tournaments</button>
-</div>
-
-<!-- Ladder sub-options -->
-<div class="sub-nav" id="subnav-ladder-options" style="background:var(--bg);border-bottom:0.5px solid var(--border);">
-  <div class="sub-nav-ladder">
-    <label>Ladder</label>
-    <select id="ladder-selector"></select>
+  <!-- Programs: Ladder -->
+  <div class="sb-section">
+    <div class="sb-section-label">Ladder</div>
+    <button class="sb-item" id="sb-ladder" data-action="sbShowLadder">
+      <span class="sb-item-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" ><circle cx="12" cy="8" r="5"/><path d="M8.56 13.9l-1.56 6.1 5-3 5 3-1.56-6.1"/></svg></span>
+      <span class="sb-item-label">Ladder</span>
+    </button>
+    <div class="sb-select-wrap" id="sb-ladder-select-wrap" style="display:none;">
+      <select class="sb-select" id="ladder-selector"></select>
+    </div>
+    <button class="sb-sub-item" id="sb-standings" data-action="showPage" data-page="ladder">Standings</button>
+    <button class="sb-sub-item" id="sb-sessions" data-action="showPage" data-page="sessions">Sessions</button>
+    <button class="sb-sub-item" id="sb-entry" data-action="showPage" data-page="entry">Record Session</button>
   </div>
-  <button data-page="ladder" data-action="showPage">Standings</button>
-  <button data-page="sessions" data-action="showPage">Sessions</button>
-  <button data-page="entry" data-action="showPage">Record Session</button>
-</div>
 
-<!-- Tournament sub-options -->
-<div class="sub-nav" id="subnav-tournament-options" style="display:none;background:var(--bg);border-bottom:0.5px solid var(--border);">
-  <div class="sub-nav-ladder">
-    <label>Tournament</label>
-    <select id="tournament-selector">
-      <option value="">-- Select a tournament --</option>
-    </select>
+  <div class="sb-divider"></div>
+
+  <!-- Programs: Tournaments -->
+  <div class="sb-section">
+    <div class="sb-section-label">Tournaments</div>
+    <button class="sb-item" id="sb-tournament" data-action="sbShowTournament">
+      <span class="sb-item-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" ><path d="M6 9H4a2 2 0 0 1-2-2V5h4"/><path d="M18 9h2a2 2 0 0 0 2-2V5h-4"/><path d="M12 17v4"/><path d="M8 21h8"/><path d="M6 9a6 6 0 0 0 12 0V3H6v6z"/></svg></span>
+      <span class="sb-item-label">Tournaments</span>
+    </button>
+    <div class="sb-select-wrap" id="sb-tourn-select-wrap" style="display:none;">
+      <select class="sb-select" id="tournament-selector">
+        <option value="">-- Select --</option>
+      </select>
+    </div>
   </div>
-  <button data-page="tournament-view" data-action="showPage">Overview</button>
+
+  <div class="sb-divider"></div>
+
+  <!-- Management -->
+  <div class="sb-section">
+    <div class="sb-section-label">Management</div>
+    <button class="sb-item" id="sb-players" data-action="showPage" data-page="players">
+      <span class="sb-item-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" ><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+      <span class="sb-item-label">Players</span>
+    </button>
+    <button class="sb-item" id="sb-add-player" data-action="showPage" data-page="add-player">
+      <span class="sb-item-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" ><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="17" y1="11" x2="23" y2="11"/></svg></span>
+      <span class="sb-item-label">Add Player</span>
+    </button>
+    <button class="sb-item" id="sb-ladders" data-action="showPage" data-page="ladders">
+      <span class="sb-item-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" ><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></span>
+      <span class="sb-item-label">Ladders</span>
+    </button>
+    <button class="sb-item" id="sb-t-tournaments" data-action="showPage" data-page="t-tournaments">
+      <span class="sb-item-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" ><circle cx="12" cy="12" r="10"/><path d="M4.93 4.93c4.68 4.68 4.68 11.46 0 16.14"/><path d="M19.07 4.93c-4.68 4.68-4.68 11.46 0 16.14"/></svg></span>
+      <span class="sb-item-label">Tournaments</span>
+    </button>
+    <button class="sb-item" id="sb-events" data-action="showPage" data-page="events">
+      <span class="sb-item-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" ><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>
+      <span class="sb-item-label">Events</span>
+    </button>
+    <button class="sb-item" id="sb-orders" data-action="showPage" data-page="orders">
+      <span class="sb-item-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" ><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg></span>
+      <span class="sb-item-label">Orders</span>
+    </button>
+    <button class="sb-item" id="sb-promotions" data-action="showPage" data-page="promotions">
+      <span class="sb-item-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" ><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span>
+      <span class="sb-item-label">Promotions</span>
+    </button>
+    <button class="sb-item" id="sb-share" data-action="showPage" data-page="share">
+      <span class="sb-item-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" ><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span>
+      <span class="sb-item-label">Share Links</span>
+    </button>
+  </div>
+
+  <!-- Sidebar footer: sign out -->
+  <div class="sb-footer">
+    <!-- Toggle sidebar open/collapsed -->
+    <button class="sb-toggle" id="sb-toggle-btn" type="button" title="Toggle sidebar" onclick="window.sbToggleSidebar()">
+      <span class="sb-toggle-icon">»</span>
+      <span class="sb-toggle-label">Collapse</span>
+    </button>
+    <button class="sb-item" id="sign-out-btn" data-action="signOut" type="button" style="display:none;">
+      <span class="sb-item-icon">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+          <polyline points="16 17 21 12 16 7"/>
+          <line x1="21" y1="12" x2="9" y2="12"/>
+        </svg>
+      </span>
+      <span class="sb-item-label">Sign out</span>
+    </button>
+  </div>
+</nav>
+
+<!-- ── TOP BAR ───────────────────────────────────────────── -->
+<div class="top-bar" id="top-bar">
+  <div class="top-bar-left">
+    <img style="height:26px;width:auto;display:block;" data-asset="ferociaLogo" alt="Ferocia">
+  </div>
+  <div style="display:flex;align-items:center;gap:10px;">
+    <span id="dash-live-badge" style="display:none;background:rgba(36,188,150,0.15);border:0.5px solid #24BC96;color:#24BC96;font-size:10px;font-weight:700;padding:3px 9px;border-radius:99px;">● Live</span>
+    <span class="date-tag" id="last-updated"></span>
+  </div>
 </div>
 
-<div class="sub-nav" id="subnav-management" style="display:none;">
-  <button data-action="showPage" data-page="players">Players</button>
-  <button data-action="showPage" data-page="add-player">Add Player</button>
-  <button data-action="showPage" data-page="ladders">Ladders</button>
-  <button data-action="showPage" data-page="t-tournaments">Tournaments</button>
-  <button data-action="showPage" data-page="events">Events</button>
-  <button data-action="showPage" data-page="orders">Orders</button>
-  <button data-action="showPage" data-page="promotions">Promotions</button>
-  <button data-action="showPage" data-page="share">Share Links</button>
-</div>
+<!-- ── MAIN CONTENT WRAPPER ──────────────────────────────── -->
+<div class="main-content">
 
-<div id="ladder-banner" style="display:none;"></div>
+<div id="ladder-banner" style="display:none;background:var(--blue-pale);border-bottom:0.5px solid var(--border);padding:10px 24px;font-size:12px;font-weight:700;color:var(--blue);"></div>
 
 <main>
 
-  <!-- PROGRAMS LANDING PAGE -->
+  <!-- PROGRAMS LANDING -->
   <div id="page-programs-home" class="page">
     <div style="text-align:center;padding:48px 24px 32px;">
-      <div style="font-size:13px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);margin-bottom:32px;">Programs</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:480px;margin:0 auto;">
-        <div data-action="switchProgramTab" data-tab="ladder"
-          style="background:var(--blue);border-radius:var(--radius);padding:28px 20px;cursor:pointer;transition:opacity .15s;"
-          onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
-          <div style="font-size:32px;margin-bottom:12px;">🏅</div>
-          <div style="font-size:14px;font-weight:800;color:white;letter-spacing:.5px;text-transform:uppercase;">Ladder</div>
-          <div style="font-size:11px;color:var(--blue-light);margin-top:4px;font-weight:500;">Standings & Sessions</div>
+      <div style="font-size:10px;font-weight:800;letter-spacing:3px;text-transform:uppercase;color:var(--text-muted);margin-bottom:32px;">Programs</div>
+      <div class="tile-grid">
+        <div class="tile tile-blue" data-action="switchProgramTab" data-tab="ladder">
+          <div class="tile-icon">🏅</div>
+          <div class="tile-title">Ladder</div>
+          <div class="tile-sub">Standings & Sessions</div>
         </div>
-        <div data-action="switchProgramTab" data-tab="tournament"
-          style="background:var(--orange);border-radius:var(--radius);padding:28px 20px;cursor:pointer;transition:opacity .15s;"
-          onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
-          <div style="font-size:32px;margin-bottom:12px;">🏆</div>
-          <div style="font-size:14px;font-weight:800;color:white;letter-spacing:.5px;text-transform:uppercase;">Tournaments</div>
-          <div style="font-size:11px;color:var(--orange-light);margin-top:4px;font-weight:500;">Brackets & Results</div>
+        <div class="tile tile-orange" data-action="switchProgramTab" data-tab="tournament">
+          <div class="tile-icon">🏆</div>
+          <div class="tile-title">Tournaments</div>
+          <div class="tile-sub">Brackets & Results</div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- WELCOME / HOME -->
+  <!-- HOME -->
   <div id="page-home" class="page active">
-    <div style="text-align:center;padding:48px 24px 32px;">
-      <div style="font-size:48px;margin-bottom:16px;">🏓</div>
-      <div style="font-size:22px;font-weight:800;color:var(--blue);margin-bottom:8px;letter-spacing:-0.5px;">Welcome to Ferocia Pickleball</div>
-      <div style="font-size:14px;color:var(--text-muted);font-weight:500;max-width:400px;margin:0 auto 40px;">Select a section below to get started.</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:480px;margin:0 auto;">
-        <div data-action="switchTab" data-tab="programs"
-          style="background:var(--blue);border-radius:var(--radius);padding:28px 20px;cursor:pointer;transition:opacity .15s;"
-          onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
-          <div style="font-size:32px;margin-bottom:12px;">🏆</div>
-          <div style="font-size:14px;font-weight:800;color:white;letter-spacing:.5px;text-transform:uppercase;">Programs</div>
-          <div style="font-size:11px;color:var(--blue-light);margin-top:4px;font-weight:500;">Ladders & Tournaments</div>
+
+    <!-- Dashboard header -->
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:12px;">
+      <div>
+        <div style="font-size:9px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--text-muted);margin-bottom:3px;display:flex;align-items:center;gap:5px;">
+          <span style="width:4px;height:4px;border-radius:50%;background:var(--lime);display:inline-block;"></span>Admin Portal
         </div>
-        <div data-action="switchTab" data-tab="management"
-          style="background:var(--teal);border-radius:var(--radius);padding:28px 20px;cursor:pointer;transition:opacity .15s;"
-          onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
-          <div style="font-size:32px;margin-bottom:12px;">⚙️</div>
-          <div style="font-size:14px;font-weight:800;color:white;letter-spacing:.5px;text-transform:uppercase;">Management</div>
-          <div style="font-size:11px;color:var(--teal-light);margin-top:4px;font-weight:500;">Players, Ladders & Settings</div>
-        </div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:34px;color:#0d1f4a;letter-spacing:1px;line-height:1;">Dashboard</div>
+      </div>
+      <div style="display:flex;gap:7px;align-items:center;">
+        <button class="btn btn-outline btn-sm" data-action="showPage" data-page="promotions" style="font-size:10px;border-radius:99px;">Send Promo</button>
+        <button class="btn btn-primary btn-sm" data-action="showPage" data-page="events" style="font-size:10px;border-radius:99px;">+ New Event</button>
       </div>
     </div>
-  </div>
 
+    <!-- 5 KPI cards — each with colored top border + single context line -->
+    <div class="stats-grid" id="dash-stats">
+      <div class="stat stat-green">
+        <div class="stat-label">Active Players</div>
+        <div class="stat-value" id="dash-active-players">—</div>
+        <div class="stat-ctx ctx-green" id="dash-players-ctx">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#24BC96" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+          growing this season
+        </div>
+      </div>
+      <div class="stat stat-blue">
+        <div class="stat-label">Open Ladders</div>
+        <div class="stat-value" id="dash-open-ladders">—</div>
+        <div class="stat-ctx ctx-blue">Season active</div>
+      </div>
+      <div class="stat stat-lime">
+        <div class="stat-label">Open Tournaments</div>
+        <div class="stat-value" id="dash-open-tournaments">—</div>
+        <div class="stat-ctx ctx-lime">Registration open</div>
+      </div>
+      <div class="stat stat-orange">
+        <div class="stat-label">Pending Orders</div>
+        <div class="stat-value" id="dash-pending-orders">—</div>
+        <div class="stat-ctx ctx-orange">Awaiting fulfillment</div>
+      </div>
+      <div class="stat stat-green">
+        <div class="stat-label">Subscribers</div>
+        <div class="stat-value" id="dash-subscribers">—</div>
+        <div class="stat-ctx ctx-green" id="dash-subs-ctx">—</div>
+      </div>
+    </div>
+
+    <!-- Operations Center -->
+    <div class="ops-card">
+      <div class="ops-card-header">
+        <div class="ops-card-title">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          Operations Center
+        </div>
+        <span class="ops-badge" id="dash-ops-badge"></span>
+      </div>
+      <div id="dash-ops-list"><div class="loading">Loading...</div></div>
+    </div>
+
+    <!-- Active Ladders & Tournaments + Upcoming Events (70/30) -->
+    <div class="dash-two-col">
+
+      <div class="card">
+        <div class="section-header">
+          <div class="dash-section-title">Active Ladders &amp; Tournaments</div>
+        </div>
+        <div id="dash-programs-list"><div class="loading">Loading...</div></div>
+      </div>
+
+      <div class="card">
+        <div class="section-header">
+          <div class="dash-section-title">Upcoming Events</div>
+          <button class="btn btn-outline btn-sm" data-action="showPage" data-page="events" style="font-size:10px;">View all →</button>
+        </div>
+        <div id="dash-events-list"><div class="loading">Loading...</div></div>
+      </div>
+
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="card">
+      <div class="section-header" style="margin-bottom:14px;">
+        <div class="dash-section-title">Quick Actions</div>
+      </div>
+      <div class="qa-grid">
+        <button class="qa-item" data-action="showPage" data-page="add-player">
+          <div class="qa-icon" style="background:#e8f0ff;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="17" y1="11" x2="23" y2="11"/></svg>
+          </div>
+          <span class="qa-label">Add Player</span>
+        </button>
+        <button class="qa-item" data-action="showPage" data-page="t-tournaments">
+          <div class="qa-icon" style="background:#d4f5ed;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#24BC96" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4a2 2 0 0 1-2-2V5h4"/><path d="M18 9h2a2 2 0 0 0 2-2V5h-4"/><path d="M12 17v4"/><path d="M8 21h8"/><path d="M6 9a6 6 0 0 0 12 0V3H6v6z"/></svg>
+          </div>
+          <span class="qa-label">New Tournament</span>
+        </button>
+        <button class="qa-item" data-action="showPage" data-page="promotions">
+          <div class="qa-icon" style="background:#e8f0ff;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          </div>
+          <span class="qa-label">Send Promo</span>
+        </button>
+        <button class="qa-item" data-action="showPage" data-page="events">
+          <div class="qa-icon" style="background:#fde8d8;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F26024" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          </div>
+          <span class="qa-label">Create Event</span>
+        </button>
+      </div>
+    </div>
+
+  </div>
 
   <!-- STANDINGS -->
   <div id="page-ladder" class="page active">
+    <div id="ladder-title" style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:#0d1f4a;letter-spacing:1px;margin-bottom:14px;display:none;"></div>
     <div class="stats-grid" id="ladder-stats"></div>
+    <div id="momentum-watch" style="display:none;background:var(--white);border:0.5px solid #e0e7f5;border-radius:10px;padding:14px 18px;margin-bottom:14px;display:none;box-shadow:0 1px 4px rgba(23,76,204,0.06);"></div>
     <div class="card">
       <div class="section-header">
-        <h2>Season Standings</h2>
-        <div style="display:flex;gap:8px;align-items:center;">
-          <button type="button" class="btn btn-sm" data-action="openNotifyPlayers" style="background:var(--teal);color:white;border:none;">Notify Players</button>
-          <button type="button" class="btn btn-primary btn-sm" data-action="printStandings" style="font-size:11px;font-weight:800;">📄 Print Standings</button>
-          <select id="gender-filter" style="font-size:12px;padding:5px 10px;width:auto;font-family:'Montserrat',sans-serif;font-weight:600;">
+        <div class="dash-section-title">Season Standings</div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <button type="button" class="btn btn-teal btn-sm" data-action="openNotifyPlayers">Notify Players</button>
+          <button type="button" class="btn btn-primary btn-sm" data-action="printStandings" style="display:flex;align-items:center;gap:6px;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Export Standings
+          </button>
+          <select id="gender-filter" style="font-size:12px;padding:6px 12px;width:auto;font-family:'Montserrat',sans-serif;font-weight:700;border:0.5px solid var(--border);border-radius:99px;outline:none;">
             <option value="all">All players</option>
             <option value="Male">Men</option>
             <option value="Female">Women</option>
@@ -283,8 +1063,11 @@
 
   <!-- SESSIONS -->
   <div id="page-sessions" class="page">
+    <div id="sessions-ladder-title" style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:var(--text);letter-spacing:1px;margin-bottom:16px;display:none;"></div>
     <div class="card">
-      <div class="section-header"><h2>Session History</h2></div>
+      <div class="section-header">
+        <div class="dash-section-title">Session History</div>
+      </div>
       <div id="sessions-list"><div class="loading">Loading sessions...</div></div>
     </div>
   </div>
@@ -292,21 +1075,22 @@
   <!-- RECORD SESSION -->
   <div id="page-entry" class="page">
     <div id="entry-no-ladder" style="display:none;" class="card">
-      <div style="text-align:center;padding:20px;">
+      <div style="text-align:center;padding:24px;">
         <div style="font-size:14px;font-weight:700;color:var(--text-muted);margin-bottom:8px;">No ladder selected</div>
         <div style="font-size:13px;color:var(--text-muted);">Please select a ladder from the bar above, or create one in the Ladders tab.</div>
       </div>
     </div>
     <div id="entry-form">
+      <div id="entry-ladder-title" style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:var(--text);letter-spacing:1px;margin-bottom:12px;display:none;"></div>
       <div class="points-ref">
         <div class="points-ref-title">Points Reference</div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px;">
-          <div style="display:flex;align-items:center;gap:14px;background:rgba(255,255,255,0.08);border-radius:8px;padding:12px 16px;"><span style="font-size:26px;font-weight:800;color:var(--lime);min-width:40px;text-align:center;">+4</span><span style="font-size:14px;color:white;font-weight:600;">Win the match</span></div>
-          <div style="display:flex;align-items:center;gap:14px;background:rgba(255,255,255,0.08);border-radius:8px;padding:12px 16px;"><span style="font-size:26px;font-weight:800;color:var(--lime);min-width:40px;text-align:center;">+3</span><span style="font-size:14px;color:white;font-weight:600;">Lose by 1-2 pts <span style="color:var(--blue-light);font-weight:500;">(11-10, 11-9)</span></span></div>
-          <div style="display:flex;align-items:center;gap:14px;background:rgba(255,255,255,0.08);border-radius:8px;padding:12px 16px;"><span style="font-size:26px;font-weight:800;color:var(--lime);min-width:40px;text-align:center;">+2</span><span style="font-size:14px;color:white;font-weight:600;">Lose by 3-4 pts <span style="color:var(--blue-light);font-weight:500;">(11-8, 11-7)</span></span></div>
-          <div style="display:flex;align-items:center;gap:14px;background:rgba(255,255,255,0.08);border-radius:8px;padding:12px 16px;"><span style="font-size:26px;font-weight:800;color:var(--lime);min-width:40px;text-align:center;">+1</span><span style="font-size:14px;color:white;font-weight:600;">Lose by 5-8 pts <span style="color:var(--blue-light);font-weight:500;">(11-6 to 11-3)</span></span></div>
-          <div style="display:flex;align-items:center;gap:14px;background:rgba(255,255,255,0.08);border-radius:8px;padding:12px 16px;"><span style="font-size:26px;font-weight:800;color:var(--lime);min-width:40px;text-align:center;">+0</span><span style="font-size:14px;color:white;font-weight:600;">Lose by 9+ pts <span style="color:var(--blue-light);font-weight:500;">(11-2 or worse)</span></span></div>
-          <div style="display:flex;align-items:center;gap:14px;background:rgba(242,96,36,0.2);border-radius:8px;padding:12px 16px;border:1px solid rgba(242,96,36,0.4);"><span style="font-size:26px;font-weight:800;color:#F26024;min-width:40px;text-align:center;">-1</span><span style="font-size:14px;color:white;font-weight:600;">Default / No-show</span></div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:5px;">
+          <div style="display:flex;align-items:center;gap:14px;background:rgba(255,255,255,0.1);border-radius:var(--radius-sm);padding:12px 16px;"><span style="font-family:'Bebas Neue',sans-serif;font-size:32px;color:var(--lime);min-width:40px;text-align:center;">+4</span><span style="font-size:11px;color:white;font-weight:600;">Win the match</span></div>
+          <div style="display:flex;align-items:center;gap:14px;background:rgba(255,255,255,0.1);border-radius:var(--radius-sm);padding:12px 16px;"><span style="font-family:'Bebas Neue',sans-serif;font-size:32px;color:var(--lime);min-width:40px;text-align:center;">+3</span><span style="font-size:11px;color:white;font-weight:600;">Lose by 1-2 pts <span style="color:var(--blue-light);font-weight:500;">(11-10, 11-9)</span></span></div>
+          <div style="display:flex;align-items:center;gap:14px;background:rgba(255,255,255,0.1);border-radius:var(--radius-sm);padding:12px 16px;"><span style="font-family:'Bebas Neue',sans-serif;font-size:32px;color:var(--lime);min-width:40px;text-align:center;">+2</span><span style="font-size:11px;color:white;font-weight:600;">Lose by 3-4 pts <span style="color:var(--blue-light);font-weight:500;">(11-8, 11-7)</span></span></div>
+          <div style="display:flex;align-items:center;gap:14px;background:rgba(255,255,255,0.1);border-radius:var(--radius-sm);padding:12px 16px;"><span style="font-family:'Bebas Neue',sans-serif;font-size:32px;color:var(--lime);min-width:40px;text-align:center;">+1</span><span style="font-size:11px;color:white;font-weight:600;">Lose by 5-8 pts <span style="color:var(--blue-light);font-weight:500;">(11-6 to 11-3)</span></span></div>
+          <div style="display:flex;align-items:center;gap:14px;background:rgba(255,255,255,0.1);border-radius:var(--radius-sm);padding:12px 16px;"><span style="font-family:'Bebas Neue',sans-serif;font-size:32px;color:var(--lime);min-width:40px;text-align:center;">+0</span><span style="font-size:11px;color:white;font-weight:600;">Lose by 9+ pts <span style="color:var(--blue-light);font-weight:500;">(11-2 or worse)</span></span></div>
+          <div style="display:flex;align-items:center;gap:14px;background:rgba(242,96,36,0.15);border-radius:var(--radius-sm);padding:12px 16px;"><span style="font-family:'Bebas Neue',sans-serif;font-size:32px;color:#F26024;min-width:40px;text-align:center;">-1</span><span style="font-size:11px;color:white;font-weight:600;">Default / No-show</span></div>
         </div>
       </div>
       <div class="card">
@@ -318,11 +1102,11 @@
       </div>
       <div class="card">
         <div class="card-title">Step 2 — Players on this court</div>
-        <div style="margin-bottom:10px;font-size:12px;color:var(--text-muted);font-weight:500;">Add 4 or 5 players. Only players enrolled in this ladder will appear.</div>
+        <div style="margin-bottom:12px;font-size:12px;color:var(--text-muted);font-weight:500;">Add 4 or 5 players. Only players enrolled in this ladder will appear.</div>
         <div id="court-players-list"></div>
-        <div style="margin-top:10px;position:relative;">
+        <div style="margin-top:12px;position:relative;">
           <div style="border:0.5px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;">
-            <div style="padding:8px 10px;background:var(--bg);border-bottom:0.5px solid var(--border);">
+            <div style="padding:10px 12px;background:var(--bg);border-bottom:0.5px solid var(--border);">
               <input type="text" id="player-search-entry" placeholder="Type to search players..." autocomplete="off"
                 style="width:100%;border:none;background:transparent;font-size:13px;font-family:Montserrat,sans-serif;outline:none;color:var(--text);">
             </div>
@@ -333,16 +1117,22 @@
         </div>
       </div>
       <div class="card" id="games-setup-card" style="display:none;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
           <div class="card-title" style="margin:0;">Step 3 — Record games</div>
           <button class="btn btn-outline btn-sm" data-action="addExtraGame">+ Add game</button>
         </div>
         <div id="games-container"></div>
       </div>
       <div id="save-btn-wrap" style="display:none;margin-bottom:24px;">
-        <button class="btn btn-primary" data-action="submitSession" id="save-session-btn" style="width:100%;">Save Roster</button>
-        <div style="font-size:13px;font-weight:700;color:var(--teal);text-align:center;margin-top:10px;line-height:1.4;" id="save-session-hint">
-          💡 Scores are optional — save the roster now and add scores later in the Sessions tab.
+        <button class="btn btn-primary" data-action="submitSession" id="save-session-btn" style="width:100%;padding:14px;display:flex;align-items:center;justify-content:center;gap:8px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          Save Roster
+        </button>
+        <div style="background:var(--blue-pale);border-radius:var(--radius-sm);padding:14px 16px;margin-top:20px;text-align:center;" id="save-session-hint">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:6px;margin-top:-2px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span style="font-size:13px;line-height:1.6;color:var(--text-muted);">
+            <span style="font-weight:800;color:var(--text);">Scores are optional</span> — save the roster now and add scores later in the Sessions tab.
+          </span>
         </div>
       </div>
     </div>
@@ -350,46 +1140,158 @@
 
   <!-- PLAYERS -->
   <div id="page-players" class="page">
-    <div class="card">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-        <div class="card-title" style="margin:0;">All Players</div>
-        <span id="players-count" style="font-size:12px;font-weight:700;color:var(--text-muted);background:var(--gray);padding:3px 10px;border-radius:99px;"></span>
+    <!-- Page title — Bebas Neue 28px same as other pages -->
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:#0d1f4a;letter-spacing:1px;margin-bottom:16px;line-height:1;">All Players</div>
+
+    <!-- Stat cards row — same style as dashboard/standings -->
+    <div class="stats-grid" id="players-stats" style="grid-template-columns:repeat(5,1fr);margin-bottom:20px;">
+      <div class="stat stat-blue">
+        <div class="stat-label">Total Players</div>
+        <div class="stat-value" id="players-total">—</div>
+        <div class="stat-ctx ctx-blue">All registered</div>
       </div>
-      <div style="display:flex;gap:10px;margin-bottom:14px;">
-        <input type="text" id="player-search" placeholder="Search by name..."
-          style="flex:1;padding:10px 14px;font-size:13px;border:0.5px solid var(--border);border-radius:var(--radius-sm);font-family:'Montserrat',sans-serif;">
+      <div class="stat stat-green">
+        <div class="stat-label">Active</div>
+        <div class="stat-value" id="players-active">—</div>
+        <div class="stat-ctx ctx-green">Currently active</div>
+      </div>
+      <div class="stat stat-orange">
+        <div class="stat-label">Inactive</div>
+        <div class="stat-value" id="players-inactive">—</div>
+        <div class="stat-ctx" style="color:#6b7a99;">Not participating</div>
+      </div>
+      <div class="stat stat-blue">
+        <div class="stat-label">Male</div>
+        <div class="stat-value" id="players-male">—</div>
+        <div class="stat-ctx ctx-blue" id="players-male-pct"></div>
+      </div>
+      <div class="stat stat-orange">
+        <div class="stat-label">Female</div>
+        <div class="stat-value" id="players-female">—</div>
+        <div class="stat-ctx ctx-orange" id="players-female-pct"></div>
+      </div>
+    </div>
+
+    <!-- Main table card -->
+    <div class="card" style="padding:0;overflow:hidden;">
+      <!-- Toolbar: search + status filter + add player -->
+      <div style="display:flex;align-items:center;gap:10px;padding:14px 20px;border-bottom:0.5px solid #e0e7f5;">
+        <div style="flex:1;display:flex;align-items:center;gap:8px;background:var(--bg);border:0.5px solid #e0e7f5;border-radius:8px;padding:8px 14px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6b7a99" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" id="player-search" placeholder="Search players, email, phone..."
+            style="border:none;background:transparent;outline:none;font-family:'Montserrat',sans-serif;font-size:12px;font-weight:600;color:#0d1f4a;width:100%;">
+        </div>
         <select id="player-status-filter"
-          style="font-size:12px;padding:5px 10px;font-family:'Montserrat',sans-serif;font-weight:600;border:0.5px solid var(--border);border-radius:var(--radius-sm);">
-          <option value="all">All status</option>
+          style="font-size:12px;padding:8px 14px;font-family:'Montserrat',sans-serif;font-weight:700;border:0.5px solid var(--border);border-radius:99px;outline:none;flex-shrink:0;">
+          <option value="all">All Players</option>
           <option value="active">Active</option>
           <option value="inactive">Inactive</option>
+          <option value="ladder">In Ladder</option>
+          <option value="tournament">In Tournament</option>
+          <option value="new">New Player</option>
+          <option value="hot">Hot Streak</option>
         </select>
       </div>
-      <div id="players-table"><div class="loading">Loading players...</div></div>
+      <span id="players-count" style="display:none;"></span><div id="players-table"><div class="loading" style="padding:20px;">Loading players...</div></div>
     </div>
   </div>
 
   <!-- LADDERS -->
   <div id="page-ladders" class="page">
-    <div class="card">
-      <div class="card-title">Create New Ladder</div>
-      <form id="create-ladder-form">
-        <div class="form-group"><label>Ladder name</label><input type="text" id="new-ladder-name" required placeholder="e.g. Spring Ladder 2026"></div>
-        <div class="form-row">
-          <div class="form-group"><label>Start date</label><input type="date" id="new-ladder-start"></div>
-          <div class="form-group"><label>End date</label><input type="date" id="new-ladder-end"></div>
+
+    <!-- Page title -->
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:#0d1f4a;letter-spacing:1px;line-height:1;margin-bottom:4px;">Ladder Operations Center</div>
+    <div style="font-size:12px;font-weight:600;color:#6b7a99;margin-bottom:20px;">Create, manage, and monitor active competitive ladder seasons.</div>
+
+    <!-- Stat cards -->
+    <div class="stats-grid" id="ladder-op-stats" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px;">
+      <div class="stat stat-green" style="display:flex;flex-direction:column;">
+        <div class="stat-label">Active Ladders</div>
+        <div class="stat-value" id="lop-active">—</div>
+        <div class="stat-ctx ctx-green" style="margin-top:auto;display:flex;align-items:center;gap:4px;">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#24BC96" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+          Currently running
         </div>
-        <button type="submit" class="btn btn-primary">Create ladder</button>
+      </div>
+      <div class="stat stat-blue" style="display:flex;flex-direction:column;">
+        <div class="stat-label">Closed Ladders</div>
+        <div class="stat-value" id="lop-closed">—</div>
+        <div class="stat-ctx ctx-blue" style="margin-top:auto;display:flex;align-items:center;gap:4px;">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Completed seasons
+        </div>
+      </div>
+      <div class="stat stat-orange" style="display:flex;flex-direction:column;">
+        <div class="stat-label">Total Players</div>
+        <div class="stat-value" id="lop-players">—</div>
+        <div class="stat-ctx ctx-orange" style="margin-top:auto;display:flex;align-items:center;gap:4px;">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#F26024" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          Across active ladders
+        </div>
+      </div>
+      <div class="stat stat-lime" style="display:flex;flex-direction:column;">
+        <div class="stat-label">Pending Scores</div>
+        <div class="stat-value" id="lop-pending">—</div>
+        <div class="stat-ctx" style="margin-top:auto;display:flex;align-items:center;gap:4px;color:#c04a0e;">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#c04a0e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Awaiting results
+        </div>
+      </div>
+    </div>
+
+    <!-- Compact create form -->
+    <div class="card" style="padding:16px 20px;margin-bottom:20px;">
+      <div style="font-size:9px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#6b7a99;margin-bottom:10px;display:flex;align-items:center;gap:6px;">
+        <span style="width:6px;height:6px;border-radius:50%;background:#174CCC;display:inline-block;"></span>
+        New Ladder
+      </div>
+      <form id="create-ladder-form">
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:10px;align-items:end;">
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <div class="lop-create-label">Ladder Name</div>
+            <input type="text" id="new-ladder-name" required placeholder="e.g. Doubles Saturday 3.5 – Summer 2026" class="lop-create-input">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <div class="lop-create-label">Start Date</div>
+            <input type="date" id="new-ladder-start" class="lop-create-input">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <div class="lop-create-label">End Date</div>
+            <input type="date" id="new-ladder-end" class="lop-create-input">
+          </div>
+          <button type="submit" class="ap-submit-btn" style="padding:8px 18px;font-size:11px;white-space:nowrap;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
+            Launch Ladder
+          </button>
+        </div>
       </form>
     </div>
-    <div class="card">
-      <div class="card-title">All Ladders</div>
-      <div id="ladders-list"><div class="loading">Loading ladders...</div></div>
+
+    <!-- Section header + filter -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+      <div style="font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#0d1f4a;display:flex;align-items:center;gap:8px;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0d1f4a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="5"/><path d="M8.56 13.9l-1.56 6.1 5-3 5 3-1.56-6.1"/></svg>
+        Ladders
+      </div>
+      <div style="position:relative;">
+        <select id="ladder-status-filter" class="lop-filter-sel">
+          <option value="all">All Ladders</option>
+          <option value="active">Active Only</option>
+          <option value="closed">Closed Only</option>
+        </select>
+        <svg style="position:absolute;right:10px;top:50%;transform:translateY(-50%);pointer-events:none;" width="10" height="6" viewBox="0 0 10 6"><path d="M0 0l5 6 5-6z" fill="#6b7a99"/></svg>
+      </div>
     </div>
+
+    <!-- Ladders list -->
+    <div id="ladders-list"><div class="loading">Loading ladders...</div></div>
+
   </div>
 
   <!-- ADD PLAYER -->
   <div id="page-add-player" class="page">
+
+    <!-- Success banner -->
     <div class="success-banner" id="player-success">
       <div class="success-icon">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8l3.5 3.5L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -399,55 +1301,141 @@
         <div style="font-size:12px;color:var(--teal);margin-top:2px;font-weight:500;">Player added successfully.</div>
       </div>
     </div>
-    <div class="card">
-      <div class="card-title">Add New Player</div>
-      <form>
-        <div class="form-row">
-          <div class="form-group"><label>First name</label><input type="text" id="p-first" required placeholder="First name"></div>
-          <div class="form-group"><label>Last name</label><input type="text" id="p-last" required placeholder="Last name"></div>
-        </div>
-        <div class="form-row">
-          <div class="form-group"><label>Email *</label><input type="email" id="p-email" placeholder="email@example.com" required></div>
-          <div class="form-group"><label>Phone</label><input type="text" id="p-phone" placeholder="555-000-0000"></div>
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label>Gender</label>
-            <select id="p-gender">
-              <option value="">-- Select --</option>
-              <option value="Male">Male</option>
-              <option value="Female">Female</option>
-              
-            </select>
+
+    <!-- Page title -->
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:#0d1f4a;letter-spacing:1px;line-height:1;margin-bottom:4px;">Add New Player</div>
+    <div style="font-size:12px;font-weight:600;color:#6b7a99;margin-bottom:24px;">Create a new player profile for ladders, tournaments, and events.</div>
+
+    <!-- Layout: form + preview -->
+    <div style="display:grid;grid-template-columns:1fr 300px;gap:24px;align-items:start;max-width:1100px;">
+
+      <!-- FORM CARD -->
+      <div class="card" style="padding:24px;">
+        <form id="add-player-form">
+
+          <!-- Duplicate warning -->
+          <div id="p-dup-warn" style="display:none;align-items:center;gap:8px;padding:10px 14px;background:rgba(242,96,36,0.06);border:0.5px solid rgba(242,96,36,0.3);border-radius:8px;margin-bottom:16px;font-size:12px;font-weight:700;color:#c04a0e;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#c04a0e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            A player named <span id="p-dup-name" style="font-style:italic;margin:0 3px;"></span> may already exist. Please verify before creating.
           </div>
-          <div class="form-group">
-            <label>Status</label>
-            <select id="p-status">
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
+
+          <!-- SECTION: Basic Info -->
+          <div style="margin-bottom:24px;">
+            <div class="ap-section-title">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+              Basic Info
+            </div>
+            <div class="ap-grid">
+              <div class="ap-group">
+                <label class="ap-label">First Name</label>
+                <input type="text" id="p-first" class="ap-input" required placeholder="First Name" oninput="apUpdatePreview();apCheckDuplicate();">
+              </div>
+              <div class="ap-group">
+                <label class="ap-label">Last Name</label>
+                <input type="text" id="p-last" class="ap-input" required placeholder="Last Name" oninput="apUpdatePreview();apCheckDuplicate();">
+              </div>
+              <div class="ap-group">
+                <label class="ap-label">Gender</label>
+                <div class="ap-select-wrap">
+                  <select id="p-gender" class="ap-select" onchange="apUpdatePreview()">
+                    <option value="">Select gender</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                  </select>
+                </div>
+              </div>
+              <div class="ap-group">
+                <label class="ap-label">Skill Level</label>
+                <div class="ap-select-wrap">
+                  <select id="p-skill" class="ap-select" onchange="apUpdatePreview()">
+                    <option value="">Select level</option>
+                    <option value="Beginner">Beginner</option>
+                    <option value="Intermediate">Intermediate</option>
+                    <option value="Advanced">Advanced</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- SECTION: Contact Info -->
+          <div style="margin-bottom:24px;">
+            <div class="ap-section-title">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+              Contact Info
+            </div>
+            <div class="ap-grid">
+              <div class="ap-group">
+                <label class="ap-label">Email</label>
+                <input type="email" id="p-email" class="ap-input" placeholder="email@example.com" oninput="apUpdatePreview()">
+              </div>
+              <div class="ap-group">
+                <label class="ap-label">Phone</label>
+                <input type="text" id="p-phone" class="ap-input" placeholder="+1 (561) 555-0100" oninput="apUpdatePreview()">
+              </div>
+            </div>
+          </div>
+
+          <!-- SECTION: Player Status -->
+          <div style="margin-bottom:8px;">
+            <div class="ap-section-title">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+              Player Status
+            </div>
+            <div class="ap-grid">
+              <div class="ap-group">
+                <label class="ap-label">Status</label>
+                <div class="ap-select-wrap">
+                  <select id="p-status" class="ap-select" onchange="apUpdatePreview()">
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                  </select>
+                </div>
+              </div>
+              <div class="ap-group">
+                <label class="ap-label">Date Joined</label>
+                <input type="date" id="p-joined" class="ap-input" oninput="apUpdatePreview()">
+              </div>
+            </div>
+          </div>
+
+          <button type="submit" class="ap-submit-btn" id="add-player-btn">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            Create Player Profile
+          </button>
+        </form>
+      </div>
+
+      <!-- PREVIEW CARD -->
+      <div class="card" id="ap-preview-card" style="padding:24px;position:sticky;top:80px;">
+        <div style="font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#6b7a99;margin-bottom:16px;display:flex;align-items:center;gap:6px;">
+          <span style="width:6px;height:6px;border-radius:50%;background:#24BC96;display:inline-block;"></span>
+          Live Preview
+        </div>
+        <div id="ap-preview-body">
+          <div style="text-align:center;padding:20px 0;">
+            <div style="width:64px;height:64px;border-radius:50%;background:#f0f2f8;border:2px dashed #d0d5e8;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#d0d5e8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+            </div>
+            <div style="font-size:12px;font-weight:600;color:#d0d5e8;">Fill in the form to see<br>the player preview</div>
           </div>
         </div>
-        <div class="form-group"><label>Date joined</label><input type="date" id="p-joined"></div>
-        <button type="submit" class="btn btn-primary" id="add-player-btn">Add player</button>
-      </form>
+      </div>
+
     </div>
   </div>
 
-  <!-- TOURNAMENTS LIST PAGE — REMOVED (was broken legacy page).
-       Tournament management now uses page-t-tournaments below. -->
-
-  <!-- TOURNAMENT VIEW PAGE (read-only Programs view) -->
+  <!-- TOURNAMENT VIEW PAGE -->
   <div id="page-tournament-view" class="page">
     <div id="tournament-view-content"><div class="empty">Select a tournament to view details.</div></div>
   </div>
 
-  <!-- ORDERS PAGE -->
+  <!-- ORDERS -->
   <div id="page-orders" class="page">
     <div class="card">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-        <div class="card-title" style="margin:0;">Orders <span id="orders-count" style="font-size:11px;background:var(--gray);padding:2px 8px;border-radius:99px;font-weight:700;color:var(--text-muted);margin-left:6px;"></span></div>
-        <select id="orders-status-filter" class="input" style="width:auto;font-size:12px;padding:6px 10px;" onchange="loadOrdersPage()">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
+        <div class="card-title" style="margin:0;">Orders <span id="orders-count" style="font-size:11px;background:var(--gray);padding:3px 10px;border-radius:99px;font-weight:800;color:var(--text-muted);margin-left:6px;"></span></div>
+        <select id="orders-status-filter" style="font-size:12px;padding:8px 14px;font-family:'Montserrat',sans-serif;font-weight:700;border:0.5px solid var(--border);border-radius:99px;outline:none;" onchange="loadOrdersPage()">
           <option value="">All Orders</option>
           <option value="paid">Paid</option>
           <option value="fulfilled">Fulfilled</option>
@@ -458,160 +1446,336 @@
     </div>
   </div>
 
-  <!-- EVENTS PAGE -->
+  <!-- EVENTS -->
   <div id="page-events" class="page">
 
-    <!-- Create event -->
-    <div class="card">
-      <div class="card-title">Create New Event</div>
-      <form id="create-event-form">
-        <div class="form-group">
-          <label>Event Title *</label>
-          <input type="text" id="event-title" placeholder="e.g. May Tournament 2026" style="width:100%;" required>
-        </div>
-        <div class="form-group">
-          <label>Event Date *</label>
-          <input type="date" id="event-date" style="width:100%;" required>
-        </div>
-        <div class="form-group">
-          <label>Description</label>
-          <textarea id="event-description" placeholder="Short description shown on the landing page..." style="width:100%;min-height:80px;resize:vertical;font-family:Montserrat,sans-serif;font-size:13px;padding:10px 12px;border:0.5px solid var(--border);border-radius:var(--radius-sm);outline:none;"></textarea>
-        </div>
-        <div class="form-group">
-          <label>Registration URL <span style="font-weight:500;color:var(--text-muted);">(optional — shown as "Register Now" button on landing page)</span></label>
-          <input type="url" id="event-reg-url" placeholder="https://example.com/register" style="width:100%;">
-        </div>
-        <div class="form-group">
-          <label>Event Flyer (JPG or PNG)</label>
-          <input type="file" id="event-flyer" accept="image/jpeg,image/png,image/jpg" style="width:100%;font-family:Montserrat,sans-serif;font-size:13px;">
-          <div style="font-size:11px;color:var(--text-muted);margin-top:4px;font-weight:500;">Recommended: 800×1000px or similar portrait format. Max 5MB.</div>
-        </div>
-        <div id="event-flyer-preview" style="display:none;margin-top:8px;">
-          <img id="event-flyer-img" style="max-height:200px;border-radius:8px;border:0.5px solid var(--border);">
-        </div>
-        <button type="submit" class="btn btn-primary" style="width:100%;margin-top:8px;" id="create-event-btn">Create Event</button>
-      </form>
-    </div>
+    <!-- Page title -->
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:#0d1f4a;letter-spacing:1px;line-height:1;margin-bottom:4px;">Create New Event</div>
+    <div style="font-size:12px;font-weight:600;color:#6b7a99;margin-bottom:24px;">Create events for ladders, tournaments, clinics, and player engagement.</div>
 
-    <!-- Events list -->
-    <div class="card">
-      <div class="card-title">Upcoming Events</div>
-      <div id="events-list"><div class="loading">Loading events...</div></div>
-    </div>
+    <!-- Layout: form + upcoming events -->
+    <div style="display:grid;grid-template-columns:1fr 320px;gap:24px;align-items:start;max-width:1100px;">
 
+      <!-- FORM CARD -->
+      <div class="card" style="padding:24px;">
+        <form id="create-event-form">
+
+          <!-- Section: Event Details -->
+          <div style="margin-bottom:24px;">
+            <div class="ap-section-title">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              Event Details
+            </div>
+            <div class="ap-group" style="margin-bottom:12px;">
+              <label class="ap-label">Event Title <span style="color:#F26024;">*</span></label>
+              <input type="text" id="event-title" class="ap-input" placeholder="e.g. Spring Tournament 2026" required>
+            </div>
+            <div class="ap-grid">
+              <div class="ap-group">
+                <label class="ap-label">Event Date <span style="color:#F26024;">*</span></label>
+                <input type="date" id="event-date" class="ap-input" required>
+              </div>
+              <div class="ap-group">
+                <label class="ap-label">Event Time <span style="font-size:9px;font-weight:600;color:#b0bbd6;text-transform:none;letter-spacing:0;">(optional)</span></label>
+                <input type="time" id="event-time" class="ap-input">
+              </div>
+            </div>
+          </div>
+
+          <!-- Section: Description -->
+          <div style="margin-bottom:24px;">
+            <div class="ap-section-title">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="17" y1="10" x2="3" y2="10"/><line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="14" x2="3" y2="14"/><line x1="17" y1="18" x2="3" y2="18"/></svg>
+              Description
+            </div>
+            <div class="ap-group">
+              <label class="ap-label">Event Description <span style="font-size:9px;font-weight:600;color:#b0bbd6;text-transform:none;letter-spacing:0;">(optional)</span></label>
+              <textarea id="event-description" class="ap-textarea" placeholder="Short description shown on the player-facing landing page..."></textarea>
+            </div>
+          </div>
+
+          <!-- Section: Links & Media -->
+          <div style="margin-bottom:8px;">
+            <div class="ap-section-title">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+              Links &amp; Media
+            </div>
+            <div class="ap-group" style="margin-bottom:12px;">
+              <label class="ap-label">Registration URL <span style="font-size:9px;font-weight:600;color:#b0bbd6;text-transform:none;letter-spacing:0;">(optional)</span></label>
+              <input type="url" id="event-reg-url" class="ap-input" placeholder="https://example.com/register">
+            </div>
+            <div class="ap-group">
+              <label class="ap-label">Event Flyer <span style="font-size:9px;font-weight:600;color:#b0bbd6;text-transform:none;letter-spacing:0;">(JPG or PNG, optional)</span></label>
+              <label class="ev-file-upload" for="event-flyer" id="ev-flyer-label">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <span id="ev-flyer-label-text" style="font-size:11px;">Click to upload flyer — 800×1000px recommended, max 5MB</span>
+              </label>
+              <input type="file" id="event-flyer" accept="image/jpeg,image/png,image/jpg" style="display:none;">
+            </div>
+            <div id="event-flyer-preview" style="display:none;margin-top:10px;">
+              <img id="event-flyer-img" style="max-height:180px;border-radius:8px;border:0.5px solid var(--border);">
+            </div>
+          </div>
+
+          <button type="submit" class="ap-submit-btn" id="create-event-btn">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            Create Event
+          </button>
+        </form>
+      </div>
+
+      <!-- RIGHT: Upcoming Events -->
+      <div class="card" style="padding:18px 20px;position:sticky;top:80px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+          <div class="dash-section-title">Upcoming Events</div>
+          <span id="events-count-badge" style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:#174CCC;background:#e8f0ff;padding:1px 10px;border-radius:6px;"></span>
+        </div>
+        <div id="events-list"><div class="loading">Loading events...</div></div>
+      </div>
+
+    </div>
   </div>
 
   <!-- EDIT EVENT MODAL -->
-  <div id="edit-event-modal" class="modal-overlay" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.5);align-items:center;justify-content:center;padding:20px;">
-    <div class="card" style="width:100%;max-width:520px;max-height:90vh;overflow-y:auto;position:relative;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-        <div class="card-title" style="margin:0;">Edit Event</div>
-        <button class="btn btn-outline btn-sm" data-action="closeEditEventModal">✕ Close</button>
+  <div id="edit-event-modal" class="modal-overlay" style="display:none;position:fixed;inset:0;z-index:300;background:rgba(8,15,46,.6);align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(2px);">
+    <div class="card" style="width:100%;max-width:560px;max-height:90vh;overflow-y:auto;position:relative;padding:24px;">
+
+      <!-- Modal header -->
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;">
+        <div>
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;color:#0d1f4a;letter-spacing:1px;line-height:1;margin-bottom:3px;">Edit Event</div>
+          <div style="font-size:11px;font-weight:600;color:#6b7a99;">Update event details, links and media.</div>
+        </div>
+        <button data-action="closeEditEventModal" title="Close"
+          style="width:32px;height:32px;border-radius:8px;border:0.5px solid #e0e7f5;background:white;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;margin-top:2px;"
+          onmouseover="this.style.background='#fde8d8';this.style.borderColor='rgba(229,57,53,0.3)'"
+          onmouseout="this.style.background='white';this.style.borderColor='#e0e7f5'">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#e53935" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
       </div>
+
       <form id="edit-event-form">
         <input type="hidden" id="edit-event-id">
         <input type="hidden" id="edit-event-old-flyer">
-        <div class="form-group">
-          <label>Event Title *</label>
-          <input type="text" id="edit-event-title" style="width:100%;" required>
+
+        <!-- Section: Event Details -->
+        <div style="margin-bottom:20px;">
+          <div class="ap-section-title">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            Event Details
+          </div>
+          <div class="ap-group" style="margin-bottom:12px;">
+            <label class="ap-label">Event Title <span style="color:#F26024;">*</span></label>
+            <input type="text" id="edit-event-title" class="ap-input" required>
+          </div>
+          <div class="ap-grid" style="margin-bottom:12px;">
+            <div class="ap-group">
+              <label class="ap-label">Event Date <span style="color:#F26024;">*</span></label>
+              <input type="date" id="edit-event-date" class="ap-input" required>
+            </div>
+            <div class="ap-group">
+              <label class="ap-label">Event Time <span style="font-size:9px;font-weight:600;color:#b0bbd6;text-transform:none;letter-spacing:0;">(optional)</span></label>
+              <input type="time" id="edit-event-time" class="ap-input">
+            </div>
+          </div>
+          <div class="ap-group">
+            <label class="ap-label">Registration URL <span style="font-size:9px;font-weight:600;color:#b0bbd6;text-transform:none;letter-spacing:0;">(optional)</span></label>
+            <input type="url" id="edit-event-reg-url" class="ap-input" placeholder="https://example.com/register">
+          </div>
         </div>
-        <div class="form-group">
-          <label>Event Date *</label>
-          <input type="date" id="edit-event-date" style="width:100%;" required>
+
+        <!-- Section: Description -->
+        <div style="margin-bottom:20px;">
+          <div class="ap-section-title">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="17" y1="10" x2="3" y2="10"/><line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="14" x2="3" y2="14"/><line x1="17" y1="18" x2="3" y2="18"/></svg>
+            Description
+          </div>
+          <div class="ap-group">
+            <label class="ap-label">Event Description <span style="font-size:9px;font-weight:600;color:#b0bbd6;text-transform:none;letter-spacing:0;">(optional)</span></label>
+            <textarea id="edit-event-description" class="ap-textarea" style="min-height:80px;"></textarea>
+          </div>
         </div>
-        <div class="form-group">
-          <label>Description</label>
-          <textarea id="edit-event-description" style="width:100%;min-height:80px;resize:vertical;font-family:Montserrat,sans-serif;font-size:13px;padding:10px 12px;border:0.5px solid var(--border);border-radius:var(--radius-sm);outline:none;"></textarea>
+
+        <!-- Section: Flyer -->
+        <div style="margin-bottom:8px;">
+          <div class="ap-section-title">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+            Flyer
+          </div>
+          <div class="ap-group">
+            <label class="ap-label">Replace Flyer <span style="font-size:9px;font-weight:600;color:#b0bbd6;text-transform:none;letter-spacing:0;">(leave blank to keep existing)</span></label>
+            <label class="ev-file-upload" id="edit-ev-flyer-label" style="cursor:pointer;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              <span id="edit-ev-flyer-label-text" style="font-size:11px;">Click to upload a new flyer — JPG or PNG, max 5MB</span>
+            </label>
+            <input type="file" id="edit-event-flyer" accept="image/jpeg,image/png,image/jpg" style="display:none;">
+          </div>
+          <div id="edit-event-current-flyer" style="display:none;margin-top:10px;">
+            <div style="font-size:10px;font-weight:700;color:#6b7a99;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Current flyer:</div>
+            <img id="edit-event-flyer-img" style="max-height:120px;border-radius:8px;border:0.5px solid #e0e7f5;">
+          </div>
         </div>
-        <div class="form-group">
-          <label>Registration URL <span style="font-weight:500;color:var(--text-muted);">(optional)</span></label>
-          <input type="url" id="edit-event-reg-url" placeholder="https://example.com/register" style="width:100%;">
-        </div>
-        <div class="form-group">
-          <label>Replace Flyer (JPG or PNG) <span style="font-weight:500;color:var(--text-muted);">— leave blank to keep existing</span></label>
-          <input type="file" id="edit-event-flyer" accept="image/jpeg,image/png,image/jpg" style="width:100%;font-family:Montserrat,sans-serif;font-size:13px;">
-        </div>
-        <div id="edit-event-current-flyer" style="display:none;margin-bottom:8px;">
-          <div style="font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:6px;">Current flyer:</div>
-          <img id="edit-event-flyer-img" style="max-height:150px;border-radius:8px;border:0.5px solid var(--border);">
-        </div>
-        <button type="submit" class="btn btn-primary" style="width:100%;margin-top:8px;" id="edit-event-btn">Save Changes</button>
+
+        <button type="submit" class="ap-submit-btn" id="edit-event-btn">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          Save Changes
+        </button>
       </form>
     </div>
   </div>
 
-  <!-- PROMOTIONS PAGE -->
+  <!-- PROMOTIONS -->
   <div id="page-promotions" class="page">
 
-    <!-- QR Code card -->
-    <div class="card">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-        <div class="card-title" style="margin:0;">Subscribe QR Code</div>
-        <button class="btn btn-primary btn-sm" data-action="generateQR">Generate QR</button>
+    <!-- Page title -->
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:#0d1f4a;letter-spacing:1px;line-height:1;margin-bottom:4px;">Promotions</div>
+    <div style="font-size:12px;font-weight:600;color:#6b7a99;margin-bottom:20px;">Manage your subscriber list, send campaigns, and grow your player community.</div>
+
+    <!-- Stat cards -->
+    <div class="stats-grid" id="promo-stats" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px;">
+      <div class="stat stat-green" style="display:flex;flex-direction:column;">
+        <div class="stat-label">Active Subscribers</div>
+        <div class="stat-value" id="promo-stat-active">—</div>
+        <div class="stat-ctx ctx-green" style="margin-top:auto;display:flex;align-items:center;gap:4px;" id="promo-ctx-active">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#24BC96" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+          Confirmed subscribers
+        </div>
       </div>
-      <div style="font-size:12px;color:var(--text-muted);font-weight:500;margin-bottom:12px;">
-        Show this QR code to anyone who wants to join your promotional list. They'll be taken directly to the registration form.
+      <div class="stat stat-orange" style="display:flex;flex-direction:column;">
+        <div class="stat-label">Pending Confirmations</div>
+        <div class="stat-value" id="promo-stat-pending">—</div>
+        <div class="stat-ctx ctx-orange" style="margin-top:auto;display:flex;align-items:center;gap:4px;" id="promo-ctx-pending">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#F26024" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 17H2a3 3 0 0 0 3-3V9a7 7 0 0 1 14 0v5a3 3 0 0 0 3 3z"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          Awaiting email verification
+        </div>
       </div>
-      <div id="qr-container" style="display:none;">
-        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
-          <div id="qr-code" style="background:white;padding:12px;border-radius:8px;border:1px solid var(--border);"></div>
-          <div>
-            <div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">Subscription URL</div>
-            <div style="font-size:12px;color:var(--blue);font-weight:600;word-break:break-all;" id="subscribe-url-display"></div>
+      <div class="stat stat-blue" style="display:flex;flex-direction:column;">
+        <div class="stat-label">Total Subscribers</div>
+        <div class="stat-value" id="promo-stat-total">—</div>
+        <div class="stat-ctx ctx-blue" style="margin-top:auto;display:flex;align-items:center;gap:4px;" id="promo-ctx-total">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+          All time subscribers
+        </div>
+      </div>
+      <div class="stat stat-lime" style="display:flex;flex-direction:column;">
+        <div class="stat-label">Unsubscribed Players</div>
+        <div class="stat-value" id="promo-stat-unsub">—</div>
+        <div class="stat-ctx" style="margin-top:auto;display:flex;align-items:center;gap:4px;color:#6b7a99;" id="promo-ctx-unsub">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#6b7a99" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Stable this month
+        </div>
+      </div>
+    </div>
+
+    <!-- QR + Quick Actions row -->
+    <div style="display:grid;grid-template-columns:5fr 7fr;gap:20px;margin-bottom:20px;align-items:stretch;">
+
+      <!-- QR card — dark gradient -->
+      <div style="background:linear-gradient(180deg,#1A2458 0%,#22306F 100%);border-radius:12px;padding:24px 22px;display:flex;flex-direction:column;align-items:center;text-align:center;position:relative;overflow:hidden;box-shadow:0 4px 20px rgba(8,15,46,.2);">
+        <div style="position:absolute;inset:-40px;background:radial-gradient(circle at 30% 50%,rgba(23,76,204,0.3) 0%,transparent 60%),radial-gradient(circle at 80% 20%,rgba(198,242,33,0.06) 0%,transparent 50%);pointer-events:none;"></div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:white;letter-spacing:1px;margin-bottom:6px;line-height:1;position:relative;z-index:1;">Grow Your Player Base</div>
+        <!-- Growth intelligence badge — dynamic -->
+        <div style="display:inline-flex;align-items:center;gap:5px;margin-bottom:10px;position:relative;z-index:1;">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#24BC96" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+          <span id="promo-growth-badge" style="font-size:10px;font-weight:700;color:#24BC96;text-transform:uppercase;letter-spacing:.5px;">Loading...</span>
+        </div>
+        <div style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.45);margin-bottom:16px;line-height:1.6;position:relative;z-index:1;">Share at events or on social media.<br>Players scan to join instantly.</div>
+        <!-- QR code container -->
+        <div style="background:white;border-radius:12px;padding:14px;display:inline-flex;margin-bottom:14px;position:relative;z-index:1;">
+          <div id="qr-code" style="width:150px;height:150px;"></div>
+        </div>
+        <!-- URL strip -->
+        <div style="background:rgba(255,255,255,0.06);border:0.5px solid rgba(255,255,255,0.1);border-radius:8px;padding:8px 12px;display:flex;align-items:center;gap:8px;width:100%;position:relative;z-index:1;">
+          <span id="subscribe-url-display" style="font-size:10px;color:rgba(255,255,255,0.35);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:monospace;text-align:left;"></span>
+          <button id="promo-copy-url-btn" style="font-size:10px;font-weight:700;color:#C6F221;background:none;border:none;cursor:pointer;flex-shrink:0;">Copy</button>
+        </div>
+      </div>
+
+      <!-- Quick Actions card -->
+      <div class="card" style="padding:14px;display:flex;flex-direction:column;gap:8px;">
+        <div style="font-size:12px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#0d1f4a;">Quick Actions</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
+
+          <!-- Launch Campaign — featured -->
+          <div style="display:flex;flex-direction:column;gap:4px;padding:12px;background:#f4f7ff;border-radius:8px;border:0.5px solid #e0e7f5;border-left:3px solid #174CCC;">
+            <div style="width:28px;height:28px;border-radius:7px;background:#e8f0ff;display:flex;align-items:center;justify-content:center;margin-bottom:5px;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+            </div>
+            <div style="font-size:12px;font-weight:800;color:#0d1f4a;margin-bottom:2px;">Launch Campaign</div>
+            <div style="font-size:11px;font-weight:600;color:#6b7a99;line-height:1.4;margin-bottom:8px;">Reach all active subscribers with a promo email.</div>
+            <button type="button" class="ap-submit-btn" data-action="openSendPromo" style="margin-top:auto;padding:8px 12px;font-size:11px;">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+              Launch Campaign
+            </button>
           </div>
+
+          <!-- Generate QR -->
+          <div style="display:flex;flex-direction:column;gap:4px;padding:12px;background:#f8f9ff;border-radius:8px;border:0.5px solid #e0e7f5;">
+            <div style="width:28px;height:28px;border-radius:7px;background:#f0f2f8;display:flex;align-items:center;justify-content:center;margin-bottom:5px;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#0d1f4a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="4" height="4"/></svg>
+            </div>
+            <div style="font-size:12px;font-weight:800;color:#0d1f4a;margin-bottom:2px;">Generate QR</div>
+            <div style="font-size:11px;font-weight:600;color:#6b7a99;line-height:1.4;margin-bottom:8px;">Refresh QR code for printing or sharing at events.</div>
+            <button type="button" data-action="generateQR" style="display:flex;align-items:center;justify-content:center;gap:6px;padding:8px 12px;border-radius:99px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Montserrat',sans-serif;border:0.5px solid #c5d6f5;background:white;color:#174CCC;margin-top:auto;width:100%;">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+              Generate QR
+            </button>
+          </div>
+
+          <!-- Pending reminder -->
+          <div style="display:flex;flex-direction:column;gap:4px;padding:12px;background:#f8f9ff;border-radius:8px;border:0.5px solid #e0e7f5;">
+            <div style="width:28px;height:28px;border-radius:7px;background:#fff3e8;display:flex;align-items:center;justify-content:center;margin-bottom:5px;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#F26024" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            </div>
+            <div style="font-size:12px;font-weight:800;color:#0d1f4a;margin-bottom:2px;">Pending</div>
+            <div style="font-size:11px;font-weight:700;color:#F26024;line-height:1.4;margin-bottom:8px;" id="promo-pending-label">— subscribers awaiting confirmation.</div>
+            <button type="button" data-action="sendPendingReminder" style="display:flex;align-items:center;justify-content:center;gap:6px;padding:8px 12px;border-radius:99px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Montserrat',sans-serif;border:0.5px solid rgba(242,96,36,0.3);background:white;color:#c04a0e;margin-top:auto;width:100%;">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 17H2a3 3 0 0 0 3-3V9a7 7 0 0 1 14 0v5a3 3 0 0 0 3 3z"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+              Send Reminder
+            </button>
+          </div>
+
         </div>
       </div>
     </div>
 
-    <!-- Subscribers list -->
-    <div class="card">
-
-      <!-- Header row: title + stats + send button -->
-      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-          <div class="card-title" style="margin:0;">Subscribers</div>
-          <span id="sub-count-active" style="font-size:11px;background:var(--teal-light);color:var(--teal);padding:2px 9px;border-radius:99px;font-weight:800;"></span>
-          <span id="sub-count-pending" style="font-size:11px;background:var(--orange-light);color:var(--orange);padding:2px 9px;border-radius:99px;font-weight:800;"></span>
-          <span id="sub-count-unsub" style="font-size:11px;background:var(--gray);color:var(--text-muted);padding:2px 9px;border-radius:99px;font-weight:800;"></span>
+    <!-- Subscribers table card -->
+    <div class="card" style="padding:0;overflow:hidden;">
+      <!-- Toolbar -->
+      <div style="display:flex;align-items:center;gap:10px;padding:14px 20px;border-bottom:0.5px solid #e0e7f5;">
+        <div style="font-size:12px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#0d1f4a;flex-shrink:0;">Subscribers</div>
+        <div style="flex:1;display:flex;align-items:center;gap:8px;background:var(--bg);border:0.5px solid #e0e7f5;border-radius:8px;padding:7px 12px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6b7a99" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" id="sub-search" placeholder="Search subscribers, email, or phone..."
+            style="border:none;background:transparent;outline:none;font-family:'Montserrat',sans-serif;font-size:12px;font-weight:600;color:#0d1f4a;width:100%;padding:0;line-height:1.4;">
         </div>
-        <button type="button" class="btn btn-primary btn-sm" data-action="openSendPromo">Send Promo Email</button>
-      </div>
-
-      <!-- Search + filter row -->
-      <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
-        <input type="text" id="sub-search" placeholder="Search by name or email..."
-          style="flex:1;min-width:180px;padding:9px 14px;font-size:13px;border:0.5px solid var(--border);border-radius:var(--radius-sm);font-family:'Montserrat',sans-serif;">
-        <select id="sub-status-filter" style="font-size:12px;padding:9px 10px;font-family:'Montserrat',sans-serif;font-weight:600;border:0.5px solid var(--border);border-radius:var(--radius-sm);">
-          <option value="all">All Statuses</option>
-          <option value="active">Active</option>
-          <option value="pending">Pending</option>
-          <option value="unsubscribed">Unsubscribed</option>
-        </select>
-      </div>
-
-      <!-- Results info + page size -->
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
-        <div id="sub-results-info" style="font-size:12px;color:var(--text-muted);font-weight:600;"></div>
-        <div style="display:flex;align-items:center;gap:6px;">
-          <span style="font-size:11px;color:var(--text-muted);font-weight:600;">Per page:</span>
-          <select id="sub-page-size" style="font-size:12px;padding:4px 8px;font-family:'Montserrat',sans-serif;font-weight:600;border:0.5px solid var(--border);border-radius:var(--radius-sm);">
-            <option value="25">25</option>
-            <option value="50">50</option>
-            <option value="100">100</option>
+        <div style="position:relative;">
+          <select id="sub-status-filter" style="font-family:'Montserrat',sans-serif;font-size:12px;font-weight:700;padding:8px 32px 8px 12px;border:0.5px solid #e0e7f5;border-radius:99px;color:#0d1f4a;background:white;outline:none;appearance:none;cursor:pointer;">
+            <option value="all">All Statuses</option>
+            <option value="active">Active</option>
+            <option value="pending">Pending</option>
+            <option value="unsubscribed">Unsubscribed</option>
           </select>
+          <svg style="position:absolute;right:12px;top:50%;transform:translateY(-50%);pointer-events:none;" width="10" height="6" viewBox="0 0 10 6"><path d="M0 0l5 6 5-6z" fill="#6b7a99"/></svg>
         </div>
       </div>
-
-      <!-- Table -->
-      <div id="subscribers-table"><div class="loading">Loading subscribers...</div></div>
-
-      <!-- Pagination controls -->
-      <div id="sub-pagination" style="display:flex;align-items:center;justify-content:space-between;margin-top:16px;flex-wrap:wrap;gap:8px;"></div>
-
+      <div id="subscribers-table"><div class="loading" style="padding:20px;">Loading subscribers...</div></div>
+      <!-- Load more row -->
+      <div id="sub-load-more-row" style="display:none;padding:14px 20px;border-top:0.5px solid #e0e7f5;display:flex;align-items:center;justify-content:space-between;">
+        <span id="sub-results-info" style="font-size:11px;font-weight:600;color:#6b7a99;"></span>
+        <button id="sub-load-more-btn" style="font-size:10px;font-weight:700;padding:7px 18px;border-radius:99px;border:0.5px solid #c5d6f5;background:white;color:#174CCC;cursor:pointer;">Load 25 more</button>
+      </div>
     </div>
+
+    <!-- Hidden elements kept for backward compat -->
+    <span id="sub-count-active" style="display:none;"></span>
+    <span id="sub-count-pending" style="display:none;"></span>
+    <span id="sub-count-unsub" style="display:none;"></span>
+    <div id="qr-container" style="display:none;"></div>
+    <div id="sub-pagination" style="display:none;"></div>
   </div>
 
-  <!-- TOURNAMENT MODULE PAGE -->
+  <!-- TOURNAMENT MODULE -->
   <div id="page-t-tournaments" class="page">
     <div id="t-content"><div class="loading">Loading tournaments...</div></div>
   </div>
@@ -624,74 +1788,247 @@
     </div>
   </div>
 
-  <!-- SHARE PAGE -->
+  <!-- SHARE -->
   <div id="page-share" class="page">
-    <div class="card">
-      <div class="card-title">Share Links</div>
-      <div style="font-size:13px;color:var(--text-muted);margin-bottom:20px;font-weight:500;">
-        Generate read-only links for players to view standings and results. IDs are encoded so players cannot guess other links.
-      </div>
 
-      <!-- Tabs -->
-      <div style="display:flex;gap:0;border-bottom:0.5px solid var(--border);margin-bottom:20px;">
-        <button class="share-tab active" data-tab="ladders" data-action="switchShareTab" style="background:none;border:none;padding:10px 20px;font-size:12px;font-family:'Montserrat',sans-serif;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-1px;">
-          🏓 Ladders
-        </button>
-        <button class="share-tab" data-tab="tournaments" data-action="switchShareTab" style="background:none;border:none;padding:10px 20px;font-size:12px;font-family:'Montserrat',sans-serif;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-1px;">
-          🏆 Tournaments
-        </button>
-      </div>
+    <!-- Page title -->
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:#0d1f4a;letter-spacing:1px;line-height:1;margin-bottom:4px;">Share Links</div>
+    <div style="font-size:12px;font-weight:600;color:#6b7a99;margin-bottom:20px;">Distribute read-only public links for standings, results, and registrations.</div>
 
-      <!-- Ladder tab -->
-      <div id="share-tab-ladders">
-        <input type="text" id="share-search-ladders" placeholder="Search ladders..." style="width:100%;padding:10px 12px;border:0.5px solid var(--border);border-radius:var(--radius-sm);font-family:'Montserrat',sans-serif;font-size:13px;margin-bottom:16px;outline:none;">
-        <div id="share-ladder-list"><div class="loading">Loading...</div></div>
+    <!-- Stat cards -->
+    <div class="stats-grid" id="share-stats" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px;">
+      <div class="stat stat-orange" style="display:flex;flex-direction:column;">
+        <div class="stat-label">Most Viewed</div>
+        <div id="share-stat-most-viewed" style="font-size:18px;font-weight:800;color:#0d1f4a;line-height:1;margin-bottom:6px;min-height:40px;display:flex;align-items:center;">—</div>
+        <div class="stat-ctx ctx-orange" style="margin-top:auto;display:flex;align-items:center;gap:5px;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#F26024" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+          Most player visits
+        </div>
       </div>
-
-      <!-- Tournament tab -->
-      <div id="share-tab-tournaments" style="display:none;">
-        <input type="text" id="share-search-tournaments" placeholder="Search tournaments..." style="width:100%;padding:10px 12px;border:0.5px solid var(--border);border-radius:var(--radius-sm);font-family:'Montserrat',sans-serif;font-size:13px;margin-bottom:16px;outline:none;">
-        <div id="share-tournament-list"><div class="loading">Loading...</div></div>
+      <div class="stat stat-green" style="display:flex;flex-direction:column;">
+        <div class="stat-label">Last Shared</div>
+        <div id="share-stat-last-shared" style="font-size:18px;font-weight:800;color:#0d1f4a;line-height:1;margin-bottom:6px;min-height:40px;display:flex;align-items:center;">—</div>
+        <div class="stat-ctx ctx-green" style="margin-top:auto;" id="share-stat-last-shared-time">—</div>
       </div>
-
-      <!-- QR display area (shown when a link is selected) -->
-      <div id="share-qr-panel" style="display:none;margin-top:20px;padding:20px;background:var(--blue-pale);border-radius:var(--radius-sm);text-align:center;">
-        <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:10px;">QR Code</div>
-        <div id="share-qr-code" style="display:inline-block;background:white;padding:12px;border-radius:8px;"></div>
-        <div style="font-size:11px;color:var(--text-muted);margin-top:10px;word-break:break-all;" id="share-qr-url"></div>
+      <div class="stat stat-blue" style="display:flex;flex-direction:column;">
+        <div class="stat-label">Total Visits</div>
+        <div class="stat-value" id="share-stat-visits">—</div>
+        <div class="stat-ctx ctx-blue" style="margin-top:auto;">Player visits total</div>
+      </div>
+      <div class="stat stat-lime" style="display:flex;flex-direction:column;">
+        <div class="stat-label">Active Links</div>
+        <div class="stat-value" id="share-stat-links">—</div>
+        <div class="stat-ctx ctx-lime" style="margin-top:auto;" id="share-stat-links-sub">—</div>
       </div>
     </div>
+
+    <!-- Main card: tabs + search + share cards -->
+    <div class="card" style="padding:0;overflow:hidden;">
+
+      <!-- Tabs -->
+      <div style="display:flex;align-items:center;padding:0 20px;background:white;border-bottom:0.5px solid #e0e7f5;">
+        <button class="share-tab active" data-tab="ladders" data-action="switchShareTab"
+          style="padding:13px 20px;font-size:10px;font-family:'Montserrat',sans-serif;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#174CCC;cursor:pointer;border:none;border-bottom:3px solid #C6F221;margin-bottom:-1px;background:none;display:flex;align-items:center;gap:6px;">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="5"/><path d="M8.56 13.9l-1.56 6.1 5-3 5 3-1.56-6.1"/></svg>
+          Ladders
+        </button>
+        <button class="share-tab" data-tab="tournaments" data-action="switchShareTab"
+          style="padding:13px 20px;font-size:10px;font-family:'Montserrat',sans-serif;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;cursor:pointer;border:none;border-bottom:3px solid transparent;margin-bottom:-1px;background:none;display:flex;align-items:center;gap:6px;">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4a2 2 0 0 1-2-2V5h4"/><path d="M18 9h2a2 2 0 0 0 2-2V5h-4"/><path d="M12 17v4"/><path d="M8 21h8"/><path d="M6 9a6 6 0 0 0 12 0V3H6v6z"/></svg>
+          Tournaments
+        </button>
+      </div>
+
+      <!-- Toolbar: search + filter -->
+      <div style="display:flex;align-items:center;gap:10px;padding:12px 20px;background:#fafbff;border-bottom:0.5px solid #e0e7f5;">
+        <div style="flex:1;display:flex;align-items:center;gap:8px;background:var(--bg);border:0.5px solid #e0e7f5;border-radius:8px;padding:7px 12px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6b7a99" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" id="share-search-current" placeholder="Search ladders..."
+            style="border:none;background:transparent;outline:none;font-family:'Montserrat',sans-serif;font-size:12px;font-weight:600;color:#0d1f4a;width:100%;padding:0;line-height:1.4;">
+        </div>
+        <div style="position:relative;">
+          <select id="share-status-filter" style="font-family:'Montserrat',sans-serif;font-size:12px;font-weight:700;padding:8px 32px 8px 12px;border:0.5px solid #e0e7f5;border-radius:99px;color:#0d1f4a;background:white;outline:none;appearance:none;cursor:pointer;">
+            <option value="all">All</option>
+            <option value="active">Active Only</option>
+            <option value="recent">Recent</option>
+            <option value="archived">Archived</option>
+          </select>
+          <svg style="position:absolute;right:12px;top:50%;transform:translateY(-50%);pointer-events:none;" width="10" height="6" viewBox="0 0 10 6"><path d="M0 0l5 6 5-6z" fill="#6b7a99"/></svg>
+        </div>
+      </div>
+
+      <!-- Cards area — gray bg for separation -->
+      <div style="padding:16px 20px;display:flex;flex-direction:column;gap:12px;background:#f0f2f8;">
+        <div id="share-tab-ladders">
+          <div id="share-ladder-list"><div class="loading">Loading...</div></div>
+        </div>
+        <div id="share-tab-tournaments" style="display:none;">
+          <div id="share-tournament-list"><div class="loading">Loading...</div></div>
+        </div>
+      </div>
+
+      <!-- QR Panel -->
+      <div id="share-qr-panel" style="display:none;margin:0 20px 20px;padding:24px;background:var(--blue-pale);border-radius:10px;text-align:center;">
+        <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-muted);margin-bottom:12px;">QR Code</div>
+        <div id="share-qr-code" style="display:inline-block;background:white;padding:12px;border-radius:10px;"></div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:12px;word-break:break-all;" id="share-qr-url"></div>
+      </div>
+    </div>
+
+    <!-- Visit tracking note — shown only when table is missing -->
+    <div id="share-visits-note" style="display:none;margin-top:14px;padding:12px 16px;background:white;border:0.5px solid #e0e7f5;border-radius:8px;display:none;align-items:center;gap:10px;box-shadow:0 1px 4px rgba(23,76,204,0.06);">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F26024" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <span style="font-size:11px;font-weight:600;color:#6b7a99;"><span style="font-weight:800;color:#0d1f4a;">Visit tracking not active</span> — run the SQL script in Supabase to enable visit analytics.</span>
+    </div>
+
   </div>
 
 </main>
 
-<footer>
-  <span class="footer-tag">Brought to you by</span>
-  <img class="footer-logo" data-asset="ferociaLogo" alt="Ferocia Sports">
-</footer>
+</div><!-- end .main-content -->
+
+  <!-- QR SHARE MODAL -->
+  <div id="share-qr-modal" style="display:none;position:fixed;inset:0;z-index:400;background:rgba(8,15,46,.65);align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(3px);">
+    <div style="background:white;border-radius:14px;padding:28px 28px 24px;width:100%;max-width:360px;position:relative;text-align:center;box-shadow:0 20px 60px rgba(8,15,46,.25);">
+      <!-- Close button -->
+      <button id="share-qr-modal-close" style="position:absolute;top:14px;right:14px;width:30px;height:30px;border-radius:8px;border:0.5px solid #e0e7f5;background:white;display:flex;align-items:center;justify-content:center;cursor:pointer;"
+        onmouseover="this.style.background='#fde8d8';this.style.borderColor='rgba(229,57,53,0.3)'"
+        onmouseout="this.style.background='white';this.style.borderColor='#e0e7f5'">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#e53935" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+      <!-- Header -->
+      <div style="font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#6b7a99;margin-bottom:6px;">Share via QR Code</div>
+      <div id="share-qr-modal-name" style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:#0d1f4a;letter-spacing:.5px;margin-bottom:18px;padding:0 24px;line-height:1.2;"></div>
+      <!-- QR code -->
+      <div style="display:flex;justify-content:center;margin-bottom:16px;">
+        <div id="share-qr-modal-code" style="background:#f8f9ff;padding:16px;border-radius:12px;border:0.5px solid #e0e7f5;display:inline-block;"></div>
+      </div>
+      <!-- URL strip -->
+      <div style="background:#f0f2f8;border-radius:8px;padding:8px 12px;display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+        <span id="share-qr-modal-url" style="font-size:10px;font-weight:600;color:#6b7a99;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:monospace;text-align:left;"></span>
+        <button id="share-qr-modal-copy" style="font-size:10px;font-weight:700;color:#174CCC;background:none;border:none;cursor:pointer;flex-shrink:0;white-space:nowrap;">Copy</button>
+      </div>
+      <!-- Hint -->
+      <div style="font-size:11px;font-weight:600;color:#b0bbd6;">Players can scan this code to view standings directly.</div>
+    </div>
+  </div>
+
+<!-- ── BOTTOM NAV (mobile) ──────────────────────────────── -->
+<nav class="bottom-nav" id="bottom-nav">
+  <div class="bottom-nav-inner">
+    <button class="bn-item active" id="bn-home" data-action="sbGoHome">
+      <div class="bn-dot"></div>
+      <div class="bn-icon">🏠</div>
+      <div class="bn-label">Home</div>
+    </button>
+    <button class="bn-item" id="bn-players" data-action="showPage" data-page="players">
+      <div class="bn-dot"></div>
+      <div class="bn-icon">👥</div>
+      <div class="bn-label">Players</div>
+    </button>
+    <button class="bn-item" id="bn-ladder" data-action="sbShowLadder">
+      <div class="bn-dot"></div>
+      <div class="bn-icon">🏅</div>
+      <div class="bn-label">Ladder</div>
+    </button>
+    <button class="bn-item" id="bn-tournament" data-action="sbShowTournament">
+      <div class="bn-dot"></div>
+      <div class="bn-icon">🏆</div>
+      <div class="bn-label">Tourneys</div>
+    </button>
+    <button class="bn-item" id="bn-more" data-action="sbToggleMore">
+      <div class="bn-dot"></div>
+      <div class="bn-icon">⋯</div>
+      <div class="bn-label">More</div>
+    </button>
+  </div>
+</nav>
+
+<!-- ── MORE DRAWER ───────────────────────────────────────── -->
+<div class="drawer-backdrop" id="drawer-backdrop" data-action="sbToggleMore"></div>
+<div class="more-drawer" id="more-drawer">
+  <button class="more-drawer-item" id="md-ladders" data-action="showPage" data-page="ladders">
+    <span class="more-drawer-icon">🏓</span>Ladders
+  </button>
+  <button class="more-drawer-item" id="md-t-tournaments" data-action="showPage" data-page="t-tournaments">
+    <span class="more-drawer-icon">🎾</span>Tournaments
+  </button>
+  <button class="more-drawer-item" id="md-events" data-action="showPage" data-page="events">
+    <span class="more-drawer-icon">📅</span>Events
+  </button>
+  <button class="more-drawer-item" id="md-orders" data-action="showPage" data-page="orders">
+    <span class="more-drawer-icon">🛒</span>Orders
+  </button>
+  <button class="more-drawer-item" id="md-promotions" data-action="showPage" data-page="promotions">
+    <span class="more-drawer-icon">📣</span>Promotions
+  </button>
+  <button class="more-drawer-item" id="md-share" data-action="showPage" data-page="share">
+    <span class="more-drawer-icon">🔗</span>Share Links
+  </button>
+  <button class="more-drawer-item" id="md-add-player" data-action="showPage" data-page="add-player">
+    <span class="more-drawer-icon">➕</span>Add Player
+  </button>
+</div>
+
+</div><!-- end .app-shell -->
 
 <!-- Edit ladder modal -->
-<div class="modal-bg" id="edit-ladder-modal">
-  <div class="modal">
-    <div class="modal-title">Edit Ladder</div>
-    <form id="edit-ladder-form">
+<div id="edit-ladder-modal" style="display:none;position:fixed;inset:0;z-index:400;background:rgba(8,15,46,.65);align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(3px);">
+  <div style="background:white;border-radius:14px;overflow:hidden;box-shadow:0 20px 60px rgba(8,15,46,.18);width:100%;max-width:480px;">
+
+    <!-- Header -->
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;padding:22px 24px 18px;border-bottom:0.5px solid #e8edf8;background:linear-gradient(180deg,#fafbff 0%,white 100%);">
+      <div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;color:#0d1f4a;letter-spacing:1px;line-height:1;margin-bottom:3px;">Ladder Settings</div>
+        <div style="font-size:11px;font-weight:600;color:#6b7a99;">Update ladder information and season dates.</div>
+      </div>
+      <button data-action="closeEditLadderModal"
+        style="width:30px;height:30px;border-radius:8px;border:0.5px solid #e0e7f5;background:white;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;margin-top:2px;"
+        onmouseover="this.style.background='#fde8d8';this.style.borderColor='rgba(229,57,53,0.3)'"
+        onmouseout="this.style.background='white';this.style.borderColor='#e0e7f5'">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#e53935" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <!-- Form -->
+    <form id="edit-ladder-form" style="padding:22px 24px;background:#f8f9ff;">
       <input type="hidden" id="edit-ladder-id">
-      <div class="form-group"><label>Ladder name</label><input type="text" id="edit-ladder-name" required placeholder="e.g. Spring Ladder 2026"></div>
-      <div class="form-row">
-        <div class="form-group"><label>Start date</label><input type="date" id="edit-ladder-start"></div>
-        <div class="form-group"><label>End date</label><input type="date" id="edit-ladder-end"></div>
+
+      <!-- Ladder Name -->
+      <div style="margin-bottom:16px;">
+        <div class="ap-section-title">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="5"/><path d="M8.56 13.9l-1.56 6.1 5-3 5 3-1.56-6.1"/></svg>
+          Ladder Details
+        </div>
+        <div class="ap-group">
+          <label class="ap-label">Ladder Name</label>
+          <input type="text" id="edit-ladder-name" class="ap-input" required placeholder="e.g. Spring Ladder 2026">
+        </div>
       </div>
-      <div class="form-group">
-        <label>Status</label>
-        <select id="edit-ladder-status">
-          <option value="active">Active</option>
-          <option value="closed">Closed</option>
-        </select>
+
+      <!-- Season Dates -->
+      <div style="margin-bottom:20px;">
+        <div class="ap-section-title">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          Season Dates
+        </div>
+        <div class="ap-grid">
+          <div class="ap-group">
+            <label class="ap-label">Start Date</label>
+            <input type="date" id="edit-ladder-start" class="ap-input">
+          </div>
+          <div class="ap-group">
+            <label class="ap-label">End Date</label>
+            <input type="date" id="edit-ladder-end" class="ap-input">
+          </div>
+        </div>
       </div>
-      <div class="modal-actions">
-        <button type="button" class="btn btn-danger btn-sm" data-action="closeEditLadderModal">Cancel</button>
-        <button type="submit" class="btn btn-primary btn-sm">Save changes</button>
-      </div>
+
+      <!-- Submit -->
+      <button type="submit" class="ap-submit-btn">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        Apply Updates
+      </button>
     </form>
   </div>
 </div>
@@ -728,23 +2065,17 @@
           </select>
         </div>
       </div>
-
-      <!-- Inactivation reason — shown only when status is/becomes 'inactive' -->
       <div class="form-group" id="edit-reason-group" style="display:none;">
         <label>Reason for inactivating <span style="color:var(--orange);">*</span></label>
         <textarea id="edit-reason" rows="3" placeholder="Why is this player inactive? (required)"
-          style="padding:9px 12px;border:0.5px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:'Montserrat',sans-serif;color:var(--text);background:var(--white);outline:none;resize:vertical;"></textarea>
-        <div id="edit-reason-error" class="text-muted-12" style="display:none;color:var(--orange);font-weight:600;margin-top:4px;">Please enter a reason.</div>
+          style="padding:10px 14px;border:0.5px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:'Montserrat',sans-serif;color:var(--text);background:var(--white);outline:none;resize:vertical;"></textarea>
+        <div id="edit-reason-error" style="display:none;color:var(--orange);font-size:11px;font-weight:700;margin-top:4px;">Please enter a reason.</div>
       </div>
-
-      <!-- History trigger — shown only when there's at least one entry -->
       <div id="edit-history-link-wrap" style="display:none;">
-        <button type="button" class="btn btn-outline btn-sm" data-action="openPlayerHistory" id="edit-history-link"
-          style="font-size:11px;">
+        <button type="button" class="btn btn-outline btn-sm" data-action="openPlayerHistory" id="edit-history-link" style="font-size:11px;">
           📋 View status history (<span id="edit-history-count">0</span>)
         </button>
       </div>
-
       <div class="modal-actions">
         <button type="button" class="btn btn-danger btn-sm" data-action="closeModal">Cancel</button>
         <button type="submit" class="btn btn-primary btn-sm">Save changes</button>
@@ -767,24 +2098,46 @@
 </div>
 
 <!-- Ladder players modal -->
-<div class="modal-bg" id="lp-modal">
-  <div class="modal">
-    <div class="modal-title" id="lp-modal-title">Players</div>
-    <div style="border:0.5px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;">
-      <div style="padding:8px 12px;background:var(--bg);border-bottom:0.5px solid var(--border);">
-        <input type="text" id="lp-search" placeholder="Search player..." autocomplete="off"
-          style="width:100%;border:none;background:transparent;font-size:13px;font-family:Montserrat,sans-serif;outline:none;color:var(--text);">
+<div id="lp-modal" style="display:none;position:fixed;inset:0;z-index:400;background:rgba(8,15,46,.65);align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(3px);">
+  <div style="background:white;border-radius:14px;overflow:hidden;box-shadow:0 20px 60px rgba(8,15,46,.18);width:100%;max-width:560px;max-height:90vh;display:flex;flex-direction:column;">
+
+    <!-- Header -->
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;padding:20px 24px 16px;border-bottom:0.5px solid #e8edf8;background:linear-gradient(180deg,#fafbff 0%,white 100%);flex-shrink:0;">
+      <div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;color:#0d1f4a;letter-spacing:1px;line-height:1;margin-bottom:3px;">Ladder Participants</div>
+        <div style="font-size:11px;font-weight:600;color:#6b7a99;margin-bottom:10px;">Manage active players and substitutes for this ladder.</div>
+        <div id="lp-summary-pill" style="display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;color:#174CCC;background:#e8f0ff;padding:3px 10px;border-radius:99px;">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <span id="lp-summary-text">Loading...</span>
+        </div>
       </div>
-      <div style="max-height:55vh;overflow-y:auto;" id="lp-enrolled"></div>
+      <button data-action="closeLpModal"
+        style="width:30px;height:30px;border-radius:8px;border:0.5px solid #e0e7f5;background:white;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;margin-top:2px;"
+        onmouseover="this.style.background='#fde8d8';this.style.borderColor='rgba(229,57,53,0.3)'"
+        onmouseout="this.style.background='white';this.style.borderColor='#e0e7f5'">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#e53935" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
     </div>
-    <div class="modal-actions" style="flex-direction:column;gap:8px;align-items:stretch;">
-      <div style="font-size:11px;color:var(--text-muted);text-align:center;font-weight:500;">
-        Status changes (Active/Sub) save automatically. Use Save changes to enroll or remove players.
+
+    <!-- Search bar -->
+    <div style="display:flex;align-items:center;gap:8px;padding:10px 20px;border-bottom:0.5px solid #e0e7f5;background:#fafbff;flex-shrink:0;">
+      <div style="flex:1;display:flex;align-items:center;gap:8px;background:#f0f2f8;border:0.5px solid #e0e7f5;border-radius:8px;padding:7px 12px;outline:none;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6b7a99" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="lp-search" placeholder="Search ladder participants..." autocomplete="off"
+          style="border:none;background:transparent;outline:none;box-shadow:none;font-family:'Montserrat',sans-serif;font-size:12px;font-weight:600;color:#0d1f4a;width:100%;padding:0;line-height:1.4;-webkit-appearance:none;">
       </div>
-      <div style="display:flex;gap:8px;justify-content:flex-end;">
-        <button type="button" class="btn btn-outline btn-sm" data-action="closeLpModal">Close</button>
-        <button type="button" class="btn btn-primary btn-sm" id="lp-save-btn" data-action="lpSaveChanges">Save changes</button>
-      </div>
+    </div>
+
+    <!-- List -->
+    <div style="flex:1;overflow-y:auto;" id="lp-enrolled"></div>
+
+    <!-- Footer -->
+    <div style="padding:14px 20px;border-top:0.5px solid #e0e7f5;display:flex;justify-content:flex-end;flex-shrink:0;">
+      <button type="button" id="lp-save-btn" data-action="lpSaveChanges"
+        style="display:flex;align-items:center;gap:6px;padding:10px 20px;border:none;border-radius:99px;background:linear-gradient(180deg,#2456d3 0%,#174CCC 100%);color:white;font-family:'Montserrat',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        Update Participants
+      </button>
     </div>
   </div>
 </div>
@@ -798,14 +2151,8 @@
       <input type="hidden" id="es-orig-date">
       <input type="hidden" id="es-orig-court">
       <div class="form-row">
-        <div class="form-group">
-          <label>Session date</label>
-          <input type="date" id="es-date" required>
-        </div>
-        <div class="form-group">
-          <label>Court number</label>
-          <input type="number" id="es-court" min="1" required placeholder="e.g. 19">
-        </div>
+        <div class="form-group"><label>Session date</label><input type="date" id="es-date" required></div>
+        <div class="form-group"><label>Court number</label><input type="number" id="es-court" min="1" required placeholder="e.g. 19"></div>
       </div>
       <div class="modal-actions">
         <button type="button" class="btn btn-danger btn-sm" data-action="closeEditSessionModal">Cancel</button>
@@ -814,10 +2161,6 @@
     </form>
   </div>
 </div>
-
-<!-- Edit tournament / add team / record match modals removed.
-     They belonged to the legacy tournament code that has been deleted.
-     The new tournament module (tournament.js) uses #t-modal instead. -->
 
 <!-- Notify Players Modal -->
 <div class="modal-bg" id="notify-modal">
@@ -843,9 +2186,7 @@
         <label>Message</label>
         <textarea id="notify-message" style="width:100%;min-height:140px;resize:vertical;font-family:Montserrat,sans-serif;font-size:13px;padding:10px 12px;border:0.5px solid var(--border);border-radius:var(--radius-sm);outline:none;"></textarea>
       </div>
-      <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;font-weight:500;">
-        The leaderboard link will be automatically included in every email.
-      </div>
+      <div style="font-size:11px;color:var(--text-muted);font-weight:500;">The leaderboard link will be automatically included in every email.</div>
       <div class="modal-actions">
         <button type="button" class="btn btn-outline btn-sm" data-action="closeNotifyModal">Cancel</button>
         <button type="submit" class="btn btn-primary btn-sm" id="notify-send-btn">Send emails</button>
@@ -854,7 +2195,7 @@
   </div>
 </div>
 
-<!-- Tournament Notify Players Modal -->
+<!-- Tournament Notify Modal -->
 <div class="modal-bg" id="tournament-notify-modal">
   <div class="modal" style="max-width:560px;">
     <div class="modal-title">✉️ Notify Tournament Players</div>
@@ -868,9 +2209,7 @@
         <label>Message</label>
         <textarea id="t-notify-message" style="width:100%;min-height:140px;resize:vertical;font-family:Montserrat,sans-serif;font-size:13px;padding:10px 12px;border:0.5px solid var(--border);border-radius:var(--radius-sm);outline:none;"></textarea>
       </div>
-      <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;font-weight:500;">
-        The tournament results link will be automatically included in every email.
-      </div>
+      <div style="font-size:11px;color:var(--text-muted);font-weight:500;">The tournament results link will be automatically included in every email.</div>
       <div class="modal-actions">
         <button type="button" class="btn btn-outline btn-sm" data-action="closeTournamentNotifyModal">Cancel</button>
         <button type="submit" class="btn btn-primary btn-sm" id="t-notify-send-btn">Send emails</button>
@@ -879,29 +2218,134 @@
   </div>
 </div>
 
-<!-- Send Promo Modal -->
-<div class="modal-bg" id="promo-modal">
-  <div class="modal" style="max-width:560px;">
-    <div class="modal-title">✉️ Send Promotional Email</div>
-    <div style="font-size:12px;color:var(--text-muted);margin-bottom:16px;font-weight:500;" id="promo-recipient-count"></div>
+<!-- Launch Campaign Modal -->
+<div id="promo-modal" style="display:none;position:fixed;inset:0;z-index:400;background:rgba(8,15,46,.65);align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(3px);">
+  <div style="background:white;border-radius:14px;overflow:hidden;box-shadow:0 20px 60px rgba(8,15,46,.18);width:100%;max-width:900px;max-height:90vh;overflow-y:auto;">
+
+    <!-- Modal header -->
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;padding:22px 28px 18px;border-bottom:0.5px solid #e8edf8;background:linear-gradient(180deg,#fafbff 0%,white 100%);">
+      <div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:26px;color:#0d1f4a;letter-spacing:1px;line-height:1;margin-bottom:3px;">Launch Campaign</div>
+        <div style="font-size:11px;font-weight:600;color:#6b7a99;max-width:480px;line-height:1.5;">Reach your pickleball community with announcements, tournaments, ladders, and event updates.</div>
+      </div>
+      <button data-action="closePromoModal"
+        style="width:30px;height:30px;border-radius:8px;border:0.5px solid #e0e7f5;background:white;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;"
+        onmouseover="this.style.background='#fde8d8';this.style.borderColor='rgba(229,57,53,0.3)'"
+        onmouseout="this.style.background='white';this.style.borderColor='#e0e7f5'">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#e53935" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <!-- Two-column body -->
     <form id="promo-form">
-      <div class="form-group">
-        <label>Subject</label>
-        <input type="text" id="promo-subject" placeholder="e.g. New Ladder Starting Soon!" style="width:100%;">
-      </div>
-      <div class="form-group">
-        <label>Message</label>
-        <textarea id="promo-message" style="width:100%;min-height:160px;resize:vertical;font-family:Montserrat,sans-serif;font-size:13px;padding:10px 12px;border:0.5px solid var(--border);border-radius:var(--radius-sm);outline:none;" placeholder="Write your promotional message here..."></textarea>
-      </div>
-      <div class="modal-actions">
-        <button type="button" class="btn btn-outline btn-sm" data-action="closePromoModal">Cancel</button>
-        <button type="submit" class="btn btn-primary btn-sm" id="promo-send-btn">Send emails</button>
+      <div style="display:grid;grid-template-columns:1fr 260px;min-height:460px;">
+
+        <!-- LEFT: Composer -->
+        <div style="padding:22px 24px;border-right:0.5px solid #e8edf8;display:flex;flex-direction:column;gap:16px;background:#fafbff;">
+
+          <!-- Campaign type pills -->
+          <div>
+            <div class="promo-comp-label">Campaign Type</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;" id="promo-type-pills">
+              <button type="button" class="promo-type-pill active" data-type="Tournament">Tournament</button>
+              <button type="button" class="promo-type-pill" data-type="Ladder">Ladder</button>
+              <button type="button" class="promo-type-pill" data-type="Event">Event</button>
+              <button type="button" class="promo-type-pill" data-type="General">General</button>
+            </div>
+            <input type="hidden" id="promo-campaign-type" value="Tournament">
+          </div>
+
+          <!-- Subject -->
+          <div>
+            <div class="promo-comp-label">Subject Line</div>
+            <div class="promo-subject-wrap">
+              <input type="text" id="promo-subject" class="promo-subject-input" placeholder="e.g. Spring Tournament 2026 — Registration Now Open">
+            </div>
+          </div>
+
+          <!-- Message -->
+          <div style="flex:1;display:flex;flex-direction:column;">
+            <div class="promo-comp-label">Message</div>
+            <div class="promo-message-card">
+              <!-- Formatting toolbar -->
+              <div class="promo-fmt-toolbar">
+                <button type="button" class="promo-fmt-btn" onclick="document.execCommand('bold')" title="Bold"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/><path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/></svg></button>
+                <button type="button" class="promo-fmt-btn" onclick="document.execCommand('italic')" title="Italic"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="4" x2="10" y2="4"/><line x1="14" y1="20" x2="5" y2="20"/><line x1="15" y1="4" x2="9" y2="20"/></svg></button>
+                <button type="button" class="promo-fmt-btn" onclick="document.execCommand('underline')" title="Underline"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v7a6 6 0 0 0 6 6 6 6 0 0 0 6-6V3"/><line x1="4" y1="21" x2="20" y2="21"/></svg></button>
+                <div class="promo-fmt-sep"></div>
+                <button type="button" class="promo-fmt-btn" onclick="document.execCommand('insertUnorderedList')" title="Bullet list"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/><circle cx="4" cy="6" r="1" fill="currentColor"/><circle cx="4" cy="12" r="1" fill="currentColor"/><circle cx="4" cy="18" r="1" fill="currentColor"/></svg></button>
+                <button type="button" class="promo-fmt-btn" onclick="promptInsertLink()" title="Link"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></button>
+                <div class="promo-fmt-sep"></div>
+                <div style="position:relative;display:inline-block;">
+                  <button type="button" class="promo-fmt-btn" onclick="toggleEmojiPicker(event)" title="Emoji" id="emoji-picker-btn">😊</button>
+                  <div id="emoji-picker" style="display:none;position:absolute;top:32px;left:0;background:white;border:0.5px solid #e0e7f5;border-radius:8px;padding:8px;box-shadow:0 4px 16px rgba(8,15,46,.12);z-index:999;display:none;grid-template-columns:repeat(6,1fr);gap:2px;width:180px;">
+                    <button type="button" class="promo-emoji-item" onclick="insertFixedEmoji('👋')">👋</button>
+                    <button type="button" class="promo-emoji-item" onclick="insertFixedEmoji('📅')">📅</button>
+                    <button type="button" class="promo-emoji-item" onclick="insertFixedEmoji('📍')">📍</button>
+                    <button type="button" class="promo-emoji-item" onclick="insertFixedEmoji('🎾')">🎾</button>
+                    <button type="button" class="promo-emoji-item" onclick="insertFixedEmoji('🏆')">🏆</button>
+                    <button type="button" class="promo-emoji-item" onclick="insertFixedEmoji('⚡')">⚡</button>
+                    <button type="button" class="promo-emoji-item" onclick="insertFixedEmoji('🔥')">🔥</button>
+                    <button type="button" class="promo-emoji-item" onclick="insertFixedEmoji('✅')">✅</button>
+                    <button type="button" class="promo-emoji-item" onclick="insertFixedEmoji('🎉')">🎉</button>
+                    <button type="button" class="promo-emoji-item" onclick="insertFixedEmoji('👑')">👑</button>
+                    <button type="button" class="promo-emoji-item" onclick="insertFixedEmoji('⭐')">⭐</button>
+                    <button type="button" class="promo-emoji-item" onclick="insertFixedEmoji('📢')">📢</button>
+                  </div>
+                </div>
+                <div style="flex:1;"></div>
+                <span id="promo-char-count" style="font-size:9px;font-weight:700;color:#b0bbd6;">0 / 2000</span>
+              </div>
+              <div id="promo-message" contenteditable="true" class="promo-message-editor" data-placeholder="Write your campaign message here..."></div>
+              <div style="padding:6px 12px;background:#f8f9ff;border-top:0.5px solid #e8edf8;display:flex;justify-content:flex-end;">
+                <span id="promo-char-count2" style="font-size:10px;font-weight:700;color:#b0bbd6;"></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Launch button -->
+          <button type="submit" id="promo-send-btn" style="width:100%;padding:12px;border:none;border-radius:99px;background:linear-gradient(180deg,#2456d3 0%,#174CCC 100%);color:white;font-family:'Montserrat',sans-serif;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+            Launch Campaign
+          </button>
+        </div>
+
+        <!-- RIGHT: Intelligence Panel -->
+        <div style="padding:22px 20px;background:white;display:flex;flex-direction:column;gap:14px;">
+          <div style="font-size:10px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#0d1f4a;display:flex;align-items:center;gap:6px;">
+            <span style="width:6px;height:6px;border-radius:50%;background:#24BC96;display:inline-block;"></span>
+            Campaign Intelligence
+          </div>
+
+          <!-- Audience card -->
+          <div class="promo-intel-card" style="border-left:3px solid #24BC96;">
+            <div class="promo-intel-label">Audience</div>
+            <div class="promo-intel-val" id="promo-audience-count">—</div>
+            <div class="promo-intel-sub">Active subscribers will receive this</div>
+          </div>
+
+          <!-- Last campaign card -->
+          <div class="promo-intel-card" style="border-left:3px solid #174CCC;">
+            <div class="promo-intel-label">Last Campaign</div>
+            <div class="promo-intel-val-text" id="promo-last-sent">—</div>
+            <div class="promo-intel-sub" id="promo-last-type">No campaigns yet</div>
+          </div>
+
+          <!-- Selected type card -->
+          <div class="promo-intel-card" style="border-left:3px solid #F26024;">
+            <div class="promo-intel-label">Selected Type</div>
+            <div class="promo-intel-val-text" id="promo-selected-type">Tournament</div>
+            <div class="promo-intel-sub">Best open rate: Tues–Thurs 9–11am</div>
+          </div>
+
+          <!-- Recipient count kept hidden for JS compat -->
+          <span id="promo-recipient-count" style="display:none;"></span>
+        </div>
+
       </div>
     </form>
   </div>
 </div>
-
-<div class="toast" id="toast"></div>
 
 <!-- Edit game modal -->
 <div class="modal-bg" id="edit-game-modal">
@@ -917,7 +2361,10 @@
   </div>
 </div>
 
-<div id="success-banner" style="display:none;position:fixed;top:24px;left:50%;transform:translateX(-50%);z-index:998;width:90%;max-width:500px;box-shadow:0 4px 20px rgba(0,0,0,0.15);">
+<div class="toast" id="toast"></div>
+
+<!-- Success banner -->
+<div id="success-banner" style="display:none;position:fixed;top:24px;left:50%;transform:translateX(-50%);z-index:998;width:90%;max-width:500px;box-shadow:0 8px 32px rgba(8,15,46,0.2);">
   <div style="background:var(--teal-light);border:1.5px solid var(--teal);border-radius:var(--radius);padding:18px 24px;display:flex;align-items:center;gap:14px;">
     <div style="width:36px;height:36px;background:var(--teal);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
       <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M3 8l3.5 3.5L13 4" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -926,7 +2373,8 @@
   </div>
 </div>
 
-<div id="error-banner" style="display:none;position:fixed;top:24px;left:50%;transform:translateX(-50%);z-index:998;width:90%;max-width:500px;box-shadow:0 4px 20px rgba(0,0,0,0.15);">
+<!-- Error banner -->
+<div id="error-banner" style="display:none;position:fixed;top:24px;left:50%;transform:translateX(-50%);z-index:998;width:90%;max-width:500px;box-shadow:0 8px 32px rgba(8,15,46,0.2);">
   <div style="background:var(--orange-light);border:1.5px solid var(--orange);border-radius:var(--radius);padding:18px 24px;display:flex;align-items:center;gap:14px;">
     <div style="width:36px;height:36px;background:var(--orange);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
       <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M3 3l10 10M13 3L3 13" stroke="white" stroke-width="2.5" stroke-linecap="round"/></svg>
@@ -934,7 +2382,32 @@
     <div style="font-weight:800;font-size:15px;color:#712B13;" id="error-banner-msg"></div>
   </div>
 </div>
+
 <script src="app.js"></script>
 <script src="tournament.js"></script>
+<script>
+  // ── Sidebar toggle — persisted in localStorage ──────────────────────
+  (function() {
+    var OPEN_KEY = 'ferocia_sidebar_open';
+    function applyState(open) {
+      if (open) {
+        document.body.classList.add('sidebar-open');
+      } else {
+        document.body.classList.remove('sidebar-open');
+      }
+    }
+    // Restore saved state on load
+    var saved = localStorage.getItem(OPEN_KEY);
+    applyState(saved === '1');
+
+    // Expose toggle function for the button
+    window.sbToggleSidebar = function() {
+      var isOpen = document.body.classList.contains('sidebar-open');
+      var next = !isOpen;
+      applyState(next);
+      localStorage.setItem(OPEN_KEY, next ? '1' : '0');
+    };
+  })();
+</script>
 </body>
 </html>

@@ -4,24 +4,79 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Unsubscribe — Ferocia Sports</title>
-<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="db.js"></script>
 <script src="assets.js"></script>
 <style>
+  :root{
+    --blue:#174CCC;--lime:#C6F221;--teal:#24BC96;--teal-light:#d4f5ed;
+    --orange:#F26024;--orange-light:#fde8d8;--blue-pale:#e8f0ff;
+    --dark:#080f2e;--white:#fff;--text:#0d1f4a;--muted:#6b7a99;
+    --border:#d6dff5;--bg:#f0f2f8;--radius:14px;
+  }
   *{box-sizing:border-box;margin:0;padding:0;}
-  body{font-family:'Montserrat',sans-serif;background:#f4f6fc;color:#0d1f4a;min-height:100vh;display:flex;flex-direction:column;}
-  header{background:#174CCC;padding:0 24px;display:flex;align-items:center;height:64px;border-bottom:3px solid #C6F221;}
-  .logo{height:32px;width:auto;}
-  main{flex:1;display:flex;align-items:center;justify-content:center;padding:24px;}
-  .card{background:white;border-radius:12px;padding:48px 36px;max-width:460px;width:100%;text-align:center;box-shadow:0 4px 20px rgba(23,76,204,0.08);}
-  .icon{width:72px;height:72px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 24px;font-size:32px;background:#fde8d8;}
-  h2{font-size:22px;font-weight:800;margin-bottom:12px;}
-  p{font-size:14px;color:#6b7a99;line-height:1.6;margin-bottom:16px;}
-  .btn{display:inline-block;padding:12px 28px;background:#F26024;color:white;border:none;border-radius:8px;font-size:13px;font-weight:800;letter-spacing:1px;text-transform:uppercase;cursor:pointer;font-family:'Montserrat',sans-serif;}
-  .btn:disabled{opacity:.6;cursor:not-allowed;}
-  .divider{height:3px;background:linear-gradient(90deg,#174CCC,#C6F221);border-radius:99px;margin:24px 0;}
+  body{font-family:'Montserrat',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column;}
+
+  /* ── HEADER ─────────────────────────────────────────── */
+  header{
+    background:var(--dark);padding:0 28px;
+    display:flex;align-items:center;height:68px;
+    border-bottom:3px solid var(--lime);
+  }
+  .logo{height:30px;width:auto;}
+
+  /* ── MAIN ────────────────────────────────────────────── */
+  main{flex:1;display:flex;align-items:center;justify-content:center;padding:48px 20px;}
+
+  /* ── CARD ────────────────────────────────────────────── */
+  .card{
+    background:var(--white);border-radius:var(--radius);
+    padding:48px 40px;max-width:460px;width:100%;
+    text-align:center;
+    box-shadow:0 8px 40px rgba(23,76,204,0.1);
+    border:0.5px solid var(--border);
+  }
+
+  .icon{
+    width:80px;height:80px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    margin:0 auto 24px;font-size:36px;
+    background:var(--orange-light);
+    box-shadow:0 8px 24px rgba(242,96,36,0.15);
+  }
+
+  h2{
+    font-family:'Bebas Neue',sans-serif;
+    font-size:32px;color:var(--text);margin-bottom:12px;
+    letter-spacing:1px;
+  }
+  p{font-size:14px;color:var(--muted);line-height:1.7;margin-bottom:20px;}
+
+  .divider{
+    height:3px;
+    background:linear-gradient(90deg,var(--blue),var(--lime));
+    border-radius:99px;margin:24px 0;
+  }
+
+  .btn{
+    display:inline-block;padding:13px 32px;
+    background:var(--orange);color:white;border:none;border-radius:99px;
+    font-size:12px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;
+    cursor:pointer;font-family:'Montserrat',sans-serif;
+    transition:opacity .15s,transform .15s;
+  }
+  .btn:hover{opacity:.88;transform:translateY(-1px);}
+  .btn:disabled{opacity:.5;cursor:not-allowed;transform:none;}
+
+  /* ── FOOTER ──────────────────────────────────────────── */
+  footer{
+    text-align:center;padding:28px 16px;
+    border-top:3px solid var(--lime);background:var(--dark);
+  }
+  .footer-tag{display:block;font-size:9px;font-weight:800;letter-spacing:3px;text-transform:uppercase;color:rgba(156,227,255,0.5);margin-bottom:10px;}
+  .footer-logo{height:26px;width:auto;}
 </style>
 </head>
 <body>
@@ -37,6 +92,10 @@
     <button class="btn" id="unsub-btn" type="button">Yes, unsubscribe me</button>
   </div>
 </main>
+<footer>
+  <span class="footer-tag">Brought to you by</span>
+  <img class="footer-logo" data-asset="ferociaLogo" alt="Ferocia Sports">
+</footer>
 <script>
 (function () {
   'use strict';
@@ -44,11 +103,10 @@
   const params = new URLSearchParams(window.location.search);
   const token = params.get('t');
 
-  // Token format check before we do anything
   const validToken = token && /^[A-Za-z0-9_-]+$/.test(token);
 
   if (!validToken) {
-    document.getElementById('title').textContent = 'Invalid link';
+    document.getElementById('title').textContent = 'Invalid Link';
     document.getElementById('msg').textContent = 'This unsubscribe link is invalid.';
     document.getElementById('unsub-btn').style.display = 'none';
     return;
@@ -64,7 +122,7 @@
         'PATCH',
         { status: 'unsubscribed' },
       );
-      document.getElementById('title').textContent = "You've been unsubscribed";
+      document.getElementById('title').textContent = "You've Been Unsubscribed";
       document.getElementById('msg').textContent =
         "You have been successfully removed from our mailing list. We're sorry to see you go! If you change your mind, you can always subscribe again at ferociasports.com";
       btn.style.display = 'none';

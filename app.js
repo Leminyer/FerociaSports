@@ -29,70 +29,327 @@
   let modalLadderId = null;
   let currentTournamentId = null; // used by the read-only tournament selector
 
-  /* ─── NAVIGATION ───────────────────────────────────────── */
+  /* ─── SIDEBAR NAVIGATION ───────────────────────────────── */
+
+  // Set active state on sidebar + bottom nav items
+  const sbSetActive = (pageOrKey) => {
+    // Clear all sidebar item active states
+    document.querySelectorAll('.sb-item, .sb-sub-item').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.bn-item').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.more-drawer-item').forEach(el => el.classList.remove('active'));
+
+    // Activate sidebar item by id (sb-<key>) and bottom nav (bn-<key>)
+    const maps = {
+      'home':         ['sb-home',        'bn-home'],
+      'ladder':       ['sb-standings',   'bn-ladder'],
+      'sessions':     ['sb-sessions',    'bn-ladder'],
+      'entry':        ['sb-entry',       'bn-ladder'],
+      'tournament-view': ['sb-tournament', 'bn-tournament'],
+      'players':      ['sb-players',     'bn-players'],
+      'add-player':   ['sb-add-player',  null],
+      'ladders':      ['sb-ladders',     null],
+      't-tournaments':['sb-t-tournaments', null],
+      'events':       ['sb-events',      null],
+      'orders':       ['sb-orders',      null],
+      'promotions':   ['sb-promotions',  null],
+      'share':        ['sb-share',       null],
+    };
+    const ids = maps[pageOrKey] || [];
+    ids.forEach(id => { if (id) { const el = document.getElementById(id); if (el) el.classList.add('active'); } });
+
+    // Bottom nav: pages in "more" drawer activate the ⋯ button
+    const morePages = ['add-player','ladders','t-tournaments','events','orders','promotions','share'];
+    if (morePages.includes(pageOrKey)) {
+      document.getElementById('bn-more')?.classList.add('active');
+      const mdEl = document.getElementById(`md-${pageOrKey}`);
+      if (mdEl) mdEl.classList.add('active');
+    }
+
+    // Show/hide ladder sub-items and select
+    const isLadderPage = ['ladder','sessions','entry'].includes(pageOrKey);
+    const ladderWrap = document.getElementById('sb-ladder-select-wrap');
+    if (ladderWrap) ladderWrap.style.display = isLadderPage ? 'block' : 'none';
+    ['sb-standings','sb-sessions','sb-entry'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = isLadderPage ? 'flex' : 'none';
+    });
+
+    // Show/hide tournament select
+    const isTournPage = ['tournament-view'].includes(pageOrKey);
+    const tournWrap = document.getElementById('sb-tourn-select-wrap');
+    if (tournWrap) tournWrap.style.display = isTournPage ? 'block' : 'none';
+  };
+
+  const sbCloseMore = () => {
+    document.getElementById('more-drawer')?.classList.remove('open');
+    document.getElementById('drawer-backdrop')?.classList.remove('open');
+  };
+
+  const loadDashboard = async () => {
+    const liveBadge = document.getElementById('dash-live-badge');
+    if (liveBadge) liveBadge.style.display = 'inline-block';
+
+    try {
+      const [players, ladders, tournaments, ordersPaid, subs, pendingMatches, pendingSubs] = await Promise.all([
+        api('players?status=eq.active&select=id&order=id.desc'),
+        api('ladders?status=eq.active&select=id,name'),
+        api('tournaments?status=eq.active&select=id,name').catch(() => []),
+        api('orders?status=eq.paid&select=id').catch(() => []),
+        api('subscribers?status=eq.active&select=id').catch(() => []),
+        api('matches?score_for=is.null&default_no_show=is.false&select=id,ladder_id').catch(() => []),
+        api('subscribers?status=eq.pending&select=id').catch(() => []),
+      ]);
+
+      // ── KPI values ─────────────────────────────────────────
+      const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+      set('dash-active-players',    players.length);
+      set('dash-open-ladders',      ladders.length);
+      set('dash-open-tournaments',  tournaments.length);
+      set('dash-pending-orders',    ordersPaid.length);
+      set('dash-subscribers',       subs.length);
+
+      // Subscribers card dynamic context line
+      const subsCtx = document.getElementById('dash-subs-ctx');
+      if (subsCtx) {
+        subsCtx.textContent = pendingSubs.length
+          ? `${pendingSubs.length} pending confirmation`
+          : `${subs.length} active`;
+      }
+
+      // ── Operations Center ──────────────────────────────────
+      const opsEl  = document.getElementById('dash-ops-list');
+      const opsBdg = document.getElementById('dash-ops-badge');
+      if (opsEl) {
+        const items = [];
+
+        // Pending orders
+        if (ordersPaid.length) {
+          items.push({
+            strip: 'red',
+            icon: `<svg viewBox="0 0 24 24" style="stroke:#e53935;"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>`,
+            title: `Orders Awaiting Fulfillment`,
+            ctx:   'Paid — not yet shipped',
+            metric: `${ordersPaid.length} order${ordersPaid.length !== 1 ? 's' : ''} pending`,
+            pill:  'Action Needed',
+            pillClass: 'red',
+            btnLabel: 'Review Orders',
+            btnClass: 'ops-btn-red',
+            page: 'orders',
+          });
+        }
+
+        // Pending score reports
+        if (pendingMatches.length) {
+          // Find the ladder with the most pending matches to pre-select
+          const pmLadderCounts = {};
+          pendingMatches.forEach(m => { if (m.ladder_id) pmLadderCounts[m.ladder_id] = (pmLadderCounts[m.ladder_id] || 0) + 1; });
+          const topLadderId = Object.keys(pmLadderCounts).sort((a,b) => pmLadderCounts[b] - pmLadderCounts[a])[0] || '';
+          items.push({
+            strip: 'orange',
+            icon: `<svg viewBox="0 0 24 24" style="stroke:#F26024;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
+            title: `Matches Awaiting Scores`,
+            ctx:   'Sessions without results recorded',
+            metric: `${pendingMatches.length} match${pendingMatches.length !== 1 ? 'es' : ''} pending`,
+            pill:  'Scores Due',
+            pillClass: 'orange',
+            btnLabel: 'View Sessions',
+            btnClass: 'ops-btn-orange',
+            page: 'sessions',
+            ladderId: topLadderId,
+          });
+        }
+
+        // Pending subscriber confirmations
+        if (pendingSubs.length) {
+          items.push({
+            strip: 'blue',
+            icon: `<svg viewBox="0 0 24 24" style="stroke:#174CCC;"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>`,
+            title: `Subscribers Pending Confirmation`,
+            ctx:   'Awaiting email verification',
+            metric: `${pendingSubs.length} subscriber${pendingSubs.length !== 1 ? 's' : ''} pending`,
+            pill:  'Pending',
+            pillClass: 'blue',
+            btnLabel: 'Send Reminder',
+            btnClass: 'ops-btn-blue',
+            page: 'promotions',
+          });
+        }
+
+        if (!items.length) {
+          opsEl.innerHTML = `<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px;font-weight:600;">
+            All clear — no action needed today.
+          </div>`;
+        } else {
+          opsEl.innerHTML = items.map(item => `
+            <div class="ops-row">
+              <div class="ops-strip ${item.strip}"></div>
+              <div class="ops-row-icon">${item.icon}</div>
+              <div class="ops-row-body">
+                <div class="ops-row-title">${item.title}</div>
+                <div class="ops-row-ctx">${item.ctx}</div>
+                <div class="ops-row-metric">${item.metric}</div>
+              </div>
+              <div class="ops-row-actions">
+                <span class="ops-pill ${item.pillClass}">${item.pill}</span>
+                <button class="${item.btnClass}" data-action="showPage" data-page="${item.page}" ${item.ladderId ? `data-ladderid="${item.ladderId}"` : ''}>${item.btnLabel}</button>
+              </div>
+            </div>`).join('');
+        }
+
+        if (opsBdg) {
+          opsBdg.textContent = items.length
+            ? `${items.length} item${items.length !== 1 ? 's' : ''}`
+            : 'All clear';
+        }
+      }
+
+      // ── Active Ladders & Tournaments ───────────────────────
+      const programsEl = document.getElementById('dash-programs-list');
+      if (programsEl) {
+        const rows = [];
+        ladders.forEach(l => rows.push({
+          name: l.name, type: 'Ladder', page: 'ladders',
+          btnLabel: 'View Ladder →', barColor: '#9CE3FF', countColor: '#174CCC', countLabel: 'Active',
+        }));
+        tournaments.forEach(t => rows.push({
+          name: t.name, type: 'Tournament', page: 't-tournaments',
+          btnLabel: 'View Tournament →', barColor: '#C6F221', countColor: '#5a6e00', countLabel: 'Open',
+        }));
+
+        if (!rows.length) {
+          programsEl.innerHTML = `<div style="padding:16px;text-align:center;color:var(--text-muted);font-size:13px;font-weight:600;">
+            No active ladders or tournaments.
+          </div>`;
+        } else {
+          programsEl.innerHTML = rows.slice(0, 6).map(r => `
+            <div class="prog-row">
+              <div class="prog-top">
+                <div class="prog-name" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(r.name)}</div>
+                <button class="btn btn-outline btn-sm" data-action="showPage" data-page="${r.page}"
+                  style="font-size:10px;flex-shrink:0;margin-left:12px;">${r.btnLabel}</button>
+              </div>
+              <div class="prog-meta">${r.type} · Active</div>
+              <div class="prog-bar-row">
+                <div class="prog-bar-bg">
+                  <div class="prog-bar-fill" style="width:70%;background:${r.barColor};"></div>
+                </div>
+                <div class="prog-count" style="color:${r.countColor};">${r.countLabel}</div>
+              </div>
+            </div>`).join('');
+        }
+      }
+
+      // ── Upcoming Events ────────────────────────────────────
+      const eventsEl = document.getElementById('dash-events-list');
+      if (eventsEl) {
+        const today = new Date().toISOString().split('T')[0];
+        let events = [];
+        try { events = await api(`events?event_date=gte.${today}&select=id,title,event_date&order=event_date.asc&limit=4`); } catch(_) {}
+
+        if (!events.length) {
+          eventsEl.innerHTML = `
+            <div class="ev-empty">
+              <div class="ev-empty-ico">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="4" width="18" height="18" rx="2"/>
+                  <line x1="16" y1="2" x2="16" y2="6"/>
+                  <line x1="8" y1="2" x2="8" y2="6"/>
+                  <line x1="3" y1="10" x2="21" y2="10"/>
+                </svg>
+              </div>
+              <div class="ev-empty-title">No upcoming events</div>
+              <div class="ev-empty-rec">Create an event to maintain player engagement.</div>
+              <button class="ev-empty-btn" data-action="showPage" data-page="events">+ Create Event</button>
+            </div>`;
+        } else {
+          const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+          eventsEl.innerHTML = events.map(ev => {
+            const d   = new Date(ev.event_date + 'T00:00:00');
+            const day = d.getDate();
+            const mon = months[d.getMonth()];
+            return `
+              <div style="display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:0.5px solid var(--border);">
+                <div style="width:36px;height:36px;background:var(--blue-pale);border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0;">
+                  <div style="font-size:14px;font-weight:800;color:var(--blue);line-height:1;">${day}</div>
+                  <div style="font-size:9px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.5px;">${mon}</div>
+                </div>
+                <div style="flex:1;min-width:0;">
+                  <div style="font-size:13px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(ev.title)}</div>
+                  <div style="font-size:11px;color:var(--text-muted);font-weight:600;margin-top:2px;">${ev.event_date}</div>
+                </div>
+              </div>`;
+          }).join('');
+          const lastEv = eventsEl.querySelector('div[style*="border-bottom"]:last-child');
+          if (lastEv) lastEv.style.borderBottom = 'none';
+        }
+      }
+
+    } catch (e) {
+      console.error('[Dashboard] Error:', e);
+    }
+  };
 
   const goHome = () => {
     document.querySelectorAll('.page').forEach((p) => p.classList.remove('active'));
     document.getElementById('page-home').classList.add('active');
-    document.getElementById('subnav-programs').style.display = 'none';
-    document.getElementById('subnav-management').style.display = 'none';
-    document.getElementById('subnav-ladder-options').style.display = 'none';
-    document.getElementById('subnav-tournament-options').style.display = 'none';
-    document.getElementById('tab-home').classList.add('active');
-    // Reset ladder selection when navigating away to Home
+    sbSetActive('home');
+    sbCloseMore();
     currentLadder = null;
     const sel = document.getElementById('ladder-selector');
     if (sel) sel.value = '';
+    loadDashboard();
   };
 
   const switchMainTab = (tab) => {
-    document.querySelectorAll('.page').forEach((p) => p.classList.remove('active'));
-    document.getElementById('tab-home').classList.remove('active');
-
-    const ladderOpts = document.getElementById('subnav-ladder-options');
-    const tournOpts = document.getElementById('subnav-tournament-options');
-
-    if (tab === 'programs') {
-      document.getElementById('subnav-programs').style.display = 'flex';
-      document.getElementById('subnav-management').style.display = 'none';
-      if (ladderOpts) ladderOpts.style.display = 'none';
-      if (tournOpts) tournOpts.style.display = 'none';
-      document.getElementById('prog-tab-ladder').classList.remove('active');
-      document.getElementById('prog-tab-tournament').classList.remove('active');
-      document.getElementById('page-programs-home').classList.add('active');
-    } else if (tab === 'management') {
-      document.getElementById('subnav-programs').style.display = 'none';
-      document.getElementById('subnav-management').style.display = 'flex';
-      if (ladderOpts) ladderOpts.style.display = 'none';
-      if (tournOpts) tournOpts.style.display = 'none';
-      const activeBtn = document.querySelector('#subnav-management button.active');
-      if (activeBtn) showPage(activeBtn.dataset.page, activeBtn);
-      else showPage('players', document.querySelector('#subnav-management button'));
-    }
+    // Legacy shim — kept so any old tile clicks still work
+    if (tab === 'programs') sbShowLadder();
+    else if (tab === 'management') showPage('players', document.getElementById('sb-players'));
   };
 
   const switchProgramTab = (tab) => {
-    const ladderOpts = document.getElementById('subnav-ladder-options');
-    const tournOpts = document.getElementById('subnav-tournament-options');
-    document.getElementById('page-programs-home').classList.remove('active');
-    document.getElementById('prog-tab-ladder').classList.toggle('active', tab === 'ladder');
-    document.getElementById('prog-tab-tournament').classList.toggle('active', tab === 'tournament');
-    ladderOpts.style.display = tab === 'ladder' ? 'flex' : 'none';
-    tournOpts.style.display = tab === 'tournament' ? 'flex' : 'none';
-    if (tab === 'ladder') {
-      const standingsBtn = document.querySelector('#subnav-ladder-options button[data-page="ladder"]');
-      if (currentLadder) {
-        // Ladder already selected — just show the standings, don't reset the dropdown
-        showPage('ladder', standingsBtn);
-      } else {
-        loadLadderSelector().then(() => {
-          document.querySelectorAll('.page').forEach((p) => p.classList.remove('active'));
-        });
-      }
+    // Legacy shim — kept so old tile clicks still work
+    if (tab === 'ladder') sbShowLadder();
+    else sbShowTournament();
+  };
+
+  const sbShowLadder = () => {
+    sbCloseMore();
+    if (currentLadder) {
+      showPage('ladder', document.getElementById('sb-standings'));
     } else {
-      loadTournamentSelector();
-      const tvBtn = document.querySelector('#subnav-tournament-options button[data-page="tournament-view"]');
-      showPage('tournament-view', tvBtn);
+      loadLadderSelector().then(() => {
+        document.querySelectorAll('.page').forEach((p) => p.classList.remove('active'));
+        sbSetActive('ladder');
+      });
+    }
+    // Always show the sub-items
+    const wrap = document.getElementById('sb-ladder-select-wrap');
+    if (wrap) wrap.style.display = 'block';
+    ['sb-standings','sb-sessions','sb-entry'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'flex';
+    });
+    document.getElementById('sb-ladder')?.classList.add('active');
+    document.getElementById('bn-ladder')?.classList.add('active');
+  };
+
+  const sbShowTournament = () => {
+    sbCloseMore();
+    loadTournamentSelector();
+    showPage('tournament-view', document.getElementById('sb-tournament'));
+    const wrap = document.getElementById('sb-tourn-select-wrap');
+    if (wrap) wrap.style.display = 'block';
+  };
+
+  const sbToggleMore = () => {
+    const drawer = document.getElementById('more-drawer');
+    const backdrop = document.getElementById('drawer-backdrop');
+    const isOpen = drawer?.classList.contains('open');
+    if (isOpen) {
+      sbCloseMore();
+    } else {
+      drawer?.classList.add('open');
+      backdrop?.classList.add('open');
     }
   };
 
@@ -163,13 +420,25 @@
 
   const showPage = (name, btn) => {
     document.querySelectorAll('.page').forEach((p) => p.classList.remove('active'));
-    document
-      .querySelectorAll('.sub-nav:not([style*="display:none"]):not([style*="display: none"]) button')
-      .forEach((b) => b.classList.remove('active'));
-    document.getElementById(`page-${name}`).classList.add('active');
-    if (btn) btn.classList.add('active');
+    const pageEl = document.getElementById(`page-${name}`);
+    if (pageEl) pageEl.classList.add('active');
+    sbSetActive(name);
+    sbCloseMore();
     if (name === 'ladder') loadLadder();
-    if (name === 'sessions') loadSessions();
+    if (name === 'sessions') {
+      // If called with a specific ladder id (e.g. from dashboard ops center), pre-select it
+      const ladderId = btn && btn.dataset && btn.dataset.ladderid ? parseInt(btn.dataset.ladderid, 10) : null;
+      if (ladderId && allLadders.length) {
+        const found = allLadders.find(l => l.id === ladderId);
+        if (found) {
+          currentLadder = found;
+          const sel = document.getElementById('ladder-selector');
+          if (sel) sel.value = ladderId;
+          updateLadderBanner();
+        }
+      }
+      loadSessions();
+    }
     if (name === 'players') loadPlayers();
     if (name === 'entry') initEntry();
     if (name === 'ladders') loadLaddersPage();
@@ -179,17 +448,6 @@
     if (name === 'events') loadEventsPage();
     if (name === 'promotions' && typeof loadPromotionsPage !== 'undefined') loadPromotionsPage();
     if (name === 't-tournaments' && typeof loadTournamentModule !== 'undefined') loadTournamentModule();
-    // Management pages: ensure correct subnav is visible
-    const mgmtPages = ['players', 'add-player', 'ladders', 't-tournaments', 'promotions', 'share'];
-    if (mgmtPages.includes(name)) {
-      document.getElementById('subnav-management').style.display = 'flex';
-      document.getElementById('subnav-programs').style.display = 'none';
-      document.getElementById('subnav-ladder-options').style.display = 'none';
-      document.getElementById('subnav-tournament-options').style.display = 'none';
-      document.getElementById('page-home').classList.remove('active');
-      document.getElementById('page-programs-home').classList.remove('active');
-      document.getElementById('tab-home').classList.remove('active');
-    }
     if (name === 'tournament-view') {
       const el = document.getElementById('tournament-view-content');
       if (el && !currentTournamentId) {
@@ -233,22 +491,12 @@
     currentLadder = allLadders.find((l) => l.id === id) || null;
     updateLadderBanner();
     await loadLadderPlayers();
-    document.getElementById('page-home').classList.remove('active');
-    document.getElementById('page-programs-home').classList.remove('active');
-    document.getElementById('tab-home').classList.remove('active');
-    document.getElementById('subnav-programs').style.display = 'flex';
-    document.getElementById('subnav-management').style.display = 'none';
-    document.getElementById('prog-tab-ladder').classList.add('active');
-    document.getElementById('prog-tab-tournament').classList.remove('active');
-    document.getElementById('subnav-ladder-options').style.display = 'flex';
-    document.getElementById('subnav-tournament-options').style.display = 'none';
-    const standingsBtn = document.querySelector('#subnav-ladder-options button[data-page="ladder"]');
-    showPage('ladder', standingsBtn);
+    showPage('ladder', document.getElementById('sb-standings'));
   };
 
   const updateLadderBanner = () => {
     const ladderPages = ['ladder', 'sessions', 'entry'];
-    const ladderNavBtns = document.querySelectorAll('#subnav-ladder-options button[data-page]');
+    const ladderNavBtns = document.querySelectorAll('#sb-standings, #sb-sessions, #sb-entry');
     if (!currentLadder) {
       ladderNavBtns.forEach((b) => {
         if (ladderPages.includes(b.dataset.page)) b.disabled = true;
@@ -286,40 +534,261 @@
 
   /* ─── LADDER MANAGEMENT PAGE ───────────────────────────── */
 
+  // ── Ladder ops page state ─────────────────────────────────────────────
+  let _lopFilter = 'all';
+
+  const _renderLadderCards = async () => {
+    const el = document.getElementById('ladders-list');
+    if (!el) return;
+
+    let filtered = allLadders.filter(l => {
+      if (_lopFilter === 'active') return l.status === 'active';
+      if (_lopFilter === 'closed') return l.status !== 'active';
+      return true;
+    });
+
+    if (!filtered.length) {
+      el.innerHTML = `<div class="empty" style="padding:20px;text-align:center;background:white;border-radius:10px;">No ladders found.</div>`;
+      return;
+    }
+
+    // Fetch matches + ladder_players for intelligence
+    let matchStats = {}, ladderPlayers = [], pendingAll = [];
+    try {
+      const [matches, lp, pending] = await Promise.all([
+        api('matches?select=ladder_id,player_id,score_for,session_date,points_earned,players(first_name,last_name)&order=session_date.desc').catch(() => []),
+        api('ladder_players?select=ladder_id,player_id').catch(() => []),
+        api('matches?score_for=is.null&default_no_show=is.false&select=ladder_id').catch(() => []),
+      ]);
+      // Per-ladder stats
+      matches.forEach(m => {
+        if (!matchStats[m.ladder_id]) matchStats[m.ladder_id] = { games: 0, sessions: new Set(), pts: {}, names: {} };
+        const s = matchStats[m.ladder_id];
+        s.games++;
+        if (m.session_date) s.sessions.add(m.session_date);
+        if (m.score_for !== null && m.points_earned) {
+          s.pts[m.player_id] = (s.pts[m.player_id] || 0) + m.points_earned;
+        }
+        // Store player name
+        if (m.players && m.player_id) {
+          s.names[m.player_id] = `${m.players.first_name} ${m.players.last_name}`;
+        }
+      });
+      ladderPlayers = lp;
+      pendingAll = pending;
+    } catch(_) {}
+
+    // Compute player counts per ladder
+    const playersByLadder = {};
+    ladderPlayers.forEach(lp => {
+      playersByLadder[lp.ladder_id] = (playersByLadder[lp.ladder_id] || new Set()).add(lp.player_id);
+    });
+
+    // Compute pending per ladder
+    const pendingByLadder = {};
+    pendingAll.forEach(m => {
+      pendingByLadder[m.ladder_id] = (pendingByLadder[m.ladder_id] || 0) + 1;
+    });
+
+    // Week progress helper
+    const weekProgress = (l) => {
+      if (!l.start_date || !l.end_date) return null;
+      const start = new Date(l.start_date + 'T00:00:00');
+      const end   = new Date(l.end_date   + 'T00:00:00');
+      const now   = new Date();
+      const total = Math.round((end - start) / 604800000);
+      const done  = Math.max(0, Math.round((now - start) / 604800000));
+      const pct   = Math.min(100, Math.round((done / (total || 1)) * 100));
+      return { done: Math.min(done, total), total: total || 1, pct };
+    };
+
+    // Next session day helper (based on end_date weekday as proxy)
+    const nextSessionStr = (l) => {
+      if (!l.start_date) return null;
+      const d = new Date(l.start_date + 'T00:00:00');
+      const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+      return `Next: ${days[d.getDay()]} session`;
+    };
+
+    // SVG icons
+    const calSVG  = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#6b7a99" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
+    const clkSVG  = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`;
+    const plrsSVG = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`;
+    const editSVG = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
+    const closSVG = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="9" x2="15" y2="15"/><line x1="15" y1="9" x2="9" y2="15"/></svg>`;
+    const reopSVG = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>`;
+    const trshSVG = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>`;
+    const boltSVG = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#F26024" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`;
+    const crwnSVG = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4a5e00" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4a2 2 0 0 1-2-2V5h4"/><path d="M18 9h2a2 2 0 0 0 2-2V5h-4"/><path d="M12 17v4"/><path d="M8 21h8"/><path d="M6 9a6 6 0 0 0 12 0V3H6v6z"/></svg>`;
+    const trendSVG= `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#24BC96" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>`;
+    const ovSVG   = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
+    const plrSVG  = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>`;
+    const sessSVG = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
+    const stndSVG = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="5"/><path d="M8.56 13.9l-1.56 6.1 5-3 5 3-1.56-6.1"/></svg>`;
+
+    el.innerHTML = filtered.map(l => {
+      const isActive  = l.status === 'active';
+      const isClosed  = !isActive;
+      const stats     = matchStats[l.id] || { games: 0, sessions: new Set(), pts: {} };
+      const players   = playersByLadder[l.id] ? playersByLadder[l.id].size : 0;
+      const sessions  = stats.sessions.size;
+      const games     = stats.games;
+      const prog      = weekProgress(l);
+      const dateStr   = [
+        l.start_date ? fmtDate(l.start_date) : null,
+        l.end_date   ? fmtDate(l.end_date)   : null,
+      ].filter(Boolean).join(' → ');
+
+      // Top scorer
+      const topPid = Object.keys(stats.pts).sort((a,b) => stats.pts[b] - stats.pts[a])[0];
+      const topPts = topPid ? stats.pts[topPid] : 0;
+
+      // Recent sessions (last 30 days)
+      const monthAgo = new Date(); monthAgo.setDate(monthAgo.getDate() - 30);
+      const recentSessions = [...stats.sessions].filter(d => new Date(d) >= monthAgo).length;
+
+      // Disabled attr for closed ladders
+      const dis = isClosed ? 'disabled' : '';
+
+      return `<div class="lop-card" id="lop-card-${l.id}">
+        <!-- Tabs at top -->
+        <div class="lop-tabs">
+          <button class="lop-tab active" onclick="lopTab(event,'${l.id}','overview')">${ovSVG} Overview</button>
+          <button class="lop-tab" onclick="lopTab(event,'${l.id}','players')">${plrSVG} Players</button>
+          <button class="lop-tab" onclick="lopTab(event,'${l.id}','sessions')">${sessSVG} Sessions</button>
+          <button class="lop-tab" onclick="lopTab(event,'${l.id}','standings')">${stndSVG} Standings</button>
+        </div>
+        <!-- Card body -->
+        <div class="lop-body">
+          <!-- LEFT -->
+          <div class="lop-left">
+            <div class="lop-name">${esc(l.name)}</div>
+            <div class="lop-status-row">
+              <span class="${isActive ? 'lop-active-pill' : 'lop-closed-pill'}">${isActive ? 'Season Active' : 'Closed'}</span>
+              ${isActive && l.start_date ? `<span class="lop-next">${clkSVG} ${nextSessionStr(l) || 'Active'}</span>` : ''}
+            </div>
+            ${dateStr ? `<div class="lop-dates">${calSVG} ${esc(dateStr)}</div>` : ''}
+            <div class="lop-stats-row">
+              <div><div class="lop-stat-val">${players}</div><div class="lop-stat-lbl">Players</div></div>
+              <div><div class="lop-stat-val">${games}</div><div class="lop-stat-lbl">Games</div></div>
+              <div><div class="lop-stat-val">${sessions}</div><div class="lop-stat-lbl">Sessions</div></div>
+            </div>
+            <div style="margin-top:8px;">
+              <div class="lop-progress-lbl">
+                <span>Season Progress</span>
+                <span class="wk">${prog ? `Week ${prog.done} of ${prog.total}` : 'No dates set'}</span>
+              </div>
+              <div class="lop-bar"><div class="lop-fill" style="width:${prog ? prog.pct : 0}%;"></div></div>
+            </div>
+          </div>
+          <!-- CENTER: Intelligence -->
+          <div class="lop-center">
+            <div class="lop-intel-title">Competitive Intelligence</div>
+            <div class="lop-intel-item">
+              <div class="lop-intel-icon" style="background:#fde8d8;">${boltSVG}</div>
+              <div>
+                <div class="lop-intel-text">${recentSessions} session${recentSessions !== 1 ? 's' : ''} this month</div>
+                <div class="lop-intel-sub">${recentSessions > 0 ? 'Ladder is active' : 'No recent activity'}</div>
+              </div>
+            </div>
+            <div class="lop-intel-item">
+              <div class="lop-intel-icon" style="background:rgba(198,242,33,0.2);">${crwnSVG}</div>
+              <div>
+                <div class="lop-intel-text">${topPts > 0 ? esc(stats.names[topPid] || 'Unknown') : 'No scores yet'}</div>
+                <div class="lop-intel-sub">${topPts > 0 ? `+${topPts} pts · Season leader` : 'Record first session'}</div>
+              </div>
+            </div>
+            <div class="lop-intel-item">
+              <div class="lop-intel-icon" style="background:#d4f5ed;">${trendSVG}</div>
+              <div>
+                <div class="lop-intel-text">${players} player${players !== 1 ? 's' : ''} enrolled</div>
+                <div class="lop-intel-sub">${games} total games played</div>
+              </div>
+            </div>
+          </div>
+          <!-- RIGHT: Actions — disabled when closed -->
+          <div class="lop-right">
+            <div class="lop-action-title">Actions</div>
+            <button class="lop-btn" data-action="openLadderPlayers" data-lid="${l.id}" data-lname="${esc(l.name)}" ${dis}>${plrsSVG} Manage Players</button>
+            <button class="lop-btn" data-action="openEditLadder" data-lid="${l.id}" ${dis}>${editSVG} Edit Ladder</button>
+            <button class="lop-btn warn" data-action="toggleLadderStatus" data-lid="${l.id}" data-lstatus="${esc(l.status)}" ${dis}>${isActive ? closSVG + ' Close Ladder' : reopSVG + ' Reopen Ladder'}</button>
+            <button class="lop-btn danger" data-action="deleteLadder" data-lid="${l.id}" data-lname="${esc(l.name)}">${trshSVG} Delete</button>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  };
+
+  // Quick access tab handler
+  window.lopTab = (e, ladderId, tab) => {
+    // Update tab styles for this card
+    const card = document.getElementById(`lop-card-${ladderId}`);
+    if (!card) return;
+    card.querySelectorAll('.lop-tab').forEach(t => t.classList.remove('active'));
+    e.currentTarget.classList.add('active');
+
+    if (tab === 'overview') return; // already showing
+
+    // Navigate to the right page with this ladder pre-selected
+    const ladder = allLadders.find(l => String(l.id) === String(ladderId));
+    if (!ladder) return;
+    currentLadder = ladder;
+    const sel = document.getElementById('ladder-selector');
+    if (sel) sel.value = ladderId;
+    updateLadderBanner();
+
+    if (tab === 'players') {
+      showPage('ladder', document.getElementById('sb-standings'));
+      // Switch to players tab inside ladder page
+      const plrTab = document.querySelector('[data-action="switchLadderTab"][data-tab="players"]');
+      if (plrTab) plrTab.click();
+    } else if (tab === 'sessions') {
+      showPage('sessions', document.getElementById('sb-standings'));
+    } else if (tab === 'standings') {
+      showPage('ladder', document.getElementById('sb-standings'));
+    }
+  };
+
   const loadLaddersPage = async () => {
     try {
-      allLadders = await api('ladders?select=*&order=id.desc');
+      const [ladders, ladderPlayers, pending] = await Promise.all([
+        api('ladders?select=*&order=id.desc'),
+        api('ladder_players?select=ladder_id,player_id').catch(() => []),
+        api('matches?score_for=is.null&default_no_show=is.false&select=ladder_id').catch(() => []),
+      ]);
+      allLadders = ladders;
+
+      // Stat cards
+      const active  = ladders.filter(l => l.status === 'active').length;
+      const closed  = ladders.filter(l => l.status !== 'active').length;
+      // Unique players in active ladders
+      const activeLadderIds = new Set(ladders.filter(l => l.status === 'active').map(l => l.id));
+      const activePlayers   = new Set(ladderPlayers.filter(lp => activeLadderIds.has(lp.ladder_id)).map(lp => lp.player_id)).size;
+      const pendingCount    = pending.length;
+
+      const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+      setEl('lop-active',  active);
+      setEl('lop-closed',  closed);
+      setEl('lop-players', activePlayers);
+      setEl('lop-pending', pendingCount || '—');
+
     } catch (e) {
       document.getElementById('ladders-list').innerHTML =
         `<div class="empty">Error: ${esc(e.message)}</div>`;
       return;
     }
-    const el = document.getElementById('ladders-list');
-    if (!allLadders.length) {
-      el.innerHTML = '<div class="empty">No ladders yet. Create your first one!</div>';
-      return;
+
+    // Wire filter dropdown
+    const filterSel = document.getElementById('ladder-status-filter');
+    if (filterSel && !filterSel._wired) {
+      filterSel._wired = true;
+      filterSel.addEventListener('change', () => {
+        _lopFilter = filterSel.value;
+        _renderLadderCards();
+      });
     }
-    el.innerHTML = allLadders
-      .map((l) => {
-        const dates =
-          (l.start_date ? `Started: ${fmtDate(l.start_date)}` : 'No start date') +
-          (l.end_date ? ` · Ends: ${fmtDate(l.end_date)}` : '');
-        return `
-          <div class="list-row" style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px;">
-            <div style="flex:1;min-width:0;">
-              <div class="text-bold text-14">${esc(l.name)}</div>
-              <div class="text-muted-12 mt-4">${dates}</div>
-            </div>
-            <div class="row-wrap" style="flex-shrink:0;justify-content:flex-end;">
-              <span class="badge badge-${l.status === 'active' ? 'active' : 'inactive'}">${esc(l.status)}</span>
-              <button class="btn btn-outline btn-sm" data-action="openLadderPlayers" data-lid="${l.id}" data-lname="${esc(l.name)}">Players</button>
-              <button class="btn btn-outline btn-sm" data-action="openEditLadder" data-lid="${l.id}">Edit</button>
-              <button class="btn btn-outline btn-sm" data-action="toggleLadderStatus" data-lid="${l.id}" data-lstatus="${esc(l.status)}">${l.status === 'active' ? 'Close' : 'Reopen'}</button>
-              <button class="btn btn-danger btn-sm" data-action="deleteLadder" data-lid="${l.id}" data-lname="${esc(l.name)}">Delete</button>
-            </div>
-          </div>`;
-      })
-      .join('');
+
+    await _renderLadderCards();
   };
 
   const createLadder = async (e) => {
@@ -336,7 +805,7 @@
       toast(`Ladder "${name}" created!`);
       document.getElementById('create-ladder-form').reset();
       await loadLadderSelector();
-      loadLaddersPage();
+      await loadLaddersPage();
     } catch (err) {
       toast(`Error: ${err.message}`, true);
     }
@@ -357,29 +826,30 @@
   const openEditLadder = (id) => {
     const l = allLadders.find((x) => x.id === id);
     if (!l) return;
-    document.getElementById('edit-ladder-id').value = l.id;
-    document.getElementById('edit-ladder-name').value = l.name;
+    document.getElementById('edit-ladder-id').value  = l.id;
+    document.getElementById('edit-ladder-name').value  = l.name;
     document.getElementById('edit-ladder-start').value = l.start_date || '';
-    document.getElementById('edit-ladder-end').value = l.end_date || '';
-    document.getElementById('edit-ladder-status').value = l.status || 'active';
-    document.getElementById('edit-ladder-modal').classList.add('open');
+    document.getElementById('edit-ladder-end').value   = l.end_date   || '';
+    const modal = document.getElementById('edit-ladder-modal');
+    if (modal) { modal.style.display = 'flex'; document.body.style.overflow = 'hidden'; }
   };
 
-  const closeEditLadderModal = () =>
-    document.getElementById('edit-ladder-modal').classList.remove('open');
+  const closeEditLadderModal = () => {
+    const modal = document.getElementById('edit-ladder-modal');
+    if (modal) { modal.style.display = 'none'; document.body.style.overflow = ''; }
+  };
 
   const saveEditLadder = async (e) => {
     e.preventDefault();
     const id = document.getElementById('edit-ladder-id').value;
     const body = {
-      name: document.getElementById('edit-ladder-name').value.trim(),
+      name:       document.getElementById('edit-ladder-name').value.trim(),
       start_date: document.getElementById('edit-ladder-start').value || null,
-      end_date: document.getElementById('edit-ladder-end').value || null,
-      status: document.getElementById('edit-ladder-status').value,
+      end_date:   document.getElementById('edit-ladder-end').value   || null,
     };
     try {
       await api(`ladders?id=eq.${id}`, 'PATCH', body);
-      toast('Ladder updated!');
+      toast('Ladder updated successfully!');
       closeEditLadderModal();
       await loadLadderSelector();
       loadLaddersPage();
@@ -417,11 +887,30 @@
 
   const openLadderPlayers = async (ladderId, ladderName) => {
     modalLadderId = ladderId;
-    document.getElementById('lp-modal-title').textContent = `Players — ${ladderName}`;
-    document.getElementById('lp-modal').classList.add('open');
+    const modal = document.getElementById('lp-modal');
+    if (modal) { modal.style.display = 'flex'; document.body.style.overflow = 'hidden'; }
     const searchEl = document.getElementById('lp-search');
-    if (searchEl) searchEl.value = '';
+    if (searchEl) {
+      searchEl.value = '';
+      if (!searchEl._lpWired) {
+        searchEl._lpWired = true;
+        searchEl.addEventListener('input', () => {
+          const q = searchEl.value.toLowerCase();
+          document.querySelectorAll('.lp-player-row-new').forEach(row => {
+            row.style.display = row.dataset.name.includes(q) ? '' : 'none';
+          });
+        });
+      }
+    }
     await refreshLadderPlayersModal();
+  };
+
+  // Avatar color from name
+  const _lpAvColor = (name) => {
+    const colors = ['#174CCC','#24BC96','#F26024','#7c3aed','#0891b2','#d97706','#16a34a','#db2777'];
+    let h = 0;
+    for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
+    return colors[Math.abs(h) % colors.length];
   };
 
   const refreshLadderPlayersModal = async () => {
@@ -430,131 +919,227 @@
       api(`ladder_players?select=ladder_id,player_id,status&ladder_id=eq.${modalLadderId}`),
     ]);
     allPlayers = allP;
-    const enrolledIds = enrolled.map((r) => Number(r.player_id));
+    const enrolledIds  = enrolled.map((r) => Number(r.player_id));
     const activePlayers = allPlayers.filter((p) => p.status !== 'inactive');
+    const subCount     = enrolled.filter(r => r.status === 'sub').length;
 
     const listEl = document.getElementById('lp-enrolled');
-    const allChecked = activePlayers.every((p) => enrolledIds.includes(Number(p.id)));
     listEl.dataset.enrolledIds = enrolledIds.join(',');
 
-    const headerHtml = `
-      <div class="lp-sticky-header">
-        <input type="checkbox" id="lp-select-all" ${allChecked ? 'checked' : ''}
-          style="width:16px;height:16px;cursor:pointer;" data-action="lpToggleAll">
-        <label for="lp-select-all" class="text-bolder text-uppercase color-blue cursor-pointer" style="font-size:12px;letter-spacing:.5px;">Select all</label>
-        <span class="text-bold color-blue" style="margin-left:auto;font-size:12px;">${enrolledIds.length} / ${activePlayers.length} enrolled</span>
-      </div>`;
+    // Update summary pill
+    const summaryEl = document.getElementById('lp-summary-text');
+    if (summaryEl) summaryEl.textContent = `${enrolledIds.length} enrolled • ${subCount} subs`;
 
-    const rowsHtml = activePlayers
-      .map((p) => {
-        const isEnrolled = enrolledIds.includes(Number(p.id));
-        const enrolledRow = enrolled.find((r) => Number(r.player_id) === Number(p.id));
-        const ladderStatus = enrolledRow && enrolledRow.status ? enrolledRow.status : 'active';
-        const fullName = `${p.first_name} ${p.last_name}`;
-        return `<div class="lp-row lp-player-row" data-name="${esc(fullName.toLowerCase())}">
-          <input type="checkbox" id="lp-cb-${p.id}" ${isEnrolled ? 'checked' : ''}
-            style="width:16px;height:16px;cursor:pointer;" data-pid="${p.id}">
-          <label for="lp-cb-${p.id}" class="text-bold cursor-pointer flex-1" style="font-size:13px;">
-            ${esc(fullName)}
-            <span class="badge badge-${esc(p.status)}" style="margin-left:6px;">${esc(p.status)}</span>
-          </label>
-          ${
-            isEnrolled
-              ? `<select data-action="lpChangeStatus" data-pid="${p.id}"
-                  class="lp-status-select ${ladderStatus === 'active' ? 'lp-status-active' : 'lp-status-sub'}">
-                  <option value="active" ${ladderStatus === 'active' ? 'selected' : ''}>Active</option>
-                  <option value="sub" ${ladderStatus === 'sub' ? 'selected' : ''}>Sub</option>
-                </select>`
-              : ''
-          }
-        </div>`;
-      })
-      .join('');
+    // Select-all row
+    const allChecked = activePlayers.every((p) => enrolledIds.includes(Number(p.id)));
+    const checkSVG = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+
+    const headerHtml = `<div class="lp-select-all-row">
+      <div class="lp-cb-box ${allChecked ? 'lp-cb-checked' : ''}" id="lp-cb-all-box" onclick="lpToggleAllNew(this)" style="cursor:pointer;">
+        ${allChecked ? checkSVG : ''}
+      </div>
+      <span style="font-size:10px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#174CCC;cursor:pointer;flex:1;" onclick="lpToggleAllNew(document.getElementById('lp-cb-all-box'))">Select All</span>
+      <span style="font-size:11px;font-weight:700;color:#6b7a99;">${enrolledIds.length} of ${activePlayers.length} enrolled</span>
+    </div>`;
+
+    const rowsHtml = activePlayers.map((p) => {
+      const isEnrolled   = enrolledIds.includes(Number(p.id));
+      const enrolledRow  = enrolled.find((r) => Number(r.player_id) === Number(p.id));
+      const ladderStatus = enrolledRow?.status || 'active';
+      const fullName     = `${p.first_name} ${p.last_name}`;
+      const initials     = `${p.first_name?.[0] || ''}${p.last_name?.[0] || ''}`.toUpperCase();
+      const avColor      = _lpAvColor(fullName);
+      const checkSVG     = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+
+      const segToggle = isEnrolled ? `
+        <div class="lp-seg" data-pid="${p.id}">
+          <button type="button" class="lp-seg-btn ${ladderStatus === 'active' ? 'lp-seg-active' : ''}"
+            onclick="lpSegClick(this,'active',${p.id})">Active</button>
+          <button type="button" class="lp-seg-btn ${ladderStatus === 'sub' ? 'lp-seg-sub' : ''}"
+            onclick="lpSegClick(this,'sub',${p.id})">Sub</button>
+        </div>` : '';
+
+      return `<div class="lp-player-row-new ${isEnrolled ? 'lp-selected' : ''}"
+          data-name="${esc(fullName.toLowerCase())}" data-pid="${p.id}"
+          onclick="lpRowClick(event,${p.id})">
+        <div class="lp-cb-box ${isEnrolled ? 'lp-cb-checked' : ''}" data-pid="${p.id}" style="pointer-events:none;">
+          ${isEnrolled ? checkSVG : ''}
+        </div>
+        <div class="lp-av" style="background:${avColor};">${esc(initials)}</div>
+        <div class="lp-pname ${isEnrolled ? '' : 'lp-unenrolled'}">${esc(fullName)}</div>
+        ${segToggle}
+      </div>`;
+    }).join('');
 
     listEl.innerHTML = headerHtml + rowsHtml;
   };
 
-  const lpChangeStatus = async (sel) => {
-    const pid = parseInt(sel.dataset.pid, 10);
-    const newStatus = sel.value;
-    sel.disabled = true;
-    try {
-      await api(
-        `ladder_players?ladder_id=eq.${modalLadderId}&player_id=eq.${pid}`,
-        'PATCH',
-        { status: newStatus },
-      );
-      sel.classList.toggle('lp-status-active', newStatus === 'active');
-      sel.classList.toggle('lp-status-sub', newStatus === 'sub');
-      const p = ladderPlayers.find((x) => x.id === pid);
-      if (p) p.ladder_status = newStatus;
-      toast(`Status updated to ${newStatus}.`);
-    } catch (e) {
-      toast(`Error: ${e.message}`, true);
-    } finally {
-      sel.disabled = false;
+  // Toggle single row on click (but not if clicking seg button)
+  window.lpRowClick = (e, pid) => {
+    if (e.target.closest('.lp-seg')) return; // ignore seg clicks
+    const row = e.currentTarget;
+    const cb  = row.querySelector('.lp-cb-box');
+    const isChecked = cb.classList.contains('lp-cb-checked');
+    const checkSVG  = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+    if (isChecked) {
+      cb.classList.remove('lp-cb-checked');
+      cb.innerHTML = '';
+      row.classList.remove('lp-selected');
+      // Remove seg toggle
+      const seg = row.querySelector('.lp-seg');
+      if (seg) seg.remove();
+    } else {
+      cb.classList.add('lp-cb-checked');
+      cb.innerHTML = checkSVG;
+      row.classList.add('lp-selected');
+      // Add seg toggle (default active)
+      const pname = row.querySelector('.lp-pname');
+      if (pname) pname.classList.remove('lp-unenrolled');
+      const seg = document.createElement('div');
+      seg.className = 'lp-seg';
+      seg.dataset.pid = pid;
+      seg.innerHTML = `<button type="button" class="lp-seg-btn lp-seg-active" onclick="lpSegClick(this,'active',${pid})">Active</button><button type="button" class="lp-seg-btn" onclick="lpSegClick(this,'sub',${pid})">Sub</button>`;
+      row.appendChild(seg);
     }
   };
+
+  // Toggle All
+  window.lpToggleAllNew = (boxEl) => {
+    const isChecked = boxEl.classList.contains('lp-cb-checked');
+    const checkSVG  = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+    if (isChecked) {
+      // Deselect all
+      boxEl.classList.remove('lp-cb-checked');
+      boxEl.innerHTML = '';
+      document.querySelectorAll('.lp-player-row-new').forEach(row => {
+        row.classList.remove('lp-selected');
+        const cb = row.querySelector('.lp-cb-box');
+        if (cb) { cb.classList.remove('lp-cb-checked'); cb.innerHTML = ''; }
+        const seg = row.querySelector('.lp-seg');
+        if (seg) seg.remove();
+        const pname = row.querySelector('.lp-pname');
+        if (pname) pname.classList.add('lp-unenrolled');
+      });
+    } else {
+      // Select all
+      boxEl.classList.add('lp-cb-checked');
+      boxEl.innerHTML = checkSVG;
+      document.querySelectorAll('.lp-player-row-new').forEach(row => {
+        const pid = row.dataset.pid;
+        if (!row.classList.contains('lp-selected')) {
+          row.classList.add('lp-selected');
+          const cb = row.querySelector('.lp-cb-box');
+          if (cb) { cb.classList.add('lp-cb-checked'); cb.innerHTML = checkSVG; }
+          const pname = row.querySelector('.lp-pname');
+          if (pname) pname.classList.remove('lp-unenrolled');
+          if (!row.querySelector('.lp-seg')) {
+            const seg = document.createElement('div');
+            seg.className = 'lp-seg';
+            seg.dataset.pid = pid;
+            seg.innerHTML = `<button type="button" class="lp-seg-btn lp-seg-active" onclick="lpSegClick(this,'active',${pid})">Active</button><button type="button" class="lp-seg-btn" onclick="lpSegClick(this,'sub',${pid})">Sub</button>`;
+            row.appendChild(seg);
+          }
+        }
+      });
+    }
+  };
+
+  // Segmented status pill click
+  window.lpSegClick = (btn, newStatus, pid) => {
+    // UI only — no DB save. Status is saved when Update Participants is clicked.
+    const seg = btn.closest('.lp-seg');
+    if (!seg) return;
+    seg.querySelectorAll('.lp-seg-btn').forEach(b => {
+      b.classList.remove('lp-seg-active', 'lp-seg-sub');
+    });
+    btn.classList.add(newStatus === 'active' ? 'lp-seg-active' : 'lp-seg-sub');
+  };;
+
+  const lpChangeStatus = async (sel) => { /* now handled by lpSegClick */ };
 
   const lpSaveChanges = async () => {
     const listEl = document.getElementById('lp-enrolled');
     const prevEnrolledIds = (listEl.dataset.enrolledIds || '')
-      .split(',')
-      .filter(Boolean)
-      .map(Number);
-    const checkboxes = document.querySelectorAll('#lp-enrolled input[type="checkbox"][data-pid]');
-    const nowCheckedIds = [...checkboxes]
-      .filter((cb) => cb.checked)
-      .map((cb) => parseInt(cb.dataset.pid, 10));
+      .split(',').filter(Boolean).map(Number);
 
-    const toAdd = nowCheckedIds.filter((id) => !prevEnrolledIds.includes(id));
-    const toRemove = prevEnrolledIds.filter((id) => !nowCheckedIds.includes(id));
+    // Read currently selected rows (new UI — use lp-selected class)
+    const nowCheckedIds = [...document.querySelectorAll('.lp-player-row-new.lp-selected')]
+      .map(row => parseInt(row.dataset.pid, 10)).filter(Boolean);
 
-    if (!toAdd.length && !toRemove.length) {
-      toast('No changes to save.');
+    const toAdd    = nowCheckedIds.filter(id => !prevEnrolledIds.includes(id));
+    const toRemove = prevEnrolledIds.filter(id => !nowCheckedIds.includes(id));
+
+    // Still proceed even if only status changed (no enrollment changes)
+    // Only bail if nothing at all is selected
+    if (!nowCheckedIds.length && !prevEnrolledIds.length) {
+      toast('No participants selected.');
       return;
     }
     const saveBtn = document.getElementById('lp-save-btn');
-    if (saveBtn) {
-      saveBtn.disabled = true;
-      saveBtn.textContent = 'Saving...';
-    }
+    const origHTML = saveBtn?.innerHTML;
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.innerHTML = 'Saving...'; }
+
+    // Helper: read seg pill status from row
+    const getSegStatus = (pid) => {
+      const row = document.querySelector(`.lp-player-row-new[data-pid="${pid}"]`);
+      if (!row) return 'active';
+      return row.querySelector('.lp-seg-btn.lp-seg-sub') ? 'sub' : 'active';
+    };
+
     try {
+      // 1. Add newly enrolled players with their chosen status
       if (toAdd.length) {
-        await api(
-          'ladder_players',
-          'POST',
-          toAdd.map((pid) => ({ ladder_id: parseInt(modalLadderId, 10), player_id: pid })),
+        await api('ladder_players', 'POST',
+          toAdd.map(pid => ({
+            ladder_id: parseInt(modalLadderId, 10),
+            player_id: pid,
+            status:    getSegStatus(pid),
+          }))
         );
       }
+
+      // 2. Remove de-enrolled players
       if (toRemove.length) {
-        // Single bulk delete
         await api(
           `ladder_players?ladder_id=eq.${modalLadderId}&player_id=in.(${toRemove.join(',')})`,
-          'DELETE',
+          'DELETE'
         );
       }
-      toast(`Saved! ${toAdd.length} added, ${toRemove.length} removed.`);
+
+      // 3. Update status for players that stayed enrolled but changed status
+      const stayedIds = nowCheckedIds.filter(id => prevEnrolledIds.includes(id));
+      const statusUpdates = stayedIds.map(pid => ({
+        pid,
+        status: getSegStatus(pid),
+      }));
+      for (const { pid, status } of statusUpdates) {
+        await api(
+          `ladder_players?ladder_id=eq.${modalLadderId}&player_id=eq.${pid}`,
+          'PATCH',
+          { status }
+        );
+      }
+
+      const changes = toAdd.length + toRemove.length;
+      toast(changes > 0
+        ? `Participants updated! ${toAdd.length} added, ${toRemove.length} removed.`
+        : 'Participant statuses saved successfully.'
+      );
       await loadLadderPlayers();
-      document.getElementById('lp-modal').classList.remove('open');
+      closeLpModal();
     } catch (e) {
       toast(`Error: ${e.message}`, true);
     } finally {
-      if (saveBtn) {
-        saveBtn.disabled = false;
-        saveBtn.textContent = 'Save changes';
-      }
+      if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = origHTML; }
     }
   };
 
-  const lpToggleAll = (btn) => {
-    const selectAll = btn.checked;
-    document
-      .querySelectorAll('#lp-enrolled input[type="checkbox"][data-pid]')
-      .forEach((cb) => (cb.checked = selectAll));
-  };
+  const lpToggleAll = (btn) => { /* replaced by lpToggleAllNew */ };
 
-  const closeLpModal = () => document.getElementById('lp-modal').classList.remove('open');
+  const closeLpModal = () => {
+    const modal = document.getElementById('lp-modal');
+    if (modal) { modal.style.display = 'none'; document.body.style.overflow = ''; }
+  };
 
   /* ─── LADDER STANDINGS ─────────────────────────────────── */
 
@@ -586,11 +1171,44 @@
         matches.map((m) => `${m.session_date}__${m.court_group}__${m.game_number}`),
       ).size;
       const leader = ranked[0] ? `${ranked[0].first_name} ${ranked[0].last_name}` : '-';
+      // Show ladder title
+      const titleEl = document.getElementById('ladder-title');
+      if (titleEl) {
+        titleEl.textContent = currentLadder.name;
+        titleEl.style.display = 'block';
+      }
+      // Stats cards with colored borders + rich leader card
+      const leaderP = ranked[0];
+      const leaderName = leaderP ? `${leaderP.first_name} ${leaderP.last_name}` : '-';
+      const leaderPts  = leaderP ? leaderP._points : 0;
       document.getElementById('ladder-stats').innerHTML = `
-        <div class="stat"><div class="stat-label">Players</div><div class="stat-value">${ladderPlayers.length}</div></div>
-        <div class="stat"><div class="stat-label">Sessions</div><div class="stat-value">${sessions.length}</div></div>
-        <div class="stat"><div class="stat-label">Games</div><div class="stat-value">${uniqueGames}</div></div>
-        <div class="stat lime"><div class="stat-label">Leader</div><div class="stat-value">${esc(leader)}</div></div>`;
+        <div class="stat stat-blue">
+          <div class="stat-label">Players</div>
+          <div class="stat-value">${ladderPlayers.length}</div>
+          <div class="stat-ctx ctx-blue">Active this season</div>
+        </div>
+        <div class="stat stat-green">
+          <div class="stat-label">Sessions</div>
+          <div class="stat-value">${sessions.length}</div>
+          <div class="stat-ctx ctx-green">Recorded</div>
+        </div>
+        <div class="stat stat-lime">
+          <div class="stat-label">Games</div>
+          <div class="stat-value">${uniqueGames}</div>
+          <div class="stat-ctx ctx-lime">Total played</div>
+        </div>
+        <div class="stat stat-gold">
+          <div class="stat-label">Leader</div>
+          <div class="stat-leader-name">${esc(leaderName)}</div>
+          <div class="stat-leader-pts">${leaderPts} PTS</div>
+          <div class="stat-leader-week">↑ Season leader</div>
+          <div class="stat-leader-streak">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#F26024" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            Top of the ladder
+          </div>
+        </div>`;
+      // Momentum Watch block
+      renderMomentumWatch(ranked, matches);
       renderLadder();
     } catch (e) {
       document.getElementById('ladder-table').innerHTML =
@@ -598,30 +1216,156 @@
     }
   };
 
+  const renderMomentumWatch = (ranked, matches) => {
+    const el = document.getElementById('momentum-watch');
+    if (!el || !ranked.length) return;
+    // Hottest: most points in last session
+    const sessions = [...new Set(matches.map(m => m.session_date))].sort().reverse();
+    const lastSession = sessions[0];
+    const lastMatches = lastSession ? matches.filter(m => m.session_date === lastSession) : [];
+    const recentPts = {};
+    lastMatches.forEach(m => { recentPts[m.player_id] = (recentPts[m.player_id] || 0) + (m.points_earned || 0); });
+    const hottest = ranked.slice().sort((a,b) => (recentPts[b.id]||0) - (recentPts[a.id]||0))[0];
+    // Biggest climber: highest points in last session
+    const climber = ranked.slice().sort((a,b) => (recentPts[b.id]||0) - (recentPts[a.id]||0))[1] || ranked[0];
+    // Most consistent: most games played
+    const gameCounts = {};
+    matches.forEach(m => { gameCounts[m.player_id] = (gameCounts[m.player_id] || 0) + 1; });
+    const consistent = ranked.slice().sort((a,b) => (gameCounts[b.id]||0) - (gameCounts[a.id]||0))[0];
+    const hottestName  = hottest  ? `${esc(hottest.first_name)} ${esc(hottest.last_name)}`  : '-';
+    const climberName  = climber  ? `${esc(climber.first_name)} ${esc(climber.last_name)}`  : '-';
+    const consistName  = consistent ? `${esc(consistent.first_name)} ${esc(consistent.last_name)}` : '-';
+    el.style.display = 'flex';
+    el.style.alignItems = 'center';
+    el.style.gap = '20px';
+    el.style.flexWrap = 'wrap';
+    el.innerHTML = `
+      <div style="display:flex;align-items:center;gap:6px;font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);flex-shrink:0;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        Momentum Watch
+      </div>
+      <div class="mom-divider"></div>
+      <div class="mom-item">
+        <div class="mom-icon" style="background:var(--orange-light);">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        </div>
+        <div><div class="mom-text">${hottestName}</div><div class="mom-sub">Hottest Player</div></div>
+      </div>
+      <div class="mom-divider"></div>
+      <div class="mom-item">
+        <div class="mom-icon" style="background:var(--teal-light);">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+        </div>
+        <div><div class="mom-text">${climberName}</div><div class="mom-sub">Biggest Climber</div></div>
+      </div>
+      <div class="mom-divider"></div>
+      <div class="mom-item">
+        <div class="mom-icon" style="background:var(--blue-pale);">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </div>
+        <div><div class="mom-text">${consistName}</div><div class="mom-sub">Most Consistent</div></div>
+      </div>`;
+  };
+
+  const getInitials = (first, last) =>
+    ((first || '')[0] || '').toUpperCase() + ((last || '')[0] || '').toUpperCase();
+
+  const renderLadderPodium = (players, label, isFirst) => {
+    const medals = ['gold', 'silver', 'bronze'];
+    const top    = players.slice(0, 3);
+    const order  = top.length === 1 ? [0] : top.length === 2 ? [1, 0] : [1, 0, 2];
+    const icon   = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0d1f4a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4a2 2 0 0 1-2-2V5h4"/><path d="M18 9h2a2 2 0 0 0 2-2V5h-4"/><path d="M12 17v4"/><path d="M8 21h8"/><path d="M6 9a6 6 0 0 0 12 0V3H6v6z"/></svg>`;
+    return `
+      <div class="podium-half">
+        <div class="podium-eyebrow">${icon} Top ${label}</div>
+        <div class="podium">
+          ${order.map((idx) => {
+            if (idx >= top.length) return '';
+            const p      = top[idx];
+            const medal  = medals[idx];
+            const isGold = idx === 0;
+            return `
+              <div class="podium-slot">
+                <div class="podium-avatar ${medal}${isGold ? ' podium-avatar gold-first' : ''}">
+                  ${esc(getInitials(p.first_name, p.last_name))}
+                  ${isGold ? `<span class="podium-crown">👑</span>` : ''}
+                </div>
+                <div class="podium-name">${esc(p.first_name)} ${esc(p.last_name)}</div>
+                <div class="podium-pts">${p._points} PTS</div>
+                <div class="podium-bar ${medal}">${isGold ? '🥇' : idx === 1 ? '🥈' : '🥉'}</div>
+              </div>`;
+          }).join('')}
+        </div>
+      </div>`;
+  };
+
   const renderLadder = () => {
-    const filter = document.getElementById('gender-filter').value;
-    const players = (allPlayers._ranked || []).filter((p) => filter === 'all' || p.gender === filter);
-    if (!players.length) {
+    const filter   = document.getElementById('gender-filter').value;
+    const all      = allPlayers._ranked || [];
+    const men      = all.filter((p) => p.gender === 'Male');
+    const women    = all.filter((p) => p.gender === 'Female');
+    const filtered = all.filter((p) => filter === 'all' || p.gender === filter);
+
+    if (!filtered.length) {
       document.getElementById('ladder-table').innerHTML =
         '<div class="empty">No players in this ladder yet.</div>';
       return;
     }
-    const rows = players
-      .map((p, i) => {
-        const rc = i === 0 ? 'top1' : i === 1 ? 'top2' : i === 2 ? 'top3' : '';
-        return `<tr>
-          <td><span class="rank-badge ${rc}">${i + 1}</span></td>
-          <td class="text-bold">${esc(p.first_name)} ${esc(p.last_name)}</td>
-          <td class="text-muted-12">${esc(p.gender || '-')}</td>
-          <td><span class="points-pill">${p._points} pts</span></td>
-        </tr>`;
-      })
-      .join('');
-    document.getElementById('ladder-table').innerHTML = `
+
+    // Build podium row — side by side when all, full width when filtered
+    let podiumHTML = '';
+    const showMen   = (filter === 'all' || filter === 'Male')   && men.length;
+    const showWomen = (filter === 'all' || filter === 'Female') && women.length;
+    const isSingle  = (showMen && !showWomen) || (!showMen && showWomen);
+    if (showMen || showWomen) {
+      podiumHTML = `<div class="podium-row${isSingle ? ' single' : ''}">`;
+      if (showMen)   podiumHTML += renderLadderPodium(men,   'Men',   true);
+      if (showWomen) podiumHTML += renderLadderPodium(women, 'Women', false);
+      podiumHTML += `</div>`;
+    }
+
+    // Table rows with Trend column
+    const rows = filtered.map((p, i) => {
+      const rankClass = i === 0 ? 'top1' : i === 1 ? 'top2' : i === 2 ? 'top3' : '';
+      // Simple trend: top 3 = up arrow, others neutral
+      let trendHTML = '';
+      if (i === 0) {
+        trendHTML = `<div class="trend-fire"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#F26024" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Season leader</div>`;
+      } else if (p._points > 0) {
+        trendHTML = `<div class="trend-up"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#24BC96" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>${p._points} pts earned</div>`;
+      } else {
+        trendHTML = `<div class="trend-neu">—</div>`;
+      }
+      return `<tr>
+        <td><span class="rank-num ${rankClass}">${i + 1}</span></td>
+        <td>
+          <div class="player-cell">
+            <div class="player-initials ${rankClass}">${esc(getInitials(p.first_name, p.last_name))}</div>
+            <div>
+              <div class="player-name">${esc(p.first_name)} ${esc(p.last_name)}</div>
+              <div class="player-sub">${esc(p.gender || '')}</div>
+            </div>
+          </div>
+        </td>
+        <td style="text-align:right;padding-right:24px;"><span class="points-display">${p._points}</span><span style="font-size:11px;color:var(--text-muted);font-weight:600;margin-left:2px;">pts</span></td>
+        <td style="width:160px;">${trendHTML}</td>
+      </tr>`;
+    }).join('');
+
+    const tableHTML = `
       <table>
-        <thead><tr><th>Rank</th><th>Player</th><th>Gender</th><th>Points</th></tr></thead>
+        <thead>
+          <tr>
+            <th style="width:48px;">Rank</th>
+            <th>Player</th>
+            <th style="text-align:right;width:100px;">Points</th>
+            <th style="text-align:center;width:160px;">Trend</th>
+          </tr>
+        </thead>
         <tbody>${rows}</tbody>
       </table>`;
+
+    document.getElementById('ladder-table').innerHTML = podiumHTML + `<div style="padding:0 4px;">${tableHTML}</div>`;
   };
 
   /* ─── PRINT STANDINGS ──────────────────────────────────── */
@@ -883,6 +1627,11 @@
         '<div class="empty">Please select a ladder first.</div>';
       return;
     }
+
+    // Set ladder title
+    const titleEl = document.getElementById('sessions-ladder-title');
+    if (titleEl) { titleEl.textContent = currentLadder.name; titleEl.style.display = 'block'; }
+
     try {
       const matches = await api(
         `matches?select=*,players(first_name,last_name)&ladder_id=eq.${currentLadder.id}&order=session_date.desc,court_group,game_number`,
@@ -911,96 +1660,260 @@
 
       const sortedDates = Object.keys(byDate).sort((a, b) => b.localeCompare(a));
 
+      // Helper: group 4 match rows into 2 teams by score_for value
+      const buildTeams = (players) => {
+        // When scores exist: players with same score_for are on same team
+        const allPending = players.every(p => p.score_for === null && !p.default_no_show);
+        if (allPending) {
+          // No scores yet — split by roster order: first 2 = Team A, last 2 = Team B
+          return [players.slice(0, 2), players.slice(2)];
+        }
+        const teamMap = {};
+        players.forEach((p) => {
+          const key = p.default_no_show ? `ns_${p.player_id}` : (p.score_for !== null ? String(p.score_for) : 'pending');
+          if (!teamMap[key]) teamMap[key] = [];
+          teamMap[key].push(p);
+        });
+        const keys = Object.keys(teamMap);
+        // Sort: higher score first = team A (winner)
+        const sorted = keys.sort((a, b) => {
+          const na = parseFloat(a), nb = parseFloat(b);
+          if (isNaN(na) || isNaN(nb)) return 0;
+          return nb - na;
+        });
+        return [teamMap[sorted[0]] || [], teamMap[sorted[1]] || []];
+      };
+
+      // Helper: compute per-date session summary
+      const computeSummary = (courts, allMatches) => {
+        const dateMatches = allMatches.filter(m =>
+          courts.some(c => c.date === m.session_date && c.group === m.court_group)
+        );
+        // Total games
+        const gameKeys = new Set(dateMatches.map(m => `${m.session_date}__${m.court_group}__${m.game_number}`));
+        const totalGames = gameKeys.size;
+        const totalCourts = courts.length;
+        // MVP — player with most points_earned this session
+        const ptsByPlayer = {};
+        const nameByPlayer = {};
+        dateMatches.forEach(m => {
+          if (m.score_for !== null && !m.default_no_show) {
+            ptsByPlayer[m.player_id] = (ptsByPlayer[m.player_id] || 0) + (m.points_earned || 0);
+            if (m.players) nameByPlayer[m.player_id] = `${m.players.first_name} ${m.players.last_name}`;
+          }
+        });
+        const mvpId = Object.keys(ptsByPlayer).sort((a,b) => ptsByPlayer[b] - ptsByPlayer[a])[0];
+        const mvpName = mvpId ? (nameByPlayer[mvpId] || 'Unknown') : '—';
+        const mvpPts  = mvpId ? ptsByPlayer[mvpId] : 0;
+        // Closest match — smallest score diff
+        const scoredGames = [];
+        gameKeys.forEach(key => {
+          const gMatches = dateMatches.filter(m =>
+            `${m.session_date}__${m.court_group}__${m.game_number}` === key && m.score_for !== null
+          );
+          if (gMatches.length >= 2) {
+            const scores = [...new Set(gMatches.map(m => m.score_for))].sort((a,b) => b-a);
+            if (scores.length === 2) {
+              const diff = scores[0] - scores[1];
+              const parts = key.split('__');
+              scoredGames.push({ diff, score: `${scores[0]}–${scores[1]}`, court: parts[1], game: parts[2] });
+            }
+          }
+        });
+        scoredGames.sort((a,b) => a.diff - b.diff);
+        const closest  = scoredGames[0]  || null;
+        const biggest  = scoredGames[scoredGames.length - 1] || null;
+        // Court highlight — court with smallest avg score diff (most competitive)
+        const courtDiffs = {};
+        const courtCounts = {};
+        scoredGames.forEach(g => {
+          courtDiffs[g.court]  = (courtDiffs[g.court]  || 0) + g.diff;
+          courtCounts[g.court] = (courtCounts[g.court] || 0) + 1;
+        });
+        const bestCourt = Object.keys(courtDiffs).sort((a,b) =>
+          (courtDiffs[a]/courtCounts[a]) - (courtDiffs[b]/courtCounts[b])
+        )[0];
+        return { totalGames, totalCourts, mvpName, mvpPts, closest, biggest, bestCourt };
+      };
+
+      // SVG icons (inline, match sidebar style)
+      const calSVG  = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
+      const calSm   = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#6b7a99" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
+      const plrSm   = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#6b7a99" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>`;
+      const subSm   = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#6b7a99" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`;
+      const gameSm  = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#6b7a99" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="5"/><path d="M8.56 13.9l-1.56 6.1 5-3 5 3-1.56-6.1"/></svg>`;
+      const editSVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
+      const dnlSVG  = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`;
+
       let html = '';
 
       sortedDates.forEach((date, dateIdx) => {
         const courts = byDate[date];
-        const dateLabel = fmtDate(date, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
-        const isFirst = dateIdx === 0; // most recent — auto-expanded
+        const isFirst = dateIdx === 0;
         const groupId = `sdg-${date.replace(/-/g, '')}`;
 
-        // Count pending games (not courts) for the collapsed header indicator
-        const pendingGames = courts.reduce((total, s) => {
-          const gameNums = Object.keys(s.games);
-          return total + gameNums.filter((gnum) =>
-            s.games[gnum].some((m) => !m.default_no_show && m.score_for === null)
-          ).length;
-        }, 0);
-        const courtCount = courts.length;
+        // Date label: "Saturday Session — May 2, 2026"
+        const d = new Date(date + 'T00:00:00');
+        const weekday = d.toLocaleDateString('en-US', { weekday: 'long' });
+        const dateFormatted = d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+        const dateLabel = `${weekday} Session — ${dateFormatted}`;
 
-        // Header row — always visible, clickable to toggle
+        // Per-date stats
+        const allDateMatches = courts.flatMap(c => Object.values(c.games).flat());
+        const courtCount   = courts.length;
+        const totalGames   = new Set(allDateMatches.map(m => `${m.court_group}__${m.game_number}`)).size;
+        const uniquePlayers = new Set(allDateMatches.map(m => m.player_id)).size;
+        const subCount     = allDateMatches.filter(m => m.is_sub).length;
+        const pendingGames = courts.reduce((total, s) =>
+          total + Object.keys(s.games).filter(gnum =>
+            s.games[gnum].some(m => !m.default_no_show && m.score_for === null)
+          ).length, 0);
+
+        // Session summary
+        const sum = computeSummary(courts, matches);
+
         html += `<div class="session-date-group" id="${groupId}">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
             <div class="session-date-header ${isFirst ? 'open' : ''}"
                  data-action="toggleSessionGroup" data-groupid="${groupId}"
-                 style="display:flex;align-items:center;gap:10px;flex:1;
-                        padding:10px 12px;border-radius:8px;cursor:pointer;
-                        background:var(--blue-pale);
-                        border:1.5px solid var(--border);user-select:none;">
-              <span style="font-size:14px;font-weight:800;color:var(--blue);transition:transform .2s;
-                           display:inline-block;" class="sdg-chevron ${isFirst ? 'sdg-chevron-open' : ''}">▶</span>
+                 style="display:flex;align-items:center;gap:12px;flex:1;
+                        padding:12px 16px;border-radius:8px;cursor:pointer;
+                        background:#e8f0ff;border:0.5px solid #c5d6f5;user-select:none;">
+              <span class="sdg-chevron ${isFirst ? 'sdg-chevron-open' : ''}"
+                    style="font-size:11px;font-weight:800;color:#174CCC;">▼</span>
               <div style="flex:1;min-width:0;">
-                <div style="font-size:13px;font-weight:800;color:var(--blue);">📅 ${dateLabel}</div>
-                <div style="font-size:11px;font-weight:600;color:var(--text-muted);margin-top:2px;">
-                  ${courtCount} court${courtCount !== 1 ? 's' : ''}
-                  ${pendingGames ? `<span style="color:var(--orange);margin-left:8px;">⏳ ${pendingGames} game${pendingGames !== 1 ? 's' : ''} pending scores</span>` : ''}
+                <div style="font-size:13px;font-weight:800;color:#174CCC;display:flex;align-items:center;gap:8px;">
+                  ${calSVG} ${esc(dateLabel)}
+                  ${pendingGames ? `<span style="font-size:9px;font-weight:800;color:var(--orange);background:var(--orange-light);padding:2px 7px;border-radius:99px;text-transform:uppercase;letter-spacing:.5px;">⏳ ${pendingGames} pending</span>` : ''}
+                </div>
+                <div style="display:flex;align-items:center;gap:14px;margin-top:4px;">
+                  <span style="font-size:11px;font-weight:600;color:#6b7a99;display:flex;align-items:center;gap:4px;">${calSm} ${courtCount} Court${courtCount !== 1 ? 's' : ''}</span>
+                  <span style="font-size:11px;font-weight:600;color:#6b7a99;display:flex;align-items:center;gap:4px;">${gameSm} ${totalGames} Games</span>
+                  <span style="font-size:11px;font-weight:600;color:#6b7a99;display:flex;align-items:center;gap:4px;">${plrSm} ${uniquePlayers} Players</span>
+                  <span style="font-size:11px;font-weight:600;color:#6b7a99;display:flex;align-items:center;gap:4px;">${subSm} ${subCount} Subs</span>
                 </div>
               </div>
             </div>
             <button class="btn btn-primary btn-sm" data-action="printRoster"
                     data-date="${esc(date)}" data-ladderid="${currentLadder.id}"
-                    style="font-size:11px;font-weight:800;flex-shrink:0;white-space:nowrap;">
-              📄 PRINT ROSTER
+                    style="font-size:10px;font-weight:700;flex-shrink:0;white-space:nowrap;display:flex;align-items:center;gap:6px;border-radius:99px;">
+              ${dnlSVG} Export Roster
             </button>
           </div>`;
 
-        // Collapsible content — hidden unless this is the most recent date
+        // Collapsible content
         html += `<div class="session-date-body" style="display:${isFirst ? 'block' : 'none'};margin-bottom:8px;">`;
 
-        courts.forEach((s) => {
-          const courtGames = Object.values(s.games).flat();
-          const courtPending = courtGames.some((m) => !m.default_no_show && m.score_for === null);
-          const sessionMatchIds = courtGames.map((m) => m.id).join(',');
+        // Session summary cards
+        html += `<div class="sess-summary-row">
+          <div class="sess-sum-card sc-blue">
+            <div class="sess-sum-label">Total Games</div>
+            <div class="sess-sum-val">${sum.totalGames}</div>
+            <div class="sess-sum-ctx scc-blue">${sum.totalCourts} court${sum.totalCourts !== 1 ? 's' : ''}</div>
+          </div>
+          <div class="sess-sum-card sc-gold">
+            <div class="sess-sum-label">MVP</div>
+            <div class="sess-sum-val-text">${esc(sum.mvpName)}</div>
+            <div class="sess-sum-ctx scc-gold">+${sum.mvpPts} pts this session</div>
+          </div>
+          <div class="sess-sum-card sc-teal">
+            <div class="sess-sum-label">Closest Match</div>
+            <div class="sess-sum-val">${sum.closest ? sum.closest.score : '—'}</div>
+            <div class="sess-sum-ctx scc-green">${sum.closest ? `Court ${sum.closest.court}, Game ${sum.closest.game}` : 'No scores yet'}</div>
+          </div>
+          <div class="sess-sum-card sc-orange">
+            <div class="sess-sum-label">Biggest Win</div>
+            <div class="sess-sum-val">${sum.biggest ? sum.biggest.score : '—'}</div>
+            <div class="sess-sum-ctx scc-orange">${sum.biggest ? `Court ${sum.biggest.court}, Game ${sum.biggest.game}` : 'No scores yet'}</div>
+          </div>
+          <div class="sess-sum-card sc-blue">
+            <div class="sess-sum-label">Court Highlight</div>
+            <div class="sess-sum-val-text">${sum.bestCourt ? `Court ${sum.bestCourt}` : '—'}</div>
+            <div class="sess-sum-ctx scc-blue">Most competitive</div>
+          </div>
+        </div>`;
 
-          html += `<div class="session-block">
-            <div class="row-between mb-8">
-              <div class="row gap-6 align-center">
-                <div class="blue-tag">Court ${s.group}</div>
-                ${courtPending ? '<span style="font-size:10px;font-weight:800;color:var(--orange);text-transform:uppercase;letter-spacing:.5px;padding:2px 8px;background:var(--orange-light);border-radius:99px;">⏳ Scores pending</span>' : ''}
-              </div>
-              <div class="row gap-6">
-                <button class="btn btn-outline btn-sm" data-action="editSession" data-matchids="${sessionMatchIds}" data-date="${esc(s.date)}" data-court="${s.group}">Edit session</button>
-                <button class="btn btn-danger btn-sm" data-action="deleteSession" data-matchids="${sessionMatchIds}" data-date="${esc(s.date)}" data-court="${s.group}">Delete session</button>
+        // Court blocks
+        courts.forEach((s) => {
+          const courtGames   = Object.values(s.games).flat();
+          const courtPending = courtGames.some(m => !m.default_no_show && m.score_for === null);
+          const sessionMatchIds = courtGames.map(m => m.id).join(',');
+
+          html += `<div class="court-block">
+            <div class="court-block-hdr">
+              <span class="court-block-label">Court ${s.group}${courtPending ? ' <span style="font-size:9px;font-weight:800;color:var(--orange);background:var(--orange-light);padding:1px 6px;border-radius:99px;text-transform:uppercase;margin-left:6px;">Pending</span>' : ''}</span>
+              <div style="display:flex;gap:6px;align-items:center;">
+                <button class="sess-edit-btn" data-action="editSession" data-matchids="${sessionMatchIds}" data-date="${esc(s.date)}" data-court="${s.group}" title="Edit session">${editSVG}</button>
+                <button class="sess-edit-btn" data-action="deleteSession" data-matchids="${sessionMatchIds}" data-date="${esc(s.date)}" data-court="${s.group}" title="Delete session" style="border-color:rgba(229,57,53,0.3);"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#e53935" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
               </div>
             </div>`;
 
+          // Game rows — team-based layout
           Object.entries(s.games).forEach(([gnum, players]) => {
-            const gameIds = players.map((p) => p.id).join(',');
-            html += `<div class="game-row">
-              <div class="row-between gap-6">
-                <div class="row-wrap gap-6">
-                  <span class="label-tag" style="margin-right:4px;">Game ${gnum}</span>`;
-            players.forEach((p) => {
-              const name = p.players ? `${p.players.first_name} ${p.players.last_name}` : 'Unknown';
-              const score = p.score_for !== null ? `${p.score_for}-${p.score_against}` : '—';
-              const pts = p.default_no_show ? '-1' : p.score_for !== null ? `+${p.points_earned}` : '—';
-              const color = p.default_no_show
-                ? 'var(--orange)'
-                : p.score_for !== null
-                  ? (p.is_sub ? 'var(--text-muted)' : 'var(--teal)')
-                  : 'var(--text-muted)';
-              const subTag = p.is_sub ? '<span class="sub-pill">SUB</span>' : '';
-              html += `<span style="margin-right:10px;font-weight:500">${esc(name)}${subTag} <span style="color:${color};font-weight:700">${score}${p.score_for !== null || p.default_no_show ? '/' + pts + 'pts' : ''}</span></span>`;
-            });
-            html += `</div>
-                <div class="row gap-6 flex-shrink-0">
-                  <button class="btn btn-outline btn-sm" data-action="editGame" data-gameids="${gameIds}" data-gnum="${gnum}" data-date="${esc(s.date)}" data-court="${s.group}">Edit</button>
+            const gameIds = players.map(p => p.id).join(',');
+            const [teamA, teamB] = buildTeams(players);
+            const isPending = players.some(p => p.score_for === null && !p.default_no_show);
+
+            const renderTeam = (team, isWinner) => {
+              if (!team || !team.length) return '';
+              const p0 = team[0];
+              const score = p0.default_no_show ? '-1' : p0.score_for !== null ? String(p0.score_for) : '—';
+              const pts   = p0.default_no_show ? '-1 pt' : p0.score_for !== null ? `+${p0.points_earned} pts` : 'pending';
+              const isPend = p0.score_for === null && !p0.default_no_show;
+
+              let blockClass = 'sess-team-block ';
+              let scoreClass = 'sess-score-num ';
+              let ptsClass   = 'sess-score-pts ';
+              let nameClass  = 'sess-team-names';
+              if (isPend) {
+                blockClass += 'sess-team-pending';
+                scoreClass += 'sess-score-pending';
+                ptsClass   += 'sess-pts-pending';
+                nameClass  += ' pending';
+              } else if (isWinner) {
+                blockClass += 'sess-team-win';
+                scoreClass += 'sess-score-win';
+                ptsClass   += 'sess-pts-win';
+              } else {
+                blockClass += 'sess-team-lose';
+                scoreClass += 'sess-score-lose';
+                ptsClass   += 'sess-pts-lose';
+                nameClass  += ' lose';
+              }
+
+              const names = team.map(p => {
+                const name = p.players ? `${esc(p.players.first_name)} ${esc(p.players.last_name)}` : 'Unknown';
+                const sub  = p.is_sub ? '<span class="sub-pill-blue">SUB</span>' : '';
+                return name + sub;
+              }).join('<br>');
+
+              return `<div class="${blockClass}">
+                <div class="${nameClass}">${names}</div>
+                <div class="sess-team-score">
+                  <span class="${scoreClass}">${score}</span>
+                  <span class="${ptsClass}">${pts}</span>
                 </div>
+              </div>`;
+            };
+
+            // Determine winner (higher score_for)
+            const scoreA = teamA[0] ? teamA[0].score_for : null;
+            const scoreB = teamB[0] ? teamB[0].score_for : null;
+            const aWins  = scoreA !== null && scoreB !== null && scoreA > scoreB;
+            const bWins  = scoreA !== null && scoreB !== null && scoreB > scoreA;
+
+            html += `<div class="sess-game-row">
+              <span class="sess-game-label">Game ${gnum}</span>
+              <div class="sess-game-body">
+                ${renderTeam(teamA, aWins)}
+                <div class="sess-vs"><div class="sess-vs-line"></div><span>VS</span><div class="sess-vs-line"></div></div>
+                ${renderTeam(teamB, bWins)}
               </div>
+              <button class="sess-edit-btn" data-action="editGame" data-gameids="${gameIds}" data-gnum="${gnum}" data-date="${esc(s.date)}" data-court="${s.group}" title="Edit game">${editSVG}</button>
             </div>`;
           });
 
-          html += '</div>'; // session-block
+          html += '</div>'; // court-block
         });
 
         html += '</div>'; // session-date-body
@@ -1144,46 +2057,87 @@
     const rows = await api(
       `matches?id=in.(${ids.join(',')})&select=*,players(first_name,last_name)`,
     );
-    if (!rows.length) {
-      toast('Could not load game data.', true);
-      return;
-    }
+    if (!rows.length) { toast('Could not load game data.', true); return; }
     const isVoided = rows[0].score_for === null;
     const modalBody = document.getElementById('edit-game-body');
+
+    // Group rows into 2 teams by score_for (or index split if unscored)
+    const scored = rows.filter(r => r.score_for !== null);
+    let teamA = [], teamB = [];
+    if (scored.length) {
+      const scores = [...new Set(scored.map(r => r.score_for))].sort((a,b) => b-a);
+      teamA = rows.filter(r => r.score_for === scores[0] || (scores.length === 1 && rows.indexOf(r) < 2));
+      teamB = rows.filter(r => !teamA.includes(r));
+    } else {
+      teamA = rows.slice(0, 2);
+      teamB = rows.slice(2);
+    }
+    // Ensure teamA has higher score (winner on left)
+    if (teamA[0] && teamB[0] && teamA[0].score_for !== null && teamB[0].score_for !== null) {
+      if (teamA[0].score_for < teamB[0].score_for) { [teamA, teamB] = [teamB, teamA]; }
+    }
+
+    const teamANames = teamA.map(r => r.players ? `${esc(r.players.first_name)} ${esc(r.players.last_name)}` : 'Unknown').join('<br>');
+    const teamBNames = teamB.map(r => r.players ? `${esc(r.players.first_name)} ${esc(r.players.last_name)}` : 'Unknown').join('<br>');
+    const teamAScore = teamA[0] ? (teamA[0].score_for !== null ? teamA[0].score_for : '') : '';
+    const teamBScore = teamB[0] ? (teamB[0].score_for !== null ? teamB[0].score_for : '') : '';
+    const teamAAgainst = teamA[0] ? (teamA[0].score_against !== null ? teamA[0].score_against : '') : '';
+    const teamBAgainst = teamB[0] ? (teamB[0].score_against !== null ? teamB[0].score_against : '') : '';
+    const teamAIds = teamA.map(r => r.id).join(',');
+    const teamBIds = teamB.map(r => r.id).join(',');
+
     modalBody.innerHTML = `
-      <div class="text-bold text-muted-13 mb-12 text-uppercase">
+      <div style="font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#0d1f4a;margin-bottom:14px;">
         Game ${esc(gnum)} — ${fmtDate(date)} — Court ${esc(court)}
       </div>
-      <label class="row gap-8 cursor-pointer mb-16 bg-orange-light text-bold color-orange" style="padding:10px 14px;border-radius:var(--radius-sm);font-size:13px;">
-        <input type="checkbox" id="eg-void-game" ${isVoided ? 'checked' : ''} data-action="toggleEditGameVoid"> Void this game (0 points for all players)
+      <label class="void-toggle-wrap" style="margin-bottom:16px;">
+        <input type="checkbox" id="eg-void-game" ${isVoided ? 'checked' : ''} data-action="toggleEditGameVoid">
+        <div class="void-toggle-track"></div>
+        <span class="void-toggle-label">Void this game (0 points for all players)</span>
       </label>
       <div id="eg-scores-section" class="${isVoided ? 'opacity-04' : ''}">
-        <div class="label-tag mb-10">Scores per player</div>
-        ${rows
-          .map(
-            (r) => `
-            <div style="padding:10px 0;border-bottom:0.5px solid var(--border);">
-              <div class="text-bold mb-8" style="font-size:13px;">${r.players ? esc(r.players.first_name + ' ' + r.players.last_name) : 'Unknown'}</div>
-              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
-                <div class="form-group">
-                  <label>Score for</label>
-                  <input type="number" min="0" max="11" id="eg-sf-${r.id}" value="${r.score_for !== null ? r.score_for : ''}" placeholder="0" data-egrid="${r.id}" data-egtype="sf">
-                </div>
-                <div class="form-group">
-                  <label>Score against</label>
-                  <input type="number" min="0" max="11" id="eg-sa-${r.id}" value="${r.score_against !== null ? r.score_against : ''}" placeholder="0" data-egrid="${r.id}" data-egtype="sa">
-                </div>
-                <div class="form-group">
-                  <label>Points earned <span class="color-teal" style="font-size:9px;">(auto)</span></label>
-                  <input type="number" min="-1" max="4" id="eg-pts-${r.id}" value="${r.points_earned !== null ? r.points_earned : 0}" placeholder="0" style="background:var(--bg);" readonly>
-                </div>
-              </div>
-            </div>`,
-          )
-          .join('')}
+        <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:start;">
+          <div style="background:#e8f0ff;border-radius:8px;padding:14px;">
+            <div style="font-size:12px;font-weight:800;color:#0d1f4a;margin-bottom:8px;line-height:1.5;">${teamANames}</div>
+            <div class="form-group" style="margin-bottom:6px;">
+              <label style="font-size:10px;">Score</label>
+              <input type="number" min="0" max="11" id="eg-sf-teamA" value="${teamAScore}" placeholder="0" data-egteam="A">
+            </div>
+            <div style="font-size:10px;font-weight:600;color:var(--text-muted);">Points: <span id="eg-pts-teamA-display">auto</span></div>
+            <input type="hidden" id="eg-ids-teamA" value="${teamAIds}">
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding-top:32px;color:rgba(23,76,204,0.3);font-size:10px;font-weight:800;">
+            <div style="width:1px;height:20px;background:rgba(23,76,204,0.15);"></div>
+            VS
+            <div style="width:1px;height:20px;background:rgba(23,76,204,0.15);"></div>
+          </div>
+          <div style="background:#e8f5f1;border-radius:8px;padding:14px;">
+            <div style="font-size:12px;font-weight:800;color:#0d1f4a;margin-bottom:8px;line-height:1.5;">${teamBNames}</div>
+            <div class="form-group" style="margin-bottom:6px;">
+              <label style="font-size:10px;">Score</label>
+              <input type="number" min="0" max="11" id="eg-sf-teamB" value="${teamBScore}" placeholder="0" data-egteam="B">
+            </div>
+            <div style="font-size:10px;font-weight:600;color:var(--text-muted);">Points: <span id="eg-pts-teamB-display">auto</span></div>
+            <input type="hidden" id="eg-ids-teamB" value="${teamBIds}">
+          </div>
+        </div>
       </div>
       <input type="hidden" id="eg-ids" value="${ids.join(',')}">
     `;
+
+    // Auto-calc points preview when scores change
+    const calcDisplay = () => {
+      const sfA = parseInt(document.getElementById('eg-sf-teamA').value, 10);
+      const sfB = parseInt(document.getElementById('eg-sf-teamB').value, 10);
+      if (!isNaN(sfA) && !isNaN(sfB)) {
+        document.getElementById('eg-pts-teamA-display').textContent = '+' + calcPoints(sfA, sfB);
+        document.getElementById('eg-pts-teamB-display').textContent = '+' + calcPoints(sfB, sfA);
+      }
+    };
+    document.getElementById('eg-sf-teamA').addEventListener('input', calcDisplay);
+    document.getElementById('eg-sf-teamB').addEventListener('input', calcDisplay);
+    calcDisplay();
+
     document.getElementById('edit-game-modal').classList.add('open');
   };
 
@@ -1195,39 +2149,39 @@
 
   const saveEditGame = async (e) => {
     e.preventDefault();
-    const ids = document.getElementById('eg-ids').value.split(',').filter(Boolean);
     const isVoid = document.getElementById('eg-void-game').checked;
 
-    // Require score OR void — don't allow saving blanks when editing
+    // Read team-based inputs
+    const sfAEl = document.getElementById('eg-sf-teamA');
+    const sfBEl = document.getElementById('eg-sf-teamB');
+    const teamAIds = (document.getElementById('eg-ids-teamA')?.value || '').split(',').filter(Boolean);
+    const teamBIds = (document.getElementById('eg-ids-teamB')?.value || '').split(',').filter(Boolean);
+
     if (!isVoid) {
-      const missingScore = ids.some((id) => {
-        const sf = document.getElementById(`eg-sf-${id}`);
-        const sa = document.getElementById(`eg-sa-${id}`);
-        // Skip no-show rows (they never have scores)
-        const ptsEl = document.getElementById(`eg-pts-${id}`);
-        if (!sf) return false; // row not rendered = no-show row, skip
-        return sf.value === '' || sa.value === '';
-      });
-      if (missingScore) {
-        toast('Please enter scores for all players, or mark the game as void.', true);
+      if (!sfAEl || !sfBEl || sfAEl.value === '' || sfBEl.value === '') {
+        toast('Please enter scores for both teams, or mark the game as void.', true);
         return;
       }
     }
 
+    const sfA = sfAEl ? parseInt(sfAEl.value, 10) : null;
+    const sfB = sfBEl ? parseInt(sfBEl.value, 10) : null;
+    const ptsA = (!isVoid && !isNaN(sfA) && !isNaN(sfB)) ? calcPoints(sfA, sfB) : 0;
+    const ptsB = (!isVoid && !isNaN(sfA) && !isNaN(sfB)) ? calcPoints(sfB, sfA) : 0;
+
     try {
-      await Promise.all(
-        ids.map((id) => {
-          const sf = document.getElementById(`eg-sf-${id}`);
-          const sa = document.getElementById(`eg-sa-${id}`);
-          const pts = document.getElementById(`eg-pts-${id}`);
-          const body = {
-            score_for: isVoid ? null : sf && sf.value !== '' ? parseInt(sf.value, 10) : null,
-            score_against: isVoid ? null : sa && sa.value !== '' ? parseInt(sa.value, 10) : null,
-            points_earned: isVoid ? 0 : pts && pts.value !== '' ? parseInt(pts.value, 10) : 0,
-          };
-          return api(`matches?id=eq.${id}`, 'PATCH', body);
-        }),
-      );
+      const updates = [];
+      teamAIds.forEach(id => updates.push(api(`matches?id=eq.${id}`, 'PATCH', {
+        score_for:     isVoid ? null : sfA,
+        score_against: isVoid ? null : sfB,
+        points_earned: isVoid ? 0 : ptsA,
+      })));
+      teamBIds.forEach(id => updates.push(api(`matches?id=eq.${id}`, 'PATCH', {
+        score_for:     isVoid ? null : sfB,
+        score_against: isVoid ? null : sfA,
+        points_earned: isVoid ? 0 : ptsB,
+      })));
+      await Promise.all(updates);
       toast('Game updated successfully!');
       document.getElementById('edit-game-modal').classList.remove('open');
       loadSessions();
@@ -1248,6 +2202,16 @@
   };
 
   const initEntry = async () => {
+    // Show ladder name as big title above points reference
+    const titleEl = document.getElementById('entry-ladder-title');
+    if (titleEl) {
+      if (currentLadder && currentLadder.name) {
+        titleEl.textContent = currentLadder.name;
+        titleEl.style.display = 'block';
+      } else {
+        titleEl.style.display = 'none';
+      }
+    }
     courtPlayers = [];
     noShowPlayer = null;
     noShowPenalty = -4;
@@ -1436,27 +2400,29 @@
       g4.innerHTML = `
         <div class="game-card-header-lime">
           <span class="lime-tag" style="color:var(--lime-dark);">Game 4 — Closest scores</span>
-          <label class="row gap-4 cursor-pointer text-bold text-uppercase" style="font-size:11px;color:var(--lime-dark);letter-spacing:.5px;">
-            <input type="checkbox" id="void-4" data-action="toggleVoid" data-gamenum="4"> Void
+          <label class="void-toggle-wrap">
+            <input type="checkbox" id="void-4" data-action="toggleVoid" data-gamenum="4">
+            <div class="void-toggle-track"></div>
+            <span class="void-toggle-label" style="color:var(--lime-dark);">Void</span>
           </label>
         </div>
         <div class="bg-bg text-muted-12" style="padding:10px 14px;">
           After the 3 games, match the 2 players with the closest total scores on each team.
         </div>
         <div id="game-body-4" class="game-card-body">
-          <div class="vs-grid-top">
-            <div class="team-pad-blue-l">
+          <div class="vs-grid-top" style="align-items:center;">
+            <div class="team-pad-blue-l" style="text-align:center;">
               <div class="blue-tag mb-8">Team A</div>
               <select id="extraA1-4" class="full-width mb-6" style="font-size:12px;font-family:Montserrat,sans-serif;"><option value="">Player 1</option>${playerOpts}</select>
               <select id="extraA2-4" class="full-width mb-8" style="font-size:12px;font-family:Montserrat,sans-serif;"><option value="">Player 2</option>${playerOpts}</select>
-              <input type="number" min="0" max="11" placeholder="Score" id="scoreA-4" data-egame="4" data-eteam="A" class="full-width score-input">
+              <input type="text" inputmode="numeric" placeholder="Enter score" value="--" id="scoreA-4" data-egame="4" data-eteam="A" class="full-width score-input">
             </div>
-            <div class="vs-tag" style="padding-top:40px;">VS</div>
-            <div class="team-pad-teal-l">
+            <div class="vs-tag"><span>VS</span></div>
+            <div class="team-pad-teal-l" style="text-align:center;">
               <div class="label-tag mb-8" style="color:var(--teal);">Team B</div>
               <select id="extraB1-4" class="full-width mb-6" style="font-size:12px;font-family:Montserrat,sans-serif;"><option value="">Player 1</option>${playerOpts}</select>
               <select id="extraB2-4" class="full-width mb-8" style="font-size:12px;font-family:Montserrat,sans-serif;"><option value="">Player 2</option>${playerOpts}</select>
-              <input type="number" min="0" max="11" placeholder="Score" id="scoreB-4" data-egame="4" data-eteam="B" class="full-width score-input">
+              <input type="text" inputmode="numeric" placeholder="Enter score" value="--" id="scoreB-4" data-egame="4" data-eteam="B" class="full-width score-input">
             </div>
           </div>
           <div id="pts-preview-4" class="points-preview"></div>
@@ -1497,11 +2463,13 @@
         <div class="row gap-12">
           ${
             sitting && sitting.length
-              ? `<span style="font-size:11px;color:var(--blue-light);font-weight:500;">Sitting out: <strong style="color:white;">${sitting.map((p) => esc(p.first_name + ' ' + p.last_name)).join(', ')}</strong></span>`
+              ? `<span style="font-size:11px;color:#174CCC;font-weight:500;">Sitting out: <strong style="color:#174CCC;font-weight:800;">${sitting.map((p) => esc(p.first_name + ' ' + p.last_name)).join(', ')}</strong></span>`
               : ''
           }
-          <label class="row gap-4 cursor-pointer text-bold text-uppercase" style="font-size:11px;color:var(--orange-light);letter-spacing:.5px;">
-            <input type="checkbox" id="void-${gameNum}" data-action="toggleVoid" data-gamenum="${gameNum}"> Void
+          <label class="void-toggle-wrap">
+            <input type="checkbox" id="void-${gameNum}" data-action="toggleVoid" data-gamenum="${gameNum}">
+            <div class="void-toggle-track"></div>
+            <span class="void-toggle-label">Void</span>
           </label>
           ${isExtra ? `<button class="btn btn-danger btn-sm" data-action="removeExtraGame" data-gamenum="${gameNum}">Remove</button>` : ''}
         </div>
@@ -1510,14 +2478,14 @@
         <div class="vs-grid">
           <div class="team-pad-blue">
             <div class="blue-tag mb-6">Team A</div>
-            <div class="text-bold mb-10" style="font-size:13px;min-height:36px;">${esc(teamANames)}</div>
-            <input type="number" min="0" max="11" placeholder="Score" id="scoreA-${gameNum}" data-autoscore="${gameNum}" class="score-input">
+            <div style="font-size:16px;font-weight:800;color:var(--text);margin-bottom:10px;min-height:40px;line-height:1.3;">${esc(teamANames)}</div>
+            <input type="text" inputmode="numeric" placeholder="Enter score" value="--" id="scoreA-${gameNum}" data-autoscore="${gameNum}" class="score-input">
           </div>
-          <div class="vs-tag">VS</div>
+          <div class="vs-tag"><span>VS</span></div>
           <div class="team-pad-teal">
             <div class="label-tag mb-6" style="color:var(--teal);">Team B</div>
-            <div class="text-bold mb-10" style="font-size:13px;min-height:36px;">${esc(teamBNames)}</div>
-            <input type="number" min="0" max="11" placeholder="Score" id="scoreB-${gameNum}" data-autoscore="${gameNum}" class="score-input">
+            <div style="font-size:16px;font-weight:800;color:var(--text);margin-bottom:10px;min-height:40px;line-height:1.3;">${esc(teamBNames)}</div>
+            <input type="text" inputmode="numeric" placeholder="Enter score" value="--" id="scoreB-${gameNum}" data-autoscore="${gameNum}" class="score-input">
           </div>
         </div>
         <div id="pts-preview-${gameNum}" class="points-preview"></div>
@@ -1530,12 +2498,14 @@
   const toggleVoid = (gameNum) => {
     const isVoided = document.getElementById(`void-${gameNum}`).checked;
     const body = document.getElementById(`game-body-${gameNum}`);
+    const preview = document.getElementById(`pts-preview-${gameNum}`);
     if (isVoided) {
       body.classList.add('opacity-04');
-      document.getElementById(`pts-preview-${gameNum}`).innerHTML =
+      if (preview) preview.innerHTML =
         '<span class="color-orange text-bold">Game voided — 0 points for both teams</span>';
     } else {
       body.classList.remove('opacity-04');
+      if (preview) preview.innerHTML = '';
       autoCalcGame(gameNum);
     }
   };
@@ -1544,12 +2514,13 @@
     const sA = document.getElementById(`scoreA-${gameNum}`);
     const sB = document.getElementById(`scoreB-${gameNum}`);
     const preview = document.getElementById(`pts-preview-${gameNum}`);
-    if (!sA || !sB || sA.value === '' || sB.value === '') {
-      preview.textContent = '';
+    if (!sA || !sB || sA.value === '' || sB.value === '' || sA.value === '--' || sB.value === '--') {
+      if (preview) preview.textContent = '';
       return;
     }
     const a = parseInt(sA.value, 10);
     const b = parseInt(sB.value, 10);
+    if (isNaN(a) || isNaN(b)) { if (preview) preview.textContent = ''; return; }
     const ptA = calcPoints(a, b);
     const ptB = calcPoints(b, a);
     const tAIds = document.getElementById(`teamA-ids-${gameNum}`).value.split(',').filter(Boolean);
@@ -1573,12 +2544,13 @@
     const sA = document.getElementById(`scoreA-${gameNum}`);
     const sB = document.getElementById(`scoreB-${gameNum}`);
     const preview = document.getElementById(`pts-preview-${gameNum}`);
-    if (!sA || !sB || sA.value === '' || sB.value === '') {
-      preview.textContent = '';
+    if (!sA || !sB || sA.value === '' || sB.value === '' || sA.value === '--' || sB.value === '--') {
+      if (preview) preview.textContent = '';
       return;
     }
     const a = parseInt(sA.value, 10);
     const b = parseInt(sB.value, 10);
+    if (isNaN(a) || isNaN(b)) { if (preview) preview.textContent = ''; return; }
     const ptA = calcPoints(a, b);
     const ptB = calcPoints(b, a);
     const aColor = ptA > ptB ? 'var(--teal)' : 'var(--orange)';
@@ -1602,26 +2574,28 @@
       <div class="game-card-header">
         <span class="lime-tag">Extra game</span>
         <div class="row gap-8">
-          <label class="row gap-4 cursor-pointer text-bold text-uppercase" style="font-size:11px;color:var(--orange-light);letter-spacing:.5px;">
-            <input type="checkbox" id="void-${gameNum}" data-action="toggleVoid" data-gamenum="${gameNum}"> Void
+          <label class="void-toggle-wrap">
+            <input type="checkbox" id="void-${gameNum}" data-action="toggleVoid" data-gamenum="${gameNum}">
+            <div class="void-toggle-track"></div>
+            <span class="void-toggle-label">Void</span>
           </label>
           <button class="btn btn-danger btn-sm" data-action="removeExtraGame" data-gamenum="${gameNum}">Remove</button>
         </div>
       </div>
       <div id="game-body-${gameNum}" class="game-card-body">
-        <div class="vs-grid-top">
-          <div class="team-pad-blue-l">
+        <div class="vs-grid-top" style="align-items:center;">
+          <div class="team-pad-blue-l" style="text-align:center;">
             <div class="blue-tag mb-8">Team A</div>
             <select id="extraA1-${gameNum}" class="full-width mb-6" style="font-size:12px;font-family:Montserrat,sans-serif;"><option value="">Player 1</option>${playerOpts}</select>
             <select id="extraA2-${gameNum}" class="full-width mb-8" style="font-size:12px;font-family:Montserrat,sans-serif;"><option value="">Player 2</option>${playerOpts}</select>
-            <input type="number" min="0" max="11" placeholder="Score" id="scoreA-${gameNum}" data-egame="${gameNum}" data-eteam="A" class="full-width score-input">
+            <input type="text" inputmode="numeric" placeholder="Enter score" value="--" id="scoreA-${gameNum}" data-egame="${gameNum}" data-eteam="A" class="full-width score-input">
           </div>
-          <div class="vs-tag" style="padding-top:36px;">VS</div>
-          <div class="team-pad-teal-l">
+          <div class="vs-tag"><span>VS</span></div>
+          <div class="team-pad-teal-l" style="text-align:center;">
             <div class="label-tag mb-8" style="color:var(--teal);">Team B</div>
             <select id="extraB1-${gameNum}" class="full-width mb-6" style="font-size:12px;font-family:Montserrat,sans-serif;"><option value="">Player 1</option>${playerOpts}</select>
             <select id="extraB2-${gameNum}" class="full-width mb-8" style="font-size:12px;font-family:Montserrat,sans-serif;"><option value="">Player 2</option>${playerOpts}</select>
-            <input type="number" min="0" max="11" placeholder="Score" id="scoreB-${gameNum}" data-egame="${gameNum}" data-eteam="B" class="full-width score-input">
+            <input type="text" inputmode="numeric" placeholder="Enter score" value="--" id="scoreB-${gameNum}" data-egame="${gameNum}" data-eteam="B" class="full-width score-input">
           </div>
         </div>
         <div id="pts-preview-${gameNum}" class="points-preview"></div>
@@ -2438,103 +3412,448 @@
 
   /* ─── PLAYERS ──────────────────────────────────────────── */
 
-  const filterPlayers = () => {
-    const q = document.getElementById('player-search').value.toLowerCase().trim();
-    const statusFilter = document.getElementById('player-status-filter')?.value || 'all';
-    let lastVisible = null;
-    document.querySelectorAll('#players-table tbody tr').forEach((row) => {
-      // The inline reason rows piggy-back the visibility of the player row above them.
-      if (row.classList.contains('reason-row')) {
-        row.style.display = lastVisible === '' ? '' : 'none';
-        return;
-      }
-      const name = row.querySelector('td')?.textContent.toLowerCase() || '';
-      const statusCell = row.querySelectorAll('td')[4]?.textContent.toLowerCase() || '';
-      const nameMatch = name.includes(q);
-      const statusMatch = statusFilter === 'all' || statusCell.includes(statusFilter);
-      const display = nameMatch && statusMatch ? '' : 'none';
-      row.style.display = display;
-      lastVisible = display;
+  // ── Players page state ────────────────────────────────────────────────
+  let _playersData      = [];   // full enriched player list
+  let _playersFiltered  = [];   // after filter applied
+  let _playersSorted    = { col: 'name', dir: 'asc' };
+  let _playersShown     = 25;   // load-more page size
+
+  const _renderPlayersTable = () => {
+    const slice   = _playersFiltered.slice(0, _playersShown);
+    const total   = _playersFiltered.length;
+    const showing = slice.length;
+
+    const editSVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
+    const sortArrow = (col) => {
+      if (_playersSorted.col !== col) return '<span style="color:#d0d5e8;margin-left:6px;font-size:14px;font-weight:700;line-height:1;">↕</span>';
+      return _playersSorted.dir === 'asc'
+        ? '<span style="color:#174CCC;margin-left:6px;font-size:14px;font-weight:700;line-height:1;">↑</span>'
+        : '<span style="color:#174CCC;margin-left:6px;font-size:14px;font-weight:700;line-height:1;">↓</span>';
+    };
+
+    const rows = slice.map(d => {
+      const p       = d.player;
+      const stats   = d.stats;
+      const wr      = stats.played > 0 ? Math.round(stats.wins / stats.played * 100) : null;
+      const wrColor = wr === null ? '#6b7a99' : wr >= 70 ? '#24BC96' : wr >= 50 ? '#174CCC' : '#F26024';
+      const ind     = d.ind;
+      const indHTML = ind
+        ? `<div class="player-ind ${ind.cls}">${ind.icon} ${ind.label}<div class="player-ind-tip">${ind.tip}</div></div>`
+        : '<span style="color:#d0d5e8;font-size:11px;">—</span>';
+      const expandId = `pex-${p.id}`;
+
+      return `<tr class="player-row" data-pid="${p.id}" data-expand="${expandId}">
+          <td class="players-td">
+            <div class="player-cell">
+              <div class="player-av" style="background:${d.avColor};">${esc(d.initials)}</div>
+              <div>
+                <div style="font-size:13px;font-weight:700;color:#0d1f4a;">${esc(p.first_name)} ${esc(p.last_name)}</div>
+                <div style="font-size:11px;color:#6b7a99;font-weight:600;">${esc(p.gender || '')}${p.date_joined ? ' · Joined ' + fmtDate(p.date_joined) : ''}</div>
+              </div>
+            </div>
+          </td>
+          <td class="players-td" style="text-align:center;">
+            <span style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:#0d1f4a;line-height:1;display:block;">${stats.played}</span>
+            <span style="font-size:10px;font-weight:600;color:#6b7a99;display:block;">games</span>
+          </td>
+          <td class="players-td" style="text-align:center;">
+            <span style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:${wrColor};line-height:1;display:block;">${wr !== null ? wr + '%' : '—'}</span>
+            <span style="font-size:10px;font-weight:600;color:#6b7a99;display:block;">${stats.wins}W · ${stats.played - stats.wins}L</span>
+          </td>
+          <td class="players-td" style="text-align:center;">${indHTML}</td>
+          <td class="players-td" style="text-align:center;">${d.statusHTML}</td>
+          <td class="players-td" style="text-align:center;">
+            <button class="sess-edit-btn" data-action="openEdit" data-pid="${p.id}" title="Edit player">${editSVG}</button>
+          </td>
+        </tr>
+        <tr id="${expandId}" class="player-expand-row" style="display:none;">
+          <td colspan="6">
+            <div class="player-expand-panel">
+              <div class="player-expand-field">
+                <div class="player-expand-label">Email</div>
+                ${p.email ? `<div class="player-expand-value">${esc(p.email)}</div>` : `<div class="player-expand-empty">Not registered</div>`}
+              </div>
+              <div class="player-expand-div"></div>
+              <div class="player-expand-field">
+                <div class="player-expand-label">Phone</div>
+                ${p.phone ? `<div class="player-expand-value">${esc(p.phone)}</div>` : `<div class="player-expand-empty">Not registered</div>`}
+              </div>
+              <div class="player-expand-div"></div>
+              <div class="player-expand-field">
+                <div class="player-expand-label">Date Joined</div>
+                <div class="player-expand-value">${fmtDate(p.date_joined) || '—'}</div>
+              </div>
+              <div class="player-expand-div"></div>
+              <div class="player-expand-field">
+                <div class="player-expand-label">Games Played</div>
+                <div class="player-expand-value" style="color:#174CCC;">${stats.played}</div>
+              </div>
+              ${latestInactivationReasons[p.id] ? `
+              <div class="player-expand-div"></div>
+              <div class="player-expand-field">
+                <div class="player-expand-label">Inactivation Reason</div>
+                <div class="player-expand-value" style="color:#F26024;font-style:italic;">${esc(latestInactivationReasons[p.id].reason || '—')}</div>
+              </div>` : ''}
+            </div>
+          </td>
+        </tr>`;
+    }).join('');
+
+    const loadMoreBtn = showing < total
+      ? `<div style="padding:16px 20px;border-top:0.5px solid #e0e7f5;display:flex;align-items:center;justify-content:space-between;">
+           <span style="font-size:11px;font-weight:600;color:#6b7a99;">Showing ${showing} of ${total} players</span>
+           <button id="players-load-more" style="font-size:10px;font-weight:700;padding:7px 18px;border-radius:99px;border:0.5px solid #c5d6f5;background:white;color:#174CCC;cursor:pointer;">
+             Load ${Math.min(25, total - showing)} more
+           </button>
+         </div>`
+      : `<div style="padding:12px 20px;border-top:0.5px solid #e0e7f5;">
+           <span style="font-size:11px;font-weight:600;color:#6b7a99;">Showing all ${total} players</span>
+         </div>`;
+
+    document.getElementById('players-table').innerHTML = `
+      <table style="width:100%;border-collapse:collapse;">
+        <thead>
+          <tr>
+            <th class="players-th sortable-th" data-sort="name" style="cursor:pointer;">Player ${sortArrow('name')}</th>
+            <th class="players-th sortable-th" data-sort="played" style="text-align:center;cursor:pointer;">Games Played ${sortArrow('played')}</th>
+            <th class="players-th sortable-th" data-sort="wr" style="text-align:center;cursor:pointer;">Win Rate ${sortArrow('wr')}</th>
+            <th class="players-th sortable-th" data-sort="ind" style="text-align:center;cursor:pointer;">Indicator ${sortArrow('ind')}</th>
+            <th class="players-th sortable-th" data-sort="status" style="text-align:center;cursor:pointer;">Status ${sortArrow('status')}</th>
+            <th class="players-th" style="text-align:center;width:44px;"></th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+      ${loadMoreBtn}`;
+
+    // Sort headers
+    document.querySelectorAll('.sortable-th').forEach(th => {
+      th.addEventListener('click', () => {
+        const col = th.dataset.sort;
+        if (_playersSorted.col === col) {
+          _playersSorted.dir = _playersSorted.dir === 'asc' ? 'desc' : 'asc';
+        } else {
+          _playersSorted.col = col;
+          _playersSorted.dir = 'asc';
+        }
+        _applySortAndRender();
+      });
     });
+
+    // Row click to expand (not edit button)
+    document.querySelectorAll('#players-table tbody tr.player-row').forEach(row => {
+      row.addEventListener('click', () => {
+        const expandId = row.dataset.expand;
+        const exRow = document.getElementById(expandId);
+        if (exRow) exRow.style.display = exRow.style.display === 'none' ? 'table-row' : 'none';
+      });
+    });
+
+    // Load more
+    const lmBtn = document.getElementById('players-load-more');
+    if (lmBtn) {
+      lmBtn.addEventListener('click', () => {
+        _playersShown += 25;
+        _renderPlayersTable();
+      });
+    }
+  };
+
+  const _applySortAndRender = () => {
+    const { col, dir } = _playersSorted;
+    const mult = dir === 'asc' ? 1 : -1;
+    _playersFiltered = [..._playersFiltered].sort((a, b) => {
+      switch (col) {
+        case 'name':   return mult * (`${a.player.first_name} ${a.player.last_name}`).localeCompare(`${b.player.first_name} ${b.player.last_name}`);
+        case 'played': return mult * ((a.stats.played || 0) - (b.stats.played || 0));
+        case 'wr': {
+          const wa = a.stats.played > 0 ? a.stats.wins / a.stats.played : -1;
+          const wb = b.stats.played > 0 ? b.stats.wins / b.stats.played : -1;
+          return mult * (wa - wb);
+        }
+        case 'ind':    return mult * ((a.ind?.label || '').localeCompare(b.ind?.label || ''));
+        case 'status': return mult * (a.statusText.localeCompare(b.statusText));
+        default:       return 0;
+      }
+    });
+    _renderPlayersTable();
+  };
+
+  const filterPlayers = () => {
+    const q           = document.getElementById('player-search').value.toLowerCase().trim();
+    const statusFilter = document.getElementById('player-status-filter')?.value || 'all';
+    _playersShown = 25; // reset to first page on filter change
+    _playersFiltered = _playersData.filter(d => {
+      const p = d.player;
+      const nameMatch = (`${p.first_name} ${p.last_name} ${p.email || ''} ${p.phone || ''}`).toLowerCase().includes(q);
+      let statusMatch = true;
+      switch (statusFilter) {
+        case 'active':     statusMatch = p.status === 'active'; break;
+        case 'inactive':   statusMatch = p.status === 'inactive'; break;
+        case 'ladder':     statusMatch = d.statusText === 'In Ladder'; break;
+        case 'tournament': statusMatch = d.statusText === 'Tournament'; break;
+        case 'new':        statusMatch = d.ind?.label === 'New Player' || d.ind?.label === 'Rising Star'; break;
+        case 'hot':        statusMatch = d.ind?.label === 'Hot Player'; break;
+        default:           statusMatch = true;
+      }
+      return nameMatch && statusMatch;
+    });
+    _applySortAndRender();
   };
 
   const loadPlayers = async () => {
     try {
-      // Fetch players + status history in parallel.
-      // History query: only inactivation events (new_status='inactive') so we
-      // can build "latest reason per player". Sorted desc so the first entry
-      // we encounter for each player_id is the most recent.
-      const [players, history] = await Promise.all([
+      const [players, history, matches, ladderPlayers, activeLadders, tournamentTeams] = await Promise.all([
         api('players?select=*&order=first_name'),
-        api(
-          'player_status_history?new_status=eq.inactive&select=player_id,reason,changed_at&order=changed_at.desc',
-        ),
+        api('player_status_history?new_status=eq.inactive&select=player_id,reason,changed_at&order=changed_at.desc'),
+        api('matches?select=player_id,score_for,score_against,points_earned,session_date,default_no_show&order=session_date.desc').catch(() => []),
+        api('ladder_players?select=player_id,ladder_id').catch(() => []),
+        api('ladders?status=eq.active&select=id').catch(() => []),
+        api('tournament_teams?select=player1_id,player2_id,player3_id,player4_id').catch(() => []),
       ]);
       allPlayers = players;
 
-      // Build "latest reason per player" map and "history count per player" map
+      // Build inactivation reason map
       latestInactivationReasons = {};
       historyCountByPlayer = {};
       (history || []).forEach((h) => {
         if (!latestInactivationReasons[h.player_id]) {
-          latestInactivationReasons[h.player_id] = {
-            reason: h.reason,
-            changed_at: h.changed_at,
-          };
+          latestInactivationReasons[h.player_id] = { reason: h.reason, changed_at: h.changed_at };
         }
         historyCountByPlayer[h.player_id] = (historyCountByPlayer[h.player_id] || 0) + 1;
       });
 
-      if (!allPlayers.length) {
-        document.getElementById('players-table').innerHTML =
-          '<div class="empty">No players yet.</div>';
+      // Build per-player match stats
+      const matchStats = {};
+      (matches || []).forEach(m => {
+        if (m.default_no_show) return;
+        if (!matchStats[m.player_id]) matchStats[m.player_id] = { played: 0, wins: 0 };
+        if (m.score_for !== null && m.score_against !== null) {
+          matchStats[m.player_id].played++;
+          if (m.score_for > m.score_against) matchStats[m.player_id].wins++;
+        }
+      });
+
+      // Active ladder IDs set for cross-reference
+      const activeLadderIds = new Set((activeLadders || []).map(l => l.id));
+      const inLadder = new Set(
+        (ladderPlayers || [])
+          .filter(lp => activeLadderIds.has(lp.ladder_id))
+          .map(lp => lp.player_id)
+      );
+
+      // Tournament: player1_id..player4_id columns
+      const inTournament = new Set();
+      (tournamentTeams || []).forEach(tt => {
+        [tt.player1_id, tt.player2_id, tt.player3_id, tt.player4_id].forEach(id => {
+          if (id) inTournament.add(id);
+        });
+      });
+
+      // Stat cards
+      const total   = players.length;
+      const active  = players.filter(p => p.status === 'active').length;
+      const inactive= players.filter(p => p.status === 'inactive').length;
+      const male    = players.filter(p => p.gender === 'Male').length;
+      const female  = players.filter(p => p.gender === 'Female').length;
+      const setEl   = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+      setEl('players-total',    total);
+      setEl('players-active',   active);
+      setEl('players-inactive', inactive);
+      setEl('players-male',     male);
+      setEl('players-female',   female);
+      setEl('players-male-pct',   total ? `${Math.round(male/total*100)}% of roster` : '');
+      setEl('players-female-pct', total ? `${Math.round(female/total*100)}% of roster` : '');
+      setEl('players-count',    `${total} player${total !== 1 ? 's' : ''}`);
+
+      if (!players.length) {
+        document.getElementById('players-table').innerHTML = '<div class="empty" style="padding:20px;">No players yet.</div>';
         return;
       }
 
-      const rows = allPlayers
-        .map((p) => {
-          const isInactive = p.status === 'inactive';
-          const recent = latestInactivationReasons[p.id];
-          // Inline reason preview — only for inactive players that have a reason recorded
-          const reasonRow =
-            isInactive && recent && recent.reason
-              ? `<tr class="reason-row">
-                  <td colspan="7" style="padding:4px 12px 12px;border-bottom:0.5px solid var(--border);">
-                    <div style="font-size:11px;color:var(--orange);font-weight:600;">
-                      <span class="text-uppercase" style="letter-spacing:.5px;">Reason:</span>
-                      <span style="font-style:italic;font-weight:500;color:var(--text-muted);">${esc(recent.reason)}</span>
-                    </div>
-                  </td>
-                </tr>`
-              : '';
-          return `
-            <tr>
-              <td class="text-bold">${esc(p.first_name)} ${esc(p.last_name)}</td>
-              <td class="text-muted-12">${esc(p.gender || '-')}</td>
-              <td class="text-muted-12">${esc(p.email || '-')}</td>
-              <td class="text-muted-12">${esc(p.phone || '-')}</td>
-              <td><span class="badge badge-${esc(p.status)}">${esc(p.status)}</span></td>
-              <td class="text-muted-12">${fmtDate(p.date_joined) || '-'}</td>
-              <td><button class="btn btn-outline btn-sm" data-action="openEdit" data-pid="${p.id}">Edit</button></td>
-            </tr>${reasonRow}`;
-        })
-        .join('');
+      // Avatar colors
+      const avColors = ['#174CCC','#24BC96','#F26024','#7c3aed','#0891b2','#d97706','#16a34a','#dc2626','#7c3aed','#0e7490'];
+      const getAvColor = (id) => avColors[id % avColors.length];
 
-      document.getElementById('players-count').textContent =
-        `${allPlayers.length} player${allPlayers.length !== 1 ? 's' : ''}`;
-      document.getElementById('players-table').innerHTML = `
-        <table><thead><tr><th>Name</th><th>Gender</th><th>Email</th><th>Phone</th><th>Status</th><th>Joined</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+      // SVG icons for indicators
+      const svg_fire  = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`;
+      const svg_crown = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4a2 2 0 0 1-2-2V5h4"/><path d="M18 9h2a2 2 0 0 0 2-2V5h-4"/><path d="M12 17v4"/><path d="M8 21h8"/><path d="M6 9a6 6 0 0 0 12 0V3H6v6z"/></svg>`;
+      const svg_bolt  = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`;
+      const svg_star  = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>`;
+      const svg_new   = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>`;
+      const svg_clock = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>`;
+      const svg_slip  = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>`;
+
+      // Pre-compute rank list for Top 10 / Rising Star
+      const ranked = allPlayers
+        .filter(x => (matchStats[x.id]?.played || 0) >= 5)
+        .sort((a, b) => {
+          const wa = matchStats[a.id] ? matchStats[a.id].wins / matchStats[a.id].played : 0;
+          const wb = matchStats[b.id] ? matchStats[b.id].wins / matchStats[b.id].played : 0;
+          return wb - wa;
+        });
+
+      const computeIndicator = (p, s) => {
+        const wr = s.played > 0 ? s.wins / s.played : 0;
+        const joined = p.date_joined ? new Date(p.date_joined) : null;
+        const daysSince = joined ? Math.floor((Date.now() - joined) / 86400000) : 999;
+        const rankIdx = ranked.findIndex(x => x.id === p.id);
+        const isTop10    = rankIdx >= 0 && rankIdx < 10;
+        const isTop25pct = rankIdx >= 0 && rankIdx < Math.ceil(ranked.length * 0.25);
+        if (s.played >= 3 && wr >= 0.75) return { cls:'ind-fire',  icon:svg_fire,  label:'Hot Player',  tip:'Win rate above 75%' };
+        if (isTop10 && s.played >= 5)    return { cls:'ind-crown', icon:svg_crown, label:'Top 10',      tip:'Ranked in the top 10 players' };
+        if (s.played >= 30)              return { cls:'ind-bolt',  icon:svg_bolt,  label:'Most Active', tip:'30+ games played this season' };
+        if (daysSince <= 60 && isTop25pct) return { cls:'ind-star', icon:svg_star, label:'Rising Star', tip:'New player in top 25% by win rate' };
+        if (daysSince <= 60)             return { cls:'ind-new',   icon:svg_new,   label:'New Player',  tip:'Joined within the last 60 days' };
+        if (s.played >= 10 && wr >= 0.55 && wr < 0.75) return { cls:'ind-clock', icon:svg_clock, label:'Consistent', tip:'Stable performance over multiple sessions' };
+        if (s.played >= 5 && wr < 0.35) return { cls:'ind-slip',  icon:svg_slip,  label:'Slipping',    tip:'Win rate below 35%' };
+        return null;
+      };
+
+      const getStatusText = (p) => {
+        if (inLadder.has(p.id))     return 'In Ladder';
+        if (inTournament.has(p.id)) return 'Tournament';
+        if (p.status === 'active')  return 'Active';
+        return 'Inactive';
+      };
+      const getStatusHTML = (text) => {
+        switch (text) {
+          case 'In Ladder':   return '<span class="pill pill-ladder">In Ladder</span>';
+          case 'Tournament':  return '<span class="pill pill-tourney">Tournament</span>';
+          case 'Active':      return '<span class="pill pill-active">Active</span>';
+          default:            return '<span class="pill pill-inactive">Inactive</span>';
+        }
+      };
+
+      // Build enriched data array
+      _playersData = players.map((p, idx) => {
+        const stats = matchStats[p.id] || { played: 0, wins: 0 };
+        const ind = computeIndicator(p, stats);
+        const statusText = getStatusText(p);
+        return {
+          player:     p,
+          stats,
+          ind,
+          statusText,
+          statusHTML: getStatusHTML(statusText),
+          initials:   `${p.first_name?.[0]||''}${p.last_name?.[0]||''}`.toUpperCase(),
+          avColor:    getAvColor(p.id || idx),
+        };
+      });
+
+      _playersFiltered = [..._playersData];
+      _playersShown    = 25;
+      _renderPlayersTable();
+
     } catch (e) {
       document.getElementById('players-table').innerHTML =
-        `<div class="empty">Error: ${esc(e.message)}</div>`;
+        `<div class="empty" style="padding:20px;">Error: ${esc(e.message)}</div>`;
     }
   };
 
+
+  // ── Add Player: avatar color helper ──────────────────────────────────
+  const _apColors = ['#174CCC','#24BC96','#F26024','#7c3aed','#0891b2','#d97706'];
+  const _apColor  = (str) => {
+    let h = 0;
+    for (let i = 0; i < str.length; i++) h = str.charCodeAt(i) + ((h << 5) - h);
+    return _apColors[Math.abs(h) % _apColors.length];
+  };
+  const _apFmt = (d) => {
+    if (!d) return '';
+    const dt = new Date(d + 'T00:00:00');
+    return dt.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  };
+
+  // ── Live preview update ──────────────────────────────────────────────
+  window.apUpdatePreview = () => {
+    const fn     = (document.getElementById('p-first')?.value || '').trim();
+    const ln     = (document.getElementById('p-last')?.value || '').trim();
+    const gender = document.getElementById('p-gender')?.value || '';
+    const skill  = document.getElementById('p-skill')?.value || '';
+    const email  = (document.getElementById('p-email')?.value || '').trim();
+    const phone  = (document.getElementById('p-phone')?.value || '').trim();
+    const status = document.getElementById('p-status')?.value || 'active';
+    const joined = document.getElementById('p-joined')?.value || '';
+    const fullName = [fn, ln].filter(Boolean).join(' ');
+    const initials = [(fn[0]||''), (ln[0]||'')].join('').toUpperCase() || '?';
+    const avColor  = fullName ? _apColor(fullName) : '#d0d5e8';
+    const body = document.getElementById('ap-preview-body');
+    if (!body) return;
+    if (!fn && !ln) {
+      body.innerHTML = `<div style="text-align:center;padding:20px 0;">
+        <div style="width:64px;height:64px;border-radius:50%;background:#f0f2f8;border:2px dashed #d0d5e8;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#d0d5e8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+        </div>
+        <div style="font-size:12px;font-weight:600;color:#d0d5e8;">Fill in the form to see<br>the player preview</div>
+      </div>`;
+      return;
+    }
+    const statusPill = status === 'active'
+      ? `<span style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;padding:3px 10px;border-radius:99px;background:#d4f5ed;color:#085041;">Active Player</span>`
+      : `<span style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;padding:3px 10px;border-radius:99px;background:#f4f5f8;color:#6b7a99;">Inactive</span>`;
+    const skillPill = skill
+      ? `<span style="font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:3px 10px;border-radius:99px;background:#e8f0ff;color:#174CCC;">${esc(skill)}</span>`
+      : '';
+    const row = (iconSVG, label, val, emptyText) => `
+      <div class="ap-preview-row">
+        <div class="ap-preview-icon">${iconSVG}</div>
+        <div class="ap-preview-lbl">${label}</div>
+        ${val ? `<div class="ap-preview-val">${val}</div>` : `<div class="ap-preview-empty">${emptyText}</div>`}
+      </div>`;
+    const calI   = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6b7a99" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
+    const mailI  = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6b7a99" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>`;
+    const phoneI = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6b7a99" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.15 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.06 1.21l3 .01a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7a2 2 0 0 1 1.72 2.02z"/></svg>`;
+    const genI   = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6b7a99" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>`;
+    const gameI  = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6b7a99" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4a2 2 0 0 1-2-2V5h4"/><path d="M18 9h2a2 2 0 0 0 2-2V5h-4"/><path d="M12 17v4"/><path d="M8 21h8"/><path d="M6 9a6 6 0 0 0 12 0V3H6v6z"/></svg>`;
+    body.innerHTML = `
+      <div class="ap-preview-avatar" style="background:${avColor};">${esc(initials)}</div>
+      <div class="ap-preview-name">${esc(fullName)}</div>
+      <div class="ap-preview-pills">${statusPill}${skillPill}</div>
+      <div class="ap-preview-divider"></div>
+      ${row(genI,   'Gender',  gender ? esc(gender) : '', 'Not set')}
+      ${row(mailI,  'Email',   email  ? esc(email)  : '', 'Not provided')}
+      ${row(phoneI, 'Phone',   phone  ? esc(phone)  : '', 'Not provided')}
+      ${row(calI,   'Joined',  joined ? _apFmt(joined) : '', 'Not set')}
+      ${row(gameI,  'Games',   '0', '')}
+      <div class="ap-preview-divider"></div>
+      <div style="text-align:center;font-size:10px;font-weight:600;color:#d0d5e8;">Profile not yet saved</div>`;
+  };
+
+  // ── Duplicate check (fires as user types) ────────────────────────────
+  let _apDupTimer = null;
+  window.apCheckDuplicate = () => {
+    clearTimeout(_apDupTimer);
+    _apDupTimer = setTimeout(async () => {
+      const fn = (document.getElementById('p-first')?.value || '').trim();
+      const ln = (document.getElementById('p-last')?.value || '').trim();
+      const warn    = document.getElementById('p-dup-warn');
+      const dupName = document.getElementById('p-dup-name');
+      if (!warn) return;
+      if (fn.length < 2 || ln.length < 2) { warn.style.display = 'none'; return; }
+      try {
+        const dupes = await api(
+          `players?first_name=ilike.${encodeURIComponent(fn)}&last_name=ilike.${encodeURIComponent(ln)}&select=id,first_name,last_name&limit=1`
+        );
+        if (dupes.length) {
+          warn.style.display = 'flex';
+          if (dupName) dupName.textContent = `${esc(dupes[0].first_name)} ${esc(dupes[0].last_name)}`;
+        } else {
+          warn.style.display = 'none';
+        }
+      } catch(_) { warn.style.display = 'none'; }
+    }, 600);
+  };
+
   const initAddPlayer = () => {
-    // Reset the entire form every time the tab is opened
-    const form = document.querySelector('#page-add-player form');
+    const form = document.getElementById('add-player-form');
     if (form) form.reset();
     document.getElementById('p-joined').value = todayISO();
+    // Hide dup warning on reset
+    const warn = document.getElementById('p-dup-warn');
+    if (warn) warn.style.display = 'none';
+    // Reset preview to empty state
+    apUpdatePreview();
   };
 
   const addPlayer = async (e) => {
@@ -2543,49 +3862,51 @@
     const lastName  = document.getElementById('p-last').value.trim();
     const email     = document.getElementById('p-email').value.trim();
 
-    // Email is required
-    if (!email) {
-      toast('Email address is required.', true);
-      document.getElementById('p-email').focus();
+    if (!firstName || !lastName) {
+      toast('First name and last name are required.', true);
       return;
     }
 
-    // Disable button immediately to prevent double-click
     const saveBtn = document.getElementById('add-player-btn');
-    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving...'; }
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.innerHTML = 'Saving...'; }
 
     try {
-      // ── Duplicate check: block if same first name + last name + email already exists ──
-      const duplicate = await api(
-        `players?first_name=eq.${encodeURIComponent(firstName)}&last_name=eq.${encodeURIComponent(lastName)}&email=eq.${encodeURIComponent(email)}&select=id&limit=1`
-      );
+      // Hard duplicate check on submit (by name + email if provided)
+      let dupQuery = `players?first_name=ilike.${encodeURIComponent(firstName)}&last_name=ilike.${encodeURIComponent(lastName)}&select=id&limit=1`;
+      const duplicate = await api(dupQuery);
       if (duplicate.length) {
-        toast(`A player named ${firstName} ${lastName} with this email already exists in the system.`, true);
+        toast(`A player named ${firstName} ${lastName} already exists in the system.`, true);
         return;
       }
 
-      // ── All clear — save the player ───────────────────────────────────────
       const body = {
         first_name: firstName,
-        last_name: lastName,
-        email,
-        phone: document.getElementById('p-phone').value.trim() || null,
-        gender: document.getElementById('p-gender').value || null,
-        status: document.getElementById('p-status').value,
-        date_joined: document.getElementById('p-joined').value || null,
+        last_name:  lastName,
+        email:      email || null,
+        phone:      document.getElementById('p-phone').value.trim() || null,
+        gender:     document.getElementById('p-gender').value || null,
+        skill_level:document.getElementById('p-skill').value || null,
+        status:     document.getElementById('p-status').value,
+        date_joined:document.getElementById('p-joined').value || null,
         current_rank: 999,
       };
 
       await api('players', 'POST', body);
       toast(`${body.first_name} ${body.last_name} added successfully!`);
-      e.target.reset();
+      const form = document.getElementById('add-player-form');
+      if (form) form.reset();
       document.getElementById('p-joined').value = todayISO();
+      const warn = document.getElementById('p-dup-warn');
+      if (warn) warn.style.display = 'none';
+      apUpdatePreview();
       allPlayers = [];
     } catch (err) {
       toast(`Error: ${err.message}`, true);
     } finally {
-      // Always re-enable the button regardless of outcome
-      if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Add player'; }
+      if (saveBtn) {
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Create Player Profile';
+      }
     }
   };
 
@@ -2775,115 +4096,295 @@
 
   /* ─── SHARE PAGE ───────────────────────────────────────── */
 
+  // ── Share page state ──────────────────────────────────────────────────
+  let _shareData = { ladders: [], tournaments: [], visits: [] };
+  let _shareCurrentTab = 'ladders';
+
+  // ── Relative time helper ───────────────────────────────────────────────
+  const _relTime = (iso) => {
+    if (!iso) return '—';
+    const diff = Math.floor((Date.now() - new Date(iso)) / 1000);
+    if (diff < 60)  return 'just now';
+    if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
+    if (diff < 86400) return `${Math.floor(diff/3600)}h ago`;
+    if (diff < 172800) return 'yesterday';
+    return `${Math.floor(diff/86400)}d ago`;
+  };
+
+  // ── Populate stat cards ────────────────────────────────────────────────
+  const _populateShareStats = () => {
+    const { ladders, tournaments, visits } = _shareData;
+    const all = [...ladders, ...tournaments];
+
+    // Most Viewed — ladder/tournament with most visit rows
+    const visitsByItem = {};
+    visits.forEach(v => {
+      const key = v.ladder_id ? `l_${v.ladder_id}` : v.tournament_id ? `t_${v.tournament_id}` : null;
+      if (key) visitsByItem[key] = (visitsByItem[key] || 0) + 1;
+    });
+    let mostViewedName = '—';
+    if (Object.keys(visitsByItem).length) {
+      const topKey = Object.keys(visitsByItem).sort((a,b) => visitsByItem[b] - visitsByItem[a])[0];
+      const [type, id] = topKey.split('_');
+      const found = type === 'l'
+        ? ladders.find(l => String(l.id) === id)
+        : tournaments.find(t => String(t.id) === id);
+      if (found) mostViewedName = found.name;
+    } else if (all.length) {
+      // Fallback: first active ladder/tournament
+      const active = all.find(x => x.status === 'active');
+      if (active) mostViewedName = active.name;
+    }
+
+    // Last Shared — most recently copied (use updated_at or start_date as proxy)
+    let lastSharedName = '—', lastSharedTime = '—';
+    if (ladders.length) {
+      const sorted = [...ladders].sort((a,b) => {
+        const da = a.updated_at || a.start_date || '';
+        const db = b.updated_at || b.start_date || '';
+        return db.localeCompare(da);
+      });
+      lastSharedName = sorted[0].name;
+      lastSharedTime = _relTime(sorted[0].updated_at || sorted[0].start_date);
+    }
+
+    // Total Visits — all time, plus this week for context
+    const weekAgo = Date.now() - 7 * 86400000;
+    const weekVisits = visits.filter(v => new Date(v.visited_at) > weekAgo).length;
+    const totalVisits = visits.length;
+
+    // Active links
+    const activeLadders = ladders.filter(l => l.status === 'active').length;
+    const activeTourneys = tournaments.filter(t => t.status === 'active').length;
+
+    const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+    setEl('share-stat-most-viewed',       mostViewedName);
+    setEl('share-stat-last-shared',       lastSharedName);
+    setEl('share-stat-last-shared-time',  lastSharedTime);
+    setEl('share-stat-visits',            totalVisits || '—');
+    setEl('share-stat-links',             activeLadders + activeTourneys);
+    setEl('share-stat-links-sub',         `${activeLadders} ladder${activeLadders !== 1 ? 's' : ''} · ${activeTourneys} tournament${activeTourneys !== 1 ? 's' : ''}`);
+  };
+
+  // ── Render share cards ─────────────────────────────────────────────────
+  const _renderShareCards = () => {
+    const tab    = _shareCurrentTab;
+    const items  = tab === 'ladders' ? _shareData.ladders : _shareData.tournaments;
+    const visits = _shareData.visits;
+    const q      = (document.getElementById('share-search-current')?.value || '').toLowerCase().trim();
+    const filter = document.getElementById('share-status-filter')?.value || 'all';
+
+    const baseLadderUrl = window.location.origin + window.location.pathname.replace('admin.html', '') + 'players.html';
+    const baseTourneyUrl= window.location.origin + window.location.pathname.replace('admin.html', '') + 'tournament-results.html';
+
+    // Build visit maps with namespaced keys to avoid ladder/tournament ID collisions
+    // e.g. ladder 5 → "l_5", tournament 5 → "t_5"
+    const visitsByItem = {};
+    visits.forEach(v => {
+      const key = v.ladder_id ? `l_${Number(v.ladder_id)}` : v.tournament_id ? `t_${Number(v.tournament_id)}` : null;
+      if (key) visitsByItem[key] = (visitsByItem[key] || 0) + 1;
+    });
+    const weekAgo = Date.now() - 7 * 86400000;
+    const recentByItem = {};
+    visits.filter(v => new Date(v.visited_at) > weekAgo).forEach(v => {
+      const key = v.ladder_id ? `l_${Number(v.ladder_id)}` : v.tournament_id ? `t_${Number(v.tournament_id)}` : null;
+      if (key) recentByItem[key] = (recentByItem[key] || 0) + 1;
+    });
+    const maxVisits = Math.max(...Object.values(visitsByItem), 0);
+
+    const copyIcon   = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
+    const eyeIcon    = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+    const shareIcon  = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>`;
+    const linkIcon   = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#b0bbd6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`;
+    const plrIcon    = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#6b7a99" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>`;
+    const clkIcon    = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#6b7a99" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`;
+    const visIcon    = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+    const hotIcon    = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`;
+    const sharedfIcon= `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>`;
+
+    let filtered = items.filter(item => {
+      const nameMatch = item.name.toLowerCase().includes(q);
+      let statusMatch = true;
+      if (filter === 'active')   statusMatch = item.status === 'active';
+      if (filter === 'archived') statusMatch = item.status !== 'active';
+      if (filter === 'recent') {
+        const d = item.updated_at || item.start_date || '';
+        statusMatch = d ? (Date.now() - new Date(d)) < 7 * 86400000 : false;
+      }
+      return nameMatch && statusMatch;
+    });
+
+    const listEl = tab === 'ladders'
+      ? document.getElementById('share-ladder-list')
+      : document.getElementById('share-tournament-list');
+    if (!listEl) return;
+
+    if (!filtered.length) {
+      listEl.innerHTML = `<div class="empty" style="padding:20px;text-align:center;background:white;border-radius:10px;">No ${tab} found.</div>`;
+      return;
+    }
+
+    listEl.innerHTML = filtered.map(item => {
+      const url     = tab === 'ladders'
+        ? `${baseLadderUrl}?l=${btoa(String(item.id))}`
+        : `${baseTourneyUrl}?t=${btoa(String(item.id))}`;
+      const btnId   = `copy-${tab}-${item.id}`;
+      const isActive = item.status === 'active';
+      const isClosed = !isActive;
+      const visitCount = visitsByItem[tab === 'ladders' ? `l_${Number(item.id)}` : `t_${Number(item.id)}`] || 0;
+      const isHot   = visitCount > 0 && visitCount === maxVisits && maxVisits > 0 && Object.keys(visitsByItem).length > 0;
+      const dateStr = item.end_date || item.start_date || '';
+      const updatedStr = dateStr ? _relTime(dateStr) : '—';
+
+      // Player count from ladder_players (not available here, skip to —)
+      const pillClass = isActive ? 'pill-active' : 'pill-closed';
+      const pillLabel = isActive ? 'Active' : (item.status || 'Closed');
+      const typeLabel = tab === 'ladders' ? 'Ladder' : 'Tournament';
+
+      const intelHTML = [
+        isHot ? `<span class="share-card-intel share-intel-hot">${hotIcon} Most Viewed</span>` : '',
+      ].filter(Boolean).join('');
+
+      return `<div class="share-card" data-name="${esc(item.name).toLowerCase()}" data-status="${esc(item.status || '')}">
+        <div class="share-card-inner">
+          <div class="share-card-left">
+            <div class="share-card-name">${esc(item.name)}</div>
+            <div class="share-card-meta">
+              <span class="pill ${pillClass}">${esc(pillLabel)}</span>
+              <span class="pill" style="background:#e8f0ff;color:#174CCC;">${typeLabel}</span>
+            </div>
+            <div class="share-card-stats">
+              <span class="share-card-stat">${clkIcon} Updated ${esc(updatedStr)}</span>
+              <span class="share-card-stat" style="${visitCount ? 'color:#174CCC;' : ''}">${visIcon} ${visitCount || '—'} visits</span>
+            </div>
+            ${intelHTML ? `<div style="display:flex;gap:6px;flex-wrap:wrap;">${intelHTML}</div>` : ''}
+          </div>
+          <div class="share-card-right">
+            <button class="share-card-btn primary" data-action="copyShareLink"
+              data-url="${esc(url)}" data-btnid="${btnId}" id="${btnId}">${copyIcon} Copy Link</button>
+            <a href="${esc(url)}" target="_blank" rel="noopener" class="share-card-btn preview"
+              style="text-decoration:none;" onclick="_recordShareVisit('${esc(url)}')">${eyeIcon} Preview Page</a>
+            <button class="share-card-btn" data-action="showShareQR" data-url="${esc(url)}">${shareIcon} Share</button>
+          </div>
+        </div>
+        <div class="share-card-url">${linkIcon}<span class="share-card-url-text">${esc(url)}</span></div>
+      </div>`;
+    }).join('');
+  };
+
   const loadSharePage = async () => {
-    // Load both ladders and tournaments in parallel
-    let ladders = [], tournaments = [];
+    let _visitsTableExists = false;
     try {
-      [ladders, tournaments] = await Promise.all([
+      const [ladders, tournaments] = await Promise.all([
         api('ladders?select=*&order=id.desc'),
         api('tournaments?select=*&order=id.desc'),
       ]);
+      // Try visits table separately so we can detect if it exists
+      let visits = [];
+      try {
+        visits = await api('link_visits?select=ladder_id,tournament_id,visited_at&order=visited_at.desc');
+        _visitsTableExists = true;
+      } catch(_) {
+        _visitsTableExists = false;
+      }
+      _shareData = { ladders, tournaments, visits: visits || [] };
     } catch (e) {
       toast(`Error loading share data: ${e.message}`, true);
     }
-
-    const baseLadderUrl =
-      window.location.origin + window.location.pathname.replace('admin.html', '') + 'players.html';
-    const baseTourneyUrl =
-      window.location.origin + window.location.pathname.replace('admin.html', '') + 'tournament-results.html';
-
-    const renderShareRow = (item, url, btnId, statusColor, statusLabel) => `
-      <div class="list-row share-row" data-name="${esc(item.name).toLowerCase()}" data-url="${esc(url)}">
-        <div class="row-between">
-          <div>
-            <div class="text-bold text-14">${esc(item.name)}</div>
-            <div class="text-bold text-uppercase mt-4" style="font-size:11px;color:${statusColor};letter-spacing:.5px;">${statusLabel}</div>
-          </div>
-          <div style="display:flex;gap:8px;align-items:center;">
-            <button class="btn btn-outline btn-sm" data-action="showShareQR" data-url="${esc(url)}"
-              style="font-size:11px;">QR</button>
-            <button class="btn btn-primary btn-sm" data-action="copyShareLink"
-              data-url="${esc(url)}" data-btnid="${btnId}" id="${btnId}">Copy link</button>
-          </div>
-        </div>
-        <div class="url-box">${esc(url)}</div>
-      </div>`;
-
-    // Render ladders list
-    const ladderListEl = document.getElementById('share-ladder-list');
-    if (!ladders.length) {
-      ladderListEl.innerHTML = '<div class="empty">No ladders yet. Create one in the Ladders tab.</div>';
-    } else {
-      ladderListEl.innerHTML = ladders.map((l) => {
-        const url = `${baseLadderUrl}?l=${btoa(String(l.id))}`;
-        const statusColor = l.status === 'active' ? 'var(--teal)' : 'var(--text-muted)';
-        return renderShareRow(l, url, `copy-ladder-${l.id}`, statusColor, l.status);
-      }).join('');
+    // Show/hide visit tracking note
+    const noteEl = document.getElementById('share-visits-note');
+    if (noteEl) {
+      noteEl.style.display = _visitsTableExists ? 'none' : 'flex';
     }
+    _populateShareStats();
+    _renderShareCards();
 
-    // Render tournaments list
-    const tourneyListEl = document.getElementById('share-tournament-list');
-    if (!tournaments.length) {
-      tourneyListEl.innerHTML = '<div class="empty">No tournaments yet. Create one in the Tournaments tab.</div>';
-    } else {
-      tourneyListEl.innerHTML = tournaments.map((t) => {
-        const url = `${baseTourneyUrl}?t=${btoa(String(t.id))}`;
-        const statusColor = t.status === 'active' ? 'var(--teal)' : t.status === 'completed' ? 'var(--blue)' : 'var(--text-muted)';
-        return renderShareRow(t, url, `copy-tournament-${t.id}`, statusColor, t.status);
-      }).join('');
+    // Wire search + filter (once only)
+    const searchEl = document.getElementById('share-search-current');
+    const filterEl = document.getElementById('share-status-filter');
+    if (searchEl && !searchEl._wired) {
+      searchEl._wired = true;
+      searchEl.addEventListener('input', _renderShareCards);
     }
-
-    // Wire up search inputs
-    const wireSearch = (inputId, listId) => {
-      const input = document.getElementById(inputId);
-      if (!input) return;
-      input.addEventListener('input', () => {
-        const q = input.value.toLowerCase().trim();
-        document.querySelectorAll(`#${listId} .share-row`).forEach((row) => {
-          const name = row.dataset.name || '';
-          row.style.display = name.includes(q) ? '' : 'none';
-        });
-      });
-    };
-    wireSearch('share-search-ladders', 'share-ladder-list');
-    wireSearch('share-search-tournaments', 'share-tournament-list');
+    if (filterEl && !filterEl._wired) {
+      filterEl._wired = true;
+      filterEl.addEventListener('change', _renderShareCards);
+    }
   };
 
   const switchShareTab = (btn) => {
     const tab = btn.dataset.tab;
-    // Update tab button styles
+    _shareCurrentTab = tab;
     document.querySelectorAll('.share-tab').forEach((b) => {
       const isActive = b.dataset.tab === tab;
       b.classList.toggle('active', isActive);
-      b.style.color = isActive ? 'var(--blue)' : 'var(--text-muted)';
-      b.style.borderBottomColor = isActive ? 'var(--lime)' : 'transparent';
+      b.style.color = isActive ? '#174CCC' : '#6b7a99';
+      b.style.borderBottomColor = isActive ? '#C6F221' : 'transparent';
     });
-    // Show/hide panels
-    document.getElementById('share-tab-ladders').style.display = tab === 'ladders' ? '' : 'none';
+    // Reset search placeholder
+    const searchEl = document.getElementById('share-search-current');
+    if (searchEl) searchEl.placeholder = `Search ${tab}...`;
+    // Show/hide tab content
+    document.getElementById('share-tab-ladders').style.display  = tab === 'ladders'     ? '' : 'none';
     document.getElementById('share-tab-tournaments').style.display = tab === 'tournaments' ? '' : 'none';
-    // Hide QR panel when switching tabs
-    document.getElementById('share-qr-panel').style.display = 'none';
+    // QR now shown in modal — nothing to hide here
+    _renderShareCards();
   };
 
   const showShareQR = (btn) => {
-    const url = btn.dataset.url;
-    const panel = document.getElementById('share-qr-panel');
-    const qrEl = document.getElementById('share-qr-code');
-    const urlEl = document.getElementById('share-qr-url');
-    // Clear old QR
+    const url  = btn.dataset.url;
+    // Find the card name from closest ancestor
+    const card = btn.closest('.share-card');
+    const name = card ? (card.querySelector('.share-card-name')?.textContent || '') : '';
+
+    const modal   = document.getElementById('share-qr-modal');
+    const qrEl    = document.getElementById('share-qr-modal-code');
+    const urlEl   = document.getElementById('share-qr-modal-url');
+    const nameEl  = document.getElementById('share-qr-modal-name');
+    const copyBtn = document.getElementById('share-qr-modal-copy');
+    const closeBtn= document.getElementById('share-qr-modal-close');
+    if (!modal || !qrEl) return;
+
+    // Populate
+    if (nameEl) nameEl.textContent = name;
+    if (urlEl)  urlEl.textContent  = url;
+
+    // Clear old QR and generate fresh
     qrEl.innerHTML = '';
-    urlEl.textContent = url;
-    panel.style.display = 'block';
-    panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    // Generate QR
     new QRCode(qrEl, {
       text: url,
-      width: 180,
-      height: 180,
+      width: 200,
+      height: 200,
       colorDark: '#0d1f4a',
       colorLight: '#ffffff',
       correctLevel: QRCode.CorrectLevel.H,
     });
+
+    // Track this share action
+    _recordShareVisit(url);
+
+    // Show modal
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+
+    // Copy button inside modal
+    if (copyBtn) {
+      copyBtn.onclick = () => {
+        navigator.clipboard.writeText(url).then(() => {
+          copyBtn.textContent = 'Copied!';
+          copyBtn.style.color = '#24BC96';
+          setTimeout(() => { copyBtn.textContent = 'Copy'; copyBtn.style.color = '#174CCC'; }, 2000);
+        });
+      };
+    }
+
+    // Close handlers
+    const closeModal = () => {
+      modal.style.display = 'none';
+      document.body.style.overflow = '';
+    };
+    if (closeBtn) closeBtn.onclick = closeModal;
+    modal.onclick = (e) => { if (e.target === modal) closeModal(); };
   };
 
   const copyShareLink = (url, btnId) => {
@@ -2892,20 +4393,42 @@
       .then(() => {
         const btn = document.getElementById(btnId);
         if (btn) {
-          const orig = btn.textContent;
-          btn.textContent = 'Copied!';
-          btn.style.background = 'var(--teal)';
+          const origHTML = btn.innerHTML;
+          btn.innerHTML = '✓ Copied!';
+          btn.style.background = '#24BC96';
           setTimeout(() => {
-            btn.textContent = orig;
+            btn.innerHTML = origHTML;
             btn.style.background = '';
           }, 2000);
         }
         toast('Link copied to clipboard!');
+        // Track the share action
+        _recordShareVisit(url);
       })
       .catch(() => {
         toast('Could not copy. Please copy the link manually.', true);
       });
   };
+
+  // Record a visit/share event in link_visits table — exposed on window for inline onclick
+  const _recordShareVisit = async (url) => {
+    try {
+      // Parse ladder_id or tournament_id from URL
+      const urlObj = new URL(url);
+      const lParam = urlObj.searchParams.get('l');
+      const tParam = urlObj.searchParams.get('t');
+      const ladder_id     = lParam ? parseInt(atob(lParam), 10) : null;
+      const tournament_id = tParam ? parseInt(atob(tParam), 10) : null;
+      if (!ladder_id && !tournament_id) return;
+      await api('link_visits', 'POST', {
+        ladder_id:      ladder_id     || null,
+        tournament_id:  tournament_id || null,
+        visited_at:     new Date().toISOString(),
+        visitor_token:  Math.random().toString(36).slice(2),
+      });
+    } catch(_) { /* silent fail if table doesn't exist yet */ }
+  };
+  window._recordShareVisit = _recordShareVisit; // expose for inline onclick handlers
 
   /* ─── EMAIL NOTIFICATIONS ──────────────────────────────── */
 
@@ -3321,19 +4844,25 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
   const STORAGE_URL = `${CFG.SUPABASE_URL}/storage/v1/object/public/event-flyers`;
 
   const loadEventsPage = async () => {
-    // Wire flyer preview
+    // Wire file input to styled label + preview
     const flyerInput = document.getElementById('event-flyer');
     if (flyerInput && !flyerInput._wired) {
       flyerInput._wired = true;
+      // Click on label triggers file input
+      const label = document.getElementById('ev-flyer-label');
+      if (label) label.addEventListener('click', (e) => { e.preventDefault(); flyerInput.click(); });
       flyerInput.addEventListener('change', () => {
-        const file = flyerInput.files[0];
+        const file    = flyerInput.files[0];
         const preview = document.getElementById('event-flyer-preview');
-        const img = document.getElementById('event-flyer-img');
+        const img     = document.getElementById('event-flyer-img');
+        const labelTxt= document.getElementById('ev-flyer-label-text');
         if (file) {
           img.src = URL.createObjectURL(file);
           preview.style.display = '';
+          if (labelTxt) labelTxt.textContent = file.name;
         } else {
           preview.style.display = 'none';
+          if (labelTxt) labelTxt.textContent = 'Click to upload flyer — 800×1000px recommended, max 5MB';
         }
       });
     }
@@ -3345,36 +4874,73 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     if (!el) return;
     try {
       const events = await api('events?select=*&order=event_date.asc');
+      // Update count badge
+      const badge = document.getElementById('events-count-badge');
+      if (badge) badge.textContent = events.length || '';
+
       if (!events.length) {
-        el.innerHTML = '<div class="empty">No events yet. Create your first one above.</div>';
+        el.innerHTML = `<div style="text-align:center;padding:24px 16px;">
+          <div style="width:38px;height:38px;border-radius:50%;background:#e8f0ff;display:flex;align-items:center;justify-content:center;margin:0 auto 10px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          </div>
+          <div style="font-size:13px;font-weight:700;color:#0d1f4a;margin-bottom:4px;">No upcoming events</div>
+          <div style="font-size:11px;font-weight:600;color:#6b7a99;">Create your first event using the form.</div>
+        </div>`;
         return;
       }
+
+      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      const editSVG  = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
+      const delSVG   = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#e53935" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>`;
+      const linkSVG  = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`;
+
       el.innerHTML = events.map((ev) => {
-        const dateLabel = fmtDate(ev.event_date, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
-        const isPast = new Date(ev.event_date) < new Date(new Date().toDateString());
-        return `<div class="list-row" style="display:flex;align-items:flex-start;gap:16px;">
-          ${ev.flyer_url
-            ? `<img src="${esc(ev.flyer_url)}" style="width:60px;height:75px;object-fit:cover;border-radius:6px;border:0.5px solid var(--border);flex-shrink:0;">`
-            : `<div style="width:60px;height:75px;background:var(--gray);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">📋</div>`}
-          <div style="flex:1;min-width:0;">
-            <div class="text-bold text-14">${esc(ev.title)}</div>
-            <div style="font-size:12px;font-weight:700;color:${isPast ? 'var(--text-muted)' : 'var(--teal)'};margin-top:2px;">
-              ${isPast ? '⏰ Past — ' : '📅 '}${dateLabel}
+        const d      = new Date(ev.event_date + 'T00:00:00');
+        const day    = d.getDate();
+        const mon    = months[d.getMonth()];
+        const isPast = d < new Date(new Date().toDateString());
+        const pillClass = isPast ? 'ev-pill-past' : 'ev-pill-upcoming';
+        const pillLabel = isPast ? 'Past' : 'Upcoming';
+
+        const flyerHTML = ev.flyer_url
+          ? `<img src="${esc(ev.flyer_url)}" class="ev-card-flyer" alt="${esc(ev.title)} flyer">`
+          : `<div class="ev-card-flyer-placeholder">
+               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#c5d6f5" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+             </div>`;
+
+        const linkBtn = ev.registration_url
+          ? `<a href="${esc(ev.registration_url)}" target="_blank" rel="noopener" class="sess-edit-btn" style="background:#e8f0ff;border-color:#c5d6f5;display:flex;align-items:center;justify-content:center;" title="Registration link">${linkSVG}</a>`
+          : '';
+
+        return `<div class="ev-card">
+          ${flyerHTML}
+          <div class="ev-card-body">
+            <div class="ev-date-block">
+              <div class="ev-date-badge">
+                <div class="ev-date-day">${day}</div>
+                <div class="ev-date-mon">${mon}</div>
+              </div>
+              <div class="ev-card-title">${esc(ev.title)}</div>
             </div>
-            ${ev.description ? `<div style="font-size:12px;color:var(--text-muted);margin-top:4px;font-weight:500;">${esc(ev.description)}</div>` : ''}
-            ${ev.registration_url ? `<div style="font-size:11px;color:var(--blue);font-weight:600;margin-top:4px;">🔗 <a href="${esc(ev.registration_url)}" target="_blank" rel="noopener" style="color:var(--blue);">${esc(ev.registration_url)}</a></div>` : ''}
-          </div>
-          <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;">
-            <button class="btn btn-outline btn-sm" data-action="openEditEventModal"
-              data-evid="${ev.id}"
-              data-evtitle="${esc(ev.title)}"
-              data-evdate="${esc(ev.event_date)}"
-              data-evdesc="${esc(ev.description || '')}"
-              data-evreg="${esc(ev.registration_url || '')}"
-              data-evflyer="${esc(ev.flyer_url || '')}">Edit</button>
-            <button class="btn btn-danger btn-sm" data-action="deleteEvent"
-              data-evid="${ev.id}"
-              data-evflyer="${esc(ev.flyer_url || '')}">Delete</button>
+            ${ev.description ? `<div class="ev-card-desc">${esc(ev.description)}</div>` : ''}
+            <div class="ev-card-actions">
+              <span class="ev-status-pill ${pillClass}">${pillLabel}</span>
+              ${linkBtn}
+              <button class="sess-edit-btn" data-action="openEditEventModal"
+                data-evid="${ev.id}"
+                data-evtitle="${esc(ev.title)}"
+                data-evdate="${esc(ev.event_date)}"
+                data-evdesc="${esc(ev.description || '')}"
+                data-evreg="${esc(ev.registration_url || '')}"
+                data-evflyer="${esc(ev.flyer_url || '')}"
+                data-evtime="${esc(ev.event_time || '')}"
+                title="Edit event">${editSVG}</button>
+              <button class="sess-edit-btn" data-action="deleteEvent"
+                data-evid="${ev.id}"
+                data-evflyer="${esc(ev.flyer_url || '')}"
+                title="Delete event"
+                style="border-color:rgba(229,57,53,0.3);">${delSVG}</button>
+            </div>
           </div>
         </div>`;
       }).join('');
@@ -3433,12 +4999,14 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
       toast(`Event "${title}" created!`);
       document.getElementById('create-event-form').reset();
       document.getElementById('event-flyer-preview').style.display = 'none';
+      const lbl = document.getElementById('ev-flyer-label-text');
+      if (lbl) lbl.textContent = 'Click to upload flyer — 800×1000px recommended, max 5MB';
       await renderEventsList();
     } catch (err) {
       toast(`Error: ${err.message}`, true);
     } finally {
       btn.disabled = false;
-      btn.textContent = 'Create Event';
+      btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Create Event';
     }
   };
 
@@ -3478,11 +5046,30 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     document.getElementById('edit-event-id').value        = btn.dataset.evid;
     document.getElementById('edit-event-title').value     = btn.dataset.evtitle;
     document.getElementById('edit-event-date').value      = btn.dataset.evdate;
+    const timeEl = document.getElementById('edit-event-time');
+    if (timeEl) timeEl.value = btn.dataset.evtime || '';
     document.getElementById('edit-event-description').value = btn.dataset.evdesc;
     document.getElementById('edit-event-reg-url').value   = btn.dataset.evreg;
     document.getElementById('edit-event-old-flyer').value = btn.dataset.evflyer;
+
+    // Wire styled file label to hidden input (once only)
+    const editFlyerInput   = document.getElementById('edit-event-flyer');
+    const editFlyerLabel   = document.getElementById('edit-ev-flyer-label');
+    const editFlyerLabelTxt= document.getElementById('edit-ev-flyer-label-text');
+    if (editFlyerInput && editFlyerLabel && !editFlyerInput._editWired) {
+      editFlyerInput._editWired = true;
+      editFlyerLabel.addEventListener('click', (e) => { e.preventDefault(); editFlyerInput.click(); });
+      editFlyerInput.addEventListener('change', () => {
+        if (editFlyerLabelTxt) editFlyerLabelTxt.textContent = editFlyerInput.files[0]
+          ? editFlyerInput.files[0].name
+          : 'Click to upload a new flyer — JPG or PNG, max 5MB';
+      });
+    }
+    if (editFlyerInput) editFlyerInput.value = '';
+    if (editFlyerLabelTxt) editFlyerLabelTxt.textContent = 'Click to upload a new flyer — JPG or PNG, max 5MB';
+
     // Show current flyer preview if exists
-    const flyerEl = document.getElementById('edit-event-current-flyer');
+    const flyerEl  = document.getElementById('edit-event-current-flyer');
     const flyerImg = document.getElementById('edit-event-flyer-img');
     if (btn.dataset.evflyer) {
       flyerImg.src = btn.dataset.evflyer;
@@ -3573,211 +5160,313 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
       toast(`Error: ${err.message}`, true);
     } finally {
       btn.disabled = false;
-      btn.textContent = 'Save Changes';
+      btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Save Changes';
     }
   };
 
   /* ─── PROMOTIONS ───────────────────────────────────────── */
 
-  const loadPromotionsPage = async () => {
-    document.querySelectorAll('.page').forEach((p) => p.classList.remove('active'));
-    document.getElementById('page-promotions').classList.add('active');
-    document.getElementById('subnav-management').style.display = 'flex';
-    document.getElementById('tab-home').classList.remove('active');
-    document
-      .querySelectorAll('#subnav-management button')
-      .forEach((b) => b.classList.toggle('active', b.dataset.page === 'promotions'));
-    await loadSubscribers();
+  // ── Promotions page state ─────────────────────────────────────────────
+  let _allSubs       = [];
+  let _subsShown     = 25;
+
+  const _renderSubsTable = () => {
+    const search = (document.getElementById('sub-search')?.value || '').toLowerCase().trim();
+    const filter = document.getElementById('sub-status-filter')?.value || 'all';
+    const filtered = _allSubs.filter(s => {
+      const nameMatch = `${s.first_name} ${s.last_name} ${s.email} ${s.phone || ''}`.toLowerCase().includes(search);
+      const statusMatch = filter === 'all' || s.status === filter;
+      return nameMatch && statusMatch;
+    });
+    const slice   = filtered.slice(0, _subsShown);
+    const total   = filtered.length;
+
+    const avColors = ['#174CCC','#24BC96','#F26024','#7c3aed','#0891b2','#d97706'];
+    const getAv = (s) => {
+      const str = `${s.first_name}${s.last_name}`;
+      let h = 0; for (let i=0;i<str.length;i++) h=str.charCodeAt(i)+((h<<5)-h);
+      return avColors[Math.abs(h) % avColors.length];
+    };
+    const pillCSS = (status) => {
+      if (status === 'active')       return 'background:rgba(36,188,150,0.12);color:#085041;';
+      if (status === 'pending')      return 'background:rgba(242,96,36,0.12);color:#7a3d00;';
+      return 'background:rgba(107,122,153,0.12);color:#6b7a99;';
+    };
+    const tableHTML = slice.length ? `
+      <table style="width:100%;border-collapse:collapse;">
+        <thead>
+          <tr>
+            <th style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#0d1f4a;padding:10px 16px;text-align:left;border-bottom:0.5px solid #e0e7f5;background:#fafbff;">Subscriber</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#0d1f4a;padding:10px 16px;text-align:left;border-bottom:0.5px solid #e0e7f5;background:#fafbff;">Email</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#0d1f4a;padding:10px 16px;text-align:left;border-bottom:0.5px solid #e0e7f5;background:#fafbff;">Phone</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#0d1f4a;padding:10px 16px;text-align:left;border-bottom:0.5px solid #e0e7f5;background:#fafbff;">Skill</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#0d1f4a;padding:10px 16px;text-align:left;border-bottom:0.5px solid #e0e7f5;background:#fafbff;">Status</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#0d1f4a;padding:10px 16px;text-align:left;border-bottom:0.5px solid #e0e7f5;background:#fafbff;">Joined</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${slice.map(s => {
+            const initials = `${s.first_name?.[0]||''}${s.last_name?.[0]||''}`.toUpperCase();
+            return `<tr style="cursor:default;" onmouseover="this.querySelectorAll('td').forEach(t=>t.style.background='rgba(23,76,204,0.025)')" onmouseout="this.querySelectorAll('td').forEach(t=>t.style.background='')">
+              <td style="padding:11px 16px;border-bottom:0.5px solid #f4f5f8;vertical-align:middle;">
+                <div style="display:flex;align-items:center;gap:10px;">
+                  <div style="width:30px;height:30px;border-radius:50%;background:${getAv(s)};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:white;flex-shrink:0;">${esc(initials)}</div>
+                  <div style="font-size:13px;font-weight:700;color:#0d1f4a;">${esc(s.first_name)} ${esc(s.last_name)}</div>
+                </div>
+              </td>
+              <td style="padding:11px 16px;border-bottom:0.5px solid #f4f5f8;font-size:12px;color:#6b7a99;">${esc(s.email || '—')}</td>
+              <td style="padding:11px 16px;border-bottom:0.5px solid #f4f5f8;font-size:12px;color:#6b7a99;">${esc(s.phone || '—')}</td>
+              <td style="padding:11px 16px;border-bottom:0.5px solid #f4f5f8;font-size:12px;color:#6b7a99;text-transform:capitalize;">${esc(s.skill_level || '—')}</td>
+              <td style="padding:11px 16px;border-bottom:0.5px solid #f4f5f8;">
+                <span style="font-size:9px;font-weight:800;padding:3px 9px;border-radius:99px;letter-spacing:.5px;text-transform:uppercase;${pillCSS(s.status)}">${esc(s.status || '—')}</span>
+              </td>
+              <td style="padding:11px 16px;border-bottom:0.5px solid #f4f5f8;font-size:11px;color:#6b7a99;">${fmtDate(s.subscribed_at) || '—'}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>` : `<div class="empty" style="padding:20px;">No subscribers found.</div>`;
+
+    document.getElementById('subscribers-table').innerHTML = tableHTML;
+
+    // Load more row
+    const lmRow = document.getElementById('sub-load-more-row');
+    const lmInfo = document.getElementById('sub-results-info');
+    const lmBtn  = document.getElementById('sub-load-more-btn');
+    if (lmRow) {
+      lmRow.style.display = 'flex';
+      if (lmInfo) lmInfo.textContent = `Showing ${Math.min(_subsShown, total)} of ${total} subscribers`;
+      if (lmBtn) {
+        if (slice.length < total) {
+          lmBtn.style.display = '';
+          lmBtn.textContent = `Load ${Math.min(25, total - slice.length)} more`;
+          lmBtn.onclick = () => { _subsShown += 25; _renderSubsTable(); };
+        } else {
+          lmBtn.style.display = 'none';
+        }
+      }
+    }
   };
 
-  // ── Subscriber pagination state ─────────────────────────────────────
-  let _subAllRows = [];
-  let _subPage    = 1;
+  const loadPromotionsPage = async () => {
+    await loadSubscribers();
+    // Auto-generate QR code on page load
+    generateQR();
+  };
 
   const loadSubscribers = async () => {
-    _subPage = 1;
-    await _renderSubscribers();
-  };
-
-  const _renderSubscribers = async () => {
-    const filter   = document.getElementById('sub-status-filter')?.value || 'all';
-    const search   = document.getElementById('sub-search')?.value.toLowerCase().trim() || '';
-    const pageSize = parseInt(document.getElementById('sub-page-size')?.value || '25', 10);
-
-    let query = 'subscribers?select=*&order=subscribed_at.desc';
-    if (filter !== 'all') query += `&status=eq.${filter}`;
-
+    _subsShown = 25;
     let subs = [];
     try {
-      subs = await api(query);
+      subs = await api('subscribers?select=*&order=subscribed_at.desc');
     } catch (e) {
       document.getElementById('subscribers-table').innerHTML =
-        `<div class="empty">Error: ${esc(e.message)}</div>`;
+        `<div class="empty" style="padding:20px;">Error: ${esc(e.message)}</div>`;
       return;
     }
+    _allSubs = subs;
 
-    const filtered = subs.filter((s) => {
-      if (!search) return true;
-      return `${s.first_name} ${s.last_name} ${s.email}`.toLowerCase().includes(search);
-    });
-    _subAllRows = filtered;
+    // Stat cards
+    const countActive  = subs.filter(s => s.status === 'active').length;
+    const countPending = subs.filter(s => s.status === 'pending').length;
+    const countUnsub   = subs.filter(s => s.status === 'unsubscribed').length;
+    const countTotal   = subs.length;
+    const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+    setEl('promo-stat-active',  countActive);
+    setEl('promo-stat-pending', countPending);
+    setEl('promo-stat-total',   countTotal);
+    setEl('promo-stat-unsub',   countUnsub);
 
-    // Stats — always from full unfiltered fetch
-    let allSubs = subs;
-    if (filter !== 'all') {
-      try { allSubs = await api('subscribers?select=status'); } catch (_) { allSubs = subs; }
-    }
-    const countActive  = allSubs.filter((s) => s.status === 'active').length;
-    const countPending = allSubs.filter((s) => s.status === 'pending').length;
-    const countUnsub   = allSubs.filter((s) => s.status === 'unsubscribed').length;
-    const elActive  = document.getElementById('sub-count-active');
-    const elPending = document.getElementById('sub-count-pending');
-    const elUnsub   = document.getElementById('sub-count-unsub');
-    if (elActive)  elActive.textContent  = `✓ ${countActive} Active`;
-    if (elPending) elPending.textContent = `⏳ ${countPending} Pending`;
-    if (elUnsub)   elUnsub.textContent   = `✗ ${countUnsub} Unsubscribed`;
+    // Trend: count subscribers joined this month
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+    const newThisMonth = subs.filter(s => s.subscribed_at && s.subscribed_at >= monthStart).length;
+    const growthPct = countTotal > 0 ? Math.round((newThisMonth / countTotal) * 100) : 0;
 
-    // Pagination math
-    const totalRows  = filtered.length;
-    const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
-    if (_subPage > totalPages) _subPage = totalPages;
-    const start    = (_subPage - 1) * pageSize;
-    const end      = Math.min(start + pageSize, totalRows);
-    const pageRows = filtered.slice(start, end);
+    // Update ctx lines with real trend data
+    const ctxActive = document.getElementById('promo-ctx-active');
+    if (ctxActive) ctxActive.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#24BC96" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg> +${newThisMonth} this month`;
+    const ctxPending = document.getElementById('promo-ctx-pending');
+    if (ctxPending) ctxPending.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#F26024" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 17H2a3 3 0 0 0 3-3V9a7 7 0 0 1 14 0v5a3 3 0 0 0 3 3z"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg> Awaiting email verification`;
+    const ctxTotal = document.getElementById('promo-ctx-total');
+    if (ctxTotal) ctxTotal.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg> +${growthPct}% growth`;
 
-    // Results info
-    const infoEl = document.getElementById('sub-results-info');
-    if (infoEl) {
-      infoEl.textContent = totalRows === 0
-        ? 'No subscribers found'
-        : `Showing ${start + 1}–${end} of ${totalRows} subscriber${totalRows !== 1 ? 's' : ''}`;
-    }
+    // Growth badge on QR card
+    const badge = document.getElementById('promo-growth-badge');
+    if (badge) badge.textContent = `+${newThisMonth} subscriber${newThisMonth !== 1 ? 's' : ''} this month`;
 
-    // Table
-    const statusColors = {
-      active:       'var(--teal)',
-      pending:      'var(--orange)',
-      unsubscribed: 'var(--text-muted)',
-    };
+    // Pending label on action card
+    const pendLabel = document.getElementById('promo-pending-label');
+    if (pendLabel) pendLabel.textContent = `${countPending} subscriber${countPending !== 1 ? 's' : ''} awaiting confirmation.`;
 
-    document.getElementById('subscribers-table').innerHTML = pageRows.length
-      ? `<div style="overflow-x:auto;">
-          <table style="width:100%;border-collapse:collapse;">
-            <thead>
-              <tr style="border-bottom:2px solid var(--border);">
-                <th style="text-align:left;padding:8px 10px;font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);white-space:nowrap;">#</th>
-                <th style="text-align:left;padding:8px 10px;font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);">Name</th>
-                <th style="text-align:left;padding:8px 10px;font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);">Email</th>
-                <th style="text-align:left;padding:8px 10px;font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);">Phone</th>
-                <th style="text-align:left;padding:8px 10px;font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);">Skill</th>
-                <th style="text-align:left;padding:8px 10px;font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);">Status</th>
-                <th style="text-align:left;padding:8px 10px;font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);white-space:nowrap;">Joined</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${pageRows.map((s, i) => `
-                <tr style="border-bottom:0.5px solid var(--border);">
-                  <td style="padding:10px 10px;font-size:11px;color:var(--text-muted);font-weight:600;">${start + i + 1}</td>
-                  <td style="padding:10px 10px;font-size:13px;font-weight:700;">${esc(s.first_name)} ${esc(s.last_name)}</td>
-                  <td style="padding:10px 10px;font-size:12px;color:var(--text-muted);">${esc(s.email)}</td>
-                  <td style="padding:10px 10px;font-size:12px;color:var(--text-muted);">${esc(s.phone || '—')}</td>
-                  <td style="padding:10px 10px;font-size:12px;text-transform:capitalize;color:var(--text-muted);">${esc(s.skill_level || '—')}</td>
-                  <td style="padding:10px 10px;">
-                    <span style="font-size:10px;font-weight:800;text-transform:uppercase;color:${statusColors[s.status] || 'var(--text-muted)'};">${esc(s.status)}</span>
-                  </td>
-                  <td style="padding:10px 10px;font-size:12px;color:var(--text-muted);white-space:nowrap;">${fmtDate(s.subscribed_at) || '—'}</td>
-                </tr>`).join('')}
-            </tbody>
-          </table>
-        </div>`
-      : '<div class="empty">No subscribers found.</div>';
+    // Legacy compat
+    const elA = document.getElementById('sub-count-active');
+    const elP = document.getElementById('sub-count-pending');
+    const elU = document.getElementById('sub-count-unsub');
+    if (elA) elA.textContent = countActive + ' Active';
+    if (elP) elP.textContent = countPending + ' Pending';
+    if (elU) elU.textContent = countUnsub + ' Unsubscribed';
 
-    // Pagination controls
-    const paginationEl = document.getElementById('sub-pagination');
-    if (!paginationEl) return;
-    if (totalPages <= 1) { paginationEl.innerHTML = ''; return; }
-
-    const btnStyle = (active) =>
-      `style="padding:5px 11px;font-size:12px;font-weight:700;font-family:'Montserrat',sans-serif;border-radius:var(--radius-sm);border:0.5px solid var(--border);cursor:pointer;background:${active ? 'var(--blue)' : 'white'};color:${active ? 'white' : 'var(--text)'};transition:opacity .15s;"`;
-
-    const pageButtons = [];
-    const delta = 2;
-    const left  = Math.max(1, _subPage - delta);
-    const right = Math.min(totalPages, _subPage + delta);
-    if (left > 1) {
-      pageButtons.push(`<button ${btnStyle(false)} data-sub-page="1">1</button>`);
-      if (left > 2) pageButtons.push(`<span style="padding:0 4px;color:var(--text-muted);">…</span>`);
-    }
-    for (let p = left; p <= right; p++) {
-      pageButtons.push(`<button ${btnStyle(p === _subPage)} data-sub-page="${p}">${p}</button>`);
-    }
-    if (right < totalPages) {
-      if (right < totalPages - 1) pageButtons.push(`<span style="padding:0 4px;color:var(--text-muted);">…</span>`);
-      pageButtons.push(`<button ${btnStyle(false)} data-sub-page="${totalPages}">${totalPages}</button>`);
-    }
-
-    paginationEl.innerHTML = `
-      <div style="font-size:12px;color:var(--text-muted);font-weight:600;">Page ${_subPage} of ${totalPages}</div>
-      <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;">
-        <button ${btnStyle(false)} data-sub-page="${_subPage - 1}" ${_subPage === 1 ? 'disabled style="opacity:.4;cursor:not-allowed;"' : ''}>← Prev</button>
-        ${pageButtons.join('')}
-        <button ${btnStyle(false)} data-sub-page="${_subPage + 1}" ${_subPage === totalPages ? 'disabled style="opacity:.4;cursor:not-allowed;"' : ''}>Next →</button>
-      </div>`;
-
-    paginationEl.querySelectorAll('button[data-sub-page]').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const p = parseInt(btn.dataset.subPage, 10);
-        if (p >= 1 && p <= totalPages && p !== _subPage) {
-          _subPage = p;
-          _renderSubscribers();
-          document.getElementById('page-promotions')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
+    // Wire copy URL button
+    const copyBtn = document.getElementById('promo-copy-url-btn');
+    if (copyBtn && !copyBtn._wired) {
+      copyBtn._wired = true;
+      copyBtn.addEventListener('click', () => {
+        const url = document.getElementById('subscribe-url-display')?.textContent || '';
+        if (!url) return;
+        navigator.clipboard.writeText(url).then(() => {
+          copyBtn.textContent = 'Copied!';
+          copyBtn.style.color = '#24BC96';
+          setTimeout(() => { copyBtn.textContent = 'Copy'; copyBtn.style.color = '#C6F221'; }, 2000);
+        });
       });
-    });
+    }
+
+    _renderSubsTable();
   };
 
   const generateQR = () => {
     const baseUrl =
       window.location.origin + window.location.pathname.replace('admin.html', '') + 'subscribe.html';
-    document.getElementById('subscribe-url-display').textContent = baseUrl;
-    document.getElementById('qr-container').style.display = 'block';
+    // Populate URL strip in new QR card
+    const urlDisplay = document.getElementById('subscribe-url-display');
+    if (urlDisplay) urlDisplay.textContent = baseUrl;
     const qrEl = document.getElementById('qr-code');
+    if (!qrEl) return;
     qrEl.innerHTML = '';
     /* eslint-disable no-new, no-undef */
     new QRCode(qrEl, {
       text: baseUrl,
-      width: 160,
-      height: 160,
-      colorDark: '#174CCC',
+      width: 150,
+      height: 150,
+      colorDark: '#0d1f4a',
       colorLight: '#ffffff',
       correctLevel: QRCode.CorrectLevel.H,
     });
     /* eslint-enable */
   };
 
+  // ── Helper: relative time ───────────────────────────────────────────────
+  const _relTimePromo = (iso) => {
+    if (!iso) return '—';
+    const diff = Math.floor((Date.now() - new Date(iso)) / 1000);
+    if (diff < 60)    return 'Just now';
+    if (diff < 3600)  return `${Math.floor(diff/60)}m ago`;
+    if (diff < 86400) return `${Math.floor(diff/3600)}h ago`;
+    if (diff < 172800) return 'Yesterday';
+    return `${Math.floor(diff/86400)} days ago`;
+  };
+
   const openSendPromo = async () => {
-    let subs = [];
-    try {
-      subs = await api('subscribers?status=eq.active&select=id');
-    } catch (e) {
-      toast(`Error: ${e.message}`, true);
-      return;
+    const modal = document.getElementById('promo-modal');
+    if (!modal) return;
+
+    // Reset composer
+    const editor = document.getElementById('promo-message');
+    if (editor) editor.innerHTML = '';
+    const subjectEl = document.getElementById('promo-subject');
+    if (subjectEl) subjectEl.value = '';
+
+    // Reset type pills to Tournament
+    document.querySelectorAll('.promo-type-pill').forEach(p => p.classList.remove('active'));
+    const firstPill = document.querySelector('.promo-type-pill');
+    if (firstPill) firstPill.classList.add('active');
+    const typeInput = document.getElementById('promo-campaign-type');
+    if (typeInput) typeInput.value = 'Tournament';
+    const selTypeEl = document.getElementById('promo-selected-type');
+    if (selTypeEl) selTypeEl.textContent = 'Tournament';
+
+    // Wire type pill clicks
+    document.querySelectorAll('.promo-type-pill').forEach(pill => {
+      pill.onclick = () => {
+        document.querySelectorAll('.promo-type-pill').forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+        if (typeInput) typeInput.value = pill.dataset.type;
+        if (selTypeEl) selTypeEl.textContent = pill.dataset.type;
+      };
+    });
+
+    // Wire character counter
+    if (editor) {
+      editor.addEventListener('input', () => {
+        const len = editor.innerText.length;
+        const el1 = document.getElementById('promo-char-count');
+        const el2 = document.getElementById('promo-char-count2');
+        if (el1) el1.textContent = `${len} / 2000`;
+        if (el2) el2.textContent = `${len} / 2000`;
+      });
     }
-    document.getElementById('promo-recipient-count').innerHTML =
-      `<span class="text-bold color-teal">${subs.length} active subscribers</span> will receive this email.`;
-    document.getElementById('promo-subject').value = '';
-    document.getElementById('promo-message').value = '';
-    document.getElementById('promo-modal').classList.add('open');
+
+    // Wire link button
+    window.promptInsertLink = () => {
+      const url = prompt('Enter URL:');
+      if (url) document.execCommand('createLink', false, url);
+    };
+    window.toggleEmojiPicker = (e) => {
+      e.stopPropagation();
+      const picker = document.getElementById('emoji-picker');
+      if (!picker) return;
+      const isOpen = picker.style.display === 'grid';
+      picker.style.display = isOpen ? 'none' : 'grid';
+      if (!isOpen) {
+        // Close when clicking outside
+        const close = (ev) => {
+          if (!picker.contains(ev.target) && ev.target.id !== 'emoji-picker-btn') {
+            picker.style.display = 'none';
+            document.removeEventListener('click', close);
+          }
+        };
+        setTimeout(() => document.addEventListener('click', close), 0);
+      }
+    };
+    window.insertFixedEmoji = (emoji) => {
+      const editor = document.getElementById('promo-message');
+      if (!editor) return;
+      editor.focus();
+      document.execCommand('insertText', false, emoji);
+      // Close picker after selection
+      const picker = document.getElementById('emoji-picker');
+      if (picker) picker.style.display = 'none';
+    };
+
+    // Load audience + last campaign in parallel
+    try {
+      const [subs, campaigns] = await Promise.all([
+        api('subscribers?status=eq.active&select=id'),
+        api('campaigns?select=*&order=sent_at.desc&limit=1').catch(() => []),
+      ]);
+
+      const count = subs.length;
+      const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+      setEl('promo-audience-count', count);
+
+      const recipEl = document.getElementById('promo-recipient-count');
+      if (recipEl) recipEl.innerHTML = `<span style="font-weight:800;color:#24BC96;">${count} active subscriber${count !== 1 ? 's' : ''}</span> will receive this campaign.`;
+
+      const last = campaigns?.[0] || null;
+      setEl('promo-last-sent', last ? _relTimePromo(last.sent_at) : 'No campaigns yet');
+      setEl('promo-last-type', last ? last.campaign_type || 'General' : '');
+
+    } catch (e) {
+      const recipEl = document.getElementById('promo-recipient-count');
+      if (recipEl) recipEl.textContent = 'Could not load audience data.';
+    }
+
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
   };
 
   const sendPromoEmail = async (e) => {
     e.preventDefault();
     const subject = document.getElementById('promo-subject').value.trim();
-    const message = document.getElementById('promo-message').value.trim();
+    const editor  = document.getElementById('promo-message');
+    const message = editor ? editor.innerText.trim() : '';
+    const campaignType = document.getElementById('promo-campaign-type')?.value || 'General';
+
     if (!subject || !message) {
-      toast('Please fill in subject and message.', true);
+      toast('Please fill in the subject and message.', true);
       return;
     }
+
     let subs = [];
     try {
       subs = await api('subscribers?status=eq.active&select=*');
@@ -3792,7 +5481,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
 
     const sendBtn = document.getElementById('promo-send-btn');
     sendBtn.disabled = true;
-    sendBtn.textContent = 'Sending...';
+    sendBtn.innerHTML = 'Sending...';
     _emailInFlight = true;
 
     emailjs.init({ publicKey: CFG.EMAILJS.PUBLIC_KEY });
@@ -3800,7 +5489,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     let sent = 0;
     const failedRecipients = [];
 
-    // Add admin as last recipient to receive a copy and verify delivery
+    // Admin copy always last
     const allPromoRecipients = [
       ...subs,
       { first_name: 'Ferocia', last_name: 'Admin', email: CFG.ADMIN_EMAIL, unsubscribe_token: null },
@@ -3810,27 +5499,45 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
       const unsubUrl = sub.unsubscribe_token
         ? `${baseUrl}unsubscribe.html?t=${sub.unsubscribe_token}`
         : `${baseUrl}unsubscribe.html`;
+      // Replace {first_name} with real name
+      const personalizedMsg = message.replace(/\{first_name\}/g, sub.first_name || 'Player');
       const ok = await sendOneEmail(CFG.EMAILJS.SERVICE, CFG.EMAILJS.TEMPLATES.PROMO, {
-        player_name: `${sub.first_name} ${sub.last_name}`,
-        player_email: sub.email,
+        player_name:    `${sub.first_name} ${sub.last_name}`,
+        player_email:   sub.email,
         subject,
-        message,
+        message:        personalizedMsg,
         unsubscribe_url: unsubUrl,
       });
       if (ok) sent++;
       else failedRecipients.push(sub.email);
-      sendBtn.textContent = `Sending... ${sent + failedRecipients.length}/${allPromoRecipients.length}`;
+      sendBtn.innerHTML = `Sending... ${sent + failedRecipients.length}/${allPromoRecipients.length}`;
       if (sent + failedRecipients.length < allPromoRecipients.length) {
         await sleep(CFG.EMAIL_THROTTLE_MS);
       }
     }
 
+    // Record campaign in DB
+    try {
+      await api('campaigns', 'POST', {
+        subject,
+        message,
+        campaign_type: campaignType,
+        sent_at:       new Date().toISOString(),
+        sent_count:    sent,
+        failed_count:  failedRecipients.length,
+      });
+    } catch(_) { /* non-critical — don't block on this */ }
+
     _emailInFlight = false;
     sendBtn.disabled = false;
-    sendBtn.textContent = 'Send emails';
-    document.getElementById('promo-modal').classList.remove('open');
+    sendBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> Launch Campaign';
+
+    // Close modal
+    const modal = document.getElementById('promo-modal');
+    if (modal) { modal.style.display = 'none'; document.body.style.overflow = ''; }
+
     if (!failedRecipients.length) {
-      toast(`✅ ${sent} promotional emails sent!`);
+      toast(`✅ Campaign launched! ${sent} emails sent.`);
     } else {
       const failedList = failedRecipients.slice(0, 3).join(', ');
       const more = failedRecipients.length > 3 ? ` (+${failedRecipients.length - 3} more)` : '';
@@ -3847,6 +5554,10 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     switchTab: (btn) => switchMainTab(btn.dataset.tab),
     switchProgramTab: (btn) => switchProgramTab(btn.dataset.tab),
     goHome: () => goHome(),
+    sbGoHome: () => goHome(),
+    sbShowLadder: () => sbShowLadder(),
+    sbShowTournament: () => sbShowTournament(),
+    sbToggleMore: () => sbToggleMore(),
     // Court / session entry
     addCourtPlayerBtn: (btn) => addCourtPlayer(parseInt(btn.dataset.pid, 10)),
     markNoShow: (btn) => markNoShow(btn.dataset.pid),
@@ -3882,12 +5593,70 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     closeEditGameModal: () =>
       document.getElementById('edit-game-modal').classList.remove('open'),
     closeNotifyModal: () => document.getElementById('notify-modal').classList.remove('open'),
-    closePromoModal: () => document.getElementById('promo-modal').classList.remove('open'),
+    closePromoModal: () => {
+      const modal = document.getElementById('promo-modal');
+      if (modal) { modal.style.display = 'none'; document.body.style.overflow = ''; }
+    },
     closeEditSessionModal: () =>
       document.getElementById('edit-session-modal').classList.remove('open'),
     // Notify / promo
     openNotifyPlayers: () => openNotifyPlayers(),
     openSendPromo: () => openSendPromo(),
+    sendPendingReminder: async () => {
+      try {
+        const pending = await api(
+          'subscribers?status=eq.pending&select=first_name,last_name,email,confirm_token'
+        );
+        if (!pending.length) {
+          toast('No pending subscribers to remind.', true);
+          return;
+        }
+
+        // Confirm with admin before sending
+        const confirmed = await confirmModal({
+          title: 'Send Confirmation Reminders',
+          message: `Send a confirmation email reminder to ${pending.length} pending subscriber${pending.length !== 1 ? 's' : ''}? Each will receive a link to confirm their subscription.`,
+          okLabel: 'Send Reminders',
+        });
+        if (!confirmed) return;
+
+        const baseUrl = window.location.origin + window.location.pathname.replace('admin.html', '');
+        emailjs.init({ publicKey: CFG.EMAILJS.PUBLIC_KEY });
+
+        let sent = 0;
+        const failed = [];
+
+        for (const sub of pending) {
+          const confirmUrl = sub.confirm_token
+            ? `${baseUrl}confirm.html?t=${sub.confirm_token}`
+            : `${baseUrl}confirm.html`;
+
+          const ok = await sendOneEmail(CFG.EMAILJS.SERVICE, CFG.EMAILJS.TEMPLATES.CONFIRM, {
+            player_name:  `${sub.first_name} ${sub.last_name}`,
+            player_email: sub.email,
+            subject:      '⏰ Reminder: Please confirm your Ferocia Sports subscription',
+            confirm_url:  confirmUrl,
+          });
+
+          if (ok) sent++;
+          else failed.push(sub.email);
+
+          if (sent + failed.length < pending.length) {
+            await sleep(CFG.EMAIL_THROTTLE_MS);
+          }
+        }
+
+        if (!failed.length) {
+          toast(`✅ Confirmation reminder sent to ${sent} subscriber${sent !== 1 ? 's' : ''}!`);
+        } else {
+          toast(`Sent ${sent} reminders. ${failed.length} failed: ${failed.join(', ')}`, true);
+        }
+        // Refresh page data
+        await loadSubscribers();
+      } catch(e) {
+        toast(`Error: ${e.message}`, true);
+      }
+    },
     generateQR: () => generateQR(),
     // Share
     copyShareLink: (btn) => copyShareLink(btn.dataset.url, btn.dataset.btnid),
@@ -4011,12 +5780,13 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
   // Default to home page on load
   document.querySelectorAll('.page').forEach((p) => p.classList.remove('active'));
   document.getElementById('page-home').classList.add('active');
-  document.getElementById('tab-home').classList.add('active');
-  document.getElementById('subnav-programs').style.display = 'none';
-  document.getElementById('subnav-management').style.display = 'none';
-  document.getElementById('subnav-ladder-options').style.display = 'none';
-  document.getElementById('subnav-tournament-options').style.display = 'none';
-  document.getElementById('tab-home').dataset.action = 'goHome';
+  // Sidebar initialized — set home as active on boot
+  sbSetActive('home');
+  // Hide ladder sub-items until a ladder is selected
+  ['sb-standings','sb-sessions','sb-entry'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
 
   // Form listeners — these only attach event handlers, no data fetched yet,
   // so safe to wire up before auth resolves.
@@ -4030,14 +5800,13 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
   document.getElementById('edit-event-form')?.addEventListener('submit', editEvent);
   document.getElementById('promo-form').addEventListener('submit', sendPromoEmail);
   document.getElementById('t-notify-form').addEventListener('submit', sendTournamentNotify);
-  document.getElementById('sub-status-filter')?.addEventListener('change', loadSubscribers);
-  document.getElementById('sub-search')?.addEventListener('input', loadSubscribers);
-  document.getElementById('sub-page-size')?.addEventListener('change', loadSubscribers);
+  document.getElementById('sub-status-filter')?.addEventListener('change', () => { _subsShown = 25; _renderSubsTable(); });
+  document.getElementById('sub-search')?.addEventListener('input', () => { _subsShown = 25; _renderSubsTable(); });
   document.getElementById('player-status-filter')?.addEventListener('change', filterPlayers);
   document.getElementById('player-search')?.addEventListener('input', filterPlayers);
   document.querySelector('#edit-ladder-modal form')?.addEventListener('submit', saveEditLadder);
   document.querySelector('#edit-modal form')?.addEventListener('submit', saveEditPlayer);
-  document.querySelector('#page-add-player form')?.addEventListener('submit', addPlayer);
+  document.getElementById('add-player-form')?.addEventListener('submit', addPlayer);
 
   // Expose helpers that tournament.js (loaded right after this file) needs.
   // Done BEFORE requireAuth so tournament.js can read it synchronously.
@@ -4063,9 +5832,10 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
   window.auth.requireAuth(() => {
     // Show the sign-out button now that we're authenticated
     const signOutBtn = document.getElementById('sign-out-btn');
-    if (signOutBtn) signOutBtn.style.display = 'inline-block';
+    if (signOutBtn) signOutBtn.style.display = 'flex';
 
-    // Kick off the data load
+    // Kick off the data load — dashboard first since it's the home page
+    loadDashboard();
     loadLadderSelector();
 
     // Let tournament.js (and anything else waiting on auth) proceed
