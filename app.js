@@ -300,18 +300,6 @@
     loadDashboard();
   };
 
-  const switchMainTab = (tab) => {
-    // Legacy shim — kept so any old tile clicks still work
-    if (tab === 'programs') sbShowLadder();
-    else if (tab === 'management') showPage('players', document.getElementById('sb-players'));
-  };
-
-  const switchProgramTab = (tab) => {
-    // Legacy shim — kept so old tile clicks still work
-    if (tab === 'ladder') sbShowLadder();
-    else sbShowTournament();
-  };
-
   const sbShowLadder = () => {
     sbCloseMore();
     if (currentLadder) {
@@ -373,50 +361,27 @@
 
   const onTournamentChange = async () => {
     const tid = document.getElementById('tournament-selector').value;
-    const el = document.getElementById('tournament-view-content');
-    if (!tid) {
-      el.innerHTML = '<div class="empty">Select a tournament to view details.</div>';
-      return;
-    }
+    if (!tid) return;
     currentTournamentId = parseInt(tid, 10);
-    await renderTournamentViewReadOnly();
+
+    // Switch page DOM without calling showPage() to avoid activating the Management sidebar item
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    const pageEl = document.getElementById('page-t-tournaments');
+    if (pageEl) pageEl.classList.add('active');
+
+    // Keep Tournament Hub (sb-tournament) highlighted, not Management → Tournament
+    sbSetActive('tournament-view');
+
+    // Load tournament module (skip list render — we go straight to detail)
+    // then await openTournament so DOM is fully ready before loadCategory runs
+    if (typeof loadTournamentModule !== 'undefined') {
+      await loadTournamentModule(true);
+    }
+    if (typeof openTournament !== 'undefined') {
+      await openTournament(currentTournamentId);
+    }
   };
 
-  const renderTournamentViewReadOnly = async () => {
-    const el = document.getElementById('tournament-view-content');
-    if (!currentTournamentId) {
-      el.innerHTML = '<div class="empty">Select a tournament to view details.</div>';
-      return;
-    }
-    el.innerHTML = '<div class="loading">Loading tournament...</div>';
-    try {
-      const [tArr, categories] = await Promise.all([
-        api(`tournaments?id=eq.${currentTournamentId}&select=*`),
-        api(`tournament_categories?tournament_id=eq.${currentTournamentId}&select=*&order=id`),
-      ]);
-      const t = tArr[0];
-      if (!t) {
-        el.innerHTML = '<div class="empty">Tournament not found.</div>';
-        return;
-      }
-      const dateStr = t.date
-        ? fmtDate(t.date, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
-        : 'No date set';
-      el.innerHTML = `
-        <div class="card">
-          <div class="text-bolder" style="font-size:18px;">${esc(t.name)}</div>
-          <div class="text-muted-sm mt-4">${dateStr}</div>
-          <div class="text-muted-13 mt-12">
-            ${categories.length} categor${categories.length !== 1 ? 'ies' : 'y'}: ${categories.map((c) => esc(c.name)).join(' · ')}
-          </div>
-          <div class="bg-pale color-blue mt-16 text-bold" style="padding:14px;border-radius:var(--radius-sm);font-size:13px;">
-            To manage this tournament go to <strong>Management → Tournaments</strong>
-          </div>
-        </div>`;
-    } catch (e) {
-      el.innerHTML = `<div class="empty">Error: ${esc(e.message)}</div>`;
-    }
-  };
 
   const showPage = (name, btn) => {
     document.querySelectorAll('.page').forEach((p) => p.classList.remove('active'));
@@ -4536,8 +4501,24 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
       return;
     }
     const emailPlayers = ladderPlayers.filter((p) => p.email && p.ladder_status === 'active');
-    document.getElementById('notify-recipient-count').innerHTML =
-      `<span class="text-bold color-teal">${emailPlayers.length} active players with email</span> in <strong>${esc(currentLadder.name)}</strong> will receive this email.`;
+    const totalPlayers = ladderPlayers.length;
+
+    // Subtitle: "N ladder players will receive this update."
+    document.getElementById('notify-recipient-count').textContent =
+      `${emailPlayers.length} ladder player${emailPlayers.length !== 1 ? 's' : ''} will receive this update.`;
+
+    // Section 1: Ladder context
+    document.getElementById('notify-ladder-name').textContent = currentLadder.name;
+    document.getElementById('notify-context-pills').innerHTML = `
+      <span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;color:#174CCC;background:#e8f0ff;padding:2px 8px;border-radius:99px;">
+        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        ${totalPlayers} Player${totalPlayers !== 1 ? 's' : ''}
+      </span>
+      <span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;color:#085041;background:#d4f5ed;padding:2px 8px;border-radius:99px;">
+        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#085041" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        ${emailPlayers.length} with Email
+      </span>`;
+
     setNotifyTemplate('welcome');
     document.getElementById('notify-type').value = 'welcome';
     document.getElementById('notify-modal').classList.add('open');
@@ -4600,8 +4581,9 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     const leaderboardUrl = `${baseUrl}?l=${encoded}`;
 
     const sendBtn = document.getElementById('notify-send-btn');
+    const sendBtnOrigText = sendBtn.innerHTML;
     sendBtn.disabled = true;
-    sendBtn.textContent = 'Sending...';
+    sendBtn.innerHTML = 'Sending...';
     _emailInFlight = true;
 
     emailjs.init({ publicKey: CFG.EMAILJS.PUBLIC_KEY });
@@ -4630,7 +4612,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
 
     _emailInFlight = false;
     sendBtn.disabled = false;
-    sendBtn.textContent = 'Send emails';
+    sendBtn.innerHTML = sendBtnOrigText;
     document.getElementById('notify-modal').classList.remove('open');
 
     if (!failedRecipients.length) {
@@ -4690,8 +4672,26 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     const emailPlayers = players.filter(p => p.email);
     if (!emailPlayers.length) { toast('No players with email addresses found.', true); return; }
 
-    document.getElementById('t-notify-recipient-count').innerHTML =
-      `<span class="text-bold color-teal">${emailPlayers.length} player${emailPlayers.length !== 1 ? 's' : ''} with email</span> across all categories of <strong>${esc(tournamentName)}</strong> will receive this email.`;
+    // Subtitle: "N tournament players across all divisions will receive this update."
+    document.getElementById('t-notify-recipient-count').textContent =
+      `${emailPlayers.length} tournament player${emailPlayers.length !== 1 ? 's' : ''} across all divisions will receive this update.`;
+
+    // Section 1: Tournament context
+    document.getElementById('t-notify-tournament-name').textContent = tournamentName;
+    const catCount = categories.length;
+    document.getElementById('t-notify-context-pills').innerHTML = `
+      <span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;color:#174CCC;background:#e8f0ff;padding:2px 8px;border-radius:99px;">
+        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4a2 2 0 0 1-2-2V5h4"/><path d="M18 9h2a2 2 0 0 0 2-2V5h-4"/><path d="M12 17v4"/><path d="M8 21h8"/><path d="M6 9a6 6 0 0 0 12 0V3H6v6z"/></svg>
+        ${catCount} Division${catCount !== 1 ? 's' : ''}
+      </span>
+      <span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;color:#174CCC;background:#e8f0ff;padding:2px 8px;border-radius:99px;">
+        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        ${emailPlayers.length} Player${emailPlayers.length !== 1 ? 's' : ''}
+      </span>
+      <span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;color:#085041;background:#d4f5ed;padding:2px 8px;border-radius:99px;">
+        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#085041" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        Results Ready
+      </span>`;
 
     // Pre-fill default subject and message
     document.getElementById('t-notify-subject').value =
@@ -4761,7 +4761,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
 
     _emailInFlight = false;
     sendBtn.disabled = false;
-    sendBtn.textContent = 'Send emails';
+    sendBtn.innerHTML = sendBtnOrigText;
     closeTournamentNotifyModal();
 
     if (!failedRecipients.length) {
@@ -5551,8 +5551,6 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
   const CLICK_HANDLERS = {
     // Navigation
     showPage: (btn) => showPage(btn.dataset.page, btn),
-    switchTab: (btn) => switchMainTab(btn.dataset.tab),
-    switchProgramTab: (btn) => switchProgramTab(btn.dataset.tab),
     goHome: () => goHome(),
     sbGoHome: () => goHome(),
     sbShowLadder: () => sbShowLadder(),

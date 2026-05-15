@@ -113,20 +113,6 @@
 /* ─── SHARE LINK / URL ────────────────────────────────── */
 .url-box          { background:var(--bg); border:0.5px solid var(--border); border-radius:var(--radius-sm); padding:8px 12px; font-size:12px; font-weight:500; color:var(--text-muted); word-break:break-all; font-family:monospace; margin-top:10px; }
 
-/* ─── HOME LANDING TILES ──────────────────────────────── */
-.tile             { border-radius:var(--radius); padding:28px 20px; cursor:pointer; transition:opacity .15s, transform .15s; }
-.tile:hover       { opacity:.9; transform:translateY(-2px); }
-.tile:active      { transform:scale(.98); }
-.tile-blue        { background:var(--blue); color:white; }
-.tile-teal        { background:var(--teal); color:white; }
-.tile-orange      { background:var(--orange); color:white; }
-.tile-icon        { font-size:32px; margin-bottom:12px; }
-.tile-title       { font-size:14px; font-weight:800; letter-spacing:.5px; text-transform:uppercase; color:white; }
-.tile-sub         { font-size:11px; margin-top:4px; font-weight:500; }
-.tile-grid        { display:grid; grid-template-columns:1fr 1fr; gap:16px; max-width:480px; margin:0 auto; }
-.home-wrap        { text-align:center; padding:48px 24px 32px; }
-.home-eyebrow     { font-size:13px; font-weight:800; letter-spacing:2px; text-transform:uppercase; color:var(--text-muted); margin-bottom:32px; }
-
 /* ─── MISC HELPERS ────────────────────────────────────── */
 .cursor-pointer   { cursor:pointer; }
 .hidden           { display:none !important; }
@@ -135,13 +121,6 @@
 .scroll-y         { overflow-y:auto; }
 .max-h-220        { max-height:220px; }
 .max-h-55vh       { max-height:55vh; }
-
-/* Sticky select-all header for ladder players modal */
-.lp-sticky-header { display:flex; align-items:center; gap:8px; padding:10px 12px; border-bottom:2px solid var(--border); background:var(--blue-pale); position:sticky; top:0; z-index:1; }
-.lp-row           { display:flex; align-items:center; gap:10px; padding:8px 12px; border-bottom:0.5px solid var(--border); }
-.lp-status-select { font-size:11px; font-weight:700; padding:3px 8px; border:0.5px solid var(--border); border-radius:99px; font-family:'Montserrat',sans-serif; cursor:pointer; }
-.lp-status-active { background:var(--teal-light); color:var(--teal); }
-.lp-status-sub    { background:var(--orange-light); color:var(--orange); }
 
 /* Session accordion */
 .sdg-chevron           { transition: transform .2s ease; display:inline-block; font-size:11px; color:var(--blue); }

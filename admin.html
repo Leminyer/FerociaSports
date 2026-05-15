@@ -429,6 +429,75 @@
   .share-card-btn.preview{background:#f0f2f8;color:#0d1f4a;border-color:#e0e7f5;}
   .share-tab.active{color:#174CCC !important;border-bottom-color:#C6F221 !important;}
 
+  /* Tournament Operations page */
+  .t-collapsible-panel{background:white;border:0.5px solid #e0e7f5;border-radius:10px;box-shadow:0 1px 4px rgba(23,76,204,0.06);overflow:hidden;}
+  .t-panel-header{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;cursor:pointer;user-select:none;}
+  .t-panel-header:hover{background:#fafbff;}
+  .t-panel-header-left{display:flex;align-items:center;gap:10px;}
+  .t-panel-toggle-icon{width:28px;height:28px;border-radius:8px;background:linear-gradient(180deg,#2456d3 0%,#174CCC 100%);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .t-panel-title{font-size:13px;font-weight:800;color:#0d1f4a;}
+  .t-panel-subtitle{font-size:11px;font-weight:600;color:#6b7a99;}
+  .t-panel-chevron{font-size:11px;font-weight:800;color:#174CCC;transition:transform .2s;}
+  .t-panel-chevron.open{transform:rotate(180deg);}
+  .t-panel-body{padding:20px;border-top:0.5px solid #e0e7f5;background:#fafbff;}
+  .t-new-field-lbl{font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;margin-bottom:4px;}
+  .t-new-input{font-family:'Montserrat',sans-serif;font-size:12px;font-weight:600;padding:8px 11px;border:1px solid #e0e7f5;border-radius:8px;color:#0d1f4a;background:white;outline:none;width:100%;transition:border-color .15s,box-shadow .15s;}
+  .t-new-input:focus{border-color:#174CCC;box-shadow:0 0 0 3px rgba(23,76,204,0.08);}
+  .t-new-input::placeholder{color:#b0bbd6;font-weight:500;}
+  .t-new-divider{height:0.5px;background:#e0e7f5;margin:16px 0;}
+  .t-cat-count-badge{font-size:10px;font-weight:700;color:#174CCC;background:#e8f0ff;padding:2px 8px;border-radius:99px;border:0.5px solid #c5d6f5;}
+  .t-cat-card{display:flex;align-items:center;gap:12px;padding:10px 14px;background:white;border:0.5px solid #e0e7f5;border-radius:10px;box-shadow:0 1px 3px rgba(23,76,204,0.05);transition:box-shadow .15s;}
+  .t-cat-card:hover{box-shadow:0 3px 10px rgba(23,76,204,0.1);}
+  .t-cat-card-icon{width:32px;height:32px;border-radius:8px;background:#e8f0ff;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
+  .t-cat-card-name{flex:1;font-size:13px;font-weight:700;color:#0d1f4a;}
+  .t-cat-ghost-btn{display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:7px;border:0.5px solid transparent;background:transparent;font-family:'Montserrat',sans-serif;font-size:11px;font-weight:700;cursor:pointer;color:#6b7a99;transition:all .15s;}
+  .t-cat-ghost-btn:hover{background:#e8f0ff;border-color:#c5d6f5;color:#174CCC;}
+  .t-cat-ghost-btn.remove:hover{background:#fde8d8;border-color:rgba(229,57,53,0.2);color:#e53935;}
+  .t-cat-ghost-sep{width:1px;height:16px;background:#e0e7f5;flex-shrink:0;}
+  .t-cat-add-wrap{display:flex;align-items:center;background:white;border:1px solid #e0e7f5;border-radius:10px;overflow:hidden;transition:border-color .15s,box-shadow .15s;}
+  .t-cat-add-wrap:focus-within{border-color:#174CCC;box-shadow:0 0 0 3px rgba(23,76,204,0.08);}
+  .t-cat-add-input{flex:1;padding:10px 14px;border:none;outline:none;font-family:'Montserrat',sans-serif;font-size:12px;font-weight:600;color:#0d1f4a;background:transparent;}
+  .t-cat-add-input::placeholder{color:#b0bbd6;font-weight:500;}
+  .t-cat-add-btn{display:flex;align-items:center;gap:5px;padding:0 14px;height:100%;border:none;border-left:1px solid #e0e7f5;background:transparent;font-family:'Montserrat',sans-serif;font-size:11px;font-weight:700;color:#174CCC;cursor:pointer;white-space:nowrap;transition:background .15s,color .15s;}
+  .t-cat-add-btn:hover{background:#f0f4ff;color:#0d3db3;}
+  .t-new-submit-btn{display:inline-flex;align-items:center;gap:7px;padding:10px 24px;border:none;border-radius:99px;background:linear-gradient(180deg,#2456d3 0%,#174CCC 100%);color:white;font-family:'Montserrat',sans-serif;font-size:12px;font-weight:700;cursor:pointer;}
+  .t-op-filter-sel{font-family:'Montserrat',sans-serif;font-size:12px;font-weight:700;padding:7px 28px 7px 12px;border:0.5px solid #e0e7f5;border-radius:99px;color:#0d1f4a;background:white;outline:none;appearance:none;cursor:pointer;}
+  .t-op-card{background:white;border:0.5px solid #e0e7f5;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(23,76,204,0.07);margin-bottom:14px;transition:box-shadow .15s;}
+  .t-op-card:hover{box-shadow:0 6px 20px rgba(23,76,204,0.11);}
+  .t-op-tabs{display:flex;background:white;border-bottom:1.5px solid #e0e7f5;padding:0 20px;}
+  .t-op-tab{display:flex;align-items:center;gap:5px;padding:11px 16px;font-size:10px;font-weight:800;letter-spacing:.3px;text-transform:uppercase;color:#6b7a99;cursor:pointer;border:none;background:transparent;font-family:'Montserrat',sans-serif;border-bottom:2px solid transparent;margin-bottom:-1.5px;white-space:nowrap;transition:all .15s;}
+  .t-op-tab.active{color:#174CCC;border-bottom-color:#174CCC;background:linear-gradient(180deg,#f4f7ff 0%,white 100%);}
+  .t-op-tab:hover:not(.active){color:#174CCC;background:#f8f9ff;}
+  .t-op-body{display:grid;grid-template-columns:1fr 1fr auto;}
+  .t-op-left{padding:16px 20px;border-right:0.5px solid #f0f2f8;}
+  .t-op-center{padding:16px 20px;border-right:0.5px solid #f0f2f8;display:flex;flex-direction:column;gap:7px;}
+  .t-op-right{padding:16px 16px;display:flex;flex-direction:column;gap:6px;min-width:155px;}
+  .t-op-name{font-size:15px;font-weight:800;color:#0d1f4a;margin-bottom:6px;line-height:1.3;}
+  .t-op-status-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;}
+  .top-pill-active{font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;padding:3px 9px;border-radius:99px;background:#d4f5ed;color:#085041;}
+  .top-pill-draft{font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;padding:3px 9px;border-radius:99px;background:#f4f5f8;color:#6b7a99;}
+  .top-pill-completed{font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;padding:3px 9px;border-radius:99px;background:#e8f0ff;color:#174CCC;}
+  .t-op-date-badge{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:700;color:#174CCC;background:#e8f0ff;padding:3px 9px;border-radius:99px;}
+  .t-op-meta{font-size:11px;font-weight:600;color:#6b7a99;display:flex;align-items:center;gap:5px;margin-bottom:10px;}
+  .t-op-stats-row{display:flex;align-items:center;gap:14px;}
+  .t-op-stat-val{font-family:'Bebas Neue',sans-serif;font-size:20px;color:#0d1f4a;line-height:1;}
+  .t-op-stat-lbl{font-size:9px;font-weight:700;color:#6b7a99;text-transform:uppercase;letter-spacing:.5px;}
+  .t-op-intel-title{font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#6b7a99;margin-bottom:3px;}
+  .t-op-intel-item{display:flex;align-items:center;gap:8px;padding:7px 10px;background:#f8f9ff;border-radius:7px;border:0.5px solid #f0f2f8;}
+  .t-op-intel-icon{width:22px;height:22px;border-radius:5px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .t-op-intel-text{font-size:11px;font-weight:700;color:#0d1f4a;}
+  .t-op-intel-sub{font-size:10px;font-weight:600;color:#6b7a99;}
+  .t-op-action-title{font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#6b7a99;margin-bottom:2px;}
+  .t-op-btn{display:flex;align-items:center;gap:6px;padding:7px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Montserrat',sans-serif;border:0.5px solid #e0e7f5;background:white;color:#174CCC;width:100%;transition:all .15s;}
+  .t-op-btn:hover:not(:disabled){background:#e8f0ff;border-color:#c5d6f5;}
+  .t-op-btn.t-op-btn-warn{color:#F26024;border-color:rgba(242,96,36,0.2);}
+  .t-op-btn.t-op-btn-warn:hover:not(:disabled){background:#fff3e8;}
+  .t-op-btn.t-op-btn-danger{color:#e53935;border-color:rgba(229,57,53,0.2);}
+  .t-op-btn.t-op-btn-danger:hover:not(:disabled){background:#fde8d8;}
+  .t-op-btn:disabled{opacity:0.35;cursor:not-allowed;}
+  .t-op-cat-pills{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px;}
+  .t-op-cat-pill{font-size:9px;font-weight:700;padding:2px 8px;border-radius:99px;background:#e8f0ff;color:#174CCC;border:0.5px solid #c5d6f5;}
+
   /* Ladder Participants modal */
   #lp-search:focus{outline:none !important;box-shadow:none !important;border:none !important;}
   .lp-select-all-row{display:flex;align-items:center;gap:10px;padding:10px 20px;background:#f8f9ff;border-bottom:0.5px solid #e8edf8;}
@@ -666,24 +735,6 @@
   .modal-title{font-size:13px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--blue);margin-bottom:20px;}
   .modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:20px;}
 
-  /* ── HOME TILES ──────────────────────────────────────── */
-  .tile-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:500px;margin:0 auto;}
-  .tile{
-    border-radius:var(--radius);padding:32px 24px;cursor:pointer;
-    transition:opacity .15s,transform .15s;
-  }
-  .tile:hover{opacity:.9;transform:translateY(-2px);}
-  .tile:active{transform:scale(.98);}
-  .tile-icon{font-size:36px;margin-bottom:14px;}
-  .tile-title{font-size:13px;font-weight:800;color:white;letter-spacing:1px;text-transform:uppercase;}
-  .tile-sub{font-size:11px;margin-top:5px;font-weight:500;}
-  .tile-blue{background:var(--blue);}
-  .tile-blue .tile-sub{color:var(--blue-light);}
-  .tile-teal{background:var(--teal);}
-  .tile-teal .tile-sub{color:var(--teal-light);}
-  .tile-orange{background:var(--orange);}
-  .tile-orange .tile-sub{color:rgba(255,255,255,0.6);}
-
   /* ── TOAST ───────────────────────────────────────────── */
   .toast{
     position:fixed;bottom:24px;right:24px;
@@ -719,8 +770,6 @@
     .header-logo{height:24px;}
     .header-tagline{display:none;}
     .header-divider{display:none;}
-    .tile-grid{grid-template-columns:1fr 1fr;gap:10px;}
-    .tile{padding:24px 16px;}
 
   }
 
@@ -795,10 +844,10 @@
 
   <!-- Programs: Ladder -->
   <div class="sb-section">
-    <div class="sb-section-label">Ladder</div>
+    <div class="sb-section-label">Ladder Hub</div>
     <button class="sb-item" id="sb-ladder" data-action="sbShowLadder">
       <span class="sb-item-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" ><circle cx="12" cy="8" r="5"/><path d="M8.56 13.9l-1.56 6.1 5-3 5 3-1.56-6.1"/></svg></span>
-      <span class="sb-item-label">Ladder</span>
+      <span class="sb-item-label">Ladder Hub</span>
     </button>
     <div class="sb-select-wrap" id="sb-ladder-select-wrap" style="display:none;">
       <select class="sb-select" id="ladder-selector"></select>
@@ -812,10 +861,10 @@
 
   <!-- Programs: Tournaments -->
   <div class="sb-section">
-    <div class="sb-section-label">Tournaments</div>
+    <div class="sb-section-label">Tournament Hub</div>
     <button class="sb-item" id="sb-tournament" data-action="sbShowTournament">
       <span class="sb-item-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" ><path d="M6 9H4a2 2 0 0 1-2-2V5h4"/><path d="M18 9h2a2 2 0 0 0 2-2V5h-4"/><path d="M12 17v4"/><path d="M8 21h8"/><path d="M6 9a6 6 0 0 0 12 0V3H6v6z"/></svg></span>
-      <span class="sb-item-label">Tournaments</span>
+      <span class="sb-item-label">Tournament Hub</span>
     </button>
     <div class="sb-select-wrap" id="sb-tourn-select-wrap" style="display:none;">
       <select class="sb-select" id="tournament-selector">
@@ -843,7 +892,7 @@
     </button>
     <button class="sb-item" id="sb-t-tournaments" data-action="showPage" data-page="t-tournaments">
       <span class="sb-item-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" ><circle cx="12" cy="12" r="10"/><path d="M4.93 4.93c4.68 4.68 4.68 11.46 0 16.14"/><path d="M19.07 4.93c-4.68 4.68-4.68 11.46 0 16.14"/></svg></span>
-      <span class="sb-item-label">Tournaments</span>
+      <span class="sb-item-label">Tournament</span>
     </button>
     <button class="sb-item" id="sb-events" data-action="showPage" data-page="events">
       <span class="sb-item-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" ><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>
@@ -900,25 +949,6 @@
 <div id="ladder-banner" style="display:none;background:var(--blue-pale);border-bottom:0.5px solid var(--border);padding:10px 24px;font-size:12px;font-weight:700;color:var(--blue);"></div>
 
 <main>
-
-  <!-- PROGRAMS LANDING -->
-  <div id="page-programs-home" class="page">
-    <div style="text-align:center;padding:48px 24px 32px;">
-      <div style="font-size:10px;font-weight:800;letter-spacing:3px;text-transform:uppercase;color:var(--text-muted);margin-bottom:32px;">Programs</div>
-      <div class="tile-grid">
-        <div class="tile tile-blue" data-action="switchProgramTab" data-tab="ladder">
-          <div class="tile-icon">🏅</div>
-          <div class="tile-title">Ladder</div>
-          <div class="tile-sub">Standings & Sessions</div>
-        </div>
-        <div class="tile tile-orange" data-action="switchProgramTab" data-tab="tournament">
-          <div class="tile-icon">🏆</div>
-          <div class="tile-title">Tournaments</div>
-          <div class="tile-sub">Brackets & Results</div>
-        </div>
-      </div>
-    </div>
-  </div>
 
   <!-- HOME -->
   <div id="page-home" class="page active">
@@ -1783,7 +1813,10 @@
   <!-- TOURNAMENT MODAL -->
   <div class="t-modal-bg" id="t-modal">
     <div class="t-modal">
-      <div class="t-modal-title" id="t-modal-title">Modal</div>
+      <div id="t-modal-header" style="padding-bottom:14px;border-bottom:0.5px solid #e0e7f5;margin-bottom:16px;">
+        <div class="t-modal-title" id="t-modal-title" style="margin-bottom:3px;">Modal</div>
+        <div id="t-modal-subtitle" style="font-size:11px;font-weight:600;color:#6b7a99;display:none;"></div>
+      </div>
       <div id="t-modal-body"></div>
     </div>
   </div>
@@ -2164,56 +2197,183 @@
 
 <!-- Notify Players Modal -->
 <div class="modal-bg" id="notify-modal">
-  <div class="modal" style="max-width:560px;">
-    <div class="modal-title">✉️ Notify Players</div>
-    <div style="font-size:12px;color:var(--text-muted);margin-bottom:16px;font-weight:500;" id="notify-recipient-count"></div>
-    <form id="notify-form">
-      <div class="form-group">
-        <label>Notification type</label>
-        <select id="notify-type" style="width:100%;">
-          <option value="welcome">👋 Welcome & Guidelines</option>
+  <div class="modal" style="max-width:560px;border-radius:14px;padding:0;overflow:hidden;display:flex;flex-direction:column;">
+
+    <!-- HEADER -->
+    <div style="padding:20px 24px 0;display:flex;align-items:flex-start;justify-content:space-between;flex-shrink:0;">
+      <div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;color:#0d1f4a;letter-spacing:1px;line-height:1;margin-bottom:3px;">Send Ladder Update</div>
+        <div style="font-size:11px;font-weight:600;color:#6b7a99;" id="notify-recipient-count"></div>
+      </div>
+      <button type="button" data-action="closeNotifyModal"
+        style="width:30px;height:30px;border-radius:8px;border:0.5px solid #e0e7f5;background:white;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;"
+        onmouseover="this.style.background='#fde8d8';this.style.borderColor='rgba(229,57,53,0.3)'"
+        onmouseout="this.style.background='white';this.style.borderColor='#e0e7f5'">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#e53935" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div style="border-top:0.5px solid #e0e7f5;margin:14px 24px 0;"></div>
+
+    <!-- BODY -->
+    <form id="notify-form" style="padding:16px 24px;display:flex;flex-direction:column;gap:16px;overflow-y:auto;">
+
+      <!-- SECTION 1: Ladder Context -->
+      <div>
+        <div style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#6b7a99;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
+          <span style="width:3px;height:13px;border-radius:99px;background:#174CCC;display:inline-block;flex-shrink:0;"></span>Ladder Context
+        </div>
+        <div style="background:#f8f9ff;border:0.5px solid #e0e7f5;border-radius:10px;padding:14px 16px;">
+          <div style="font-size:14px;font-weight:800;color:#0d1f4a;margin-bottom:8px;" id="notify-ladder-name"></div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;" id="notify-context-pills"></div>
+        </div>
+      </div>
+
+      <!-- Notification type -->
+      <div>
+        <div style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#6b7a99;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
+          <span style="width:3px;height:13px;border-radius:99px;background:#174CCC;display:inline-block;flex-shrink:0;"></span>Notification Type
+        </div>
+        <select id="notify-type"
+          style="width:100%;padding:9px 12px;border:1px solid #e0e7f5;border-radius:8px;font-family:'Montserrat',sans-serif;font-size:13px;font-weight:600;color:#0d1f4a;outline:none;background:white;"
+          onfocus="this.style.borderColor='#174CCC';this.style.boxShadow='0 0 0 3px rgba(23,76,204,0.08)'"
+          onblur="this.style.borderColor='#e0e7f5';this.style.boxShadow='none'">
+          <option value="welcome">👋 Welcome &amp; Guidelines</option>
           <option value="scores">📊 Scores Updated</option>
           <option value="reminder">⏰ Session Reminder</option>
           <option value="end">🏆 End of Ladder</option>
           <option value="custom">✏️ Custom Message</option>
         </select>
       </div>
-      <div class="form-group">
-        <label>Subject</label>
-        <input type="text" id="notify-subject" style="width:100%;">
+
+      <!-- SECTION 2: Email Content -->
+      <div>
+        <div style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#6b7a99;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
+          <span style="width:3px;height:13px;border-radius:99px;background:#174CCC;display:inline-block;flex-shrink:0;"></span>Email Content
+        </div>
+        <div style="margin-bottom:12px;">
+          <div style="font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;margin-bottom:4px;">Email Subject <span style="color:#e53935;">*</span></div>
+          <input type="text" id="notify-subject"
+            style="width:100%;padding:9px 12px;border:1px solid #e0e7f5;border-radius:8px;font-family:'Montserrat',sans-serif;font-size:13px;font-weight:600;color:#0d1f4a;outline:none;"
+            onfocus="this.style.borderColor='#174CCC';this.style.boxShadow='0 0 0 3px rgba(23,76,204,0.08)'"
+            onblur="this.style.borderColor='#e0e7f5';this.style.boxShadow='none'">
+        </div>
+        <div>
+          <div style="font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;margin-bottom:4px;">Message <span style="color:#e53935;">*</span></div>
+          <div style="border:1px solid #e0e7f5;border-radius:10px;overflow:hidden;">
+            <div style="padding:7px 12px;background:#f8f9ff;border-bottom:0.5px solid #e0e7f5;display:flex;align-items:center;gap:6px;">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#6b7a99" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              <span style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#6b7a99;">Message Preview</span>
+            </div>
+            <textarea id="notify-message"
+              style="width:100%;min-height:160px;padding:14px;border:none;outline:none;font-family:'Montserrat',sans-serif;font-size:13px;font-weight:500;color:#0d1f4a;line-height:1.7;resize:vertical;background:white;"></textarea>
+          </div>
+          <div style="font-size:10px;font-weight:600;color:#b0bbd6;margin-top:5px;">Results and standings links will be automatically added to every email.</div>
+        </div>
       </div>
-      <div class="form-group">
-        <label>Message</label>
-        <textarea id="notify-message" style="width:100%;min-height:140px;resize:vertical;font-family:Montserrat,sans-serif;font-size:13px;padding:10px 12px;border:0.5px solid var(--border);border-radius:var(--radius-sm);outline:none;"></textarea>
+
+      <!-- SECTION 3: Delivery Info -->
+      <div>
+        <div style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#6b7a99;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
+          <span style="width:3px;height:13px;border-radius:99px;background:#174CCC;display:inline-block;flex-shrink:0;"></span>Delivery Info
+        </div>
+        <div style="background:#f0f4ff;border:1px solid #c5d6f5;border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:8px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          <div style="font-size:11px;font-weight:600;color:#174CCC;line-height:1.4;">The leaderboard link will be included automatically.</div>
+        </div>
       </div>
-      <div style="font-size:11px;color:var(--text-muted);font-weight:500;">The leaderboard link will be automatically included in every email.</div>
-      <div class="modal-actions">
-        <button type="button" class="btn btn-outline btn-sm" data-action="closeNotifyModal">Cancel</button>
-        <button type="submit" class="btn btn-primary btn-sm" id="notify-send-btn">Send emails</button>
+
+      <!-- FOOTER -->
+      <div style="display:flex;justify-content:flex-end;padding-top:4px;border-top:0.5px solid #e0e7f5;margin-top:2px;">
+        <button type="submit" id="notify-send-btn"
+          style="display:inline-flex;align-items:center;gap:7px;padding:10px 24px;border:none;border-radius:99px;background:linear-gradient(180deg,#2456d3,#174CCC);color:white;font-family:'Montserrat',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          Send Update
+        </button>
       </div>
+
     </form>
   </div>
 </div>
 
 <!-- Tournament Notify Modal -->
 <div class="modal-bg" id="tournament-notify-modal">
-  <div class="modal" style="max-width:560px;">
-    <div class="modal-title">✉️ Notify Tournament Players</div>
-    <div style="font-size:12px;color:var(--text-muted);margin-bottom:16px;font-weight:500;" id="t-notify-recipient-count"></div>
-    <form id="t-notify-form">
-      <div class="form-group">
-        <label>Subject</label>
-        <input type="text" id="t-notify-subject" style="width:100%;" placeholder="e.g. 🏆 Check your tournament results!">
+  <div class="modal" style="max-width:560px;border-radius:14px;padding:0;overflow:hidden;display:flex;flex-direction:column;">
+
+    <!-- HEADER -->
+    <div style="padding:20px 24px 0;display:flex;align-items:flex-start;justify-content:space-between;flex-shrink:0;">
+      <div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;color:#0d1f4a;letter-spacing:1px;line-height:1;margin-bottom:3px;">Send Tournament Update</div>
+        <div style="font-size:11px;font-weight:600;color:#6b7a99;" id="t-notify-recipient-count"></div>
       </div>
-      <div class="form-group">
-        <label>Message</label>
-        <textarea id="t-notify-message" style="width:100%;min-height:140px;resize:vertical;font-family:Montserrat,sans-serif;font-size:13px;padding:10px 12px;border:0.5px solid var(--border);border-radius:var(--radius-sm);outline:none;"></textarea>
+      <button type="button" data-action="closeTournamentNotifyModal"
+        style="width:30px;height:30px;border-radius:8px;border:0.5px solid #e0e7f5;background:white;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;"
+        onmouseover="this.style.background='#fde8d8';this.style.borderColor='rgba(229,57,53,0.3)'"
+        onmouseout="this.style.background='white';this.style.borderColor='#e0e7f5'">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#e53935" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div style="border-top:0.5px solid #e0e7f5;margin:14px 24px 0;"></div>
+
+    <!-- BODY -->
+    <form id="t-notify-form" style="padding:16px 24px;display:flex;flex-direction:column;gap:16px;overflow-y:auto;">
+
+      <!-- SECTION 1: Tournament Context -->
+      <div>
+        <div style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#6b7a99;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
+          <span style="width:3px;height:13px;border-radius:99px;background:#174CCC;display:inline-block;flex-shrink:0;"></span>Tournament Context
+        </div>
+        <div style="background:#f8f9ff;border:0.5px solid #e0e7f5;border-radius:10px;padding:14px 16px;">
+          <div style="font-size:14px;font-weight:800;color:#0d1f4a;margin-bottom:8px;" id="t-notify-tournament-name"></div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;" id="t-notify-context-pills"></div>
+        </div>
       </div>
-      <div style="font-size:11px;color:var(--text-muted);font-weight:500;">The tournament results link will be automatically included in every email.</div>
-      <div class="modal-actions">
-        <button type="button" class="btn btn-outline btn-sm" data-action="closeTournamentNotifyModal">Cancel</button>
-        <button type="submit" class="btn btn-primary btn-sm" id="t-notify-send-btn">Send emails</button>
+
+      <!-- SECTION 2: Email Content -->
+      <div>
+        <div style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#6b7a99;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
+          <span style="width:3px;height:13px;border-radius:99px;background:#174CCC;display:inline-block;flex-shrink:0;"></span>Email Content
+        </div>
+        <div style="margin-bottom:12px;">
+          <div style="font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;margin-bottom:4px;">Email Subject <span style="color:#e53935;">*</span></div>
+          <input type="text" id="t-notify-subject" placeholder="e.g. 🏆 Check your tournament results!"
+            style="width:100%;padding:9px 12px;border:1px solid #e0e7f5;border-radius:8px;font-family:'Montserrat',sans-serif;font-size:13px;font-weight:600;color:#0d1f4a;outline:none;"
+            onfocus="this.style.borderColor='#174CCC';this.style.boxShadow='0 0 0 3px rgba(23,76,204,0.08)'"
+            onblur="this.style.borderColor='#e0e7f5';this.style.boxShadow='none'">
+        </div>
+        <div>
+          <div style="font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;margin-bottom:4px;">Message <span style="color:#e53935;">*</span></div>
+          <div style="border:1px solid #e0e7f5;border-radius:10px;overflow:hidden;">
+            <div style="padding:7px 12px;background:#f8f9ff;border-bottom:0.5px solid #e0e7f5;display:flex;align-items:center;gap:6px;">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#6b7a99" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              <span style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#6b7a99;">Message Preview</span>
+            </div>
+            <textarea id="t-notify-message"
+              style="width:100%;min-height:160px;padding:14px;border:none;outline:none;font-family:'Montserrat',sans-serif;font-size:13px;font-weight:500;color:#0d1f4a;line-height:1.7;resize:vertical;background:white;"></textarea>
+          </div>
+          <div style="font-size:10px;font-weight:600;color:#b0bbd6;margin-top:5px;">Results and standings links will be automatically added to every email.</div>
+        </div>
       </div>
+
+      <!-- SECTION 3: Delivery Info -->
+      <div>
+        <div style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#6b7a99;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
+          <span style="width:3px;height:13px;border-radius:99px;background:#174CCC;display:inline-block;flex-shrink:0;"></span>Delivery Info
+        </div>
+        <div style="background:#f0f4ff;border:1px solid #c5d6f5;border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:8px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          <div style="font-size:11px;font-weight:600;color:#174CCC;line-height:1.4;">Tournament results link will be included automatically.</div>
+        </div>
+      </div>
+
+      <!-- FOOTER inside form -->
+      <div style="display:flex;justify-content:flex-end;padding-top:4px;border-top:0.5px solid #e0e7f5;margin-top:2px;">
+        <button type="submit" id="t-notify-send-btn"
+          style="display:inline-flex;align-items:center;gap:7px;padding:10px 24px;border:none;border-radius:99px;background:linear-gradient(180deg,#2456d3,#174CCC);color:white;font-family:'Montserrat',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          Send Update
+        </button>
+      </div>
+
     </form>
   </div>
 </div>

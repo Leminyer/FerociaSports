@@ -506,98 +506,752 @@ function tAvoidSameGroupClashes(pairings) {
 
 
 // ─── MAIN ENTRY POINT ───────────────────────────────────────
-async function loadTournamentModule() {
+async function loadTournamentModule(skipList = false) {
   if (!tAllPlayers.length) {
     tAllPlayers = await tApi('players?select=*&order=first_name');
   }
-  renderTournamentList();
+  if (!skipList) renderTournamentList();
 }
 
 // ─── TOURNAMENT LIST ────────────────────────────────────────
+let _tFilter = 'all';
+let _tPanelOpen = false;
+let _tCategories = []; // temp categories for create form
+const _tCatEmojis = ['🏆','🎾','🏅','⚡','🔥','👑','🎯','🥇'];
+
 async function renderTournamentList() {
   const el = document.getElementById('t-content');
-  el.innerHTML = `<div class="t-loading">Loading tournaments...</div>`;
-  const tournaments = await tApi('tournaments?select=*&order=id.desc');
-  el.innerHTML = `
-    <div class="t-header-bar">
-      <h2 class="t-section-title">Tournaments</h2>
-      <button class="t-btn t-btn-primary" onclick="showCreateTournament()">+ New Tournament</button>
-    </div>
-    ${tournaments.length ? `
-      <div class="t-card-grid">
-        ${tournaments.map(t => `
-          <div class="t-tournament-card" onclick="openTournament(${t.id})" style="position:relative;">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-              <div class="t-tournament-card-status t-status-${tEsc(t.status)}" style="margin:0;">${tEsc(t.status)}</div>
-              ${t.status === 'draft' ? `<button type="button" class="t-btn t-btn-danger t-btn-sm" onclick="deleteTournament(${t.id})" data-tname="${tEsc(t.name)}" style="font-size:10px;padding:4px 10px;">Delete</button>` : ''}
-            </div>
-            <div class="t-tournament-card-name">${tEsc(t.name)}</div>
-            <div class="t-tournament-card-date">${t.date ? new Date(t.date + 'T12:00:00').toLocaleDateString('en-US', {weekday:'short',month:'short',day:'numeric',year:'numeric'}) : 'No date set'}</div>
-          </div>
-        `).join('')}
+  el.innerHTML = `<div class="t-loading">Loading...</div>`;
+
+  let tournaments = [], categories = [], teams = [], rrMatches = [], bracketMatches = [];
+  try {
+    [tournaments, categories, teams, rrMatches, bracketMatches] = await Promise.all([
+      tApi('tournaments?select=*&order=id.desc'),
+      tApi('tournament_categories?select=tournament_id,id,name').catch(() => []),
+      tApi('tournament_teams?select=id,category_id,name,player1_id,player2_id').catch(() => []),
+      tApi('tournament_rr_matches?select=category_id,round,status,team_a_id,team_b_id,score_a,score_b,winner_id,forfeit_team_id').catch(() => []),
+      tApi('tournament_bracket_matches?select=category_id,round_name,status,team_a_id,team_b_id,winner_id').catch(() => []),
+    ]);
+  } catch(e) {
+    el.innerHTML = `<div class="t-empty">Error loading tournaments: ${tEsc(e.message)}</div>`;
+    return;
+  }
+
+  // Stat counts
+  const active    = tournaments.filter(t => t.status === 'active').length;
+  const draft     = tournaments.filter(t => t.status === 'draft').length;
+  const completed = tournaments.filter(t => t.status === 'completed').length;
+
+  // Category map: tournament_id → [{id, name}]
+  const catsByT = {};
+  categories.forEach(c => {
+    if (!catsByT[c.tournament_id]) catsByT[c.tournament_id] = [];
+    catsByT[c.tournament_id].push({ id: c.id, name: c.name });
+  });
+
+  // Category id → tournament_id map
+  const catTourneyMap = {};
+  categories.forEach(c => { catTourneyMap[c.id] = c.tournament_id; });
+
+  // Teams per tournament
+  const teamsByT = {};
+  teams.forEach(tm => {
+    const tid = catTourneyMap[tm.category_id];
+    if (!tid) return;
+    if (!teamsByT[tid]) teamsByT[tid] = [];
+    teamsByT[tid].push(tm);
+  });
+
+  // RR matches per tournament
+  const rrByT = {};
+  rrMatches.forEach(m => {
+    const tid = catTourneyMap[m.category_id];
+    if (!tid) return;
+    if (!rrByT[tid]) rrByT[tid] = [];
+    rrByT[tid].push(m);
+  });
+
+  // Bracket matches per tournament
+  const bracketByT = {};
+  bracketMatches.forEach(m => {
+    const tid = catTourneyMap[m.category_id];
+    if (!tid) return;
+    if (!bracketByT[tid]) bracketByT[tid] = [];
+    bracketByT[tid].push(m);
+  });
+
+  // Total teams across active tournaments
+  const totalTeamsActive = tournaments
+    .filter(t => t.status === 'active')
+    .reduce((sum, t) => sum + (teamsByT[t.id] ? teamsByT[t.id].length : 0), 0);
+
+  const fmtDate = (d) => d ? new Date(d + 'T12:00:00').toLocaleDateString('en-US', {month:'short',day:'numeric',year:'numeric'}) : 'No date set';
+
+  // Filter
+  const filtered = tournaments.filter(t => {
+    if (_tFilter === 'active')    return t.status === 'active';
+    if (_tFilter === 'draft')     return t.status === 'draft';
+    if (_tFilter === 'completed') return t.status === 'completed';
+    return true;
+  });
+
+  // SVG icons
+  const trophySVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0d1f4a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4a2 2 0 0 1-2-2V5h4"/><path d="M18 9h2a2 2 0 0 0 2-2V5h-4"/><path d="M12 17v4"/><path d="M8 21h8"/><path d="M6 9a6 6 0 0 0 12 0V3H6v6z"/></svg>`;
+  const calSVG    = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
+  const openSVG   = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+  const editSVG   = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
+  const closeSVG  = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="9" x2="15" y2="15"/><line x1="15" y1="9" x2="9" y2="15"/></svg>`;
+  const trashSVG  = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>`;
+  const boltSVG   = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#F26024" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`;
+  const crwnSVG   = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4a5e00" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4a2 2 0 0 1-2-2V5h4"/><path d="M18 9h2a2 2 0 0 0 2-2V5h-4"/><path d="M12 17v4"/><path d="M8 21h8"/><path d="M6 9a6 6 0 0 0 12 0V3H6v6z"/></svg>`;
+  const trendSVG  = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#24BC96" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>`;
+  const ovSVG     = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
+  const teamSVG   = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>`;
+  const brackSVG  = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4a2 2 0 0 1-2-2V5h4"/><path d="M18 9h2a2 2 0 0 0 2-2V5h-4"/><path d="M12 17v4"/><path d="M8 21h8"/><path d="M6 9a6 6 0 0 0 12 0V3H6v6z"/></svg>`;
+  const resSVG    = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="5"/><path d="M8.56 13.9l-1.56 6.1 5-3 5 3-1.56-6.1"/></svg>`;
+
+  const pillClass = (s) => s === 'active' ? 'top-pill-active' : s === 'completed' ? 'top-pill-completed' : 'top-pill-draft';
+  const pillLabel = (s) => s === 'active' ? 'Active' : s === 'completed' ? 'Completed' : 'Draft';
+
+  const tournamentCards = filtered.map(t => {
+    const isClosed = t.status !== 'active' && t.status !== 'draft';
+    const tCats     = catsByT[t.id]     || [];
+    const catCount  = tCats.length;
+    const tTeams    = teamsByT[t.id]    || [];
+    const tTeamCount = tTeams.length;
+    const tRR       = rrByT[t.id]       || [];
+    const tBracket  = bracketByT[t.id]  || [];
+    const dis = isClosed ? 'disabled style="opacity:0.35;cursor:not-allowed;"' : '';
+
+    // Build team id→name map for this tournament
+    const tTeamMap = {};
+    tTeams.forEach(tm => { tTeamMap[tm.id] = tm.name; });
+
+    // ── Intelligence item 1: Round progress from RR matches ──────────────
+    const tRRActive = tRR.filter(m => m.status !== 'bye');
+    const tRounds = tRRActive.length ? [...new Set(tRRActive.map(m => m.round))].sort((a,b)=>a-b) : [];
+    const totalRounds = tRounds.length;
+    const completedRounds = tRounds.filter(r =>
+      tRRActive.filter(m => m.round === r).every(m => m.status === 'completed')
+    ).length;
+
+    // Check if bracket is complete (has a Final winner)
+    const finalMatch = tBracket.find(m => m.round_name === 'Final' && m.status === 'completed');
+    const bracketComplete = !!finalMatch;
+
+    let roundText, roundSub;
+    if (bracketComplete) {
+      roundText = 'Tournament completed';
+      roundSub  = 'Final results available';
+    } else if (totalRounds > 0) {
+      if (completedRounds < totalRounds) {
+        roundText = `Round ${completedRounds + 1} of ${totalRounds} in progress`;
+        roundSub  = `${completedRounds} of ${totalRounds} rounds finished`;
+      } else {
+        roundText = `All ${totalRounds} rounds complete`;
+        roundSub  = 'Moving to finals bracket';
+      }
+    } else if (t.status === 'active') {
+      roundText = 'Tournament in progress';
+      roundSub  = 'Bracket is live';
+    } else if (t.status === 'draft') {
+      roundText = 'Setup in progress';
+      roundSub  = 'Not yet published to players';
+    } else {
+      roundText = 'Tournament completed';
+      roundSub  = 'Season finished';
+    }
+
+    // ── Intelligence item 2: Champion or leading team ─────────────────────
+    let leaderText, leaderSub;
+    // Helper: resolve player names for a team object
+    const resolvePlayerNames = (team) => {
+      if (!team) return '';
+      return getTeamPlayerNames(team) || team.name || '';
+    };
+
+    if (bracketComplete && finalMatch.winner_id) {
+      // Champion — show player names of winning team
+      const champTeam = tTeams.find(tm => tm.id === finalMatch.winner_id);
+      const champNames = champTeam ? resolvePlayerNames(champTeam) : '';
+      leaderText = tEsc(champNames || (champTeam && champTeam.name) || 'Champion') + ' 🏆';
+      leaderSub  = 'Tournament champion';
+    } else if (tRR.length > 0 && tTeams.length > 0) {
+      // Compute standings from RR matches — show leading team's player names
+      const standings = tCalcStandings(tTeams, tRR);
+      const leaderStanding = standings[0];
+      if (leaderStanding && (leaderStanding.w > 0 || leaderStanding.pts_for > 0)) {
+        const leaderTeam = tTeams.find(tm => tm.id === leaderStanding.id);
+        const leaderNames = leaderTeam ? resolvePlayerNames(leaderTeam) : leaderStanding.name;
+        leaderText = tEsc(leaderNames);
+        leaderSub  = `${leaderStanding.w}W ${leaderStanding.l}L · Leading`;
+      } else {
+        leaderText = tTeamCount > 0 ? `${tTeamCount} team${tTeamCount !== 1 ? 's' : ''} enrolled` : 'No teams yet';
+        leaderSub  = tTeamCount > 0 ? 'Scores not recorded yet' : 'Add teams to start bracket';
+      }
+    } else {
+      leaderText = tTeamCount > 0 ? `${tTeamCount} team${tTeamCount !== 1 ? 's' : ''} enrolled` : 'No teams yet';
+      leaderSub  = tTeamCount > 0 ? 'Add scores to see standings' : 'Add teams to start bracket';
+    }
+
+    // ── Intelligence item 3: Teams registered ────────────────────────────
+    const teamsText = tTeamCount > 0
+      ? `${tTeamCount} team${tTeamCount !== 1 ? 's' : ''} registered`
+      : 'No teams registered yet';
+    const teamsSub = tTeamCount > 0
+      ? `${catCount > 0 ? catCount + ' categor' + (catCount !== 1 ? 'ies' : 'y') + ' · ' : ''}Full bracket · All confirmed`
+      : 'Add teams to start bracket';
+    // Category pills HTML for overview
+    const catPillsHTML = tCats.length
+      ? tCats.map(c => `<span class="t-op-cat-pill">${tEsc(c.name)}</span>`).join('')
+      : '<span style="font-size:11px;font-weight:600;color:#b0bbd6;">No categories yet</span>';
+    return `
+    <div class="t-op-card" id="t-op-card-${t.id}">
+      <!-- Tabs -->
+      <div class="t-op-tabs">
+        <button class="t-op-tab active" onclick="tOpTab(event,${t.id},'overview')">${ovSVG} Overview</button>
+        <button class="t-op-tab" onclick="tOpTab(event,${t.id},'teams')">${teamSVG} Teams</button>
+        <button class="t-op-tab" onclick="tOpTab(event,${t.id},'bracket')">${brackSVG} Bracket</button>
+        <button class="t-op-tab" onclick="tOpTab(event,${t.id},'results')">${resSVG} Results</button>
       </div>
-    ` : `<div class="t-empty">No tournaments yet. Create your first one!</div>`}
-  `;
-}
-
-// ─── CREATE TOURNAMENT ──────────────────────────────────────
-function showCreateTournament() {
-  const el = document.getElementById('t-content');
-  el.innerHTML = `
-    <div class="t-header-bar">
-      <button class="t-btn t-btn-ghost" onclick="renderTournamentList()">← Back</button>
-      <h2 class="t-section-title">New Tournament</h2>
-    </div>
-    <div class="t-card">
-      <form id="t-create-form" onsubmit="createTournament(event)">
-        <div class="t-form-group">
-          <label class="t-label">Tournament name *</label>
-          <input class="t-input" type="text" id="t-name" required placeholder="e.g. Spring Open 2026">
-        </div>
-        <div class="t-form-group">
-          <label class="t-label">Date</label>
-          <input class="t-input" type="date" id="t-date">
-        </div>
-        <div class="t-form-group">
-          <label class="t-label">Categories *</label>
-          <div style="font-size:11px;color:#6b7a99;font-weight:500;margin-bottom:10px;">
-            Add one or more categories. Use custom names for specific groups (e.g. "Group A Mixed 3.5-4.25").
+      <!-- Body -->
+      <div class="t-op-body">
+        <!-- LEFT — matches proposal: name, pill+date, meta, cat pills, stats -->
+        <div class="t-op-left">
+          <div class="t-op-name">${tEsc(t.name)}</div>
+          <div class="t-op-status-row">
+            <span class="${pillClass(t.status)}">${pillLabel(t.status)}</span>
+            ${t.date ? `<span class="t-op-date-badge">${calSVG} ${fmtDate(t.date)}</span>` : ''}
           </div>
-          <div id="t-categories-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px;"></div>
-          <button type="button" class="t-btn t-btn-ghost t-btn-sm" onclick="addCategoryField()">+ Add Category</button>
+          <div class="t-op-meta">${trophySVG} ${catCount} Categor${catCount !== 1 ? 'ies' : 'y'}</div>
+          <div class="t-op-cat-pills">${catPillsHTML}</div>
+          <div class="t-op-stats-row">
+            <div><div class="t-op-stat-val">${tTeamCount}</div><div class="t-op-stat-lbl">Teams</div></div>
+            <div><div class="t-op-stat-val">${catCount}</div><div class="t-op-stat-lbl">Categories</div></div>
+            <div><div class="t-op-stat-val">${totalRounds || '—'}</div><div class="t-op-stat-lbl">Rounds</div></div>
+          </div>
         </div>
-        <div class="t-form-actions">
-          <button type="button" class="t-btn t-btn-ghost" onclick="renderTournamentList()">Cancel</button>
-          <button type="submit" class="t-btn t-btn-primary">Create Tournament</button>
+        <!-- CENTER — Tournament Intelligence: EXACTLY as proposal -->
+        <div class="t-op-center">
+          <div class="t-op-intel-title">Tournament Intelligence</div>
+          <div class="t-op-intel-item">
+            <div class="t-op-intel-icon" style="background:#fde8d8;">${boltSVG}</div>
+            <div>
+              <div class="t-op-intel-text">${roundText}</div>
+              <div class="t-op-intel-sub">${roundSub}</div>
+            </div>
+          </div>
+          <div class="t-op-intel-item">
+            <div class="t-op-intel-icon" style="background:rgba(198,242,33,0.2);">${crwnSVG}</div>
+            <div>
+              <div class="t-op-intel-text">${leaderText}</div>
+              <div class="t-op-intel-sub">${leaderSub}</div>
+            </div>
+          </div>
+          <div class="t-op-intel-item">
+            <div class="t-op-intel-icon" style="background:#d4f5ed;">${trendSVG}</div>
+            <div>
+              <div class="t-op-intel-text">${teamsText}</div>
+              <div class="t-op-intel-sub">${teamsSub}</div>
+            </div>
+          </div>
         </div>
-      </form>
+        <!-- RIGHT -->
+        <div class="t-op-right">
+          <div class="t-op-action-title">Actions</div>
+          <button class="t-op-btn" onclick="openTournament(${t.id})">${openSVG} Open Tournament</button>
+          <button class="t-op-btn" onclick="tEditTournament(${t.id})" ${dis}>${editSVG} Edit</button>
+          <button class="t-op-btn ${t.status === 'active' ? 't-op-btn-warn' : ''}" onclick="tToggleStatus(${t.id},'${t.status}')" ${dis}>
+            ${t.status === 'active'
+              ? closeSVG + ' Close'
+              : t.status === 'draft'
+                ? `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg> Activate`
+                : `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg> Reopen`}
+          </button>
+          <button class="t-op-btn t-op-btn-danger" onclick="deleteTournament(${t.id})">${trashSVG} Delete</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Collapsible panel state
+  const panelIcon = _tPanelOpen
+    ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>`
+    : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
+  const panelSubtitle = _tPanelOpen ? 'Fill in the details and add categories before creating' : 'Click to expand setup form';
+
+  el.innerHTML = `
+    <!-- Page title -->
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:#0d1f4a;letter-spacing:1px;line-height:1;margin-bottom:4px;">Tournament Operations Center</div>
+    <div style="font-size:12px;font-weight:600;color:#6b7a99;margin-bottom:20px;">Create, manage, and monitor active competitive tournaments.</div>
+
+    <!-- Stat cards -->
+    <div class="stats-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px;">
+      <div class="stat stat-green" style="display:flex;flex-direction:column;">
+        <div class="stat-label">Active Tournaments</div>
+        <div class="stat-value">${active}</div>
+        <div class="stat-ctx ctx-green" style="margin-top:auto;display:flex;align-items:center;gap:4px;">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#24BC96" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+          Currently running
+        </div>
+      </div>
+      <div class="stat stat-blue" style="display:flex;flex-direction:column;">
+        <div class="stat-label">Draft</div>
+        <div class="stat-value">${draft}</div>
+        <div class="stat-ctx ctx-blue" style="margin-top:auto;display:flex;align-items:center;gap:4px;">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          In setup
+        </div>
+      </div>
+      <div class="stat stat-orange" style="display:flex;flex-direction:column;">
+        <div class="stat-label">Total Teams</div>
+        <div class="stat-value">${totalTeamsActive || '—'}</div>
+        <div class="stat-ctx ctx-orange" style="margin-top:auto;display:flex;align-items:center;gap:4px;">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#F26024" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          Across active
+        </div>
+      </div>
+      <div class="stat stat-lime" style="display:flex;flex-direction:column;">
+        <div class="stat-label">Completed</div>
+        <div class="stat-value">${completed}</div>
+        <div class="stat-ctx" style="margin-top:auto;display:flex;align-items:center;gap:4px;color:#6b7a99;">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#6b7a99" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          Finished
+        </div>
+      </div>
     </div>
-  `;
-  // Add two default category fields
-  addCategoryField();
+
+    <!-- Collapsible create panel -->
+    <div class="t-collapsible-panel" style="margin-bottom:20px;">
+      <div class="t-panel-header" onclick="tTogglePanel()">
+        <div class="t-panel-header-left">
+          <div class="t-panel-toggle-icon">${panelIcon}</div>
+          <div>
+            <div class="t-panel-title">New Tournament</div>
+            <div class="t-panel-subtitle">${panelSubtitle}</div>
+          </div>
+        </div>
+        <span class="t-panel-chevron ${_tPanelOpen ? 'open' : ''}">▼</span>
+      </div>
+      ${_tPanelOpen ? `
+      <div class="t-panel-body" style="padding:14px 16px 16px;">
+        <form id="t-create-form" onsubmit="createTournament(event)">
+          <!-- Name + Date -->
+          <div style="display:grid;grid-template-columns:2fr 1fr;gap:10px;margin-bottom:6px;">
+            <div style="display:flex;flex-direction:column;gap:3px;">
+              <div class="t-new-field-lbl">Tournament Name <span style="color:#e53935;">*</span></div>
+              <input class="t-new-input" type="text" id="t-name" required placeholder="e.g. Spring Doubles Open 2026">
+            </div>
+            <div style="display:flex;flex-direction:column;gap:3px;">
+              <div class="t-new-field-lbl">Date <span style="color:#e53935;">*</span></div>
+              <input class="t-new-input" type="date" id="t-date">
+            </div>
+          </div>
+          <div class="t-new-divider" style="margin:8px 0;"></div>
+          <!-- Categories -->
+          <div>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+              <div class="t-new-field-lbl" style="margin:0;">Tournament Categories <span style="color:#e53935;">*</span></div>
+              <span class="t-cat-count-badge" id="t-cat-count">0 Added</span>
+            </div>
+            <div id="t-categories-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:6px;"></div>
+            <!-- Integrated add input -->
+            <div class="t-cat-add-wrap">
+              <input class="t-cat-add-input" type="text" id="t-cat-input" placeholder="Type a category name and press Add...">
+              <button type="button" class="t-cat-add-btn" onclick="tAddCategory()">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Add
+              </button>
+            </div>
+          </div>
+          <div class="t-new-divider" style="margin:8px 0;"></div>
+          <!-- Submit -->
+          <div style="display:flex;justify-content:center;">
+            <button type="submit" class="t-new-submit-btn">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
+              Create Tournament
+            </button>
+          </div>
+        </form>
+      </div>` : ''}
+    </div>
+
+    <!-- Section header + filter -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+      <div style="font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#0d1f4a;display:flex;align-items:center;gap:8px;">
+        ${trophySVG} Tournaments
+      </div>
+      <div style="position:relative;">
+        <select class="t-op-filter-sel" onchange="tFilterChange(this.value)">
+          <option value="all" ${_tFilter==='all'?'selected':''}>All Tournaments</option>
+          <option value="active" ${_tFilter==='active'?'selected':''}>Active Only</option>
+          <option value="draft" ${_tFilter==='draft'?'selected':''}>Draft Only</option>
+          <option value="completed" ${_tFilter==='completed'?'selected':''}>Completed</option>
+        </select>
+        <svg style="position:absolute;right:10px;top:50%;transform:translateY(-50%);pointer-events:none;" width="10" height="6" viewBox="0 0 10 6"><path d="M0 0l5 6 5-6z" fill="#6b7a99"/></svg>
+      </div>
+    </div>
+
+    <!-- Tournament cards -->
+    <div id="t-tournament-list">
+      ${filtered.length ? tournamentCards : `<div style="background:white;border:0.5px solid #e0e7f5;border-radius:10px;padding:32px;text-align:center;box-shadow:0 1px 4px rgba(23,76,204,0.06);"><div class="t-empty" style="padding:0;">No tournaments found.</div></div>`}
+    </div>`;
+
+  // Wire Enter key on category input
+  const catInput = document.getElementById('t-cat-input');
+  if (catInput) {
+    catInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); tAddCategory(); }});
+  }
 }
 
-function addCategoryField() {
-  const list = document.getElementById('t-categories-list');
-  const idx = list.children.length;
-  const div = document.createElement('div');
-  div.style.cssText = 'display:flex;gap:8px;align-items:center;';
-  div.innerHTML = `
-    <input class="t-input t-category-input" type="text" placeholder="e.g. Group A Mixed Doubles 3.5-4.25" style="flex:1;">
-    <button type="button" class="t-btn t-btn-danger t-btn-sm" onclick="this.parentElement.remove()" style="flex-shrink:0;">×</button>
-  `;
-  list.appendChild(div);
-  div.querySelector('input').focus();
+// ── Helpers ─────────────────────────────────────────────────
+function tTogglePanel() {
+  _tPanelOpen = !_tPanelOpen;
+  _tCategories = [];
+  renderTournamentList();
+  if (_tPanelOpen) {
+    setTimeout(() => document.getElementById('t-name')?.focus(), 100);
+  }
 }
+
+function tFilterChange(val) {
+  _tFilter = val;
+  renderTournamentList();
+}
+
+function tOpTab(e, tournamentId, tab) {
+  const card = document.getElementById(`t-op-card-${tournamentId}`);
+  if (!card) return;
+  card.querySelectorAll('.t-op-tab').forEach(t => t.classList.remove('active'));
+  e.currentTarget.classList.add('active');
+  if (tab === 'overview') return;
+  openTournament(tournamentId);
+}
+
+async function tToggleStatus(id, currentStatus) {
+  if (currentStatus === 'active') {
+    // Use full validation flow — same as completeTournament() inside openTournament view
+    await completeTournamentFromList(id);
+  } else if (currentStatus === 'draft') {
+    // Draft → Activate
+    const confirmed = await tConfirm({ title: 'Activate Tournament?', message: 'Start this tournament? Players will be able to see it.', okLabel: 'Activate' });
+    if (!confirmed) return;
+    await tApi(`tournaments?id=eq.${id}`, 'PATCH', { status: 'active' });
+    tToast('Tournament activated!');
+    renderTournamentList();
+  } else {
+    // Completed → Reopen
+    const confirmed = await tConfirm({ title: 'Reopen Tournament?', message: 'Reopen this tournament as active?', okLabel: 'Reopen' });
+    if (!confirmed) return;
+    await tApi(`tournaments?id=eq.${id}`, 'PATCH', { status: 'active' });
+    tToast('Tournament reopened.');
+    renderTournamentList();
+  }
+}
+
+// Full validation before completing — same logic as completeTournament() but returns to list
+async function completeTournamentFromList(id) {
+  const categories = await tApi(`tournament_categories?tournament_id=eq.${id}&select=id,name`);
+  const errors = [];
+  const validations = await Promise.all(categories.map(async (cat) => {
+    const [teams, rrMatches, bracketMatches] = await Promise.all([
+      tApi(`tournament_teams?category_id=eq.${cat.id}&select=*`),
+      tApi(`tournament_rr_matches?category_id=eq.${cat.id}&status=eq.pending&select=id`),
+      tApi(`tournament_bracket_matches?category_id=eq.${cat.id}&status=eq.pending&select=id`),
+    ]);
+    return { cat, teams, rrMatches, bracketMatches };
+  }));
+  for (const { cat, teams, rrMatches, bracketMatches } of validations) {
+    if (teams.filter(t => !t.player1_id).length) errors.push(`"${cat.name}": some teams have no players.`);
+    if (rrMatches.length) errors.push(`"${cat.name}": ${rrMatches.length} round robin match(es) still pending.`);
+    if (bracketMatches.length) errors.push(`"${cat.name}": ${bracketMatches.length} finals match(es) still pending.`);
+  }
+  if (errors.length) {
+    document.getElementById('t-modal-title').textContent = 'Cannot Complete Tournament';
+    document.getElementById('t-modal-body').innerHTML = `
+      <div style="padding:8px 0 16px;">
+        <p style="font-size:13px;color:#0d1f4a;margin-bottom:14px;font-weight:600;">Please fix the following before completing:</p>
+        <ul style="list-style:none;display:flex;flex-direction:column;gap:8px;">
+          ${errors.map(e => `<li style="font-size:13px;color:#F26024;padding:8px 12px;background:#fde8d8;border-radius:6px;">⚠️ ${e}</li>`).join('')}
+        </ul>
+      </div>
+      <div style="display:flex;justify-content:flex-end;">
+        <button type="button" class="t-op-btn" onclick="closeTModal()" style="width:auto;padding:8px 16px;">OK</button>
+      </div>`;
+    openTModal();
+    return;
+  }
+  document.getElementById('t-modal-title').textContent = 'Complete Tournament';
+  document.getElementById('t-modal-body').innerHTML = `
+    <div style="padding:8px 0 16px;">
+      <p style="font-size:14px;color:#0d1f4a;line-height:1.6;">Mark this tournament as completed? No further edits will be possible.</p>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button type="button" class="t-op-btn" onclick="closeTModal()" style="width:auto;padding:8px 16px;">Cancel</button>
+      <button type="button" class="t-new-submit-btn" style="padding:8px 20px;background:linear-gradient(180deg,#24BC96,#1a9e7a);" onclick="confirmCompleteTournamentFromList(${id})">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        Complete
+      </button>
+    </div>`;
+  openTModal();
+}
+
+async function confirmCompleteTournamentFromList(id) {
+  await tApi(`tournaments?id=eq.${id}`, 'PATCH', { status: 'completed' });
+  closeTModal();
+  tToast('Tournament completed! 🏆');
+  renderTournamentList();
+}
+
+async function tEditTournament(id) {
+  const [t] = await tApi(`tournaments?id=eq.${id}&select=*`);
+  const cats = await tApi(`tournament_categories?tournament_id=eq.${id}&select=id,name&order=id`);
+  const isActive = t.status === 'active';
+  const catEmojis = ['🏆','🎾','🏅','⚡','🔥','👑','🎯','🥇'];
+  const editSVGsm = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
+  const trashSVGsm = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>`;
+  // Store edit state
+  window._tEditId = id;
+  window._tEditCats = cats.map(c => ({ id: c.id, name: c.name, isNew: false }));
+
+  const renderEditCats = () => {
+    const listEl = document.getElementById('t-edit-cat-list');
+    const badge  = document.getElementById('t-edit-cat-count');
+    if (!listEl) return;
+    if (badge) badge.textContent = `${window._tEditCats.length} Added`;
+    listEl.innerHTML = window._tEditCats.map((c, i) => `
+      <div class="t-cat-card">
+        <div class="t-cat-card-icon">${catEmojis[i % catEmojis.length]}</div>
+        <div class="t-cat-card-name">${tEsc(c.name)}</div>
+        ${isActive ? '' : `
+          <button type="button" class="t-cat-ghost-btn" onclick="tEditExistingCat(${i})">${editSVGsm} Edit</button>
+          <div class="t-cat-ghost-sep"></div>
+          <button type="button" class="t-cat-ghost-btn remove" onclick="tRemoveExistingCat(${i})">${trashSVGsm} Remove</button>`}
+      </div>`).join('');
+    window._renderEditCats = renderEditCats;
+  };
+
+  document.getElementById('t-modal-title').textContent = 'Tournament Settings';
+  document.getElementById('t-modal-body').innerHTML = `
+    <button onclick="closeTModal()"
+      style="position:absolute;top:14px;right:14px;width:30px;height:30px;border-radius:8px;border:0.5px solid #e0e7f5;background:white;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:10;"
+      onmouseover="this.style.background='#fde8d8';this.style.borderColor='rgba(229,57,53,0.3)'"
+      onmouseout="this.style.background='white';this.style.borderColor='#e0e7f5'">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#e53935" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+    <div style="font-size:11px;font-weight:600;color:#6b7a99;margin-bottom:16px;">Update tournament information and categories.</div>
+    ${isActive ? `<div style="padding:8px 12px;background:#fde8d8;border-radius:7px;font-size:12px;font-weight:600;color:#c04a0e;margin-bottom:14px;">⚠️ Tournament is active — categories are locked to protect team data. You can still update the name and date.</div>` : ''}
+    <div style="display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-bottom:10px;">
+      <div>
+        <div class="t-new-field-lbl">Tournament Name</div>
+        <input id="t-edit-name" class="t-new-input" type="text" value="${tEsc(t.name)}" required>
+      </div>
+      <div>
+        <div class="t-new-field-lbl">Date</div>
+        <input id="t-edit-date" class="t-new-input" type="date" value="${t.date || ''}">
+      </div>
+    </div>
+    <div class="t-new-divider" style="margin:10px 0;"></div>
+    <div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+        <div class="t-new-field-lbl" style="margin:0;">Tournament Categories</div>
+        <span class="t-cat-count-badge" id="t-edit-cat-count">${cats.length} Added</span>
+      </div>
+      <div id="t-edit-cat-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px;"></div>
+      ${isActive ? '' : `
+        <div class="t-cat-add-wrap">
+          <input class="t-cat-add-input" type="text" id="t-edit-cat-input" placeholder="Type a category name and press Add...">
+          <button type="button" class="t-cat-add-btn" onclick="tAddEditCat()">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Add
+          </button>
+        </div>`}
+    </div>
+    <div class="t-new-divider" style="margin:10px 0;"></div>
+    <div style="display:flex;justify-content:flex-end;">
+      <button type="button" class="t-new-submit-btn" style="padding:8px 20px;" onclick="tSaveEditTournament()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        Apply Updates
+      </button>
+    </div>`;
+  openTModal();
+  renderEditCats();
+
+  // Wire Enter key on cat input
+  const catIn = document.getElementById('t-edit-cat-input');
+  if (catIn) catIn.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); tAddEditCat(); }});
+}
+
+function tAddEditCat() {
+  const input = document.getElementById('t-edit-cat-input');
+  if (!input) return;
+  const name = input.value.trim();
+  if (!name) return;
+  window._tEditCats.push({ id: null, name, isNew: true });
+  input.value = '';
+  input.focus();
+  if (window._renderEditCats) window._renderEditCats();
+}
+
+function tRemoveExistingCat(idx) {
+  window._tEditCats.splice(idx, 1);
+  if (window._renderEditCats) window._renderEditCats();
+}
+
+function tEditExistingCat(idx) {
+  const current = window._tEditCats[idx].name;
+  document.getElementById('t-modal-title').textContent = 'Edit Category';
+  document.getElementById('t-modal-body').innerHTML = `
+    <div style="padding:8px 0 16px;">
+      <div class="t-new-field-lbl">Category Name</div>
+      <input id="t-edit-cat-name-input" class="t-new-input" type="text" value="${tEsc(current)}" style="width:100%;">
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button type="button" class="t-op-btn" onclick="tEditTournament(window._tEditId)" style="width:auto;padding:8px 16px;">Cancel</button>
+      <button type="button" class="t-new-submit-btn" style="padding:8px 20px;" onclick="tSaveExistingCatName(${idx})">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        Apply
+      </button>
+    </div>`;
+}
+
+function tSaveExistingCatName(idx) {
+  const input = document.getElementById('t-edit-cat-name-input');
+  const val = input ? input.value.trim() : '';
+  if (!val) return;
+  window._tEditCats[idx].name = val;
+  tEditTournament(window._tEditId); // reopen modal with updated data
+}
+
+async function tSaveEditTournament() {
+  const name = document.getElementById('t-edit-name')?.value.trim();
+  const date = document.getElementById('t-edit-date')?.value || null;
+  const id = window._tEditId;
+  if (!name) { tToast('Tournament name is required.', true); return; }
+  try {
+    // Update tournament name + date
+    await tApi(`tournaments?id=eq.${id}`, 'PATCH', { name, date });
+    // Handle categories (skip if active — locked)
+    const [t] = await tApi(`tournaments?id=eq.${id}&select=status`);
+    if (t.status !== 'active') {
+      const existing = await tApi(`tournament_categories?tournament_id=eq.${id}&select=id,name&order=id`);
+      const keepIds  = window._tEditCats.filter(c => !c.isNew && c.id).map(c => c.id);
+      // Delete removed categories
+      for (const ec of existing) {
+        if (!keepIds.includes(ec.id)) {
+          await tApi(`tournament_teams?category_id=eq.${ec.id}`, 'DELETE').catch(()=>{});
+          await tApi(`tournament_rr_matches?category_id=eq.${ec.id}`, 'DELETE').catch(()=>{});
+          await tApi(`tournament_bracket_matches?category_id=eq.${ec.id}`, 'DELETE').catch(()=>{});
+          await tApi(`tournament_groups?category_id=eq.${ec.id}`, 'DELETE').catch(()=>{});
+          await tApi(`tournament_categories?id=eq.${ec.id}`, 'DELETE');
+        }
+      }
+      // Update renamed existing cats
+      for (const c of window._tEditCats.filter(c => !c.isNew && c.id)) {
+        const orig = existing.find(e => e.id === c.id);
+        if (orig && orig.name !== c.name) {
+          await tApi(`tournament_categories?id=eq.${c.id}`, 'PATCH', { name: c.name });
+        }
+      }
+      // Add new categories
+      const newCats = window._tEditCats.filter(c => c.isNew);
+      if (newCats.length) {
+        await tApi('tournament_categories', 'POST',
+          newCats.map(c => ({ tournament_id: id, name: c.name, status: 'setup' }))
+        );
+      }
+    }
+    closeTModal();
+    tToast('Tournament updated!');
+    renderTournamentList();
+  } catch(err) { tToast(`Error: ${err.message}`, true); }
+}
+
+function tAddCategory() {
+  const input = document.getElementById('t-cat-input');
+  if (!input) return;
+  const name = input.value.trim();
+  if (!name) return;
+  _tCategories.push(name);
+  input.value = '';
+  input.focus();
+  _renderCategoryCards();
+}
+
+function tRemoveCategory(idx) {
+  _tCategories.splice(idx, 1);
+  _renderCategoryCards();
+}
+
+function _renderCategoryCards() {
+  const list = document.getElementById('t-categories-list');
+  const badge = document.getElementById('t-cat-count');
+  if (!list) return;
+  if (badge) badge.textContent = `${_tCategories.length} Added`;
+
+  const editSVG = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
+  const trashSVG = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>`;
+
+  list.innerHTML = _tCategories.map((cat, i) => {
+    const emoji = _tCatEmojis[i % _tCatEmojis.length];
+    return `<div class="t-cat-card">
+      <div class="t-cat-card-icon">${emoji}</div>
+      <div class="t-cat-card-name">${tEsc(cat)}</div>
+      <button type="button" class="t-cat-ghost-btn" onclick="tEditCategory(${i})">${editSVG} Edit</button>
+      <div class="t-cat-ghost-sep"></div>
+      <button type="button" class="t-cat-ghost-btn remove" onclick="tRemoveCategory(${i})">${trashSVG} Remove</button>
+    </div>`;
+  }).join('');
+}
+
+function tEditCategory(idx) {
+  const current = _tCategories[idx];
+  document.getElementById('t-modal-title').textContent = 'Edit Category';
+  document.getElementById('t-modal-body').innerHTML = `
+    <button onclick="closeTModal()"
+      style="position:absolute;top:14px;right:14px;width:30px;height:30px;border-radius:8px;border:0.5px solid #e0e7f5;background:white;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:10;"
+      onmouseover="this.style.background='#fde8d8';this.style.borderColor='rgba(229,57,53,0.3)'"
+      onmouseout="this.style.background='white';this.style.borderColor='#e0e7f5'">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#e53935" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+    <div style="padding:8px 0 16px;">
+      <div style="font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;margin-bottom:4px;">Category Name</div>
+      <input id="t-edit-cat-input" class="t-new-input" type="text" value="${tEsc(current)}" placeholder="e.g. Mixed Doubles 3.5" style="width:100%;">
+    </div>
+    <div style="display:flex;justify-content:flex-end;">
+      <button type="button" class="t-new-submit-btn" style="padding:8px 20px;" onclick="tSaveEditCategory(${idx})">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        Apply Changes
+      </button>
+    </div>`;
+  openTModal();
+  setTimeout(() => {
+    const input = document.getElementById('t-edit-cat-input');
+    if (input) { input.focus(); input.select(); }
+  }, 100);
+}
+
+function tSaveEditCategory(idx) {
+  const input = document.getElementById('t-edit-cat-input');
+  const val = input ? input.value.trim() : '';
+  if (!val) return;
+  _tCategories[idx] = val;
+  closeTModal();
+  _renderCategoryCards();
+}
+
+// ─── CREATE TOURNAMENT — now handled inline via collapsible panel ─────────
+function showCreateTournament() { _tPanelOpen = true; _tCategories = []; renderTournamentList(); }
+function addCategoryField() { tAddCategory(); }
 
 async function createTournament(e) {
   e.preventDefault();
   const name = document.getElementById('t-name').value.trim();
   const date = document.getElementById('t-date').value || null;
-  const categories = [...document.querySelectorAll('.t-category-input')]
-    .map(i => i.value.trim()).filter(Boolean);
-  if (!name) { tToast('Please enter a tournament name.', true); return; }
-  if (!categories.length) { tToast('Please add at least one category.', true); return; }
+  const categories = _tCategories.filter(Boolean);
+  if (!name) { tToast('Tournament name is required.', true); return; }
+  if (!date) { tToast('Please select a tournament date.', true); return; }
+  if (!categories.length) { tToast('Please add at least one category before creating.', true); return; }
   try {
     // Validate no duplicate name + date combination
     let dupQuery = `tournaments?name=eq.${encodeURIComponent(name)}&select=id,name,date`;
@@ -620,24 +1274,112 @@ async function createTournament(e) {
       );
     }
     tToast(`Tournament "${name}" created!`);
+    _tPanelOpen = false;
+    _tCategories = [];
     openTournament(t.id);
   } catch(err) { tToast(`Error: ${err.message}`, true); }
 }
 
 // ─── DELETE TOURNAMENT ──────────────────────────────────────
 async function deleteTournament(id) {
-  const [t] = await tApi(`tournaments?id=eq.${id}&select=name`);
-  const name = t?.name || 'this tournament';
-  document.getElementById('t-modal-title').textContent = 'Delete Tournament';
-  document.getElementById('t-modal-body').innerHTML =
-    '<div style="padding:8px 0 24px;">'
-    + '<p style="font-size:14px;color:#0d1f4a;line-height:1.6;">Are you sure you want to delete tournament <strong>'
-    + name + '</strong>? All categories, teams and matches will be permanently removed.</p></div>'
-    + '<div class="t-form-actions">'
-    + '<button type="button" class="t-btn t-btn-ghost" onclick="closeTModal()">Cancel</button>'
-    + '<button type="button" class="t-btn t-btn-danger" onclick="confirmDeleteTournament(' + id + ')">Delete</button>'
-    + '</div>';
+  const [t] = await tApi(`tournaments?id=eq.${id}&select=name,status`);
+  const name   = t?.name   || 'this tournament';
+  const status = t?.status || 'draft';
+
+  // Block delete on active tournaments
+  if (status === 'active') {
+    document.getElementById('t-modal-title').textContent = 'Cannot Delete Active Tournament';
+    document.getElementById('t-modal-body').innerHTML = `
+      <button onclick="closeTModal()"
+        style="position:absolute;top:14px;right:14px;width:30px;height:30px;border-radius:8px;border:0.5px solid #e0e7f5;background:white;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:10;"
+        onmouseover="this.style.background='#fde8d8';this.style.borderColor='rgba(229,57,53,0.3)'"
+        onmouseout="this.style.background='white';this.style.borderColor='#e0e7f5'">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#e53935" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+      <div style="padding:8px 0 20px;">
+        <p style="font-size:13px;color:#0d1f4a;line-height:1.6;">
+          <strong>${tEsc(name)}</strong> is currently <strong>active</strong> and cannot be deleted.
+          Please close the tournament first before deleting it.
+        </p>
+      </div>
+      <div style="display:flex;justify-content:flex-end;">
+        <button type="button" class="t-op-btn" onclick="closeTModal()" style="width:auto;padding:8px 16px;">OK</button>
+      </div>`;
+    openTModal();
+    return;
+  }
+
+  // Fetch categories first, then teams + matches using their IDs
+  const categories = await tApi(`tournament_categories?tournament_id=eq.${id}&select=id`).catch(() => []);
+  const catIds = categories.length ? categories.map(c => c.id).join(',') : '0';
+  const [teamsData, rrData, bracketData] = await Promise.all([
+    tApi(`tournament_teams?category_id=in.(${catIds})&select=id`).catch(() => []),
+    tApi(`tournament_rr_matches?category_id=in.(${catIds})&select=id`).catch(() => []),
+    tApi(`tournament_bracket_matches?category_id=in.(${catIds})&select=id`).catch(() => []),
+  ]);
+  const catCount   = categories.length;
+  const teamCount  = teamsData.length;
+  const matchCount = rrData.length + bracketData.length;
+
+  document.getElementById('t-modal-title').textContent = 'Delete Tournament Permanently';
+  // Add orange top border to modal
+  const modalEl = document.querySelector('.t-modal');
+  if (modalEl) modalEl.style.borderTop = '3px solid #F26024';
+
+  document.getElementById('t-modal-body').innerHTML = `
+    <button onclick="(function(){const m=document.querySelector('.t-modal');if(m)m.style.borderTop='';closeTModal();})()"
+      style="position:absolute;top:14px;right:14px;width:30px;height:30px;border-radius:8px;border:0.5px solid #e0e7f5;background:white;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:10;"
+      onmouseover="this.style.background='#fde8d8';this.style.borderColor='rgba(229,57,53,0.3)'"
+      onmouseout="this.style.background='white';this.style.borderColor='#e0e7f5'">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#e53935" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+
+    <!-- Tournament name — subtle card, no label above -->
+    <div style="background:#f4f5f8;border:0.5px solid #e0e7f5;border-radius:8px;padding:12px 16px;margin-bottom:14px;">
+      <div style="font-size:15px;font-weight:800;color:#0d1f4a;">${tEsc(name)}</div>
+    </div>
+
+    <!-- Tournament metadata — vertical stacked rows -->
+    <div style="background:#fafbff;border:0.5px solid #e0e7f5;border-radius:8px;padding:12px 16px;margin-bottom:14px;display:flex;flex-direction:column;gap:8px;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:#0d1f4a;min-width:36px;text-align:right;">${catCount}</span>
+        <span style="font-size:12px;font-weight:600;color:#6b7a99;">Categor${catCount !== 1 ? 'ies' : 'y'}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:#0d1f4a;min-width:36px;text-align:right;">${teamCount}</span>
+        <span style="font-size:12px;font-weight:600;color:#6b7a99;">Teams</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:#0d1f4a;min-width:36px;text-align:right;">${matchCount}</span>
+        <span style="font-size:12px;font-weight:600;color:#6b7a99;">Matches</span>
+      </div>
+    </div>
+
+    <!-- Warning box -->
+    <div style="background:#fde8d8;border:0.5px solid rgba(242,96,36,0.3);border-radius:8px;padding:12px 16px;margin-bottom:20px;">
+      <div style="font-size:12px;font-weight:800;color:#c04a0e;margin-bottom:4px;">This action cannot be undone</div>
+      <div style="font-size:12px;font-weight:600;color:#9a3a0a;line-height:1.5;">All categories, teams, and matches will be permanently removed.</div>
+    </div>
+
+    <!-- CTA -->
+    <div style="display:flex;justify-content:flex-end;">
+      <button type="button" class="t-op-btn t-op-btn-danger" onclick="confirmDeleteTournament(${id})" style="width:auto;padding:10px 20px;font-size:12px;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+        Delete Tournament
+      </button>
+    </div>`;
   openTModal();
+
+  // Remove orange border when modal closes
+  const origClose = window._origCloseTModal;
+  if (!origClose) {
+    window._origCloseTModal = closeTModal;
+    window.closeTModalWithReset = () => {
+      const m = document.querySelector('.t-modal');
+      if (m) m.style.borderTop = '';
+      closeTModal();
+    };
+  }
 }
 
 async function confirmDeleteTournament(id) {
@@ -659,6 +1401,8 @@ async function confirmDeleteTournament(id) {
     }
     await tApi(`tournament_categories?tournament_id=eq.${id}`, 'DELETE');
     await tApi(`tournaments?id=eq.${id}`, 'DELETE');
+    const m = document.querySelector('.t-modal');
+    if (m) m.style.borderTop = '';
     closeTModal();
     tToast('Tournament deleted.');
     renderTournamentList();
@@ -686,53 +1430,122 @@ async function openTournament(id) {
 
 function renderTournamentDetail(t, categories) {
   const el = document.getElementById('t-content');
-  const date = t.date ? new Date(t.date + 'T12:00:00').toLocaleDateString('en-US', {weekday:'long',month:'long',day:'numeric',year:'numeric'}) : 'No date set';
+  const dateStr = t.date ? new Date(t.date + 'T12:00:00').toLocaleDateString('en-US', {weekday:'long',month:'long',day:'numeric',year:'numeric'}) : 'No date set';
+
+  // Compute live header meta from categories data
+  const totalTeams = 0; // will be updated when category loads
+  const catCount = categories.length;
+  const statusLabel = t.status === 'active' ? 'Active' : t.status === 'completed' ? 'Completed' : 'Draft';
+  const statusPillStyle = t.status === 'active'
+    ? 'background:#d4f5ed;color:#085041;'
+    : t.status === 'completed'
+    ? 'background:#e8f0ff;color:#174CCC;'
+    : 'background:#f4f5f8;color:#6b7a99;';
+
+  // Progress label
+  const progressLabel = t.status === 'draft' ? 'Not Started' : t.status === 'active' ? 'In Progress' : 'Completed';
+  const progressColor = t.status === 'draft' ? '#b0bbd6' : t.status === 'active' ? '#24BC96' : '#174CCC';
+
+  // Start Tournament button — disabled until active
+  const canStart = t.status === 'draft';
+  const startBtnHTML = `
+    <button id="td-start-btn"
+      onclick="${t.status === 'draft' ? `startTournament(${t.id})` : `completeTournament(${t.id})`}"
+      style="display:inline-flex;align-items:center;gap:6px;padding:9px 20px;border:none;border-radius:99px;
+             background:${t.status === 'active' ? 'linear-gradient(180deg,#F26024,#d44e10)' : 'linear-gradient(180deg,#2456d3 0%,#174CCC 100%)'};
+             color:white;font-family:'Montserrat',sans-serif;font-size:11px;font-weight:700;cursor:pointer;">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      ${t.status === 'active' ? 'Complete Tournament' : 'Start Tournament'}
+    </button>`;
+
+  // Category emojis — cycle through
+  const catEmojis = ['🏆','🎾','🏅','⚡','🔥','👑','🎯','🥇'];
+
+  const divTabsHTML = categories.map((cat, i) => {
+    const isActive = cat.id === tCurrentCategoryId;
+    const emoji = catEmojis[i % catEmojis.length];
+    const catStatusLabel = cat.status === 'active' ? 'Active' : cat.status === 'completed' ? 'Completed' : 'Draft';
+    const pillStyle = isActive
+      ? 'background:rgba(255,255,255,0.2);color:white;'
+      : 'background:rgba(23,76,204,0.1);color:#174CCC;';
+    return `
+      <div class="td-div-tab ${isActive ? 'active' : ''}" onclick="switchCategory(${cat.id}, ${t.id})" style="cursor:pointer;">
+        <div style="font-size:16px;margin-bottom:5px;">${emoji}</div>
+        <div class="td-div-tab-name">${tEsc(cat.name)}</div>
+        <div class="td-div-tab-intel" id="td-div-intel-${cat.id}">Loading...</div>
+        <div class="td-div-status-pill" style="${pillStyle}">${tEsc(catStatusLabel)}</div>
+      </div>`;
+  }).join('');
+
   el.innerHTML = `
-    <div class="t-header-bar">
-      <button class="t-btn t-btn-ghost" onclick="renderTournamentList()">← Tournaments</button>
-      <div style="display:flex;gap:8px;align-items:center;">
-        <span class="t-status-badge t-status-${tEsc(t.status)}">${tEsc(t.status)}</span>
-        ${t.status === 'draft' ? `<button class="t-btn t-btn-success" onclick="startTournament(${t.id})">▶ Start Tournament</button>` : ''}
-        ${t.status === 'active' ? `<button class="t-btn t-btn-danger" onclick="completeTournament(${t.id})">Complete</button>` : ''}
-        <button class="t-btn t-btn-primary" title="Notify all players with the results link"
-          onclick="window.app.openTournamentNotifyModal(${t.id})"
-          style="background:var(--teal);border-color:var(--teal);">
-          ✉ Notify Players
-        </button>
-        <button class="t-btn t-btn-primary" id="t-print-roster-btn"
-          onclick="printTournamentRoster(this)"
-          data-tid="${t.id}"
-          data-tname="${tEsc(t.name)}"
-          data-tdate="${tEsc(t.date || '')}"
-          data-catids="${categories.map(c => c.id).join(',')}"
-          data-catnames="${categories.map(c => tEsc(c.name)).join('||')}"
-          title="Print roster for all categories">
-          📄 Print Roster
-        </button>
+    <div style="padding:20px 28px 0;">
+    <div class="td-header">
+      <div class="td-identity">
+        <div class="td-name">${tEsc(t.name)}</div>
+        <div class="td-date">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6b7a99" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          ${dateStr}
+        </div>
+      </div>
+      <div class="td-meta">
+        <div class="td-meta-item">
+          <span class="td-status-chip" style="${statusPillStyle}">${statusLabel}</span>
+          <div class="td-meta-lbl">Status</div>
+        </div>
+        <div class="td-meta-sep"></div>
+        <div class="td-meta-item">
+          <div class="td-meta-val" id="td-total-teams">—</div>
+          <div class="td-meta-lbl">Teams</div>
+        </div>
+        <div class="td-meta-sep"></div>
+        <div class="td-meta-item">
+          <div class="td-meta-val">${catCount}</div>
+          <div class="td-meta-lbl">Categories</div>
+        </div>
+        <div class="td-meta-sep"></div>
+        <div class="td-meta-item">
+          <div class="td-meta-val" style="font-size:13px;font-weight:800;color:${progressColor};font-family:'Montserrat',sans-serif;">${progressLabel}</div>
+          <div class="td-meta-lbl">Progress</div>
+        </div>
       </div>
     </div>
-    <div class="t-tournament-hero" style="position:relative;">
-      <div class="t-tournament-hero-name">${tEsc(t.name)}</div>
-      <div class="t-tournament-hero-date">📅 ${date}</div>
-      ${t.status !== 'completed' ? `<button type="button" class="t-btn t-btn-sm" onclick="openEditTournament(${t.id})" style="position:absolute;top:0;right:0;background:rgba(255,255,255,0.15);color:#fff;border:1.5px solid rgba(255,255,255,0.3);">✏️ Edit</button>` : ''}
     </div>
-    <div class="t-category-tabs">
-      ${categories.map(cat => `
-        <button class="t-category-tab ${cat.id === tCurrentCategoryId ? 'active' : ''}"
-          onclick="switchCategory(${cat.id}, ${t.id})">
-          ${tEsc(cat.name)}
-          <span class="t-cat-status-dot t-dot-${tEsc(cat.status)}"></span>
-        </button>
-      `).join('')}
+
+    <div style="padding:8px 28px 0;">
+    <div class="td-action-bar">
+      <span class="td-start-hint" id="td-start-hint" style="display:none;font-size:10px;font-weight:700;color:#b0bbd6;padding:0 6px;"></span>
+      ${startBtnHTML}
+      <button onclick="window.app.openTournamentNotifyModal(${t.id})" class="btn btn-teal btn-sm">Notify Players</button>
+      <button onclick="printTournamentRoster(this)"
+        data-tid="${t.id}" data-tname="${tEsc(t.name)}" data-tdate="${tEsc(t.date || '')}"
+        data-catids="${categories.map(c => c.id).join(',')}"
+        data-catnames="${categories.map(c => tEsc(c.name)).join('||')}"
+        style="min-width:34px;height:34px;padding:0 10px;border:0.5px solid #e0e7f5;border-radius:8px;background:white;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#6b7a99;white-space:nowrap;" title="Print Roster">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+      </button>
     </div>
-    <div id="t-category-content">Loading category...</div>
+    </div>
+
+    <div style="padding:16px 28px 0;">
+      <div style="background:white;border:0.5px solid #e0e7f5;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(23,76,204,0.06);">
+        <div style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#6b7a99;padding:12px 16px 6px;">Divisions</div>
+        <div style="display:flex;gap:8px;padding:0 12px 12px;flex-wrap:wrap;" id="td-division-tabs">
+          ${divTabsHTML}
+        </div>
+      </div>
+    </div>
+
+    <div style="padding:16px 28px 0;" id="td-setup-progression"></div>
+    <div style="padding:0 28px 28px;" id="t-category-content"><div class="t-loading">Loading...</div></div>
   `;
+
   if (tCurrentCategoryId) loadCategory(tCurrentCategoryId, t);
 }
 async function switchCategory(catId, tId) {
   tCurrentCategoryId = catId;
-  document.querySelectorAll('.t-category-tab').forEach(b => b.classList.remove('active'));
-  event.target.closest('.t-category-tab').classList.add('active');
+  document.querySelectorAll('.td-div-tab').forEach(b => b.classList.remove('active'));
+  const activeTab = document.querySelector(`.td-div-tab[onclick*="${catId}"]`);
+  if (activeTab) activeTab.classList.add('active');
   document.getElementById('t-category-content').innerHTML = '<div class="t-loading">Loading...</div>';
   const [t] = await tApi(`tournaments?id=eq.${tId}&select=*`);
   loadCategory(catId, t);
@@ -740,188 +1553,436 @@ async function switchCategory(catId, tId) {
 
 async function loadCategory(catId, t) {
   const [cat] = await tApi(`tournament_categories?id=eq.${catId}&select=*`);
-  const teams = await tApi(`tournament_teams?category_id=eq.${catId}&select=*&order=id`);
-  const rrMatches = await tApi(`tournament_rr_matches?category_id=eq.${catId}&select=*&order=round,court`);
-  const bracketMatches = await tApi(`tournament_bracket_matches?category_id=eq.${catId}&select=*&order=id`);
-  const groups = await tApi(`tournament_groups?category_id=eq.${catId}&select=*&order=position`);
-  renderCategory(cat, teams, rrMatches, bracketMatches, t, groups);
+  const [teams, rrMatches, bracketMatches, groups, allTournCats] = await Promise.all([
+    tApi(`tournament_teams?category_id=eq.${catId}&select=*&order=id`),
+    tApi(`tournament_rr_matches?category_id=eq.${catId}&select=*&order=round,court`),
+    tApi(`tournament_bracket_matches?category_id=eq.${catId}&select=*&order=id`),
+    tApi(`tournament_groups?category_id=eq.${catId}&select=*&order=position`),
+    tApi(`tournament_categories?tournament_id=eq.${t.id}&select=id`),
+  ]);
+  // Fetch team counts for all categories in this tournament (for cross-category Start button validation)
+  const allCatIds = allTournCats.map(c => c.id).join(',') || '0';
+  const allTeams = await tApi(`tournament_teams?category_id=in.(${allCatIds})&select=id,category_id`);
+  const teamCountByCat = {};
+  allTeams.forEach(tm => { teamCountByCat[tm.category_id] = (teamCountByCat[tm.category_id] || 0) + 1; });
+  const allCatsHave4 = allTournCats.every(c => (teamCountByCat[c.id] || 0) >= 4);
+  renderCategory(cat, teams, rrMatches, bracketMatches, t, groups, allCatsHave4);
 }
 
-function renderCategory(cat, teams, rrMatches, bracketMatches, tournament, groups = []) {
+function renderCategory(cat, teams, rrMatches, bracketMatches, tournament, groups = [], allCatsHave4 = false) {
   const el = document.getElementById('t-category-content');
   const useGroups = groups.length > 0;
-
-  // Single-RR mode: standings against all teams. Groups mode: per-group standings.
-  // Both modes need a unified "all standings sorted" for places where we don't care.
-  const standings = useGroups
-    ? null
-    : tCalcStandings(teams, rrMatches);
-
+  const standings = useGroups ? null : tCalcStandings(teams, rrMatches);
   const rrComplete = rrMatches.length > 0 && rrMatches.filter(m => m.status === 'pending').length === 0;
   const tMap = {}; teams.forEach(t => tMap[t.id] = t);
-
-  // Build per-group structures only if we have groups
   let groupViews = [];
   if (useGroups) {
     groupViews = groups.map(g => {
       const groupTeams = teams.filter(t => t.group_id === g.id);
       const groupMatches = rrMatches.filter(m => m.group_id === g.id);
-      return {
-        group: g,
-        teams: groupTeams,
-        matches: groupMatches,
-        standings: tCalcStandings(groupTeams, groupMatches),
-      };
+      return { group: g, teams: groupTeams, matches: groupMatches, standings: tCalcStandings(groupTeams, groupMatches) };
     });
   }
 
-  let html = '';
-
-  // PHASE 1: TEAMS / PLAYERS
   const singlesMode = isSingles(cat.name);
   const entityCap = singlesMode ? 'Player' : 'Team';
   const entityLow = singlesMode ? 'player' : 'team';
-  html += `
-    <div class="t-phase-card">
-      <div class="t-phase-header">
-        <div class="t-phase-title">
-          <span class="t-phase-num">1</span> ${singlesMode ? 'Players' : 'Teams'}
-          <span class="t-team-count">${teams.length} ${teams.length !== 1 ? (singlesMode ? 'players' : 'teams') : entityLow}</span>
+
+  // ── Update division tab intel ──────────────────────────────────────────
+  const intelEl = document.getElementById(`td-div-intel-${cat.id}`);
+  if (intelEl) {
+    const rrTotal = rrMatches.filter(m => m.status !== 'bye').length;
+    const rrDone  = rrMatches.filter(m => m.status === 'completed').length;
+    let intel = `${teams.length} ${teams.length !== 1 ? (singlesMode ? 'players' : 'teams') : entityLow}`;
+    if (rrMatches.length > 0) intel += ` · ${rrDone}/${rrTotal} RR Matches`;
+    if (bracketMatches.length > 0) intel += ` · Bracket Live`;
+    intelEl.textContent = intel;
+  }
+
+  // ── Update total teams in header ──────────────────────────────────────
+  const totalTeamsEl = document.getElementById('td-total-teams');
+  if (totalTeamsEl) totalTeamsEl.textContent = teams.length;
+
+  // ── Setup progression ─────────────────────────────────────────────────
+  const rrTotal2 = rrMatches.filter(m => m.status !== 'bye').length;
+  const rrDone2  = rrMatches.filter(m => m.status === 'completed').length;
+  // step1Done: ALL categories in this tournament must have >= 4 teams
+  const step1Done = allCatsHave4;
+  const step2Done = rrComplete;
+  const step3Done = bracketMatches.length > 0 && bracketMatches.every(m => m.status === 'completed');
+  const step4Done = tournament.status === 'completed';
+
+  const stepIcon = (done, current, num) => {
+    if (done) return `<div class="td-step-icon done"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>`;
+    if (current) return `<div class="td-step-icon current">${num}</div>`;
+    return `<div class="td-step-icon locked"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#b0bbd6" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>`;
+  };
+  const stepLbl = (done, current, label) => {
+    const cls = done ? 'done' : current ? 'current' : 'locked';
+    return `<div class="td-step-lbl ${cls}">${label}</div>`;
+  };
+  const s1done = step1Done, s2done = step2Done, s3done = step3Done;
+  const s1cur  = !s1done, s2cur = s1done && !s2done, s3cur = s2done && !s3done, s4cur = s3done && !step4Done;
+  const connCls = (done) => done ? 'td-step-conn done' : 'td-step-conn';
+
+  const progressionEl = document.getElementById('td-setup-progression');
+  if (progressionEl) {
+    progressionEl.innerHTML = `
+      <div style="background:white;border:0.5px solid #e0e7f5;border-radius:12px;padding:14px 20px;box-shadow:0 1px 4px rgba(23,76,204,0.06);margin-bottom:16px;">
+        <div style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#6b7a99;margin-bottom:12px;display:flex;align-items:center;gap:6px;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6b7a99" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          Tournament Setup Progress
         </div>
-        ${tournament.status === 'draft' ? `<button class="t-btn t-btn-sm t-btn-primary" onclick="showAddTeam(${cat.id})">+ Add ${entityCap}</button>` : ''}
+        <div style="display:flex;align-items:flex-start;margin-top:4px;">
+          <!-- Step 1 -->
+          <div style="display:flex;flex-direction:column;align-items:center;flex:0 0 auto;">
+            ${stepIcon(s1done, s1cur, '1')}
+            ${stepLbl(s1done, s1cur, 'Teams Added')}
+          </div>
+          <!-- Connector 1→2 -->
+          <div class="${connCls(s1done)}" style="height:2px;flex:1;margin-top:13px;"></div>
+          <!-- Step 2 -->
+          <div style="display:flex;flex-direction:column;align-items:center;flex:0 0 auto;">
+            ${stepIcon(s2done, s2cur, '2')}
+            ${stepLbl(s2done, s2cur, 'Round Robin')}
+          </div>
+          <!-- Connector 2→3 -->
+          <div class="${connCls(s2done)}" style="height:2px;flex:1;margin-top:13px;"></div>
+          <!-- Step 3 -->
+          <div style="display:flex;flex-direction:column;align-items:center;flex:0 0 auto;">
+            ${stepIcon(s3done, s3cur, '3')}
+            ${stepLbl(s3done, s3cur, 'Bracket Setup')}
+          </div>
+          <!-- Connector 3→4 -->
+          <div class="${connCls(s3done)}" style="height:2px;flex:1;margin-top:13px;"></div>
+          <!-- Step 4 -->
+          <div style="display:flex;flex-direction:column;align-items:center;flex:0 0 auto;">
+            ${stepIcon(step4Done, s4cur, '4')}
+            ${stepLbl(step4Done, s4cur, 'Start Tournament')}
+          </div>
+        </div>
+      </div>`;
+  }
+
+  // ── Update Start button hint ──────────────────────────────────────────
+  // Only requirement: at least 4 teams. RR and bracket happen AFTER starting.
+  const hintEl  = document.getElementById('td-start-hint');
+  const startBtn = document.getElementById('td-start-btn');
+  if (hintEl && startBtn) {
+    if (tournament.status !== 'draft') {
+      // Active — Complete Tournament button, always enabled
+      hintEl.style.display = 'none';
+      startBtn.style.opacity = '1';
+      startBtn.style.cursor = 'pointer';
+    } else if (!step1Done) {
+      // Fewer than 4 teams — disabled
+      hintEl.textContent = 'Add at least 4 teams to start tournament';
+      hintEl.style.display = 'inline';
+      startBtn.style.opacity = '0.45';
+      startBtn.style.cursor = 'not-allowed';
+      startBtn.onclick = null;
+    } else {
+      // 4+ teams — enabled
+      hintEl.style.display = 'none';
+      startBtn.style.opacity = '1';
+      startBtn.style.cursor = 'pointer';
+      startBtn.onclick = () => startTournament(tournament.id);
+    }
+  }
+
+  // ── SVG helpers ───────────────────────────────────────────────────────
+  const lockSVG = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#b0bbd6" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`;
+
+  // ── Section header helper ─────────────────────────────────────────────
+  const sectionHdr = (num, label, count, actionHTML, locked) => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:0.5px solid #f0f2f8;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="width:22px;height:22px;border-radius:50%;background:${locked ? '#f0f2f8' : '#174CCC'};color:${locked ? '#b0bbd6' : 'white'};font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${num}</div>
+        <div style="font-size:12px;font-weight:800;color:${locked ? '#b0bbd6' : '#0d1f4a'};letter-spacing:.3px;text-transform:uppercase;">${label}${count !== null ? ` <span style="font-size:11px;font-weight:600;color:#6b7a99;text-transform:none;">${count}</span>` : ''}</div>
       </div>
-      ${teams.length ? `
-        <div class="t-teams-grid">
-          ${teams.map((team, i) => {
-            const players = [team.player1_id, team.player2_id, team.player3_id, team.player4_id]
-              .filter(Boolean).map(id => {
-                const p = tAllPlayers.find(x => x.id === id);
-                return p ? `${p.first_name} ${p.last_name}` : '?';
-              });
-            return `
-              <div class="t-team-chip">
-                <div class="t-team-seed">${i + 1}</div>
-                <div class="t-team-info">
-                  <div class="t-team-name">${tEsc(team.name)}</div>
-                  ${!singlesMode ? `<div class="t-team-players">${players.join(' & ')}</div>` : ''}
-                </div>
-                ${tournament.status !== 'completed' && !singlesMode ? `
-                  <button class="t-btn-icon" onclick="editTeam(${team.id}, ${cat.id})" style="color:#174CCC;font-size:14px;background:none;border:none;cursor:pointer;" title="Edit">✏️</button>
-                ` : ''}
-                ${tournament.status === 'draft' ? `
-                  <button class="t-btn-icon t-btn-danger-icon" onclick="deleteTeam(${team.id}, ${cat.id})" data-tname="${tEsc(team.name)}">×</button>
-                ` : ''}
-              </div>`;
-          }).join('')}
-        </div>
-      ` : `<div class="t-empty-sm">No ${singlesMode ? 'players' : 'teams'} yet. Add ${singlesMode ? 'players' : 'teams'} to get started.</div>`}
+      ${actionHTML}
     </div>`;
 
-  // PHASE 2: ROUND ROBIN
+  const lockedHdr = (label) => `<div style="font-size:10px;font-weight:700;color:#b0bbd6;display:flex;align-items:center;gap:5px;">${lockSVG} ${label}</div>`;
+
+  let html = '';
+
+  // ── SECTION 1: Team Registration ──────────────────────────────────────
+  const addTeamBtn = tournament.status === 'draft'
+    ? `<button onclick="showAddTeam(${cat.id})" style="display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border:none;border-radius:99px;background:linear-gradient(180deg,#2456d3 0%,#174CCC 100%);color:white;font-size:11px;font-weight:700;cursor:pointer;">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add ${entityCap}
+      </button>`
+    : '';
+
+  const teamsBody = teams.length
+    ? `<div style="display:flex;flex-direction:column;gap:8px;padding:16px 20px;">
+        ${teams.map((team, i) => {
+          const players = [team.player1_id, team.player2_id, team.player3_id, team.player4_id]
+            .filter(Boolean).map(id => { const p = tAllPlayers.find(x => x.id === id); return p ? `${p.first_name} ${p.last_name}` : '?'; });
+          return `<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:#f8f9ff;border:0.5px solid #e0e7f5;border-radius:8px;">
+            <div style="width:24px;height:24px;border-radius:50%;background:#174CCC;color:white;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${i + 1}</div>
+            <div style="flex:1;">
+              <div style="font-size:12px;font-weight:800;color:#0d1f4a;">${tEsc(team.name)}</div>
+              ${!singlesMode ? `<div style="font-size:11px;font-weight:600;color:#6b7a99;">${players.join(' & ')}</div>` : ''}
+            </div>
+            ${tournament.status !== 'completed' && !singlesMode ? `<button onclick="editTeam(${team.id}, ${cat.id})" style="width:24px;height:24px;border:none;background:transparent;color:#174CCC;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;border-radius:5px;" title="Edit">✏️</button>` : ''}
+            ${tournament.status === 'draft' ? `<button onclick="deleteTeam(${team.id}, ${cat.id})" data-tname="${tEsc(team.name)}" style="width:22px;height:22px;border:none;background:transparent;color:#e53935;cursor:pointer;font-size:16px;font-weight:700;display:flex;align-items:center;justify-content:center;">×</button>` : ''}
+          </div>`;
+        }).join('')}
+      </div>`
+    : `<div style="text-align:center;padding:28px 16px;">
+        <div style="font-size:14px;font-weight:800;color:#0d1f4a;margin-bottom:4px;">No ${singlesMode ? 'Players' : 'Teams'} Added Yet</div>
+        <div style="font-size:12px;font-weight:600;color:#6b7a99;">Add ${singlesMode ? 'players' : 'teams'} to begin building the tournament bracket.</div>
+      </div>`;
+
+  html += `<div style="background:white;border:0.5px solid #e0e7f5;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(23,76,204,0.06);margin-bottom:12px;">
+    ${sectionHdr(1, 'Team Registration', teams.length ? `${teams.length} ${teams.length !== 1 ? (singlesMode ? 'players' : 'teams') : entityLow}` : null, addTeamBtn, false)}
+    ${teamsBody}
+  </div>`;
+
+  // ── SECTION 2: Round Robin Setup ──────────────────────────────────────
   const rrTotal = rrMatches.filter(m => m.status !== 'bye').length;
-  const rrDone = rrMatches.filter(m => m.status === 'completed').length;
-  const rrPct = rrTotal > 0 ? Math.round((rrDone / rrTotal) * 100) : 0;
+  const rrDone  = rrMatches.filter(m => m.status === 'completed').length;
+  const rrPct   = rrTotal > 0 ? Math.round((rrDone / rrTotal) * 100) : 0;
+  const rrLocked = teams.length < 4;
 
-  html += `
-    <div class="t-phase-card ${teams.length < 3 ? 't-phase-disabled' : ''}">
-      <div class="t-phase-header">
-        <div class="t-phase-title">
-          <span class="t-phase-num">2</span> ${useGroups ? 'Group Stage' : 'Round Robin'}
-          ${rrMatches.length > 0 ? `<span class="t-progress-label">${rrDone}/${rrTotal} matches</span>` : ''}
-          ${useGroups ? `<span class="t-progress-label">${groups.length} groups</span>` : ''}
+  let rrActionHTML = '';
+  if (!rrLocked && rrMatches.length === 0 && tournament.status !== 'draft') {
+    rrActionHTML = `<button onclick="showRRFormatModal(${cat.id})" style="display:inline-flex;align-items:center;gap:5px;padding:7px 14px;border:none;border-radius:99px;background:linear-gradient(180deg,#2456d3 0%,#174CCC 100%);color:white;font-size:11px;font-weight:700;cursor:pointer;">Generate Round Robin</button>`;
+  } else if (!rrLocked && rrMatches.length === 0 && tournament.status === 'draft') {
+    rrActionHTML = `<span style="font-size:10px;font-weight:700;color:#b0bbd6;">Start tournament first</span>`;
+  } else if (rrMatches.length > 0) {
+    const rrPctLabel = rrTotal > 0 ? Math.round((rrDone / rrTotal) * 100) : 0;
+    rrActionHTML = `<span style="font-size:10px;font-weight:700;color:#6b7a99;">${rrDone} of ${rrTotal} Matches Reported <span style="margin-left:6px;font-size:10px;font-weight:800;color:${rrPctLabel === 100 ? '#24BC96' : '#174CCC'};">${rrPctLabel}% Complete</span></span>`;
+  }
+
+  let rrBody = '';
+  if (rrLocked) {
+    rrBody = `<div style="padding:12px 20px;">
+      <div style="background:#fafbff;border:0.5px solid #e0e7f5;border-radius:10px;padding:14px 16px;display:flex;align-items:center;gap:14px;">
+        <div style="width:36px;height:36px;border-radius:8px;background:#f0f2f8;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${lockSVG}</div>
+        <div>
+          <div style="font-size:12px;font-weight:800;color:#6b7a99;margin-bottom:2px;">Round Robin Available After Team Setup</div>
+          <div style="font-size:11px;font-weight:600;color:#b0bbd6;">Add at least 4 ${singlesMode ? 'players' : 'teams'} to generate the round robin schedule.</div>
+          <div style="display:flex;align-items:center;gap:6px;margin-top:6px;">
+            <div style="width:6px;height:6px;border-radius:50%;background:${step1Done ? '#24BC96' : '#e0e7f5'};"></div>
+            <div style="width:6px;height:6px;border-radius:50%;background:#174CCC;"></div>
+            <div style="width:6px;height:6px;border-radius:50%;background:#e0e7f5;"></div>
+            <div style="width:6px;height:6px;border-radius:50%;background:#e0e7f5;"></div>
+            <span style="font-size:10px;font-weight:600;color:#b0bbd6;margin-left:4px;">Step 2 of 4</span>
+          </div>
         </div>
-        ${teams.length >= 3 && rrMatches.length === 0 && tournament.status !== 'draft' ?
-          `<button class="t-btn t-btn-sm t-btn-primary" onclick="showRRFormatModal(${cat.id})">Generate Schedule</button>` : ''}
-        ${teams.length >= 3 && rrMatches.length === 0 && tournament.status === 'draft' ?
-          `<span class="t-hint">Start tournament first</span>` : ''}
       </div>
-      ${rrMatches.length > 0 ? `
-        ${rrTotal > 0 ? `<div class="t-progress-bar"><div class="t-progress-fill" style="width:${rrPct}%"></div></div>` : ''}
-        ${useGroups
-          ? renderGroupedRR(groupViews, tMap, tournament, cat)
-          : `<div class="t-rr-grid">${renderRRRounds(rrMatches, tMap, tournament)}</div>
-             ${rrDone > 0 ? tRenderStandings(standings, cat.name) : ''}`
-        }
-      ` : teams.length < 3 ? `<div class="t-empty-sm">Add at least 3 teams first.</div>` :
-        `<div class="t-empty-sm">Generate the schedule to start round robin play.</div>`}
     </div>`;
+  } else if (rrMatches.length > 0) {
+    rrBody = `<div style="padding:12px 20px 16px;">
+      ${rrTotal > 0 ? `<div class="t-progress-bar" style="margin-bottom:12px;"><div class="t-progress-fill" style="width:${rrPct}%;"></div></div>` : ''}
+      ${useGroups ? renderGroupedRR(groupViews, tMap, tournament, cat) : `<div class="t-rr-grid">${renderRRRounds(rrMatches, tMap, tournament)}</div>${rrDone > 0 ? tRenderStandings(standings, cat.name) : ''}`}
+    </div>`;
+  } else {
+    rrBody = `<div style="padding:16px 20px;font-size:12px;font-weight:600;color:#6b7a99;">Generate the schedule to start round robin play.</div>`;
+  }
 
-  // PHASE 3: FINALS
+  html += `<div style="background:white;border:0.5px solid #e0e7f5;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(23,76,204,0.06);margin-bottom:12px;${rrLocked ? 'opacity:0.75;' : ''}">
+    ${sectionHdr(2, 'Round Robin Live Board', rrMatches.length > 0 ? `${useGroups ? groups.length + ' groups' : ''}` : null, rrLocked ? lockedHdr('Available after team setup') : rrActionHTML, rrLocked)}
+    ${rrBody}
+  </div>`;
+
+  // ── SECTION 3: Bracket Builder / Finals Bracket ──────────────────────
+  const bracketLocked = !rrComplete && bracketMatches.length === 0;
   if (rrComplete || bracketMatches.length > 0) {
-    // In groups mode the per-group advancement is already locked from schedule generation.
-    // Compute the number of teams advancing and a seeded preview.
-    let seededPreview = null;        // teams in seed order, with _groupRank etc.
-    let lockedFinalsSize = null;     // the locked total when groups
+    let seededPreview = null, lockedFinalsSize = null;
     if (useGroups && cat.finals_per_group) {
-      seededPreview = tBuildSeededAdvancement(
-        groupViews.map(gv => gv.standings),
-        cat.finals_per_group
-      );
+      seededPreview = tBuildSeededAdvancement(groupViews.map(gv => gv.standings), cat.finals_per_group);
       lockedFinalsSize = seededPreview.length;
     }
 
-    // Bracket-size dropdown options (single-RR only). Filter to only reasonable sizes.
-    const ssOpts = !useGroups
-      ? `<option value="2">Top 2</option>
-         <option value="3">Top 3</option>
-         <option value="4" selected>Top 4</option>
-         <option value="6">Top 6</option>
-         <option value="8">Top 8</option>`
-      : '';
+    // ── Teams advancing segmented buttons (hidden input keeps generateBracket working)
+    const teamOpts = [2,3,4,6,8];
+    const teamsAdvHtml = useGroups
+      ? `<span style="background:#e8f0ff;color:#174CCC;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;">Top ${cat.finals_per_group} per group → ${lockedFinalsSize} teams</span>
+         <input type="hidden" id="finals-size-${cat.id}" value="${lockedFinalsSize}">`
+      : `<div style="display:flex;flex-wrap:wrap;gap:6px;">
+           ${teamOpts.map(n => `<button type="button"
+             onclick="bbSelectTeams(this, ${cat.id})"
+             data-val="${n}"
+             style="padding:6px 14px;border-radius:8px;border:1px solid ${n===4?'transparent':'#e0e7f5'};background:${n===4?'#174CCC':'white'};color:${n===4?'white':'#6b7a99'};font-family:'Montserrat',sans-serif;font-size:11px;font-weight:700;cursor:pointer;">
+             Top ${n}
+           </button>`).join('')}
+         </div>
+         <input type="hidden" id="finals-size-${cat.id}" value="4">`;
 
-    html += `
-      <div class="t-phase-card">
-        <div class="t-phase-header">
-          <div class="t-phase-title"><span class="t-phase-num">3</span> Finals</div>
-          ${bracketMatches.length === 0 ? `
-            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-              ${useGroups
-                ? `<span class="t-hint" style="background:#e8f0ff;color:#174CCC;padding:4px 10px;border-radius:99px;font-weight:700;">Top ${cat.finals_per_group} per group → ${lockedFinalsSize} teams</span>
-                   <input type="hidden" id="finals-size-${cat.id}" value="${lockedFinalsSize}">`
-                : `<select id="finals-size-${cat.id}" class="t-select-sm">${ssOpts}</select>`
-              }
-              <select id="finals-elim-${cat.id}" class="t-select-sm">
-                <option value="single">Single Elim</option>
-              </select>
-              <select id="finals-score-format-${cat.id}" class="t-select-sm">
-                <option value="play11_win2">11, win by 2</option>
-                <option value="play11_win1">11, win by 1</option>
-                <option value="play15_win2">15, win by 2</option>
-                <option value="play15_win1">15, win by 1</option>
-                <option value="play21_win2">21, win by 2</option>
-                <option value="play21_win1">21, win by 1</option>
-                <option value="best_of_3">Best of 3 (first to win 2)</option>
-                <option value="best_of_5">Best of 5 (first to win 3)</option>
-              </select>
-              <button class="t-btn t-btn-sm t-btn-primary" onclick="generateBracket(${cat.id}, ${cat.tournament_id})">Generate Bracket</button>
-            </div>` : ''}
+    // ── Bracket type (single option, extensible) ──────────────────────
+    const bracketTypeHtml = `
+      <button type="button"
+        style="padding:6px 16px;border-radius:8px;border:1px solid transparent;background:#174CCC;color:white;font-family:'Montserrat',sans-serif;font-size:11px;font-weight:700;cursor:pointer;min-width:160px;">
+        Single Elimination
+      </button>
+      <input type="hidden" id="finals-elim-${cat.id}" value="single">`;
+
+    // ── Match format small cards (4 per row = 2 rows) ─────────────────
+    const fmtOpts = [
+      {v:'play11_win1',l:'11 win by 1'},
+      {v:'play11_win2',l:'11 win by 2'},
+      {v:'play15_win1',l:'15 win by 1'},
+      {v:'play15_win2',l:'15 win by 2'},
+      {v:'play21_win1',l:'21 win by 1'},
+      {v:'play21_win2',l:'21 win by 2'},
+      {v:'best_of_3',  l:'Best of 3'},
+      {v:'best_of_5',  l:'Best of 5'},
+    ];
+    const fmtCardsHtml = `
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;">
+        ${fmtOpts.map(f => `<button type="button"
+          onclick="bbSelectFormat(this, ${cat.id})"
+          data-val="${f.v}"
+          style="padding:6px 4px;border-radius:7px;border:1px solid ${f.v==='play11_win2'?'transparent':'#e0e7f5'};background:${f.v==='play11_win2'?'#174CCC':'white'};color:${f.v==='play11_win2'?'white':'#6b7a99'};font-family:'Montserrat',sans-serif;font-size:10px;font-weight:700;cursor:pointer;text-align:center;white-space:nowrap;">
+          ${f.l}
+        </button>`).join('')}
+      </div>
+      <input type="hidden" id="finals-score-format-${cat.id}" value="play11_win2">`;
+
+    // ── Qualified teams preview ───────────────────────────────────────
+    const previewSource = useGroups && seededPreview ? seededPreview : (standings || []);
+    const defaultCount = lockedFinalsSize || 4;
+    const previewTeams = previewSource.slice(0, defaultCount);
+    const seedColors = ['#174CCC','#6b7a99','#9a8c7a','#b0bbd6','#c5d6f5','#d9d9d9'];
+    const qualifiedPreviewHtml = previewTeams.map((s, i) => {
+      const diff = s.pts_for - s.pts_against;
+      const diffStr = diff > 0 ? `+${diff}` : `${diff}`;
+      const diffColor = diff > 0 ? '#24BC96' : diff < 0 ? '#e53935' : '#6b7a99';
+      const team = teams ? teams.find(t => t.id === s.id) : null;
+      const players = team ? getTeamPlayerNames(team) : '';
+      const groupTag = useGroups && groups && s._groupIndex !== undefined
+        ? `<span style="font-size:9px;font-weight:600;color:#174CCC;background:#e8f0ff;padding:1px 6px;border-radius:99px;margin-left:4px;">Group ${tEsc(groups[s._groupIndex]?.name||'?')} #${s._groupRank}</span>`
+        : '';
+      return `<div data-preview-row="${i}" style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:#f8f9ff;border:0.5px solid #e0e7f5;border-radius:8px;margin-bottom:6px;">
+        <div style="width:22px;height:22px;border-radius:50%;background:${seedColors[i]||'#b0bbd6'};color:white;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${i+1}</div>
+        <div style="flex:1;">
+          <span style="font-size:12px;font-weight:800;color:#0d1f4a;">${tEsc(s.name)}</span>
+          ${players ? `<span style="font-size:10px;font-weight:500;color:#6b7a99;"> (${tEsc(players)})</span>` : ''}
+          ${groupTag}
         </div>
-        ${bracketMatches.length > 0 ? renderBracket(bracketMatches, tMap, tournament) : `
-          <div class="t-standings-preview">
-            <div class="t-empty-sm">${useGroups ? 'These teams will advance to the bracket:' : 'Choose how many teams advance and generate the bracket.'}</div>
-            <div style="margin-top:12px;">
-              ${useGroups && seededPreview
-                ? seededPreview.map((s, i) => `
-                    <div class="t-standing-preview-row">
-                      <span class="t-seed-badge">${i + 1}</span>
-                      <span class="t-standing-name">${tEsc(s.name)}</span>
-                      <span class="t-group-tag">Group ${tEsc(groups[s._groupIndex]?.name || '?')} · #${s._groupRank}</span>
-                      <span class="t-standing-record">${s.w}W ${s.l}L ${s.pts_for - s.pts_against > 0 ? '+' : ''}${s.pts_for - s.pts_against}</span>
-                    </div>`).join('')
-                : (standings || []).slice(0, 8).map((s, i) => `
-                    <div class="t-standing-preview-row">
-                      <span class="t-seed-badge">${i + 1}</span>
-                      <span class="t-standing-name">${tEsc(s.name)}</span>
-                      <span class="t-standing-record">${s.w}W ${s.l}L ${s.pts_for - s.pts_against > 0 ? '+' : ''}${s.pts_for - s.pts_against}</span>
-                    </div>`).join('')
-              }
-            </div>
-          </div>`}
+        <div style="font-size:11px;font-weight:700;white-space:nowrap;">
+          <span style="color:#6b7a99;">${s.w}W ${s.l}L</span>
+          <span style="color:${diffColor};margin-left:6px;">${diffStr}</span>
+        </div>
       </div>`;
+    }).join('');
+
+    // ── Config labels shared style ────────────────────────────────────
+    const cfgLbl = (t) => `<div style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#6b7a99;margin-bottom:8px;">${t}</div>`;
+    const cfgDivider = `<div style="border-top:0.5px solid #e0e7f5;margin:14px 0;"></div>`;
+
+    let bracketBody = bracketMatches.length > 0 ? (() => {
+      // ── Bracket intelligence ────────────────────────────────────────
+      const roundOrder = ['R32','R16','QF','Semifinals','3rd Place','Final'];
+      const grouped = {};
+      bracketMatches.forEach(m => { if(!grouped[m.round_name]) grouped[m.round_name]=[]; grouped[m.round_name].push(m); });
+      const sfCount = (grouped['Semifinals']||[]).length;
+      const finalCount = (grouped['Final']||[]).length;
+      const totalMatches = bracketMatches.filter(m => m.status !== 'bye').length;
+      const completedMatches = bracketMatches.filter(m => m.status === 'completed').length;
+      const allDone = completedMatches === totalMatches && totalMatches > 0;
+
+      // Derive subtext from stored cat data
+      const fmtLabel = T_FORMATS[cat.finals_format_score] || '';
+      const fmtDisplay = fmtLabel.replace(', win by ', ', win by ');
+      const sizeLabel = cat.finals_size ? `Top ${cat.finals_size}` : '';
+      const subtext = [singleEliminationLabel(cat.finals_format), sizeLabel, fmtDisplay].filter(Boolean).join(' • ');
+
+      const statusDot = allDone
+        ? `<div style="display:flex;align-items:center;gap:5px;font-size:10px;font-weight:800;color:#24BC96;"><div style="width:7px;height:7px;border-radius:50%;background:#24BC96;"></div>Completed</div>`
+        : `<div style="display:flex;align-items:center;gap:5px;font-size:10px;font-weight:800;color:#F26024;"><div style="width:7px;height:7px;border-radius:50%;background:#F26024;"></div>In Progress</div>`;
+
+      const intelligenceHTML = `
+        <div style="display:flex;gap:16px;padding:12px 20px;border-bottom:0.5px solid #f0f2f8;flex-wrap:wrap;align-items:center;">
+          ${sfCount > 0 ? `<div style="display:flex;flex-direction:column;gap:2px;">
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:#0d1f4a;line-height:1;">${sfCount}</div>
+            <div style="font-size:9px;font-weight:700;color:#6b7a99;text-transform:uppercase;letter-spacing:.5px;">Semifinals</div>
+          </div>
+          <div style="width:1px;background:#e0e7f5;align-self:stretch;"></div>` : ''}
+          <div style="display:flex;flex-direction:column;gap:2px;">
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:#0d1f4a;line-height:1;">${finalCount}</div>
+            <div style="font-size:9px;font-weight:700;color:#6b7a99;text-transform:uppercase;letter-spacing:.5px;">Final</div>
+          </div>
+          <div style="width:1px;background:#e0e7f5;align-self:stretch;"></div>
+          <div style="display:flex;flex-direction:column;gap:2px;">
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:#0d1f4a;line-height:1;">${completedMatches}/${totalMatches}</div>
+            <div style="font-size:9px;font-weight:700;color:#6b7a99;text-transform:uppercase;letter-spacing:.5px;">Results Reported</div>
+          </div>
+          <div style="width:1px;background:#e0e7f5;align-self:stretch;"></div>
+          ${statusDot}
+        </div>`;
+
+      return `${intelligenceHTML}<div style="padding:12px 20px 16px;">${renderBracket(bracketMatches, tMap, tournament)}</div>`;
+    })() : `<div style="padding:16px 20px 20px;">
+        <div style="font-size:11px;font-weight:600;color:#6b7a99;margin-bottom:14px;">Select finalists, bracket type, and match format before generating the finals bracket.</div>
+
+        ${cfgLbl('Teams Advancing')}
+        <div style="margin-bottom:14px;">${teamsAdvHtml}</div>
+
+        ${cfgLbl('Bracket Type')}
+        <div style="margin-bottom:14px;">${bracketTypeHtml}</div>
+
+        ${cfgDivider}
+
+        ${cfgLbl('Match Format')}
+        <div style="margin-bottom:14px;">${fmtCardsHtml}</div>
+
+        ${cfgDivider}
+
+        ${cfgLbl('Qualified Teams Preview')}
+        <div id="bb-preview-${cat.id}" style="margin-bottom:16px;">${qualifiedPreviewHtml}</div>
+
+        <div style="display:flex;justify-content:flex-end;">
+          <button onclick="generateBracket(${cat.id}, ${cat.tournament_id})"
+            style="display:inline-flex;align-items:center;gap:7px;padding:10px 22px;border:none;border-radius:99px;background:linear-gradient(180deg,#2456d3,#174CCC);color:white;font-family:'Montserrat',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            Generate Finals Bracket
+          </button>
+        </div>
+      </div>`;
+
+    // ── Section title changes based on state ──────────────────────────
+    const sectionTitle = bracketMatches.length > 0 ? 'Finals Bracket' : 'Bracket Builder';
+    const finalsSubtext = bracketMatches.length > 0 ? (() => {
+      const fmtLbl = T_FORMATS[cat.finals_format_score] || '';
+      const sizeLbl = cat.finals_size ? `Top ${cat.finals_size}` : '';
+      return [sizeLbl, fmtLbl].filter(Boolean).join(' • ');
+    })() : null;
+
+    const bracketSubtextHtml = finalsSubtext ? `<span style="font-size:10px;font-weight:600;color:#6b7a99;">${tEsc(finalsSubtext)}</span>` : '';
+    html += `<div style="background:white;border:0.5px solid #e0e7f5;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(23,76,204,0.06);margin-bottom:12px;">
+      ${sectionHdr(3, sectionTitle, null, bracketSubtextHtml, false)}
+      ${bracketBody}
+    </div>`;
+
+    // ── SECTION 4: Live Results ─────────────────────────────────────────
+    const hasResults = bracketMatches.some(m => m.status === 'completed');
+    if (hasResults || tournament.status === 'completed') {
+      const resultBody = `<div style="padding:12px 20px 16px;">${tRenderStandings(standings, cat.name)}</div>`;
+      html += `<div style="background:white;border:0.5px solid #e0e7f5;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(23,76,204,0.06);margin-bottom:12px;">
+        ${sectionHdr(4, 'Live Results', null, '', false)}
+        ${resultBody}
+      </div>`;
+    }
+  } else {
+    // Show locked sections 3 and 4
+    html += `<div style="background:white;border:0.5px solid #e0e7f5;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(23,76,204,0.06);margin-bottom:12px;opacity:0.6;">
+      ${sectionHdr(3, 'Bracket Builder', null, lockedHdr('Locked until RR complete'), true)}
+      <div style="padding:10px 20px 14px;font-size:11px;font-weight:600;color:#b0bbd6;">Complete round robin to unlock bracket generation.</div>
+    </div>
+    <div style="background:white;border:0.5px solid #e0e7f5;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(23,76,204,0.06);margin-bottom:12px;opacity:0.6;">
+      ${sectionHdr(4, 'Live Results', null, lockedHdr('Available after bracket'), true)}
+      <div style="padding:10px 20px 14px;font-size:11px;font-weight:600;color:#b0bbd6;">Results will appear here once the bracket is live.</div>
+    </div>`;
   }
 
   el.innerHTML = html;
 }
+
 
 function renderRRRounds(matches, tMap, tournament) {
   const rounds = [...new Set(matches.map(m => m.round))].sort((a, b) => a - b);
@@ -944,9 +2005,15 @@ function renderRRRounds(matches, tMap, tournament) {
                 onclick="${tournament.status !== 'completed' ? `openScoreModal('rr',${m.id},${m.team_a_id},${m.team_b_id},${m.category_id})` : ''}">
                 <div class="t-match-court" title="Court ${m.court || '?'}">${m.court ? 'C'+m.court : '—'}</div>
                 <div class="t-match-teams">
-                  <span class="t-match-team ${winA ? 't-winner' : ''}">${tEsc(teamA?.name || '?')}</span>
+                  <span class="t-match-team ${winA ? 't-winner' : ''}">
+                    ${tEsc(teamA?.name || '?')}
+                    ${getTeamPlayerNames(teamA) ? `<span style="font-size:10px;font-weight:500;color:#6b7a99;"> (${tEsc(getTeamPlayerNames(teamA))})</span>` : ''}
+                  </span>
                   <span class="t-match-vs">vs</span>
-                  <span class="t-match-team ${winB ? 't-winner' : ''}">${tEsc(teamB?.name || '?')}</span>
+                  <span class="t-match-team ${winB ? 't-winner' : ''}">
+                    ${tEsc(teamB?.name || '?')}
+                    ${getTeamPlayerNames(teamB) ? `<span style="font-size:10px;font-weight:500;color:#6b7a99;"> (${tEsc(getTeamPlayerNames(teamB))})</span>` : ''}
+                  </span>
                 </div>
                 <div class="t-match-score">
                   ${isDone ? `<span class="t-score ${winA ? 't-score-win' : ''}">${m.score_a}</span>
@@ -986,9 +2053,46 @@ function renderGroupedRR(groupViews, tMap, tournament, cat) {
 
 function tRenderStandings(standings, catName) {
   const singlesMode = isSingles(catName);
+
+  // ── Mini summary data ─────────────────────────────────────────────────
+  const leader = standings.length > 0 ? standings[0] : null;
+  const leaderName = leader ? tEsc(leader.name) : '—';
+
+  const bestDiffVal = standings.length > 0
+    ? Math.max(...standings.map(s => s.pts_for - s.pts_against))
+    : 0;
+  const bestDiffLabel = bestDiffVal > 0 ? `+${bestDiffVal}` : `${bestDiffVal}`;
+
+  const matchesRemaining = standings.reduce((sum, s) => sum + (s.played !== undefined ? 0 : 0), 0);
+  // Matches remaining = total possible - played. Each team plays N-1 matches.
+  const totalTeams = standings.length;
+  const totalPossible = totalTeams * (totalTeams - 1) / 2;
+  const totalPlayed = standings.reduce((sum, s) => sum + (s.w + s.l), 0) / 2;
+  const remaining = Math.max(0, totalPossible - Math.round(totalPlayed));
+
+  const miniSummary = `
+    <div style="display:flex;gap:16px;padding:10px 14px;background:#f8f9ff;border:0.5px solid #e0e7f5;border-radius:8px;margin-bottom:12px;flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;gap:6px;">
+        <span style="font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;">Leader</span>
+        <span style="font-size:11px;font-weight:800;color:#0d1f4a;">${leaderName}</span>
+      </div>
+      <div style="width:1px;background:#e0e7f5;"></div>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <span style="font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;">Best Diff</span>
+        <span style="font-size:11px;font-weight:800;color:${bestDiffVal >= 0 ? '#24BC96' : '#e53935'};">${bestDiffLabel}</span>
+      </div>
+      <div style="width:1px;background:#e0e7f5;"></div>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <span style="font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;">Matches Remaining</span>
+        <span style="font-size:11px;font-weight:800;color:#0d1f4a;">${remaining}</span>
+      </div>
+    </div>`;
+
   return `
     <div class="t-standings-table">
-      <div class="t-standings-title">Standings</div>
+      <div class="t-standings-title">Live Standings</div>
+      <div style="font-size:10px;font-weight:600;color:#6b7a99;margin-bottom:10px;">Updated automatically as scores are reported.</div>
+      ${miniSummary}
       <table class="t-table">
         <thead><tr><th>#</th><th>${singlesMode ? 'Player' : 'Team'}</th><th>Wins</th><th>Losses</th><th>Pts For</th><th>Diff</th></tr></thead>
         <tbody>
@@ -1097,13 +2201,20 @@ async function showAddTeam(catId) {
   const catName = cat.name;
   const singles = isSingles(catName);
 
-  if (singles) {
-    // Multi-select player picker for singles — same UX as ladder modal
-    const existingTeams = await tApi(`tournament_teams?category_id=eq.${catId}&select=player1_id`);
-    const enrolledIds = existingTeams.map(t => t.player1_id).filter(Boolean);
-    const activePlayers = tAllPlayers.filter(p => p.status !== 'inactive');
+  // Fetch all player IDs already assigned in THIS tournament (all categories) — not other tournaments
+  const tournCats = await tApi(`tournament_categories?tournament_id=eq.${tCurrentTournamentId}&select=id`);
+  const allCatIds = tournCats.map(c => c.id).join(',') || '0';
+  const existingTeams = await tApi(`tournament_teams?category_id=in.(${allCatIds})&select=player1_id,player2_id,player3_id,player4_id`);
+  const assignedIds = new Set();
+  existingTeams.forEach(t => {
+    [t.player1_id, t.player2_id, t.player3_id, t.player4_id].filter(Boolean).forEach(id => assignedIds.add(id));
+  });
 
-    // Build player rows as a string (avoid nested template literal issues)
+  const activePlayers = tAllPlayers.filter(p => p.status !== 'inactive');
+
+  // ── Keep existing singles flow unchanged ──────────────────────────────
+  if (singles) {
+    const enrolledIds = existingTeams.map(t => t.player1_id).filter(Boolean);
     let playerRows = '';
     activePlayers.forEach(p => {
       const alreadyIn = enrolledIds.includes(p.id);
@@ -1116,7 +2227,6 @@ async function showAddTeam(catId) {
         + '<label for="t-pcb-' + p.id + '" style="font-size:13px;font-weight:600;cursor:pointer;flex:1;">' + tEsc(p.first_name) + ' ' + tEsc(p.last_name) + tag + '</label>'
         + '</div>';
     });
-
     document.getElementById('t-modal-title').textContent = 'Add Players';
     document.getElementById('t-modal-body').innerHTML =
       '<div style="margin-bottom:12px;font-size:13px;color:#6b7a99;font-weight:500;">Check players to add. Already enrolled players are greyed out.</div>'
@@ -1140,32 +2250,277 @@ async function showAddTeam(catId) {
     return;
   }
 
-  // Non-singles: original team form
-  const playersPerTeam = catName.toLowerCase().includes('team_challenge') ? 4 : 2;
-  const playerOpts = tAllPlayers.filter(p => p.status !== 'inactive')
-    .map(p => `<option value="${p.id}">${tEsc(p.first_name)} ${tEsc(p.last_name)}</option>`).join('');
-  const playerFields = Array.from({length: playersPerTeam}, (_, i) => `
-    <div class="t-form-group">
-      <label class="t-label">Player ${i + 1}</label>
-      <select class="t-input t-player-select" id="t-player-${i+1}">
-        <option value="">-- Select player --</option>${playerOpts}
-      </select>
-    </div>`).join('');
-  document.getElementById('t-modal-title').textContent = 'Add Team';
+  // ── New Create Team modal ─────────────────────────────────────────────
+  // State stored on window for event handler access
+  window._ctCatId      = catId;
+  window._ctCatName    = catName;
+  window._ctPlayer1    = null; // {id, first_name, last_name, status}
+  window._ctPlayer2    = null;
+  window._ctAssigned   = assignedIds;
+  window._ctPlayers    = activePlayers;
+  window._ctSingles    = singles;
+
+  const getInitials = (p) => ((p.first_name||'')[0]||'').toUpperCase() + ((p.last_name||'')[0]||'').toUpperCase();
+
+  // Build the modal HTML
+  const modalEl = document.querySelector('.t-modal');
+  if (modalEl) modalEl.style.maxWidth = '740px';
+
+  document.getElementById('t-modal-title').textContent = 'Create Team';
+  tSetModalSubtitle('Add team identity and assign players.');
   document.getElementById('t-modal-body').innerHTML = `
-    <form id="t-add-team-form" onsubmit="saveTeam(event, ${catId})">
-      <div class="t-form-group">
-        <label class="t-label">Team name *</label>
-        <input class="t-input" type="text" id="t-team-name" required placeholder="e.g. Team Thunder">
+    <button onclick="(function(){const m=document.querySelector('.t-modal');if(m)m.style.maxWidth='';tSetModalSubtitle('');closeTModal();})()"
+      style="position:absolute;top:14px;right:14px;width:30px;height:30px;border-radius:8px;border:0.5px solid #e0e7f5;background:white;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:10;"
+      onmouseover="this.style.background='#fde8d8';this.style.borderColor='rgba(229,57,53,0.3)'"
+      onmouseout="this.style.background='white';this.style.borderColor='#e0e7f5'">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#e53935" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+
+    <div style="display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:700;color:#174CCC;background:#e8f0ff;padding:3px 10px;border-radius:99px;border:0.5px solid #c5d6f5;margin-bottom:14px;">
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4a2 2 0 0 1-2-2V5h4"/><path d="M18 9h2a2 2 0 0 0 2-2V5h-4"/><path d="M12 17v4"/><path d="M8 21h8"/><path d="M6 9a6 6 0 0 0 12 0V3H6v6z"/></svg>
+      Division: ${tEsc(catName)}
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 220px;gap:16px;">
+
+      <!-- LEFT: form fields -->
+      <div style="display:flex;flex-direction:column;gap:20px;">
+
+        <!-- Team Identity -->
+        <div>
+          <div style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#6b7a99;margin-bottom:10px;display:flex;align-items:center;gap:6px;">
+            <span style="width:3px;height:13px;border-radius:99px;background:#174CCC;display:inline-block;flex-shrink:0;"></span>
+            Team Identity
+          </div>
+          <div style="font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;margin-bottom:4px;">Team Name <span style="color:#e53935;">*</span></div>
+          <input id="ct-team-name" type="text" placeholder="e.g. Thunder Smashers"
+            oninput="ctUpdatePreview()"
+            style="width:100%;padding:9px 12px;border:1px solid #e0e7f5;border-radius:8px;font-family:'Montserrat',sans-serif;font-size:13px;font-weight:600;color:#0d1f4a;outline:none;"
+            onfocus="this.style.borderColor='#174CCC';this.style.boxShadow='0 0 0 3px rgba(23,76,204,0.08)'"
+            onblur="this.style.borderColor='#e0e7f5';this.style.boxShadow='none'">
+          <div style="font-size:10px;font-weight:600;color:#b0bbd6;margin-top:4px;">Visible in brackets, standings, and results.</div>
+        </div>
+
+        <!-- Players -->
+        <div>
+          <div style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#6b7a99;margin-bottom:10px;display:flex;align-items:center;gap:6px;">
+            <span style="width:3px;height:13px;border-radius:99px;background:#174CCC;display:inline-block;flex-shrink:0;"></span>
+            Players
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <!-- Player 1 -->
+            <div>
+              <div style="font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;margin-bottom:4px;">Player 1 <span style="color:#e53935;">*</span></div>
+              <div id="ct-p1-slot"></div>
+            </div>
+            <!-- Player 2 -->
+            <div>
+              <div style="font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;margin-bottom:4px;">Player 2 <span style="color:#e53935;">*</span></div>
+              <div id="ct-p2-slot"></div>
+            </div>
+          </div>
+          <div id="ct-dup-warning" style="display:none;"></div>
+        </div>
       </div>
-      ${playerFields}
-      <div class="t-form-actions">
-        <button type="button" class="t-btn t-btn-ghost" onclick="closeTModal()">Cancel</button>
-        <button type="submit" class="t-btn t-btn-primary">Add Team</button>
+
+      <!-- RIGHT: Team Preview -->
+      <div style="background:#f8f9ff;border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:8px;">
+        <div style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#6b7a99;margin-bottom:4px;">Team Preview</div>
+        <div style="background:white;border:0.5px solid #e0e7f5;border-radius:10px;padding:14px;box-shadow:0 1px 3px rgba(23,76,204,0.06);">
+          <div id="ct-preview-name" style="font-size:14px;font-weight:800;color:#b0bbd6;margin-bottom:10px;min-height:20px;">Team name...</div>
+          <div id="ct-preview-p1" style="display:flex;align-items:center;gap:8px;margin-bottom:7px;">
+            <div style="width:28px;height:28px;border-radius:50%;background:#f0f2f8;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#c5d6f5" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            </div>
+            <div style="font-size:11px;font-weight:500;color:#b0bbd6;">Select Player 1...</div>
+          </div>
+          <div id="ct-preview-p2" style="display:flex;align-items:center;gap:8px;">
+            <div style="width:28px;height:28px;border-radius:50%;background:#f0f2f8;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#c5d6f5" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            </div>
+            <div style="font-size:11px;font-weight:500;color:#b0bbd6;">Select Player 2...</div>
+          </div>
+        </div>
       </div>
-    </form>`;
+    </div>
+
+    <!-- Footer -->
+    <div style="display:flex;justify-content:flex-end;margin-top:20px;padding-top:14px;border-top:0.5px solid #e0e7f5;">
+      <button onclick="ctSaveTeam()"
+        style="display:inline-flex;align-items:center;gap:7px;padding:11px 28px;border:none;border-radius:99px;background:linear-gradient(180deg,#2456d3 0%,#174CCC 100%);color:white;font-family:'Montserrat',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
+        Create Team
+      </button>
+    </div>`;
+
   openTModal();
+  // Render player slots after modal is open
+  ctRenderSlot(1);
+  ctRenderSlot(2);
 }
+
+// ── Create Team helpers ────────────────────────────────────────────────────
+function ctGetInitials(p) {
+  return ((p.first_name||'')[0]||'').toUpperCase() + ((p.last_name||'')[0]||'').toUpperCase();
+}
+
+function ctRenderSlot(num) {
+  const slotEl = document.getElementById(`ct-p${num}-slot`);
+  if (!slotEl) return;
+  const player = num === 1 ? window._ctPlayer1 : window._ctPlayer2;
+
+  if (player) {
+    // Filled state — show player card
+    const initials = ctGetInitials(player);
+    const statusColor = player.status === 'active' ? '#24BC96' : '#F26024';
+    const statusLabel = player.status === 'active' ? 'Active' : player.status;
+    slotEl.innerHTML = `
+      <div style="border:1px solid #c5d6f5;border-radius:10px;padding:12px 14px;background:white;display:flex;align-items:center;gap:10px;position:relative;min-height:72px;">
+        <div style="width:38px;height:38px;border-radius:50%;background:#174CCC;color:white;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${tEsc(initials)}</div>
+        <div style="flex:1;">
+          <div style="font-size:13px;font-weight:800;color:#0d1f4a;margin-bottom:3px;">${tEsc(player.first_name)} ${tEsc(player.last_name)}</div>
+          <div style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;color:${statusColor};">
+            <div style="width:5px;height:5px;border-radius:50%;background:${statusColor};"></div>
+            ${tEsc(statusLabel)}
+          </div>
+        </div>
+        <button onclick="ctClearPlayer(${num})"
+          style="position:absolute;top:8px;right:8px;width:20px;height:20px;border-radius:50%;border:none;background:#f0f2f8;color:#6b7a99;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;">×</button>
+      </div>`;
+  } else {
+    // Empty state — show search input
+    slotEl.innerHTML = `
+      <div style="border:1.5px dashed #c5d6f5;border-radius:10px;overflow:hidden;background:#fafbff;min-height:72px;">
+        <input id="ct-search-${num}" type="text" placeholder="Search player by name..."
+          autocomplete="off"
+          oninput="ctFilterPlayers(${num})"
+          onfocus="this.closest('div').style.borderColor='#174CCC';this.closest('div').style.background='#f0f4ff';"
+          onblur="setTimeout(()=>{ctHideDropdown(${num})},150);this.closest('div').style.borderColor='#c5d6f5';this.closest('div').style.background='#fafbff';"
+          style="width:100%;padding:10px 12px;border:none;outline:none;font-family:'Montserrat',sans-serif;font-size:12px;font-weight:600;color:#0d1f4a;background:transparent;">
+        <div id="ct-drop-${num}" style="display:none;background:white;border-top:0.5px solid #e0e7f5;max-height:150px;overflow-y:auto;"></div>
+      </div>`;
+  }
+}
+
+function ctFilterPlayers(num) {
+  const q = (document.getElementById(`ct-search-${num}`)?.value || '').toLowerCase().trim();
+  const drop = document.getElementById(`ct-drop-${num}`);
+  if (!drop) return;
+
+  const otherPlayer = num === 1 ? window._ctPlayer2 : window._ctPlayer1;
+  const results = window._ctPlayers.filter(p => {
+    const name = (p.first_name + ' ' + p.last_name).toLowerCase();
+    return q.length >= 1 && name.includes(q);
+  }).slice(0, 8);
+
+  if (!results.length) { drop.style.display = 'none'; return; }
+
+  drop.innerHTML = results.map(p => {
+    const initials = ctGetInitials(p);
+    const isAssigned = window._ctAssigned.has(p.id);
+    const isSelf = otherPlayer && otherPlayer.id === p.id;
+    const disabled = isAssigned || isSelf;
+    const subtext = isAssigned
+      ? '<div style="font-size:9px;font-weight:700;color:#F26024;">Already assigned in this tournament</div>'
+      : isSelf
+      ? '<div style="font-size:9px;font-weight:700;color:#F26024;">Already selected above</div>'
+      : `<div style="font-size:9px;font-weight:700;color:#24BC96;">${p.status === 'active' ? 'Active' : p.status}</div>`;
+    const opacity = disabled ? 'opacity:0.5;cursor:not-allowed;' : 'cursor:pointer;';
+    return `<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:0.5px solid #f4f5f8;${opacity}"
+      ${!disabled ? `onmousedown="ctSelectPlayer(${num}, ${p.id})"` : ''}>
+      <div style="width:26px;height:26px;border-radius:50%;background:${disabled ? '#f0f2f8' : '#e8f0ff'};color:${disabled ? '#b0bbd6' : '#174CCC'};font-size:9px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${tEsc(initials)}</div>
+      <div>
+        <div style="font-size:12px;font-weight:700;color:${disabled ? '#b0bbd6' : '#0d1f4a'};">${tEsc(p.first_name)} ${tEsc(p.last_name)}</div>
+        ${subtext}
+      </div>
+    </div>`;
+  }).join('');
+  drop.style.display = 'block';
+}
+
+function ctHideDropdown(num) {
+  const drop = document.getElementById(`ct-drop-${num}`);
+  if (drop) drop.style.display = 'none';
+}
+
+function ctSelectPlayer(num, playerId) {
+  const player = window._ctPlayers.find(p => p.id === playerId);
+  if (!player) return;
+  if (num === 1) window._ctPlayer1 = player;
+  else window._ctPlayer2 = player;
+  ctRenderSlot(num);
+  ctUpdatePreview();
+}
+
+function ctClearPlayer(num) {
+  if (num === 1) window._ctPlayer1 = null;
+  else window._ctPlayer2 = null;
+  ctRenderSlot(num);
+  ctUpdatePreview();
+}
+
+function ctUpdatePreview() {
+  const nameEl = document.getElementById('ct-preview-name');
+  const p1El   = document.getElementById('ct-preview-p1');
+  const p2El   = document.getElementById('ct-preview-p2');
+  const nameVal = document.getElementById('ct-team-name')?.value?.trim() || '';
+  const p1 = window._ctPlayer1;
+  const p2 = window._ctPlayer2;
+
+  if (nameEl) {
+    if (nameVal) { nameEl.textContent = nameVal; nameEl.style.color = '#0d1f4a'; }
+    else { nameEl.textContent = 'Team name...'; nameEl.style.color = '#b0bbd6'; }
+  }
+
+  const renderPreviewPlayer = (el, player, label) => {
+    if (!el) return;
+    if (player) {
+      const initials = ctGetInitials(player);
+      el.innerHTML = `
+        <div style="width:28px;height:28px;border-radius:50%;background:#174CCC;color:white;font-size:9px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${tEsc(initials)}</div>
+        <div style="font-size:12px;font-weight:700;color:#0d1f4a;">${tEsc(player.first_name)} ${tEsc(player.last_name)}</div>`;
+    } else {
+      el.innerHTML = `
+        <div style="width:28px;height:28px;border-radius:50%;background:#f0f2f8;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#c5d6f5" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        </div>
+        <div style="font-size:11px;font-weight:500;color:#b0bbd6;">${label}</div>`;
+    }
+  };
+  renderPreviewPlayer(p1El, p1, 'Select Player 1...');
+  renderPreviewPlayer(p2El, p2, 'Select Player 2...');
+}
+
+async function ctSaveTeam() {
+  const catId  = window._ctCatId;
+  const name   = document.getElementById('ct-team-name')?.value?.trim();
+  const p1     = window._ctPlayer1;
+  const p2     = window._ctPlayer2;
+  if (!name) { tToast('Please enter a team name.', true); return; }
+  if (!p1)   { tToast('Please select Player 1.', true); return; }
+  if (!p2)   { tToast('Please select Player 2.', true); return; }
+  if (p1.id === p2.id) { tToast('Player 1 and Player 2 must be different people.', true); return; }
+  try {
+    await tApi('tournament_teams', 'POST', {
+      category_id: catId, name,
+      player1_id: p1.id,
+      player2_id: p2.id,
+      player3_id: null,
+      player4_id: null,
+    });
+    // Reset modal size
+    const modalEl = document.querySelector('.t-modal');
+    if (modalEl) modalEl.style.maxWidth = '';
+    tSetModalSubtitle('');
+    tToast(`Team "${name}" created!`);
+    closeTModal();
+    tCurrentCategoryId = catId;
+    const [t] = await tApi(`tournaments?id=eq.${tCurrentTournamentId}&select=*`);
+    const categories = await tApi(`tournament_categories?tournament_id=eq.${tCurrentTournamentId}&select=*&order=id`);
+    renderTournamentDetail(t, categories);
+  } catch(err) { tToast(`Error: ${err.message}`, true); }
+}
+
 
 async function saveTeam(e, catId) {
   e.preventDefault();
@@ -1200,66 +2555,360 @@ async function saveTeam(e, catId) {
 }
 
 async function editTeam(teamId, catId) {
-  const [team] = await tApi(`tournament_teams?id=eq.${teamId}&select=*`);
-  const [cat] = await tApi(`tournament_categories?id=eq.${catId}&select=*`);
+  const [team, cat] = await Promise.all([
+    tApi(`tournament_teams?id=eq.${teamId}&select=*`).then(r => r[0]),
+    tApi(`tournament_categories?id=eq.${catId}&select=*`).then(r => r[0]),
+  ]);
   if (!team || !cat) return;
+
   const singles = isSingles(cat.name);
-  const playersPerTeam = cat.name.toLowerCase().includes('team_challenge') ? 4 : singles ? 1 : 2;
-  const playerOpts = tAllPlayers.filter(p => p.status !== 'inactive')
-    .map(p => `<option value="${p.id}">${tEsc(p.first_name)} ${tEsc(p.last_name)}</option>`).join('');
-  const playerIds = [team.player1_id, team.player2_id, team.player3_id, team.player4_id];
-  const playerFields = Array.from({length: playersPerTeam}, (_, i) => `
-    <div class="t-form-group">
-      <label class="t-label">Player ${playersPerTeam > 1 ? i + 1 : ''}</label>
-      <select class="t-input t-player-select" id="t-edit-player-${i+1}">
-        <option value="">-- Select player --</option>${playerOpts}
-      </select>
-    </div>`).join('');
-  document.getElementById('t-modal-title').textContent = singles ? 'Edit Player' : 'Edit Team';
-  document.getElementById('t-modal-body').innerHTML = `
-    <form id="t-edit-team-form" onsubmit="saveEditTeam(event, ${teamId}, ${catId})">
-      ${!singles ? `
-      <div class="t-form-group">
-        <label class="t-label">Team name *</label>
-        <input class="t-input" type="text" id="t-edit-team-name" required value="${tEsc(team.name)}">
-      </div>` : `<input type="hidden" id="t-edit-team-name" value="">`}
-      ${playerFields}
-      <div class="t-form-actions">
-        <button type="button" class="t-btn t-btn-ghost" onclick="closeTModal()">Cancel</button>
-        <button type="submit" class="t-btn t-btn-primary">Save Changes</button>
-      </div>
-    </form>`;
-  openTModal();
-  playerIds.forEach((id, i) => {
-    const sel = document.getElementById(`t-edit-player-${i+1}`);
-    if (sel && id) sel.value = id;
+
+  // Fetch all assigned player IDs in this tournament (for duplicate validation)
+  const tournCats = await tApi(`tournament_categories?tournament_id=eq.${tCurrentTournamentId}&select=id`);
+  const allCatIds = tournCats.map(c => c.id).join(',') || '0';
+  const existingTeams = await tApi(`tournament_teams?category_id=in.(${allCatIds})&select=player1_id,player2_id,player3_id,player4_id`);
+  const assignedIds = new Set();
+  existingTeams.forEach(t => {
+    [t.player1_id, t.player2_id, t.player3_id, t.player4_id].filter(Boolean).forEach(id => assignedIds.add(id));
   });
+  // Remove current team's own players from assigned set so they can be re-selected
+  [team.player1_id, team.player2_id, team.player3_id, team.player4_id].filter(Boolean).forEach(id => assignedIds.delete(id));
+
+  const activePlayers = tAllPlayers.filter(p => p.status !== 'inactive');
+
+  // Fetch match data for stats
+  const [rrMatches, bracketMatches] = await Promise.all([
+    tApi(`tournament_rr_matches?category_id=eq.${catId}&select=id,team_a_id,team_b_id,score_a,score_b,winner_id,status`),
+    tApi(`tournament_bracket_matches?category_id=eq.${catId}&select=id,team_a_id,team_b_id,winner_id,round_name,status`),
+  ]);
+
+  // Compute stats
+  const teamRR = rrMatches.filter(m => (m.team_a_id === teamId || m.team_b_id === teamId) && m.status !== 'bye');
+  const teamBracket = bracketMatches.filter(m => m.team_a_id === teamId || m.team_b_id === teamId);
+  const rrPlayed = teamRR.filter(m => m.status === 'completed').length;
+  const bracketPlayed = teamBracket.filter(m => m.status === 'completed').length;
+  const totalPlayed = rrPlayed + bracketPlayed;
+  const rrWins = teamRR.filter(m => m.winner_id === teamId).length;
+  const rrLosses = rrPlayed - rrWins;
+
+  // Seed position (1-based index in category)
+  const allTeams = await tApi(`tournament_teams?category_id=eq.${catId}&select=id&order=id`);
+  const seed = allTeams.findIndex(t => t.id === teamId) + 1;
+
+  // Bracket stage
+  const latestBracket = teamBracket.filter(m => m.status === 'completed').pop();
+  const bracketStage = latestBracket ? latestBracket.round_name : (teamBracket.length ? teamBracket[0].round_name : null);
+
+  // Store state on window for helper access
+  window._etTeamId    = teamId;
+  window._etCatId     = catId;
+  window._etCatName   = cat.name;
+  window._etSingles   = singles;
+  window._etPlayer1   = tAllPlayers.find(p => p.id === team.player1_id) || null;
+  window._etPlayer2   = tAllPlayers.find(p => p.id === team.player2_id) || null;
+  window._etAssigned  = assignedIds;
+  window._etPlayers   = activePlayers;
+
+  const getInitials = p => ((p.first_name||'')[0]||'').toUpperCase() + ((p.last_name||'')[0]||'').toUpperCase();
+
+  // Widen modal
+  const modalEl = document.querySelector('.t-modal');
+  if (modalEl) modalEl.style.maxWidth = '740px';
+
+  document.getElementById('t-modal-title').textContent = 'Team Overview';
+  tSetModalSubtitle('Update team identity and player assignments.');
+
+  document.getElementById('t-modal-body').innerHTML = `
+    <button onclick="(function(){const m=document.querySelector('.t-modal');if(m)m.style.maxWidth='';tSetModalSubtitle('');closeTModal();})()"
+      style="position:absolute;top:14px;right:14px;width:30px;height:30px;border-radius:8px;border:0.5px solid #e0e7f5;background:white;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:10;"
+      onmouseover="this.style.background='#fde8d8';this.style.borderColor='rgba(229,57,53,0.3)'"
+      onmouseout="this.style.background='white';this.style.borderColor='#e0e7f5'">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#e53935" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+
+    <div style="display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:700;color:#174CCC;background:#e8f0ff;padding:3px 10px;border-radius:99px;border:0.5px solid #c5d6f5;margin-bottom:14px;">
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4a2 2 0 0 1-2-2V5h4"/><path d="M18 9h2a2 2 0 0 0 2-2V5h-4"/><path d="M12 17v4"/><path d="M8 21h8"/><path d="M6 9a6 6 0 0 0 12 0V3H6v6z"/></svg>
+      Division: ${tEsc(cat.name)}
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 230px;gap:16px;">
+
+      <!-- LEFT -->
+      <div style="display:flex;flex-direction:column;gap:20px;">
+
+        <!-- Team Identity -->
+        <div>
+          <div style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#6b7a99;margin-bottom:10px;display:flex;align-items:center;gap:6px;">
+            <span style="width:3px;height:13px;border-radius:99px;background:#174CCC;display:inline-block;flex-shrink:0;"></span>Team Identity
+          </div>
+          <div style="font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;margin-bottom:4px;">Team Name <span style="color:#e53935;">*</span></div>
+          <input id="et-team-name" type="text" value="${tEsc(team.name)}"
+            oninput="etUpdateOverview()"
+            placeholder="e.g. Thunder Smashers"
+            style="width:100%;padding:9px 12px;border:1px solid #e0e7f5;border-radius:8px;font-family:'Montserrat',sans-serif;font-size:13px;font-weight:600;color:#0d1f4a;outline:none;"
+            onfocus="this.style.borderColor='#174CCC';this.style.boxShadow='0 0 0 3px rgba(23,76,204,0.08)'"
+            onblur="this.style.borderColor='#e0e7f5';this.style.boxShadow='none'">
+          <div style="font-size:10px;font-weight:600;color:#b0bbd6;margin-top:4px;">Visible in brackets, standings, and results.</div>
+        </div>
+
+        <!-- Players -->
+        ${!singles ? `
+        <div>
+          <div style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#6b7a99;margin-bottom:10px;display:flex;align-items:center;gap:6px;">
+            <span style="width:3px;height:13px;border-radius:99px;background:#174CCC;display:inline-block;flex-shrink:0;"></span>Players
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div>
+              <div style="font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;margin-bottom:4px;">Player 1 <span style="color:#e53935;">*</span></div>
+              <div id="et-p1-slot"></div>
+            </div>
+            <div>
+              <div style="font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;margin-bottom:4px;">Player 2 <span style="color:#e53935;">*</span></div>
+              <div id="et-p2-slot"></div>
+            </div>
+          </div>
+        </div>` : ''}
+      </div>
+
+      <!-- RIGHT: Team Overview + Activity -->
+      <div style="background:#f8f9ff;border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:14px;">
+
+        <!-- Team Overview -->
+        <div>
+          <div style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#6b7a99;margin-bottom:8px;">Team Overview</div>
+          <div style="background:white;border:0.5px solid #e0e7f5;border-radius:10px;padding:14px;box-shadow:0 1px 3px rgba(23,76,204,0.06);">
+            <div id="et-overview-name" style="font-size:14px;font-weight:800;color:#0d1f4a;margin-bottom:10px;">${tEsc(team.name)}</div>
+            <div id="et-overview-p1" style="display:flex;align-items:center;gap:8px;margin-bottom:7px;"></div>
+            <div id="et-overview-p2" style="display:flex;align-items:center;gap:8px;margin-bottom:0;"></div>
+            <!-- Matches played -->
+            ${totalPlayed > 0 ? `
+            <div style="display:flex;align-items:center;gap:10px;margin-top:10px;padding-top:10px;border-top:0.5px solid #f0f2f8;">
+              <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;color:#174CCC;line-height:1;">${totalPlayed}</div>
+              <div>
+                <div style="font-size:10px;font-weight:800;color:#0d1f4a;">Matches Played</div>
+                <div style="font-size:9px;font-weight:600;color:#6b7a99;">${rrPlayed} RR · ${bracketPlayed} Bracket</div>
+              </div>
+            </div>` : ''}
+          </div>
+        </div>
+
+        <!-- Team Activity -->
+        <div>
+          <div style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#6b7a99;margin-bottom:8px;">Team Activity</div>
+          <div style="background:white;border:0.5px solid #e0e7f5;border-radius:10px;padding:12px 14px;box-shadow:0 1px 3px rgba(23,76,204,0.06);">
+            <div style="display:flex;align-items:flex-start;gap:8px;padding:5px 0;border-bottom:0.5px solid #f4f5f8;">
+              <div style="width:26px;height:26px;border-radius:7px;background:#e8f0ff;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              </div>
+              <div>
+                <div style="font-size:10px;font-weight:700;color:#0d1f4a;">Seed</div>
+                <div style="font-size:10px;font-weight:600;color:#6b7a99;">#${seed} in division</div>
+              </div>
+            </div>
+            ${rrPlayed > 0 ? `
+            <div style="display:flex;align-items:flex-start;gap:8px;padding:5px 0;border-bottom:0.5px solid #f4f5f8;">
+              <div style="width:26px;height:26px;border-radius:7px;background:#d4f5ed;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#085041" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+              </div>
+              <div>
+                <div style="font-size:10px;font-weight:700;color:#0d1f4a;">RR Record</div>
+                <div style="font-size:10px;font-weight:600;color:#6b7a99;">${rrWins}W · ${rrLosses}L</div>
+              </div>
+            </div>` : ''}
+            ${bracketStage ? `
+            <div style="display:flex;align-items:flex-start;gap:8px;padding:5px 0 0;">
+              <div style="width:26px;height:26px;border-radius:7px;background:rgba(198,242,33,0.2);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#3B6D11" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4a2 2 0 0 1-2-2V5h4"/><path d="M18 9h2a2 2 0 0 0 2-2V5h-4"/><path d="M12 17v4"/><path d="M8 21h8"/><path d="M6 9a6 6 0 0 0 12 0V3H6v6z"/></svg>
+              </div>
+              <div>
+                <div style="font-size:10px;font-weight:700;color:#0d1f4a;">Bracket Stage</div>
+                <div style="font-size:10px;font-weight:600;color:#6b7a99;">${tEsc(bracketStage)}</div>
+              </div>
+            </div>` : ''}
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div style="display:flex;justify-content:flex-end;margin-top:20px;padding-top:14px;border-top:0.5px solid #e0e7f5;">
+      <button onclick="etSaveTeam()"
+        style="display:inline-flex;align-items:center;gap:7px;padding:11px 28px;border:none;border-radius:99px;background:linear-gradient(180deg,#2456d3 0%,#174CCC 100%);color:white;font-family:'Montserrat',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        Update Team
+      </button>
+    </div>`;
+
+  openTModal();
+  if (!singles) {
+    etRenderSlot(1);
+    etRenderSlot(2);
+  }
+  etUpdateOverview();
 }
 
-async function saveEditTeam(e, teamId, catId) {
-  e.preventDefault();
-  const [cat] = await tApi(`tournament_categories?id=eq.${catId}&select=name`);
-  const singles = isSingles(cat.name);
-  const playerSelects = document.querySelectorAll('.t-player-select');
-  const playerIds = [...playerSelects].map(s => parseInt(s.value) || null);
-  let name = document.getElementById('t-edit-team-name').value.trim();
-  if (singles) {
-    const p1 = tAllPlayers.find(x => x.id === playerIds[0]);
-    if (!p1) { tToast('Please select a player.', true); return; }
-    name = `${p1.first_name} ${p1.last_name}`;
+// ── Edit Team helpers ────────────────────────────────────────────────────
+function etGetInitials(p) {
+  return ((p.first_name||'')[0]||'').toUpperCase() + ((p.last_name||'')[0]||'').toUpperCase();
+}
+
+function etRenderSlot(num) {
+  const slotEl = document.getElementById(`et-p${num}-slot`);
+  if (!slotEl) return;
+  const player = num === 1 ? window._etPlayer1 : window._etPlayer2;
+
+  if (player) {
+    const initials = etGetInitials(player);
+    const statusColor = player.status === 'active' ? '#24BC96' : '#F26024';
+    slotEl.innerHTML = `
+      <div style="border:1px solid #c5d6f5;border-radius:10px;padding:12px 14px;background:white;display:flex;flex-direction:column;gap:8px;min-height:90px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="width:38px;height:38px;border-radius:50%;background:#174CCC;color:white;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${tEsc(initials)}</div>
+          <div style="flex:1;">
+            <div style="font-size:13px;font-weight:800;color:#0d1f4a;margin-bottom:3px;">${tEsc(player.first_name)} ${tEsc(player.last_name)}</div>
+            <div style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;color:${statusColor};">
+              <div style="width:5px;height:5px;border-radius:50%;background:${statusColor};"></div>
+              ${tEsc(player.status === 'active' ? 'Active' : player.status)}
+            </div>
+          </div>
+        </div>
+        <button onclick="etReplacePlayer(${num})"
+          style="width:100%;padding:6px 10px;border:0.5px solid #c5d6f5;border-radius:7px;background:#f8f9ff;color:#174CCC;font-family:'Montserrat',sans-serif;font-size:10px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+          Replace Player
+        </button>
+      </div>`;
   } else {
-    if (!name) { tToast('Please enter a team name.', true); return; }
+    slotEl.innerHTML = `
+      <div style="border:1.5px dashed #c5d6f5;border-radius:10px;overflow:hidden;background:#fafbff;min-height:90px;">
+        <input id="et-search-${num}" type="text" placeholder="Search player by name..."
+          autocomplete="off"
+          oninput="etFilterPlayers(${num})"
+          onfocus="this.closest('div').style.borderColor='#174CCC';this.closest('div').style.background='#f0f4ff';"
+          onblur="setTimeout(()=>{etHideDropdown(${num})},150);this.closest('div').style.borderColor='#c5d6f5';this.closest('div').style.background='#fafbff';"
+          style="width:100%;padding:10px 12px;border:none;outline:none;font-family:'Montserrat',sans-serif;font-size:12px;font-weight:600;color:#0d1f4a;background:transparent;">
+        <div id="et-drop-${num}" style="display:none;background:white;border-top:0.5px solid #e0e7f5;max-height:150px;overflow-y:auto;"></div>
+      </div>`;
   }
+}
+
+function etReplacePlayer(num) {
+  if (num === 1) window._etPlayer1 = null;
+  else window._etPlayer2 = null;
+  etRenderSlot(num);
+  etUpdateOverview();
+  // Focus search after render
+  setTimeout(() => { document.getElementById(`et-search-${num}`)?.focus(); }, 50);
+}
+
+function etFilterPlayers(num) {
+  const q = (document.getElementById(`et-search-${num}`)?.value || '').toLowerCase().trim();
+  const drop = document.getElementById(`et-drop-${num}`);
+  if (!drop) return;
+  const otherPlayer = num === 1 ? window._etPlayer2 : window._etPlayer1;
+  const results = window._etPlayers.filter(p => {
+    const name = (p.first_name + ' ' + p.last_name).toLowerCase();
+    return q.length >= 1 && name.includes(q);
+  }).slice(0, 8);
+  if (!results.length) { drop.style.display = 'none'; return; }
+  drop.innerHTML = results.map(p => {
+    const initials = etGetInitials(p);
+    const isAssigned = window._etAssigned.has(p.id);
+    const isSelf = otherPlayer && otherPlayer.id === p.id;
+    const disabled = isAssigned || isSelf;
+    const subtext = isAssigned
+      ? '<div style="font-size:9px;font-weight:700;color:#F26024;">Already assigned in this tournament</div>'
+      : isSelf
+      ? '<div style="font-size:9px;font-weight:700;color:#F26024;">Already selected above</div>'
+      : `<div style="font-size:9px;font-weight:700;color:#24BC96;">${p.status === 'active' ? 'Active' : p.status}</div>`;
+    const opacity = disabled ? 'opacity:0.5;cursor:not-allowed;' : 'cursor:pointer;';
+    return `<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:0.5px solid #f4f5f8;${opacity}"
+      ${!disabled ? `onmousedown="etSelectPlayer(${num}, ${p.id})"` : ''}>
+      <div style="width:26px;height:26px;border-radius:50%;background:${disabled ? '#f0f2f8' : '#e8f0ff'};color:${disabled ? '#b0bbd6' : '#174CCC'};font-size:9px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${tEsc(initials)}</div>
+      <div>
+        <div style="font-size:12px;font-weight:700;color:${disabled ? '#b0bbd6' : '#0d1f4a'};">${tEsc(p.first_name)} ${tEsc(p.last_name)}</div>
+        ${subtext}
+      </div>
+    </div>`;
+  }).join('');
+  drop.style.display = 'block';
+}
+
+function etHideDropdown(num) {
+  const drop = document.getElementById(`et-drop-${num}`);
+  if (drop) drop.style.display = 'none';
+}
+
+function etSelectPlayer(num, playerId) {
+  const player = window._etPlayers.find(p => p.id === playerId);
+  if (!player) return;
+  if (num === 1) window._etPlayer1 = player;
+  else window._etPlayer2 = player;
+  etRenderSlot(num);
+  etUpdateOverview();
+}
+
+function etUpdateOverview() {
+  const nameEl = document.getElementById('et-overview-name');
+  const p1El   = document.getElementById('et-overview-p1');
+  const p2El   = document.getElementById('et-overview-p2');
+  const nameVal = document.getElementById('et-team-name')?.value?.trim() || '';
+  const p1 = window._etPlayer1;
+  const p2 = window._etPlayer2;
+
+  if (nameEl) nameEl.textContent = nameVal || 'Team name...';
+
+  const renderPreviewPlayer = (el, player, label) => {
+    if (!el) return;
+    if (player) {
+      const initials = etGetInitials(player);
+      el.innerHTML = `
+        <div style="width:28px;height:28px;border-radius:50%;background:#174CCC;color:white;font-size:9px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${tEsc(initials)}</div>
+        <div style="font-size:12px;font-weight:700;color:#0d1f4a;">${tEsc(player.first_name)} ${tEsc(player.last_name)}</div>`;
+    } else {
+      el.innerHTML = `
+        <div style="width:28px;height:28px;border-radius:50%;background:#f0f2f8;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#c5d6f5" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        </div>
+        <div style="font-size:11px;font-weight:500;color:#b0bbd6;">${label}</div>`;
+    }
+  };
+  renderPreviewPlayer(p1El, p1, 'Select Player 1...');
+  renderPreviewPlayer(p2El, p2, 'Select Player 2...');
+}
+
+async function etSaveTeam() {
+  const teamId = window._etTeamId;
+  const catId  = window._etCatId;
+  const singles = window._etSingles;
+  const name = document.getElementById('et-team-name')?.value?.trim();
+  if (!name) { tToast('Please enter a team name.', true); return; }
+
+  let p1id = null, p2id = null;
+  if (!singles) {
+    const p1 = window._etPlayer1;
+    const p2 = window._etPlayer2;
+    if (!p1) { tToast('Please select Player 1.', true); return; }
+    if (!p2) { tToast('Please select Player 2.', true); return; }
+    if (p1.id === p2.id) { tToast('Player 1 and Player 2 must be different people.', true); return; }
+    p1id = p1.id;
+    p2id = p2.id;
+  }
+
   try {
     await tApi(`tournament_teams?id=eq.${teamId}`, 'PATCH', {
       name,
-      player1_id: playerIds[0] || null,
-      player2_id: playerIds[1] || null,
-      player3_id: playerIds[2] || null,
-      player4_id: playerIds[3] || null,
+      player1_id: p1id,
+      player2_id: p2id,
+      player3_id: null,
+      player4_id: null,
     });
-    tToast(`${singles ? 'Player' : 'Team'} updated!`);
+    const modalEl = document.querySelector('.t-modal');
+    if (modalEl) modalEl.style.maxWidth = '';
+    tSetModalSubtitle('');
     closeTModal();
+    tToast('Team updated!');
     tCurrentCategoryId = catId;
     const [t] = await tApi(`tournaments?id=eq.${tCurrentTournamentId}&select=*`);
     const categories = await tApi(`tournament_categories?tournament_id=eq.${tCurrentTournamentId}&select=*&order=id`);
@@ -1267,24 +2916,98 @@ async function saveEditTeam(e, teamId, catId) {
   } catch(err) { tToast(`Error: ${err.message}`, true); }
 }
 
+
 async function deleteTeam(teamId, catId) {
-  const [team] = await tApi(`tournament_teams?id=eq.${teamId}&select=name`);
-  const teamName = team?.name || 'this player/team';
-  document.getElementById('t-modal-title').textContent = 'Remove Team';
-  document.getElementById('t-modal-body').innerHTML =
-    '<div style="padding:8px 0 24px;">'
-    + '<p style="font-size:14px;color:#0d1f4a;line-height:1.6;">Are you sure you want to remove <strong>'
-    + teamName + '</strong> from this category? This cannot be undone.</p></div>'
-    + '<div class="t-form-actions">'
-    + '<button type="button" class="t-btn t-btn-ghost" onclick="closeTModal()">Cancel</button>'
-    + '<button type="button" class="t-btn t-btn-danger" onclick="confirmDeleteTeam(' + teamId + ',' + catId + ')">Remove</button>'
-    + '</div>';
+  // Fetch team with player info
+  const [team] = await tApi(`tournament_teams?id=eq.${teamId}&select=*`);
+  const teamName = team?.name || 'this team';
+
+  // Fetch category + tournament names
+  const [cat] = await tApi(`tournament_categories?id=eq.${catId}&select=name,tournament_id`);
+  const tournId = cat?.tournament_id || tCurrentTournamentId;
+  const [tourn] = await tApi(`tournaments?id=eq.${tournId}&select=name`);
+  const catName = cat?.name || '';
+  const tournName = tourn?.name || '';
+
+  // Check if any matches exist for this team in this category
+  const allRR = await tApi(`tournament_rr_matches?category_id=eq.${catId}&select=id,team_a_id,team_b_id`).catch(() => []);
+  const allBracket = await tApi(`tournament_bracket_matches?category_id=eq.${catId}&select=id,team_a_id,team_b_id`).catch(() => []);
+  const hasMatches = allRR.some(m => m.team_a_id === teamId || m.team_b_id === teamId)
+                  || allBracket.some(m => m.team_a_id === teamId || m.team_b_id === teamId);
+
+  // Resolve player names
+  const playerIds = [team?.player1_id, team?.player2_id, team?.player3_id, team?.player4_id].filter(Boolean);
+  const players = playerIds.map(id => {
+    const p = tAllPlayers.find(x => x.id === id);
+    return p ? { initials: ((p.first_name||'')[0]||'').toUpperCase() + ((p.last_name||'')[0]||'').toUpperCase(), name: `${p.first_name} ${p.last_name}` } : null;
+  }).filter(Boolean);
+
+  const playerRowsHTML = players.map(p => `
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+      <div style="width:26px;height:26px;border-radius:50%;background:#e8f0ff;color:#174CCC;font-size:9px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${p.initials}</div>
+      <div style="font-size:12px;font-weight:700;color:#0d1f4a;">${tEsc(p.name)}</div>
+    </div>`).join('');
+
+  const consequenceHTML = hasMatches
+    ? `<div style="background:rgba(242,96,36,0.08);border:1px solid rgba(242,96,36,0.18);border-radius:8px;padding:12px 14px;">
+        <div style="font-size:12px;font-weight:800;color:#c04a0e;margin-bottom:4px;">This action cannot be undone.</div>
+        <div style="font-size:12px;font-weight:600;color:#9a3a0a;line-height:1.5;">The team will be permanently removed from this category and all generated matches may be affected.</div>
+      </div>`
+    : `<div style="background:rgba(36,188,150,0.06);border:1px solid rgba(36,188,150,0.2);border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:8px;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#085041" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        <div style="font-size:11px;font-weight:700;color:#085041;">No matches generated yet — no matches will be affected.</div>
+      </div>`;
+
+  // Add orange top border to modal
+  const modalEl = document.querySelector('.t-modal');
+  if (modalEl) modalEl.style.borderTop = '3px solid #F26024';
+
+  document.getElementById('t-modal-title').textContent = 'Remove Team From Tournament';
+  tSetModalSubtitle('Review the team before removing.');
+  document.getElementById('t-modal-body').innerHTML = `
+    <button onclick="(function(){const m=document.querySelector('.t-modal');if(m)m.style.borderTop='';tSetModalSubtitle('');closeTModal();})()"
+      style="position:absolute;top:14px;right:14px;width:30px;height:30px;border-radius:8px;border:0.5px solid #e0e7f5;background:white;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:10;"
+      onmouseover="this.style.background='#fde8d8';this.style.borderColor='rgba(229,57,53,0.3)'"
+      onmouseout="this.style.background='white';this.style.borderColor='#e0e7f5'">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#e53935" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+
+    <div style="background:#f8f9ff;border:0.5px solid #e0e7f5;border-radius:10px;padding:14px 16px;margin-bottom:12px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+        <div style="width:28px;height:28px;border-radius:50%;background:#174CCC;color:white;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${tEsc(teamName.substring(0,3))}</div>
+        <div style="font-size:15px;font-weight:800;color:#0d1f4a;">${tEsc(teamName)}</div>
+      </div>
+      ${playerRowsHTML || '<div style="font-size:11px;color:#b0bbd6;">No players assigned</div>'}
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:5px;margin-bottom:12px;">
+      <div style="display:flex;align-items:center;gap:7px;font-size:11px;font-weight:600;color:#6b7a99;">
+        <div style="width:5px;height:5px;border-radius:50%;background:#174CCC;flex-shrink:0;"></div>
+        <span><strong>Division:</strong> ${tEsc(catName)}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:7px;font-size:11px;font-weight:600;color:#6b7a99;">
+        <div style="width:5px;height:5px;border-radius:50%;background:#174CCC;flex-shrink:0;"></div>
+        <span><strong>Tournament:</strong> ${tEsc(tournName)}</span>
+      </div>
+    </div>
+
+    ${consequenceHTML}
+
+    <div style="display:flex;justify-content:flex-end;margin-top:18px;padding-top:14px;border-top:0.5px solid #e0e7f5;">
+      <button onclick="(function(){const m=document.querySelector('.t-modal');if(m)m.style.borderTop='';confirmDeleteTeam(${teamId},${catId});})()"
+        style="display:inline-flex;align-items:center;gap:7px;padding:10px 22px;border:none;border-radius:99px;background:linear-gradient(180deg,#F26024,#d44e10);color:white;font-family:'Montserrat',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+        Remove Team
+      </button>
+    </div>`;
   openTModal();
 }
-
 async function confirmDeleteTeam(teamId, catId) {
   try {
     await tApi(`tournament_teams?id=eq.${teamId}`, 'DELETE');
+    const mEl = document.querySelector('.t-modal');
+    if (mEl) mEl.style.borderTop = '';
+    tSetModalSubtitle('');
     closeTModal();
     tToast('Team removed.');
     tCurrentCategoryId = catId;
@@ -1296,79 +3019,192 @@ async function confirmDeleteTeam(teamId, catId) {
 
 // ─── GENERATE ROUND ROBIN ───────────────────────────────────
 async function showRRFormatModal(catId) {
-  // Look up team count for this category to decide whether to show group config.
-  const teams = await tApi(`tournament_teams?category_id=eq.${catId}&select=id`);
+  const [teams, cat] = await Promise.all([
+    tApi(`tournament_teams?category_id=eq.${catId}&select=id`),
+    tApi(`tournament_categories?id=eq.${catId}&select=*`).then(r => r[0]),
+  ]);
   const numTeams = teams.length;
   const useGroups = numTeams > GROUP_TRIGGER_THRESHOLD;
+  const catName = cat?.name || '';
 
+  // Compute match count: N*(N-1)/2
+  const matchCount = Math.round(numTeams * (numTeams - 1) / 2);
+
+  // Format cards definition — ordered as approved
+  const FORMAT_CARDS = [
+    { value: 'play11_win1', emoji: '⚡', title: 'Play to 11 — Win by 1',
+      desc: 'Fast and dynamic format optimized for high match volume and efficient tournament flow. Ideal for social events, ladders, and quick-paced round robin sessions.' },
+    { value: 'play11_win2', emoji: '🏆', title: 'Play to 11 — Win by 2',
+      desc: 'Classic competitive format that rewards consistency and clutch performance under pressure. Commonly used in organized tournament play and elimination rounds.' },
+    { value: 'play15_win1', emoji: '🏓', title: 'Play to 15 — Win by 1',
+      desc: 'Fast-paced competitive format with longer rallies and quick match turnover. Ideal for round robin play with multiple teams and limited court time.' },
+    { value: 'play15_win2', emoji: '🔥', title: 'Play to 15 — Win by 2',
+      desc: 'Balanced competitive format with extended rallies and a true winning margin. Great for tournaments seeking stronger competitive integrity without excessively long matches.' },
+    { value: 'play21_win1', emoji: '⚡', title: 'Play to 21 — Win by 1',
+      desc: 'Long-format gameplay with faster match completion. Balances endurance and scheduling efficiency while keeping matches highly competitive.' },
+    { value: 'play21_win2', emoji: '🔥', title: 'Play to 21 — Win by 2',
+      desc: 'Traditional extended competition format designed for high-intensity matches and deeper strategic play. Best for premium divisions and championship-level competition.' },
+  ];
+
+  const formatCardsHTML = FORMAT_CARDS.map((f, i) => `
+    <div class="rr-format-card ${i === 0 ? 'rr-format-selected' : ''}"
+      onclick="rrSelectFormatCard(this, '${f.value}')"
+      style="border:${i === 0 ? '2px solid #174CCC;background:rgba(23,76,204,0.05);box-shadow:0 0 0 4px rgba(23,76,204,0.08)' : '1px solid #e0e7f5;background:white'};
+             border-radius:10px;padding:12px 14px;cursor:pointer;position:relative;transition:all .15s;">
+      <div style="position:absolute;top:8px;right:8px;width:18px;height:18px;border-radius:50%;background:#174CCC;
+                  display:${i === 0 ? 'flex' : 'none'};align-items:center;justify-content:center;" class="rr-check-icon">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <div style="font-size:18px;margin-bottom:6px;">${f.emoji}</div>
+      <div style="font-size:12px;font-weight:800;color:#0d1f4a;margin-bottom:4px;">${f.title}</div>
+      <div style="font-size:10px;font-weight:600;color:#6b7a99;line-height:1.45;">${f.desc}</div>
+    </div>`).join('');
+
+  // Group section — preserved exactly as before
   let groupSection = '';
+  let groupScript = '';
   if (useGroups) {
     const suggestions = tSuggestGroupSizes(numTeams);
     if (!suggestions.length) {
-      // No valid split possible (shouldn't happen unless team count is wild).
       tToast(`Cannot split ${numTeams} teams into valid groups (each group must be ${GROUP_MIN_SIZE}-${GROUP_MAX_SIZE} teams).`, true);
       return;
     }
-    // Default to the suggestion closest to 4 per group (a sensible mid-range pick).
     const defaultIdx = suggestions.reduce((bestIdx, s, i, arr) =>
       Math.abs(s.size - 4) < Math.abs(arr[bestIdx].size - 4) ? i : bestIdx, 0);
 
     groupSection = `
-      <div class="t-info-banner" style="background:#e8f0ff;border:1px solid #174CCC;border-radius:6px;padding:10px 12px;margin-bottom:14px;">
+      <div style="background:#e8f0ff;border:1px solid #174CCC;border-radius:8px;padding:12px 14px;margin-bottom:14px;">
         <div style="font-size:12px;font-weight:700;color:#174CCC;margin-bottom:2px;">${numTeams} teams — group stage required</div>
         <div style="font-size:11px;color:#6b7a99;">Teams will be randomly split into groups for round-robin play. Top finishers from each group advance to a single-elimination bracket.</div>
       </div>
-      <div class="t-form-group">
-        <label class="t-label">Teams per group (target)</label>
-        <select class="t-input" id="t-group-size">
+      <div style="margin-bottom:12px;">
+        <div style="font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;margin-bottom:4px;">Teams per group (target)</div>
+        <select class="t-input" id="t-group-size" style="width:100%;">
           ${suggestions.map((s, i) => `
             <option value="${s.size}" ${i === defaultIdx ? 'selected' : ''}>
               ~${s.size} per group → ${s.groups} groups (${s.distribution.join(', ')})
             </option>`).join('')}
         </select>
       </div>
-      <div class="t-form-group">
-        <label class="t-label">Teams advancing per group</label>
-        <select class="t-input" id="t-finals-per-group"></select>
+      <div style="margin-bottom:14px;">
+        <div style="font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;margin-bottom:4px;">Teams advancing per group</div>
+        <select class="t-input" id="t-finals-per-group" style="width:100%;"></select>
         <div style="font-size:11px;color:#6b7a99;margin-top:4px;">Top N from each group go to the bracket.</div>
       </div>`;
   }
 
-  document.getElementById('t-modal-title').textContent =
-    useGroups ? 'Group Stage Setup' : 'Round Robin Format';
+  // Widen modal
+  const modalEl = document.querySelector('.t-modal');
+  if (modalEl) modalEl.style.maxWidth = '680px';
+
+  document.getElementById('t-modal-title').textContent = useGroups ? 'Group Stage Setup' : 'Round Robin Setup';
+  tSetModalSubtitle('Configure the match format for this division.');
+
   document.getElementById('t-modal-body').innerHTML = `
+    <button onclick="(function(){const m=document.querySelector('.t-modal');if(m)m.style.maxWidth='';tSetModalSubtitle('');closeTModal();})()"
+      style="position:absolute;top:14px;right:14px;width:30px;height:30px;border-radius:8px;border:0.5px solid #e0e7f5;background:white;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:10;"
+      onmouseover="this.style.background='#fde8d8';this.style.borderColor='rgba(229,57,53,0.3)'"
+      onmouseout="this.style.background='white';this.style.borderColor='#e0e7f5'">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#e53935" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+
+    <div style="display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:700;color:#174CCC;background:#e8f0ff;padding:3px 10px;border-radius:99px;border:0.5px solid #c5d6f5;margin-bottom:14px;">
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4a2 2 0 0 1-2-2V5h4"/><path d="M18 9h2a2 2 0 0 0 2-2V5h-4"/><path d="M12 17v4"/><path d="M8 21h8"/><path d="M6 9a6 6 0 0 0 12 0V3H6v6z"/></svg>
+      Division: ${tEsc(catName)}
+    </div>
+
     ${groupSection}
-    <div class="t-form-group">
-      <label class="t-label">Score format (round robin)</label>
-      <select class="t-input" id="t-rr-format">${RR_FORMAT_OPTIONS}</select>
+
+    <div style="display:grid;grid-template-columns:1fr 200px;gap:20px;">
+
+      <!-- LEFT: Format cards -->
+      <div>
+        <div style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#6b7a99;margin-bottom:10px;display:flex;align-items:center;gap:6px;">
+          <span style="width:3px;height:13px;border-radius:99px;background:#174CCC;display:inline-block;flex-shrink:0;"></span>Format Options
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          ${formatCardsHTML}
+        </div>
+      </div>
+
+      <!-- RIGHT: Intel + Info + Preview -->
+      <div style="display:flex;flex-direction:column;gap:12px;">
+
+        <!-- Division Intel -->
+        <div>
+          <div style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#6b7a99;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
+            <span style="width:3px;height:13px;border-radius:99px;background:#174CCC;display:inline-block;flex-shrink:0;"></span>Division Intel
+          </div>
+          <div style="background:#f8f9ff;border:0.5px solid #e0e7f5;border-radius:10px;padding:14px;">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+              <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:#0d1f4a;line-height:1;min-width:32px;">${numTeams}</div>
+              <div style="font-size:10px;font-weight:700;color:#6b7a99;">Teams</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+              <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:#0d1f4a;line-height:1;min-width:32px;">${matchCount}</div>
+              <div style="font-size:10px;font-weight:700;color:#6b7a99;">Matches to Generate</div>
+            </div>
+            <div style="border-top:0.5px solid #e0e7f5;margin:8px 0;"></div>
+            <div style="display:flex;align-items:center;gap:6px;font-size:10px;font-weight:800;color:#24BC96;">
+              <div style="width:6px;height:6px;border-radius:50%;background:#24BC96;"></div>
+              Round Robin Ready
+            </div>
+          </div>
+        </div>
+
+        <!-- Info card -->
+        <div style="background:#f8f9ff;border:0.5px solid #e0e7f5;border-radius:10px;padding:12px 14px;">
+          <div style="font-size:10px;font-weight:800;color:#0d1f4a;margin-bottom:5px;">Format applies to all RR matches</div>
+          <div style="font-size:10px;font-weight:600;color:#6b7a99;line-height:1.5;margin-bottom:4px;">This format will apply to all round robin matches in this division.</div>
+          <div style="font-size:10px;font-weight:600;color:#6b7a99;line-height:1.5;">Finals can later be configured independently.</div>
+        </div>
+
+        <!-- Preview card -->
+        <div style="background:#f0f4ff;border:1px solid #c5d6f5;border-radius:10px;padding:12px 14px;">
+          <div style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#174CCC;margin-bottom:8px;">This will generate</div>
+          <div style="display:flex;align-items:flex-start;gap:8px;font-size:10px;font-weight:600;color:#0d1f4a;margin-bottom:5px;">
+            <div style="width:5px;height:5px;border-radius:50%;background:#174CCC;flex-shrink:0;margin-top:3px;"></div>
+            ${matchCount} round robin matches
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:8px;font-size:10px;font-weight:600;color:#0d1f4a;margin-bottom:5px;">
+            <div style="width:5px;height:5px;border-radius:50%;background:#174CCC;flex-shrink:0;margin-top:3px;"></div>
+            Court rotation schedule
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:8px;font-size:10px;font-weight:600;color:#0d1f4a;">
+            <div style="width:5px;height:5px;border-radius:50%;background:#174CCC;flex-shrink:0;margin-top:3px;"></div>
+            Initial standings
+          </div>
+        </div>
+
+      </div>
     </div>
-    <p style="font-size:12px;color:#6b7a99;margin-bottom:20px;">
-      ${useGroups
-        ? 'This format applies to all matches inside each group.'
-        : 'This format applies to all round robin matches in this category.'}
-      Best of 3 / Best of 5 formats are available in the Finals section.
-    </p>
-    <div class="t-form-actions">
-      <button type="button" class="t-btn t-btn-ghost" onclick="closeTModal()">Cancel</button>
-      <button type="button" class="t-btn t-btn-primary" onclick="generateRR(${catId})">
-        Generate Schedule${useGroups ? ' & Groups' : ''}
+
+    <!-- Hidden input for generateRR to read — updated by card selection -->
+    <input type="hidden" id="t-rr-format" value="play11_win1">
+
+    <!-- Footer -->
+    <div style="display:flex;justify-content:flex-end;margin-top:20px;padding-top:14px;border-top:0.5px solid #e0e7f5;">
+      <button onclick="(function(){const m=document.querySelector('.t-modal');if(m)m.style.maxWidth='';tSetModalSubtitle('');generateRR(${catId});})()"
+        style="display:inline-flex;align-items:center;gap:7px;padding:11px 24px;border:none;border-radius:99px;background:linear-gradient(180deg,#2456d3 0%,#174CCC 100%);color:white;font-family:'Montserrat',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        Generate Round Robin${useGroups ? ' & Groups' : ''}
       </button>
-    </div>
-  `;
-  // Populate the "advancing per group" dropdown based on chosen group size.
+    </div>`;
+
+  openTModal();
+
+  // Wire group advancing dropdown if group stage
   if (useGroups) {
     const refreshAdvancing = () => {
       const sizeEl = document.getElementById('t-group-size');
-      const advEl = document.getElementById('t-finals-per-group');
+      const advEl  = document.getElementById('t-finals-per-group');
       if (!sizeEl || !advEl) return;
       const chosenSize = parseInt(sizeEl.value, 10);
       const chosen = tSuggestGroupSizes(numTeams).find(s => s.size === chosenSize);
       const minGroupSize = chosen ? Math.min(...chosen.distribution) : chosenSize;
-      // Can advance 1 to (minGroupSize - 1), with a sane cap of 5.
       const maxAdvance = Math.min(minGroupSize - 1, 5);
       let opts = '';
       for (let n = 1; n <= maxAdvance; n++) {
-        // Default to 2 if available, otherwise 1
         const isDefault = n === Math.min(2, maxAdvance);
         opts += `<option value="${n}" ${isDefault ? 'selected' : ''}>Top ${n} per group (${n * chosen.groups} total to bracket)</option>`;
       }
@@ -1377,8 +3213,29 @@ async function showRRFormatModal(catId) {
     refreshAdvancing();
     document.getElementById('t-group-size').addEventListener('change', refreshAdvancing);
   }
-  openTModal();
 }
+
+// ── Format card selection helper ──────────────────────────────────────────
+function rrSelectFormatCard(el, value) {
+  // Update all card styles
+  document.querySelectorAll('.rr-format-card').forEach(card => {
+    card.style.border = '1px solid #e0e7f5';
+    card.style.background = 'white';
+    card.style.boxShadow = 'none';
+    const check = card.querySelector('.rr-check-icon');
+    if (check) check.style.display = 'none';
+  });
+  // Apply selected style
+  el.style.border = '2px solid #174CCC';
+  el.style.background = 'rgba(23,76,204,0.05)';
+  el.style.boxShadow = '0 0 0 4px rgba(23,76,204,0.08)';
+  const check = el.querySelector('.rr-check-icon');
+  if (check) check.style.display = 'flex';
+  // Update hidden input for generateRR
+  const input = document.getElementById('t-rr-format');
+  if (input) input.value = value;
+}
+
 
 async function generateRR(catId) {
   const formatEl = document.getElementById('t-rr-format');
@@ -1753,8 +3610,52 @@ function buildBracketMatches(advancing, catId, format) {
 }
 
 // ─── SCORE ENTRY MODAL ──────────────────────────────────────
+// ── Bracket Builder helpers ───────────────────────────────────────────────
+function bbSelectTeams(btn, catId) {
+  const val = btn.dataset.val;
+  // Update hidden input
+  const inp = document.getElementById(`finals-size-${catId}`);
+  if (inp) inp.value = val;
+  // Update button styles
+  btn.closest('div').querySelectorAll('button').forEach(b => {
+    const active = b === btn;
+    b.style.background = active ? '#174CCC' : 'white';
+    b.style.color = active ? 'white' : '#6b7a99';
+    b.style.borderColor = active ? 'transparent' : '#e0e7f5';
+  });
+  // Update qualified teams preview to show correct number of teams
+  const previewEl = document.getElementById(`bb-preview-${catId}`);
+  if (!previewEl) return;
+  const rows = previewEl.querySelectorAll('[data-preview-row]');
+  rows.forEach(row => {
+    const idx = parseInt(row.dataset.previewRow);
+    row.style.display = idx < parseInt(val) ? '' : 'none';
+  });
+}
+
+function bbSelectFormat(btn, catId) {
+  const val = btn.dataset.val;
+  // Update hidden input
+  const inp = document.getElementById(`finals-score-format-${catId}`);
+  if (inp) inp.value = val;
+  // Update button styles
+  btn.closest('div').querySelectorAll('button').forEach(b => {
+    const active = b === btn;
+    b.style.background = active ? '#174CCC' : 'white';
+    b.style.color = active ? 'white' : '#6b7a99';
+    b.style.borderColor = active ? 'transparent' : '#e0e7f5';
+  });
+}
+
+function singleEliminationLabel(format) {
+  if (!format || format === 'single') return 'Single Elimination';
+  return format;
+}
+
+
 async function openScoreModal(type, matchId, teamAId, teamBId, catId) {
   if (!teamAId || !teamBId) { tToast('This match is waiting for previous results.', true); return; }
+
   let match;
   if (type === 'rr') {
     [match] = await tApi(`tournament_rr_matches?id=eq.${matchId}&select=*`);
@@ -1767,20 +3668,46 @@ async function openScoreModal(type, matchId, teamAId, teamBId, catId) {
   const teamA = tMap[teamAId];
   const teamB = tMap[teamBId];
   const isFinals = type === 'bracket';
-
-  document.getElementById('t-modal-title').textContent = isFinals ? `Finals — ${match.round_name}` : `Round ${match.round} — Court ${match.court}`;
   const bestOf = cat.best_of || 1;
-  // Show game-by-game entry when best_of > 1 (works for singles AND finals best-of formats)
   const singlesMatch = bestOf > 1;
   const existingGames = match.games || [];
-  document.getElementById('t-modal-body').innerHTML = `
-    <div class="t-score-modal">
-      <div class="t-score-rule">${isFinals ? '🏆 Finals: ' + (T_FORMATS[cat.finals_format_score] || 'Play to 11, win by 2') : '🏓 Round Robin: ' + (T_FORMATS[cat.rr_format] || 'Play to 11, win by 1')}${singlesMatch ? ' · Best of ' + bestOf : ''}</div>
+
+  // ── Format label ─────────────────────────────────────────────────────
+  const formatLabel = isFinals
+    ? (T_FORMATS[cat.finals_format_score] || 'Play to 11, win by 2')
+    : (T_FORMATS[cat.rr_format] || 'Play to 11, win by 1');
+  // Convert "Play to 11, win by 1" → "Play to 11 • Win by 1"
+  const formatDisplay = formatLabel.replace(', win by ', ' • Win by ').replace(', win by ', ' • Win by ');
+
+  // ── Subtitle: Round X • Court Y • Round Robin / Finals ───────────────
+  const subtitleText = isFinals
+    ? `${match.round_name} • Finals`
+    : `Round ${match.round} • Court ${match.court} • Round Robin`;
+
+  // ── Player names ──────────────────────────────────────────────────────
+  const teamAPlayers = getTeamPlayerNames(teamA) || '';
+  const teamBPlayers = getTeamPlayerNames(teamB) || '';
+
+  // ── Set modal title + subtitle ────────────────────────────────────────
+  document.getElementById('t-modal-title').textContent = 'Record Match Result';
+  tSetModalSubtitle(subtitleText);
+
+  // ── singlesMatch path — preserved unchanged ───────────────────────────
+  if (singlesMatch) {
+    document.getElementById('t-modal-body').innerHTML = `
+      <button onclick="tSetModalSubtitle('');closeTModal()"
+        style="position:absolute;top:14px;right:14px;width:30px;height:30px;border-radius:8px;border:0.5px solid #e0e7f5;background:white;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:10;"
+        onmouseover="this.style.background='#fde8d8';this.style.borderColor='rgba(229,57,53,0.3)'"
+        onmouseout="this.style.background='white';this.style.borderColor='#e0e7f5'">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#e53935" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+      <div style="font-size:12px;font-weight:600;color:#6b7a99;text-align:center;margin-bottom:16px;padding:8px;background:#f4f6fc;border-radius:8px;">
+        ${isFinals ? '🏆 Finals: ' : '🏓 Round Robin: '}${tEsc(formatLabel)} · Best of ${bestOf}
+      </div>
       <div class="t-form-group" style="margin-bottom:16px;">
         <label class="t-label">Court number</label>
         <input class="t-input" type="number" min="1" id="t-court-num" value="${match.court || ''}" placeholder="e.g. 5" style="max-width:120px;">
       </div>
-      ${singlesMatch ? `
       <div class="t-singles-header">
         <span class="t-singles-player-col">${tEsc(teamA?.name || '?')}</span>
         <span></span>
@@ -1793,47 +3720,175 @@ async function openScoreModal(type, matchId, teamAId, teamBId, catId) {
         <label class="t-forfeit-check-label"><input type="checkbox" id="t-forfeit-a" onchange="onForfeitCheck('a','b')"> ${tEsc(teamA?.name || '?')} Forfeit</label>
         <label class="t-forfeit-check-label"><input type="checkbox" id="t-forfeit-b" onchange="onForfeitCheck('b','a')"> ${tEsc(teamB?.name || '?')} Forfeit</label>
       </div>
-      <div id="t-score-preview" class="t-score-preview" style="margin-top:12px;"></div>
-      ` : `
-      <div class="t-score-teams">
-        <div class="t-score-team">
-          <div class="t-score-team-name">${tEsc(teamA?.name || '?')}</div>
-          <input class="t-score-input" type="number" min="0" max="25" id="t-score-a" value="${match.score_a ?? ''}" placeholder="0">
-          <label class="t-forfeit-check-label">
-            <input type="checkbox" id="t-forfeit-a" onchange="onForfeitCheck('a','b')"> Forfeit
-          </label>
+      <div id="t-score-preview" style="text-align:center;min-height:28px;margin-top:12px;"></div>
+      <div style="display:flex;justify-content:flex-end;margin-top:16px;padding-top:12px;border-top:0.5px solid #e0e7f5;">
+        <button type="button" onclick="saveMatch('${type}',${matchId},${teamAId},${teamBId},${catId})"
+          style="display:inline-flex;align-items:center;gap:7px;padding:10px 24px;border:none;border-radius:99px;background:linear-gradient(180deg,#2456d3,#174CCC);color:white;font-family:'Montserrat',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          Save Result
+        </button>
+      </div>`;
+    openTModal();
+    return;
+  }
+
+  // ── Standard RR / bracket doubles modal — new design ─────────────────
+  const scoreAVal = match.score_a ?? '';
+  const scoreBVal = match.score_b ?? '';
+
+  document.getElementById('t-modal-body').innerHTML = `
+    <button onclick="tSetModalSubtitle('');closeTModal()"
+      style="position:absolute;top:14px;right:14px;width:30px;height:30px;border-radius:8px;border:0.5px solid #e0e7f5;background:white;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:10;"
+      onmouseover="this.style.background='#fde8d8';this.style.borderColor='rgba(229,57,53,0.3)'"
+      onmouseout="this.style.background='white';this.style.borderColor='#e0e7f5'">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#e53935" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+
+    <!-- Format badge -->
+    <div style="margin-bottom:14px;">
+      <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:8px;background:rgba(23,76,204,0.06);border:1px solid rgba(23,76,204,0.12);color:#174CCC;font-size:11px;font-weight:700;">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        Format: ${tEsc(formatDisplay)}
+      </span>
+    </div>
+
+    <!-- Court number -->
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+      <span style="font-size:11px;font-weight:700;color:#6b7a99;">Court:</span>
+      <input type="number" min="1" id="t-court-num" value="${match.court || ''}"
+        style="width:72px;height:36px;text-align:center;border:1px solid #e0e7f5;border-radius:8px;font-family:'Montserrat',sans-serif;font-size:14px;font-weight:800;color:#0d1f4a;outline:none;"
+        onfocus="this.style.borderColor='#174CCC';this.style.boxShadow='0 0 0 4px rgba(23,76,204,0.08)'"
+        onblur="this.style.borderColor='#e0e7f5';this.style.boxShadow='none'">
+    </div>
+
+    <div style="border-top:0.5px solid #e0e7f5;margin-bottom:16px;"></div>
+
+    <!-- Match card: 3-column grid -->
+    <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;margin-bottom:16px;">
+
+      <!-- Team A -->
+      <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
+        <div style="font-size:13px;font-weight:800;color:#0d1f4a;text-align:center;">${tEsc(teamA?.name || '?')}</div>
+        ${teamAPlayers ? `<div style="font-size:10px;font-weight:600;color:#6b7a99;text-align:center;line-height:1.4;">${tEsc(teamAPlayers).replace(' & ','<br>')}</div>` : ''}
+        <input type="number" min="0" max="99" id="t-score-a" value="${scoreAVal}" placeholder="0"
+          oninput="smLiveUpdate('${tEsc(teamA?.name || '?')}','${tEsc(teamB?.name || '?')}')"
+          style="width:96px;height:72px;font-size:36px;font-weight:800;text-align:center;border-radius:16px;border:1px solid rgba(23,76,204,0.14);background:white;font-family:'Montserrat',sans-serif;color:#0d1f4a;outline:none;"
+          onfocus="this.style.borderColor='#174CCC';this.style.boxShadow='0 0 0 4px rgba(23,76,204,0.08)'"
+          onblur="this.style.borderColor=document.getElementById('sm-score-a-winner')?'rgba(36,188,150,0.22)':'rgba(23,76,204,0.14)';this.style.boxShadow='none'">
+        <div id="sm-forfeit-a"
+          onclick="smToggleForfeit('a')"
+          style="display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:99px;border:1px solid #e0e7f5;background:#f8f9ff;font-size:10px;font-weight:700;color:#6b7a99;cursor:pointer;user-select:none;">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+          Forfeit
         </div>
-        <div class="t-score-divider">VS</div>
-        <div class="t-score-team">
-          <div class="t-score-team-name">${tEsc(teamB?.name || '?')}</div>
-          <input class="t-score-input" type="number" min="0" max="25" id="t-score-b" value="${match.score_b ?? ''}" placeholder="0">
-          <label class="t-forfeit-check-label">
-            <input type="checkbox" id="t-forfeit-b" onchange="onForfeitCheck('b','a')"> Forfeit
-          </label>
-        </div>
+        <!-- Hidden checkbox for saveMatch compatibility -->
+        <input type="checkbox" id="t-forfeit-a" onchange="onForfeitCheck('a','b')" style="display:none;">
       </div>
-      <div id="t-score-preview" class="t-score-preview"></div>
-      `}
+
+      <!-- VS -->
+      <div style="display:flex;flex-direction:column;align-items:center;gap:6px;padding-top:24px;">
+        <div style="font-size:12px;font-weight:800;color:#b0bbd6;letter-spacing:1px;">VS</div>
+      </div>
+
+      <!-- Team B -->
+      <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
+        <div style="font-size:13px;font-weight:800;color:#0d1f4a;text-align:center;">${tEsc(teamB?.name || '?')}</div>
+        ${teamBPlayers ? `<div style="font-size:10px;font-weight:600;color:#6b7a99;text-align:center;line-height:1.4;">${tEsc(teamBPlayers).replace(' & ','<br>')}</div>` : ''}
+        <input type="number" min="0" max="99" id="t-score-b" value="${scoreBVal}" placeholder="0"
+          oninput="smLiveUpdate('${tEsc(teamA?.name || '?')}','${tEsc(teamB?.name || '?')}')"
+          style="width:96px;height:72px;font-size:36px;font-weight:800;text-align:center;border-radius:16px;border:1px solid rgba(23,76,204,0.14);background:white;font-family:'Montserrat',sans-serif;color:#0d1f4a;outline:none;"
+          onfocus="this.style.borderColor='#174CCC';this.style.boxShadow='0 0 0 4px rgba(23,76,204,0.08)'"
+          onblur="this.style.borderColor=document.getElementById('sm-score-b-winner')?'rgba(36,188,150,0.22)':'rgba(23,76,204,0.14)';this.style.boxShadow='none'">
+        <div id="sm-forfeit-b"
+          onclick="smToggleForfeit('b')"
+          style="display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:99px;border:1px solid #e0e7f5;background:#f8f9ff;font-size:10px;font-weight:700;color:#6b7a99;cursor:pointer;user-select:none;">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+          Forfeit
+        </div>
+        <!-- Hidden checkbox for saveMatch compatibility -->
+        <input type="checkbox" id="t-forfeit-b" onchange="onForfeitCheck('b','a')" style="display:none;">
+      </div>
+
     </div>
-    <div class="t-form-actions">
-      <button type="button" class="t-btn t-btn-ghost" onclick="closeTModal()">Cancel</button>
-      <button type="button" class="t-btn t-btn-primary" onclick="saveMatch('${type}', ${matchId}, ${teamAId}, ${teamBId}, ${catId})">Save</button>
+
+    <div style="border-top:0.5px solid #e0e7f5;margin-bottom:14px;"></div>
+
+    <!-- Winner feedback — shown when scores differ -->
+    <div id="sm-winner-feedback" style="display:none;background:rgba(36,188,150,0.08);border:1px solid rgba(36,188,150,0.22);border-radius:10px;padding:10px 14px;display:none;align-items:center;gap:8px;margin-bottom:14px;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#085041" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      <div id="sm-winner-text" style="font-size:12px;font-weight:800;color:#085041;"></div>
     </div>
-  `;
-    // Live score preview
-  ['t-score-a', 't-score-b'].forEach(id => {
-    document.getElementById(id)?.addEventListener('input', () => {
-      const sa = parseInt(document.getElementById('t-score-a').value);
-      const sb = parseInt(document.getElementById('t-score-b').value);
-      const prev = document.getElementById('t-score-preview');
-      if (!isNaN(sa) && !isNaN(sb)) {
-        const winner = sa > sb ? teamA?.name : teamB?.name;
-        prev.innerHTML = `<span class="t-preview-winner">🏆 Winner: <strong>${winner}</strong></span>`;
-      } else { prev.innerHTML = ''; }
-    });
-  });
+
+    <!-- Footer -->
+    <div style="display:flex;justify-content:flex-end;">
+      <button onclick="saveMatch('${type}',${matchId},${teamAId},${teamBId},${catId})"
+        style="display:inline-flex;align-items:center;gap:7px;padding:11px 28px;border:none;border-radius:99px;background:linear-gradient(180deg,#2456d3,#174CCC);color:white;font-family:'Montserrat',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        Save Result
+      </button>
+    </div>`;
+
   openTModal();
+
+  // Pre-activate forfeit pill if this match already has a forfeit recorded
+  if (match.forfeit_team_id) {
+    if (match.forfeit_team_id === teamAId) smToggleForfeit('a');
+    else if (match.forfeit_team_id === teamBId) smToggleForfeit('b');
+  }
+
+  // Trigger live update if existing scores are present
+  if (scoreAVal !== '' || scoreBVal !== '') {
+    smLiveUpdate(teamA?.name || '?', teamB?.name || '?');
+  }
 }
+
+// ── Score modal live helpers ──────────────────────────────────────────────
+function smLiveUpdate(nameA, nameB) {
+  const sa = parseInt(document.getElementById('t-score-a')?.value);
+  const sb = parseInt(document.getElementById('t-score-b')?.value);
+  const inputA = document.getElementById('t-score-a');
+  const inputB = document.getElementById('t-score-b');
+  const fb = document.getElementById('sm-winner-feedback');
+  const ft = document.getElementById('sm-winner-text');
+
+  // Reset score input colors
+  if (inputA) { inputA.style.background = 'white'; inputA.style.borderColor = 'rgba(23,76,204,0.14)'; }
+  if (inputB) { inputB.style.background = 'white'; inputB.style.borderColor = 'rgba(23,76,204,0.14)'; }
+
+  if (!isNaN(sa) && !isNaN(sb) && sa !== sb) {
+    const winnerName = sa > sb ? nameA : nameB;
+    const winScore = Math.max(sa, sb);
+    const loseScore = Math.min(sa, sb);
+    if (ft) ft.textContent = `🏆 ${winnerName} wins · ${winScore} – ${loseScore}`;
+    if (fb) fb.style.display = 'flex';
+    // Highlight winner score input in green
+    const winInput = sa > sb ? inputA : inputB;
+    if (winInput) { winInput.style.background = 'rgba(36,188,150,0.08)'; winInput.style.borderColor = 'rgba(36,188,150,0.22)'; }
+  } else {
+    if (fb) fb.style.display = 'none';
+  }
+}
+
+function smToggleForfeit(side) {
+  const pill = document.getElementById(`sm-forfeit-${side}`);
+  const cb   = document.getElementById(`t-forfeit-${side}`);
+  if (!pill || !cb) return;
+  const isActive = cb.checked;
+  // Toggle
+  cb.checked = !isActive;
+  cb.dispatchEvent(new Event('change'));
+  // Update pill visual
+  if (!isActive) {
+    pill.style.background = 'rgba(242,96,36,0.12)';
+    pill.style.border = '1px solid rgba(242,96,36,0.24)';
+    pill.style.color = '#F26024';
+  } else {
+    pill.style.background = '#f8f9ff';
+    pill.style.border = '1px solid #e0e7f5';
+    pill.style.color = '#6b7a99';
+  }
+}
+
 
 async function saveMatch(type, matchId, teamAId, teamBId, catId) {
   // ── Court number ─────────────────────────────────────────────────────
@@ -1853,30 +3908,76 @@ async function saveMatch(type, matchId, teamAId, teamBId, catId) {
 
   if (forfeitA || forfeitB) {
     const forfeitTeamId = forfeitA ? teamAId : teamBId;
-    const teams = await tApi(`tournament_teams?category_id=eq.${catId}&select=id,name`);
-    const tMap = {}; teams.forEach(t => tMap[t.id] = t);
-    const forfeitTeamName = tMap[forfeitTeamId]?.name || 'This team';
 
-    document.getElementById('t-modal-title').textContent = 'Confirm Forfeit';
+    // Fetch full team data (with players) + match round/court for subtitle
+    const [forfeitTeamData, matchData] = await Promise.all([
+      tApi(`tournament_teams?id=eq.${forfeitTeamId}&select=*`).then(r => r[0]),
+      type === 'rr'
+        ? tApi(`tournament_rr_matches?id=eq.${matchId}&select=round,court`).then(r => r[0])
+        : tApi(`tournament_bracket_matches?id=eq.${matchId}&select=round_name`).then(r => r[0]),
+    ]);
+
+    const forfeitTeamName = forfeitTeamData?.name || 'This team';
+    const playerNames = getTeamPlayerNames(forfeitTeamData) || '';
+
+    // Subtitle: "Round 2 • Court 2 • Round Robin" or "Finals • Semifinals"
+    const subtitleText = type === 'rr'
+      ? `Round ${matchData?.round || '?'} • Court ${courtNum} • Round Robin`
+      : `${matchData?.round_name || 'Finals'}`;
+
+    document.getElementById('t-modal-title').textContent = 'Confirm Team Withdrawal';
+    tSetModalSubtitle(subtitleText);
+
     document.getElementById('t-modal-body').innerHTML = `
-      <div style="padding:8px 0 20px;">
-        <div style="background:#fde8d8;border-left:4px solid #F26024;border-radius:0 8px 8px 0;padding:14px 16px;margin-bottom:16px;">
-          <div style="font-size:13px;font-weight:800;color:#F26024;margin-bottom:4px;">⚠️ Forfeit — Full Withdrawal</div>
-          <div style="font-size:13px;color:#0d1f4a;line-height:1.6;">
-            <strong>${forfeitTeamName}</strong> will be marked as forfeited and withdrawn from this tournament.
-            All their remaining matches will be automatically scored in favor of their opponents.
-            This action cannot be undone.
-          </div>
+      <button onclick="tSetModalSubtitle('');closeTModal()"
+        style="position:absolute;top:14px;right:14px;width:30px;height:30px;border-radius:8px;border:0.5px solid #e0e7f5;background:white;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:10;"
+        onmouseover="this.style.background='#fde8d8';this.style.borderColor='rgba(229,57,53,0.3)'"
+        onmouseout="this.style.background='white';this.style.borderColor='#e0e7f5'">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#e53935" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+
+      <!-- Warning box -->
+      <div style="background:rgba(242,96,36,0.06);border:1px solid rgba(242,96,36,0.18);border-radius:10px;padding:14px 16px;margin-bottom:12px;">
+
+        <!-- Warning title -->
+        <div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:800;color:#c04a0e;margin-bottom:10px;">
+          <span style="font-size:14px;">⚠</span> Team Withdrawal
         </div>
-        <p style="font-size:13px;color:#6b7a99;line-height:1.6;">
-          Are you sure you want to proceed with the forfeit for <strong>${forfeitTeamName}</strong>?
-        </p>
+
+        <!-- Team badge -->
+        <div style="background:rgba(242,96,36,0.06);border:1px solid rgba(242,96,36,0.14);border-radius:8px;padding:10px 14px;margin-bottom:10px;">
+          <div style="font-size:14px;font-weight:800;color:#c04a0e;margin-bottom:3px;">${tEsc(forfeitTeamName)}</div>
+          ${playerNames ? `<div style="font-size:11px;font-weight:600;color:#9a3a0a;">${tEsc(playerNames)}</div>` : ''}
+        </div>
+
+        <!-- Body text -->
+        <div style="font-size:12px;font-weight:600;color:#0d1f4a;line-height:1.55;margin-bottom:6px;">
+          <strong>${tEsc(forfeitTeamName)}</strong> will be withdrawn from this category.
+        </div>
+        <div style="font-size:12px;font-weight:600;color:#0d1f4a;line-height:1.55;margin-bottom:6px;">
+          Remaining matches will be automatically recorded as forfeits in favor of their opponents.
+        </div>
+        <div style="font-size:11px;font-weight:700;color:#c04a0e;margin-top:4px;">
+          This action cannot be undone.
+        </div>
       </div>
-      <div class="t-form-actions">
-        <button type="button" class="t-btn t-btn-ghost" onclick="openScoreModal('${type}', ${matchId}, ${teamAId}, ${teamBId}, ${catId})">Go Back</button>
-        <button type="button" class="t-btn t-btn-danger" onclick="processForfeit('${type}', ${matchId}, ${teamAId}, ${teamBId}, ${catId}, ${forfeitTeamId}, ${courtNum})">Confirm Forfeit</button>
+
+      <!-- Bottom note -->
+      <div style="font-size:10px;font-weight:600;color:#b0bbd6;text-align:center;margin-bottom:4px;">
+        Standings and remaining matches will update automatically.
       </div>
-    `;
+
+      <!-- Footer -->
+      <div style="display:flex;justify-content:center;padding-top:10px;border-top:0.5px solid #e0e7f5;margin-top:6px;">
+        <button
+          onclick="tSetModalSubtitle('');processForfeit('${type}', ${matchId}, ${teamAId}, ${teamBId}, ${catId}, ${forfeitTeamId}, ${courtNum})"
+          style="display:inline-flex;align-items:center;gap:7px;padding:11px 32px;border:none;border-radius:99px;background:#F26024;color:white;font-family:'Montserrat',sans-serif;font-size:13px;font-weight:700;cursor:pointer;"
+          onmouseover="this.style.background='#db531d'"
+          onmouseout="this.style.background='#F26024'">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+          Confirm Withdrawal
+        </button>
+      </div>`;
     return;
   }
 
@@ -2176,35 +4277,6 @@ function onForfeitCheck(checked, other) {
   if (otherCb && otherCb.checked) otherCb.checked = false;
 }
 
-async function openEditTournament(id) {
-  const [t] = await tApi(`tournaments?id=eq.${id}&select=*`);
-  if (!t) return;
-  document.getElementById('t-modal-title').textContent = 'Edit Tournament';
-  document.getElementById('t-modal-body').innerHTML =
-    '<form id="t-edit-tournament-form" onsubmit="saveEditTournament(event,' + id + ')">'
-    + '<div class="t-form-group"><label class="t-label">Tournament name *</label>'
-    + '<input class="t-input" type="text" id="t-edit-t-name" required value="' + (t.name||'').replace(/"/g,'&quot;') + '"></div>'
-    + '<div class="t-form-group"><label class="t-label">Date</label>'
-    + '<input class="t-input" type="date" id="t-edit-t-date" value="' + (t.date||'') + '"></div>'
-    + '<div class="t-form-actions">'
-    + '<button type="button" class="t-btn t-btn-ghost" onclick="closeTModal()">Cancel</button>'
-    + '<button type="submit" class="t-btn t-btn-primary">Save Changes</button>'
-    + '</div></form>';
-  openTModal();
-}
-
-async function saveEditTournament(e, id) {
-  e.preventDefault();
-  const name = document.getElementById('t-edit-t-name').value.trim();
-  const date = document.getElementById('t-edit-t-date').value || null;
-  if (!name) { tToast('Please enter a tournament name.', true); return; }
-  try {
-    await tApi(`tournaments?id=eq.${id}`, 'PATCH', { name, date });
-    tToast('Tournament updated!');
-    closeTModal();
-    openTournament(id);
-  } catch(err) { tToast(`Error: ${err.message}`, true); }
-}
 
 function restoreScoreModal(title, body) {
   document.getElementById('t-modal-title').textContent = title;
@@ -2214,6 +4286,12 @@ function restoreScoreModal(title, body) {
 // ─── MODAL HELPERS ──────────────────────────────────────────
 function openTModal() { document.getElementById('t-modal').classList.add('t-modal-open'); }
 function closeTModal() { document.getElementById('t-modal').classList.remove('t-modal-open'); }
+function tSetModalSubtitle(text) {
+  const el = document.getElementById('t-modal-subtitle');
+  if (!el) return;
+  if (text) { el.textContent = text; el.style.display = 'block'; }
+  else { el.textContent = ''; el.style.display = 'none'; }
+}
 // (tToast is defined at the top of this file as a shim around the shared toast.)
 
 // ─── SINGLES HELPERS ────────────────────────────────────────
@@ -2319,7 +4397,8 @@ function calcBestOfWinner(bestOf, teamAId, teamBId, gameScores) {
 
 /* ─── PRINT TOURNAMENT ROSTER ─────────────────────────── */
 async function printTournamentRoster(btn) {
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ Generating...'; }
+  const printBtnOrigHTML = btn ? btn.innerHTML : '';
+  if (btn) { btn.disabled = true; btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>'; }
 
   try {
     // Read all data from button attributes — safe, no JSON injection risk
@@ -2613,6 +4692,6 @@ async function printTournamentRoster(btn) {
     tToast(`Error generating PDF: ${err.message}`, true);
     console.error('[printTournamentRoster]', err);
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = '📄 Print Roster'; }
+    if (btn) { btn.disabled = false; btn.innerHTML = printBtnOrigHTML; }
   }
 }
