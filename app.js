@@ -2380,14 +2380,14 @@
               <div class="blue-tag mb-8">Team A</div>
               <select id="extraA1-4" class="full-width mb-6" style="font-size:12px;font-family:Montserrat,sans-serif;"><option value="">Player 1</option>${playerOpts}</select>
               <select id="extraA2-4" class="full-width mb-8" style="font-size:12px;font-family:Montserrat,sans-serif;"><option value="">Player 2</option>${playerOpts}</select>
-              <input type="text" inputmode="numeric" placeholder="Enter score" value="--" id="scoreA-4" data-egame="4" data-eteam="A" class="full-width score-input">
+              <input type="number" min="0" max="11" placeholder="Score" id="scoreA-4" data-egame="4" data-eteam="A" class="full-width score-input">
             </div>
             <div class="vs-tag"><span>VS</span></div>
             <div class="team-pad-teal-l" style="text-align:center;">
               <div class="label-tag mb-8" style="color:var(--teal);">Team B</div>
               <select id="extraB1-4" class="full-width mb-6" style="font-size:12px;font-family:Montserrat,sans-serif;"><option value="">Player 1</option>${playerOpts}</select>
               <select id="extraB2-4" class="full-width mb-8" style="font-size:12px;font-family:Montserrat,sans-serif;"><option value="">Player 2</option>${playerOpts}</select>
-              <input type="text" inputmode="numeric" placeholder="Enter score" value="--" id="scoreB-4" data-egame="4" data-eteam="B" class="full-width score-input">
+              <input type="number" min="0" max="11" placeholder="Score" id="scoreB-4" data-egame="4" data-eteam="B" class="full-width score-input">
             </div>
           </div>
           <div id="pts-preview-4" class="points-preview"></div>
