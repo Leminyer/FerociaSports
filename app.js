@@ -2444,13 +2444,13 @@
           <div class="team-pad-blue">
             <div class="blue-tag mb-6">Team A</div>
             <div style="font-size:16px;font-weight:800;color:var(--text);margin-bottom:10px;min-height:40px;line-height:1.3;">${esc(teamANames)}</div>
-            <input type="text" inputmode="numeric" placeholder="Enter score" value="--" id="scoreA-${gameNum}" data-autoscore="${gameNum}" class="score-input">
+            <input type="number" min="0" max="11" placeholder="Score" id="scoreA-${gameNum}" data-autoscore="${gameNum}" class="score-input">
           </div>
           <div class="vs-tag"><span>VS</span></div>
           <div class="team-pad-teal">
             <div class="label-tag mb-6" style="color:var(--teal);">Team B</div>
             <div style="font-size:16px;font-weight:800;color:var(--text);margin-bottom:10px;min-height:40px;line-height:1.3;">${esc(teamBNames)}</div>
-            <input type="text" inputmode="numeric" placeholder="Enter score" value="--" id="scoreB-${gameNum}" data-autoscore="${gameNum}" class="score-input">
+            <input type="number" min="0" max="11" placeholder="Score" id="scoreB-${gameNum}" data-autoscore="${gameNum}" class="score-input">
           </div>
         </div>
         <div id="pts-preview-${gameNum}" class="points-preview"></div>
@@ -2553,14 +2553,14 @@
             <div class="blue-tag mb-8">Team A</div>
             <select id="extraA1-${gameNum}" class="full-width mb-6" style="font-size:12px;font-family:Montserrat,sans-serif;"><option value="">Player 1</option>${playerOpts}</select>
             <select id="extraA2-${gameNum}" class="full-width mb-8" style="font-size:12px;font-family:Montserrat,sans-serif;"><option value="">Player 2</option>${playerOpts}</select>
-            <input type="text" inputmode="numeric" placeholder="Enter score" value="--" id="scoreA-${gameNum}" data-egame="${gameNum}" data-eteam="A" class="full-width score-input">
+            <input type="number" min="0" max="11" placeholder="Score" id="scoreA-${gameNum}" data-egame="${gameNum}" data-eteam="A" class="full-width score-input">
           </div>
           <div class="vs-tag"><span>VS</span></div>
           <div class="team-pad-teal-l" style="text-align:center;">
             <div class="label-tag mb-8" style="color:var(--teal);">Team B</div>
             <select id="extraB1-${gameNum}" class="full-width mb-6" style="font-size:12px;font-family:Montserrat,sans-serif;"><option value="">Player 1</option>${playerOpts}</select>
             <select id="extraB2-${gameNum}" class="full-width mb-8" style="font-size:12px;font-family:Montserrat,sans-serif;"><option value="">Player 2</option>${playerOpts}</select>
-            <input type="text" inputmode="numeric" placeholder="Enter score" value="--" id="scoreB-${gameNum}" data-egame="${gameNum}" data-eteam="B" class="full-width score-input">
+            <input type="number" min="0" max="11" placeholder="Score" id="scoreB-${gameNum}" data-egame="${gameNum}" data-eteam="B" class="full-width score-input">
           </div>
         </div>
         <div id="pts-preview-${gameNum}" class="points-preview"></div>
