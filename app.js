@@ -3891,6 +3891,27 @@
       };
 
       await api('players', 'POST', body);
+
+      // Auto-subscribe: save to subscribers table if email provided and not already subscribed
+      if (email) {
+        try {
+          const existingSub = await api(`subscribers?email=ilike.${encodeURIComponent(email)}&first_name=ilike.${encodeURIComponent(firstName)}&last_name=ilike.${encodeURIComponent(lastName)}&select=id&limit=1`);
+          if (!existingSub.length) {
+            await api('subscribers', 'POST', {
+              first_name:    firstName,
+              last_name:     lastName,
+              email:         email,
+              phone:         body.phone || null,
+              skill_level:   body.skill_level || null,
+              status:        'active',
+              subscribed_at: new Date().toISOString(),
+            });
+          }
+        } catch (_) {
+          // Non-critical — player was saved, subscriber insert failed silently
+        }
+      }
+
       toast(`${body.first_name} ${body.last_name} added successfully!`);
       const form = document.getElementById('add-player-form');
       if (form) form.reset();
