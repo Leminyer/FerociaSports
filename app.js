@@ -5541,6 +5541,57 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     }
   };
 
+  const sendTestPromoEmail = async () => {
+    if (_emailInFlight) { toast('Please wait for the current send to finish.', true); return; }
+
+    const subject = document.getElementById('promo-subject').value.trim();
+    const editor  = document.getElementById('promo-message');
+    const message = editor ? editor.innerText.trim() : '';
+    const campaignType = document.getElementById('promo-campaign-type')?.value || 'Other';
+
+    // Resolve flyer URL same as real send
+    let promoFlyerUrl = '';
+    if (campaignType === 'Tournament' || campaignType === 'Ladder') {
+      const sel = document.getElementById('promo-event-select');
+      if (!sel || !sel.value) { toast('Please select an event first.', true); return; }
+      promoFlyerUrl = document.getElementById('promo-event-flyer-url')?.value || '';
+    } else if (campaignType === 'Other') {
+      promoFlyerUrl = document.getElementById('promo-other-flyer-url')?.value.trim() || '';
+    }
+
+    if (!subject || !message) {
+      toast('Please fill in the subject and message before sending a test.', true);
+      return;
+    }
+
+    const testBtn = document.getElementById('promo-test-btn');
+    const origHTML = testBtn.innerHTML;
+    testBtn.disabled = true;
+    testBtn.innerHTML = 'Sending test...';
+
+    try {
+      emailjs.init({ publicKey: CFG.EMAILJS.PUBLIC_KEY });
+      const ok = await sendOneEmail(CFG.EMAILJS.SERVICE, CFG.EMAILJS.TEMPLATES.PROMO, {
+        player_name:     'Ferocia Admin',
+        player_email:    CFG.ADMIN_EMAIL,
+        subject:         `[TEST] ${subject}`,
+        message:         message,
+        unsubscribe_url: '',
+        flyer_url:       promoFlyerUrl || '',
+      });
+      if (ok) {
+        toast(`✅ Test email sent to ${CFG.ADMIN_EMAIL}`);
+      } else {
+        toast('Test email failed. Check your EmailJS config.', true);
+      }
+    } catch (err) {
+      toast(`Error: ${err.message}`, true);
+    } finally {
+      testBtn.disabled = false;
+      testBtn.innerHTML = origHTML;
+    }
+  };
+
   const sendPromoEmail = async (e) => {
     e.preventDefault();
     const subject = document.getElementById('promo-subject').value.trim();
@@ -5918,6 +5969,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     sleep,
     showPage,
     openTournamentNotifyModal,  // called by tournament.js notify button
+    sendTestPromoEmail,
   };
 
   // Track auth state so tournament.js can wait on it too
