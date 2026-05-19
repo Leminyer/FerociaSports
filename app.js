@@ -1586,6 +1586,17 @@
 
   /* ─── SESSIONS ─────────────────────────────────────────── */
 
+  window.toggleNoShowPenalty = async (matchId, currentPts) => {
+    const newPts = currentPts < 0 ? 0 : -4;
+    try {
+      await api(`matches?id=eq.${matchId}`, 'PATCH', { points_earned: newPts });
+      toast(`Penalty updated to ${newPts} pts`);
+      loadSessions();
+    } catch (err) {
+      toast(`Error: ${err.message}`, true);
+    }
+  };
+
   const loadSessions = async () => {
     if (!currentLadder) {
       document.getElementById('sessions-list').innerHTML =
@@ -1611,9 +1622,14 @@
       const grouped = {};
       matches.forEach((m) => {
         const key = `${m.session_date}__${m.court_group}`;
-        if (!grouped[key]) grouped[key] = { date: m.session_date, group: m.court_group, games: {} };
-        if (!grouped[key].games[m.game_number]) grouped[key].games[m.game_number] = [];
-        grouped[key].games[m.game_number].push(m);
+        if (!grouped[key]) grouped[key] = { date: m.session_date, group: m.court_group, games: {}, noShow: [] };
+        if (m.default_no_show) {
+          // No-show rows stored separately — never inside a game slot
+          grouped[key].noShow.push(m);
+        } else {
+          if (!grouped[key].games[m.game_number]) grouped[key].games[m.game_number] = [];
+          grouped[key].games[m.game_number].push(m);
+        }
       });
 
       // Group courts by date
@@ -1805,6 +1821,22 @@
           const courtPending = courtGames.some(m => !m.default_no_show && m.score_for === null);
           const sessionMatchIds = courtGames.map(m => m.id).join(',');
 
+          // Build no-show banner HTML for court level display
+          const noShowBannerHtml = s.noShow && s.noShow.length ? s.noShow.map(ns => {
+            const name = ns.players ? `${esc(ns.players.first_name)} ${esc(ns.players.last_name)}` : 'Unknown';
+            const pts  = ns.points_earned;
+            const isPenalty = pts < 0;
+            return `<div style="display:flex;align-items:center;gap:8px;margin-top:8px;padding:7px 12px;background:var(--orange-light);border:1px solid rgba(242,96,36,0.2);border-radius:8px;flex-wrap:wrap;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              <span style="font-size:12px;font-weight:800;color:var(--orange);">No-show: ${name}</span>
+              <span style="font-size:11px;font-weight:700;color:var(--orange);">${pts} pts</span>
+              <button onclick="toggleNoShowPenalty(${ns.id}, ${pts})"
+                style="margin-left:auto;padding:3px 10px;border:1px solid rgba(242,96,36,0.3);border-radius:99px;background:white;color:var(--orange);font-family:'Montserrat',sans-serif;font-size:10px;font-weight:700;cursor:pointer;">
+                Change to ${isPenalty ? '0 pts (excused)' : '-4 pts (penalty)'}
+              </button>
+            </div>`;
+          }).join('') : '';
+
           html += `<div class="court-block">
             <div class="court-block-hdr">
               <span class="court-block-label">Court ${s.group}${courtPending ? ' <span style="font-size:9px;font-weight:800;color:var(--orange);background:var(--orange-light);padding:1px 6px;border-radius:99px;text-transform:uppercase;margin-left:6px;">Pending</span>' : ''}</span>
@@ -1812,12 +1844,12 @@
                 <button class="sess-edit-btn" data-action="editSession" data-matchids="${sessionMatchIds}" data-date="${esc(s.date)}" data-court="${s.group}" title="Edit session">${editSVG}</button>
                 <button class="sess-edit-btn" data-action="deleteSession" data-matchids="${sessionMatchIds}" data-date="${esc(s.date)}" data-court="${s.group}" title="Delete session" style="border-color:rgba(229,57,53,0.3);"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#e53935" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
               </div>
-            </div>`;
+            </div>
+            ${noShowBannerHtml}`;
 
           // Game rows — team-based layout
           Object.entries(s.games).forEach(([gnum, players]) => {
             const gameIds = players.map(p => p.id).join(',');
-            const noShowPlayers = players.filter(p => p.default_no_show);
             const [teamA, teamB] = buildTeams(players);
             const isPending = players.some(p => p.score_for === null && !p.default_no_show);
 
@@ -1869,20 +1901,12 @@
             const aWins  = scoreA !== null && scoreB !== null && scoreA > scoreB;
             const bWins  = scoreA !== null && scoreB !== null && scoreB > scoreA;
 
-            const noShowHtml = noShowPlayers.length ? `
-              <div style="display:flex;align-items:center;gap:6px;margin-top:5px;padding:3px 10px;background:var(--orange-light);border-radius:99px;font-size:10px;font-weight:700;color:var(--orange);width:fit-content;">
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                No-show: ${noShowPlayers.map(p => p.players ? `${esc(p.players.first_name)} ${esc(p.players.last_name)}` : '').join(', ')} &nbsp;·&nbsp; ${noShowPlayers[0].points_earned} pts
-              </div>` : '';
             html += `<div class="sess-game-row">
               <span class="sess-game-label">Game ${gnum}</span>
-              <div class="sess-game-body-wrap" style="flex:1;">
-                <div class="sess-game-body">
-                  ${renderTeam(teamA, aWins)}
-                  <div class="sess-vs"><div class="sess-vs-line"></div><span>VS</span><div class="sess-vs-line"></div></div>
-                  ${renderTeam(teamB, bWins)}
-                </div>
-                ${noShowHtml}
+              <div class="sess-game-body">
+                ${renderTeam(teamA, aWins)}
+                <div class="sess-vs"><div class="sess-vs-line"></div><span>VS</span><div class="sess-vs-line"></div></div>
+                ${renderTeam(teamB, bWins)}
               </div>
               <button class="sess-edit-btn" data-action="editGame" data-gameids="${gameIds}" data-gnum="${gnum}" data-date="${esc(s.date)}" data-court="${s.group}" title="Edit game">${editSVG}</button>
             </div>`;
