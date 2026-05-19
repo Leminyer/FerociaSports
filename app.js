@@ -5577,7 +5577,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
         subject:         `[TEST] ${subject}`,
         message:         message,
         unsubscribe_url: '',
-        flyer_url:       promoFlyerUrl || '',
+        flyer_url:       promoFlyerUrl || 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7',
       });
       if (ok) {
         toast(`✅ Test email sent to ${CFG.ADMIN_EMAIL}`);
@@ -5657,7 +5657,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
         subject,
         message:         personalizedMsg,
         unsubscribe_url: unsubUrl,
-        flyer_url:       promoFlyerUrl || '',
+        flyer_url:       promoFlyerUrl || 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7',
       });
       if (ok) sent++;
       else failedRecipients.push(sub.email);
