@@ -5576,7 +5576,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
         player_email:    CFG.ADMIN_EMAIL,
         subject:         `[TEST] ${subject}`,
         message:         message,
-        unsubscribe_url: '',
+        unsubscribe_url: '#',
         flyer_url:       promoFlyerUrl || 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7',
       });
       if (ok) {
