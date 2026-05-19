@@ -1627,15 +1627,16 @@
 
       // Helper: group 4 match rows into 2 teams by score_for value
       const buildTeams = (players) => {
-        // When scores exist: players with same score_for are on same team
-        const allPending = players.every(p => p.score_for === null && !p.default_no_show);
+        // Always exclude no-show players from team splitting
+        const activePlayers = players.filter(p => !p.default_no_show);
+        const allPending = activePlayers.every(p => p.score_for === null);
         if (allPending) {
           // No scores yet — split by roster order: first 2 = Team A, last 2 = Team B
-          return [players.slice(0, 2), players.slice(2)];
+          return [activePlayers.slice(0, 2), activePlayers.slice(2)];
         }
         const teamMap = {};
-        players.forEach((p) => {
-          const key = p.default_no_show ? `ns_${p.player_id}` : (p.score_for !== null ? String(p.score_for) : 'pending');
+        activePlayers.forEach((p) => {
+          const key = p.score_for !== null ? String(p.score_for) : 'pending';
           if (!teamMap[key]) teamMap[key] = [];
           teamMap[key].push(p);
         });
@@ -1816,6 +1817,7 @@
           // Game rows — team-based layout
           Object.entries(s.games).forEach(([gnum, players]) => {
             const gameIds = players.map(p => p.id).join(',');
+            const noShowPlayers = players.filter(p => p.default_no_show);
             const [teamA, teamB] = buildTeams(players);
             const isPending = players.some(p => p.score_for === null && !p.default_no_show);
 
@@ -1867,12 +1869,20 @@
             const aWins  = scoreA !== null && scoreB !== null && scoreA > scoreB;
             const bWins  = scoreA !== null && scoreB !== null && scoreB > scoreA;
 
+            const noShowHtml = noShowPlayers.length ? `
+              <div style="display:flex;align-items:center;gap:6px;margin-top:5px;padding:3px 10px;background:var(--orange-light);border-radius:99px;font-size:10px;font-weight:700;color:var(--orange);width:fit-content;">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                No-show: ${noShowPlayers.map(p => p.players ? `${esc(p.players.first_name)} ${esc(p.players.last_name)}` : '').join(', ')} &nbsp;·&nbsp; ${noShowPlayers[0].points_earned} pts
+              </div>` : '';
             html += `<div class="sess-game-row">
               <span class="sess-game-label">Game ${gnum}</span>
-              <div class="sess-game-body">
-                ${renderTeam(teamA, aWins)}
-                <div class="sess-vs"><div class="sess-vs-line"></div><span>VS</span><div class="sess-vs-line"></div></div>
-                ${renderTeam(teamB, bWins)}
+              <div class="sess-game-body-wrap" style="flex:1;">
+                <div class="sess-game-body">
+                  ${renderTeam(teamA, aWins)}
+                  <div class="sess-vs"><div class="sess-vs-line"></div><span>VS</span><div class="sess-vs-line"></div></div>
+                  ${renderTeam(teamB, bWins)}
+                </div>
+                ${noShowHtml}
               </div>
               <button class="sess-edit-btn" data-action="editGame" data-gameids="${gameIds}" data-gnum="${gnum}" data-date="${esc(s.date)}" data-court="${s.group}" title="Edit game">${editSVG}</button>
             </div>`;
