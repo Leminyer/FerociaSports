@@ -1500,6 +1500,15 @@
               <label class="ap-label">Event Title <span style="color:#F26024;">*</span></label>
               <input type="text" id="event-title" class="ap-input" placeholder="e.g. Spring Tournament 2026" required>
             </div>
+            <div class="ap-group" style="margin-bottom:12px;">
+              <label class="ap-label">Event Type <span style="color:#F26024;">*</span></label>
+              <select id="event-type" class="ap-input" onchange="toggleEventEndDate('event-end-date-wrap', this.value)" required>
+                <option value="">Select type...</option>
+                <option value="tournament">Tournament</option>
+                <option value="ladder">Ladder</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
             <div class="ap-grid">
               <div class="ap-group">
                 <label class="ap-label">Event Date <span style="color:#F26024;">*</span></label>
@@ -1508,6 +1517,12 @@
               <div class="ap-group">
                 <label class="ap-label">Event Time <span style="font-size:9px;font-weight:600;color:#b0bbd6;text-transform:none;letter-spacing:0;">(optional)</span></label>
                 <input type="time" id="event-time" class="ap-input">
+              </div>
+            </div>
+            <div id="event-end-date-wrap" style="display:none;margin-top:12px;">
+              <div class="ap-group">
+                <label class="ap-label">End Date <span style="color:#F26024;">*</span> <span style="font-size:9px;font-weight:600;color:#b0bbd6;text-transform:none;letter-spacing:0;">Ladder only — informational</span></label>
+                <input type="date" id="event-end-date" class="ap-input">
               </div>
             </div>
           </div>
@@ -1598,6 +1613,15 @@
             <label class="ap-label">Event Title <span style="color:#F26024;">*</span></label>
             <input type="text" id="edit-event-title" class="ap-input" required>
           </div>
+          <div class="ap-group" style="margin-bottom:12px;">
+            <label class="ap-label">Event Type <span style="color:#F26024;">*</span></label>
+            <select id="edit-event-type" class="ap-input" onchange="toggleEventEndDate('edit-event-end-date-wrap', this.value)">
+              <option value="">Select type...</option>
+              <option value="tournament">Tournament</option>
+              <option value="ladder">Ladder</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
           <div class="ap-grid" style="margin-bottom:12px;">
             <div class="ap-group">
               <label class="ap-label">Event Date <span style="color:#F26024;">*</span></label>
@@ -1606,6 +1630,12 @@
             <div class="ap-group">
               <label class="ap-label">Event Time <span style="font-size:9px;font-weight:600;color:#b0bbd6;text-transform:none;letter-spacing:0;">(optional)</span></label>
               <input type="time" id="edit-event-time" class="ap-input">
+            </div>
+          </div>
+          <div id="edit-event-end-date-wrap" style="display:none;margin-bottom:12px;">
+            <div class="ap-group">
+              <label class="ap-label">End Date <span style="color:#F26024;">*</span> <span style="font-size:9px;font-weight:600;color:#b0bbd6;text-transform:none;letter-spacing:0;">Ladder only — informational</span></label>
+              <input type="date" id="edit-event-end-date" class="ap-input">
             </div>
           </div>
           <div class="ap-group">
@@ -2409,10 +2439,30 @@
             <div style="display:flex;gap:6px;flex-wrap:wrap;" id="promo-type-pills">
               <button type="button" class="promo-type-pill active" data-type="Tournament">Tournament</button>
               <button type="button" class="promo-type-pill" data-type="Ladder">Ladder</button>
-              <button type="button" class="promo-type-pill" data-type="Event">Event</button>
-              <button type="button" class="promo-type-pill" data-type="General">General</button>
+              <button type="button" class="promo-type-pill" data-type="Other">Other</button>
             </div>
             <input type="hidden" id="promo-campaign-type" value="Tournament">
+          </div>
+
+          <!-- Event selector — shown for Tournament/Ladder -->
+          <div id="promo-event-selector-wrap">
+            <div class="promo-comp-label">Select Event <span style="color:#F26024;">*</span></div>
+            <select id="promo-event-select"
+              style="width:100%;padding:9px 12px;border:1px solid #e0e7f5;border-radius:8px;font-family:'Montserrat',sans-serif;font-size:13px;font-weight:600;color:#0d1f4a;outline:none;background:white;"
+              onfocus="this.style.borderColor='#174CCC';this.style.boxShadow='0 0 0 3px rgba(23,76,204,0.08)'"
+              onblur="this.style.borderColor='#e0e7f5';this.style.boxShadow='none'">
+              <option value="">Loading events...</option>
+            </select>
+            <input type="hidden" id="promo-event-flyer-url" value="">
+          </div>
+
+          <!-- Other flyer URL — shown for Other type -->
+          <div id="promo-other-flyer-wrap" style="display:none;">
+            <div class="promo-comp-label">Flyer URL <span style="font-size:9px;font-weight:600;color:#b0bbd6;text-transform:none;letter-spacing:0;">(optional)</span></div>
+            <input type="url" id="promo-other-flyer-url" placeholder="https://example.com/flyer.jpg"
+              style="width:100%;padding:9px 12px;border:1px solid #e0e7f5;border-radius:8px;font-family:'Montserrat',sans-serif;font-size:13px;font-weight:600;color:#0d1f4a;outline:none;"
+              onfocus="this.style.borderColor='#174CCC';this.style.boxShadow='0 0 0 3px rgba(23,76,204,0.08)'"
+              onblur="this.style.borderColor='#e0e7f5';this.style.boxShadow='none'">
           </div>
 
           <!-- Subject -->

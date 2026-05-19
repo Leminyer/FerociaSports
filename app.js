@@ -4934,6 +4934,8 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
                 data-evreg="${esc(ev.registration_url || '')}"
                 data-evflyer="${esc(ev.flyer_url || '')}"
                 data-evtime="${esc(ev.event_time || '')}"
+                data-evtype="${esc(ev.event_type || '')}"
+                data-evend="${esc(ev.end_date || '')}"
                 title="Edit event">${editSVG}</button>
               <button class="sess-edit-btn" data-action="deleteEvent"
                 data-evid="${ev.id}"
@@ -4951,13 +4953,17 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
 
   const createEvent = async (e) => {
     e.preventDefault();
-    const title   = document.getElementById('event-title').value.trim();
-    const date    = document.getElementById('event-date').value;
-    const desc    = document.getElementById('event-description').value.trim();
-    const regUrl  = document.getElementById('event-reg-url').value.trim();
-    const file    = document.getElementById('event-flyer').files[0];
+    const title     = document.getElementById('event-title').value.trim();
+    const date      = document.getElementById('event-date').value;
+    const eventType = document.getElementById('event-type').value;
+    const endDate   = document.getElementById('event-end-date').value;
+    const desc      = document.getElementById('event-description').value.trim();
+    const regUrl    = document.getElementById('event-reg-url').value.trim();
+    const file      = document.getElementById('event-flyer').files[0];
 
     if (!title || !date) { toast('Title and date are required.', true); return; }
+    if (!eventType)      { toast('Please select an event type.', true); return; }
+    if (eventType === 'ladder' && !endDate) { toast('End date is required for ladder events.', true); return; }
     if (file && file.size > 5 * 1024 * 1024) { toast('Flyer must be under 5MB.', true); return; }
 
     const btn = document.getElementById('create-event-btn');
@@ -4992,12 +4998,15 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
       await api('events', 'POST', {
         title,
         event_date: date,
+        end_date: (eventType === 'ladder' && endDate) ? endDate : null,
+        event_type: eventType,
         description: desc || null,
         registration_url: regUrl || null,
         flyer_url,
       });
       toast(`Event "${title}" created!`);
       document.getElementById('create-event-form').reset();
+      document.getElementById('event-end-date-wrap').style.display = 'none';
       document.getElementById('event-flyer-preview').style.display = 'none';
       const lbl = document.getElementById('ev-flyer-label-text');
       if (lbl) lbl.textContent = 'Click to upload flyer — 800×1000px recommended, max 5MB';
@@ -5051,6 +5060,14 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     document.getElementById('edit-event-description').value = btn.dataset.evdesc;
     document.getElementById('edit-event-reg-url').value   = btn.dataset.evreg;
     document.getElementById('edit-event-old-flyer').value = btn.dataset.evflyer;
+    const editTypeEl = document.getElementById('edit-event-type');
+    if (editTypeEl) editTypeEl.value = btn.dataset.evtype || '';
+    const editEndWrap = document.getElementById('edit-event-end-date-wrap');
+    const editEndEl   = document.getElementById('edit-event-end-date');
+    if (editEndWrap && editEndEl) {
+      editEndWrap.style.display = btn.dataset.evtype === 'ladder' ? 'block' : 'none';
+      editEndEl.value = btn.dataset.evend || '';
+    }
 
     // Wire styled file label to hidden input (once only)
     const editFlyerInput   = document.getElementById('edit-event-flyer');
@@ -5084,21 +5101,35 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     modal.style.display = 'flex';
   };
 
+  window.toggleEventEndDate = (wrapId, type) => {
+    const wrap = document.getElementById(wrapId);
+    const inp  = wrap ? wrap.querySelector('input[type="date"]') : null;
+    if (!wrap) return;
+    const show = type === 'ladder';
+    wrap.style.display = show ? 'block' : 'none';
+    if (inp) inp.required = show;
+    if (!show && inp) inp.value = '';
+  };
+
   const closeEditEventModal = () => {
     document.getElementById('edit-event-modal').style.display = 'none';
   };
 
   const editEvent = async (e) => {
     e.preventDefault();
-    const id       = parseInt(document.getElementById('edit-event-id').value, 10);
-    const title    = document.getElementById('edit-event-title').value.trim();
-    const date     = document.getElementById('edit-event-date').value;
-    const desc     = document.getElementById('edit-event-description').value.trim();
-    const regUrl   = document.getElementById('edit-event-reg-url').value.trim();
-    const file     = document.getElementById('edit-event-flyer').files[0];
-    const oldFlyer = document.getElementById('edit-event-old-flyer').value;
+    const id        = parseInt(document.getElementById('edit-event-id').value, 10);
+    const title     = document.getElementById('edit-event-title').value.trim();
+    const date      = document.getElementById('edit-event-date').value;
+    const eventType = document.getElementById('edit-event-type').value;
+    const endDate   = document.getElementById('edit-event-end-date').value;
+    const desc      = document.getElementById('edit-event-description').value.trim();
+    const regUrl    = document.getElementById('edit-event-reg-url').value.trim();
+    const file      = document.getElementById('edit-event-flyer').files[0];
+    const oldFlyer  = document.getElementById('edit-event-old-flyer').value;
 
-    if (!title || !date) { toast('Title and date are required.', true); return; }
+    if (!title || !date)  { toast('Title and date are required.', true); return; }
+    if (!eventType)       { toast('Please select an event type.', true); return; }
+    if (eventType === 'ladder' && !endDate) { toast('End date is required for ladder events.', true); return; }
     if (file && file.size > 5 * 1024 * 1024) { toast('Flyer must be under 5MB.', true); return; }
 
     const btn = document.getElementById('edit-event-btn');
@@ -5148,6 +5179,8 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
       await api(`events?id=eq.${id}`, 'PATCH', {
         title,
         event_date: date,
+        end_date: (eventType === 'ladder' && endDate) ? endDate : null,
+        event_type: eventType,
         description: desc || null,
         registration_url: regUrl || null,
         flyer_url,
@@ -5374,16 +5407,34 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     if (typeInput) typeInput.value = 'Tournament';
     const selTypeEl = document.getElementById('promo-selected-type');
     if (selTypeEl) selTypeEl.textContent = 'Tournament';
+    // Reset event selector + flyer fields
+    const evSel = document.getElementById('promo-event-select');
+    if (evSel) evSel.innerHTML = '<option value="">Loading...</option>';
+    const flyerInp = document.getElementById('promo-event-flyer-url');
+    if (flyerInp) flyerInp.value = '';
+    const otherFlyerInp = document.getElementById('promo-other-flyer-url');
+    if (otherFlyerInp) otherFlyerInp.value = '';
 
-    // Wire type pill clicks
+    // Wire type pill clicks — show/hide event selector or flyer URL field
+    const updateCampaignTypeUI = (type) => {
+      const evWrap    = document.getElementById('promo-event-selector-wrap');
+      const otherWrap = document.getElementById('promo-other-flyer-wrap');
+      if (evWrap)    evWrap.style.display    = (type === 'Tournament' || type === 'Ladder') ? 'block' : 'none';
+      if (otherWrap) otherWrap.style.display = type === 'Other' ? 'block' : 'none';
+      // Repopulate event dropdown for selected type
+      if (type === 'Tournament' || type === 'Ladder') populateCampaignEventDropdown(type);
+    };
     document.querySelectorAll('.promo-type-pill').forEach(pill => {
       pill.onclick = () => {
         document.querySelectorAll('.promo-type-pill').forEach(p => p.classList.remove('active'));
         pill.classList.add('active');
         if (typeInput) typeInput.value = pill.dataset.type;
         if (selTypeEl) selTypeEl.textContent = pill.dataset.type;
+        updateCampaignTypeUI(pill.dataset.type);
       };
     });
+    // Trigger for initial state (Tournament selected by default)
+    updateCampaignTypeUI('Tournament');
 
     // Wire character counter
     if (editor) {
@@ -5455,12 +5506,60 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     document.body.style.overflow = 'hidden';
   };
 
+  const populateCampaignEventDropdown = async (type) => {
+    const sel      = document.getElementById('promo-event-select');
+    const flyerInp = document.getElementById('promo-event-flyer-url');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">Loading...</option>';
+    if (flyerInp) flyerInp.value = '';
+    try {
+      const today  = new Date().toISOString().slice(0, 10);
+      const dbType = type.toLowerCase(); // 'tournament' or 'ladder'
+      const events = await api(`events?event_type=eq.${dbType}&event_date=gte.${today}&select=id,title,event_date,flyer_url&order=event_date.asc`);
+      if (!events.length) {
+        sel.innerHTML = `<option value="">No upcoming ${type.toLowerCase()} events</option>`;
+        return;
+      }
+      sel.innerHTML = '<option value="">Select an event...</option>'
+        + events.map(ev => {
+            const d = new Date(ev.event_date + 'T00:00:00');
+            const label = `${ev.title} — ${d.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'})}`;
+            return `<option value="${ev.id}" data-title="${ev.title.replace(/"/g,'&quot;')}" data-flyer="${ev.flyer_url || ''}">${label}</option>`;
+          }).join('');
+      // Wire selection → auto-fill subject + store flyer URL
+      sel.onchange = () => {
+        const opt = sel.options[sel.selectedIndex];
+        const subjectEl = document.getElementById('promo-subject');
+        if (opt.value && subjectEl) {
+          const emoji = type === 'Tournament' ? '🏆' : '🏓';
+          subjectEl.value = `${emoji} ${opt.dataset.title} — Don't Miss It!`;
+        }
+        if (flyerInp) flyerInp.value = opt.dataset.flyer || '';
+      };
+    } catch (err) {
+      sel.innerHTML = '<option value="">Error loading events</option>';
+    }
+  };
+
   const sendPromoEmail = async (e) => {
     e.preventDefault();
     const subject = document.getElementById('promo-subject').value.trim();
     const editor  = document.getElementById('promo-message');
     const message = editor ? editor.innerText.trim() : '';
-    const campaignType = document.getElementById('promo-campaign-type')?.value || 'General';
+    const campaignType = document.getElementById('promo-campaign-type')?.value || 'Other';
+
+    // Resolve flyer URL: from event selector or from Other flyer URL input
+    let promoFlyerUrl = '';
+    if (campaignType === 'Tournament' || campaignType === 'Ladder') {
+      const sel = document.getElementById('promo-event-select');
+      if (sel && sel.value) {
+        promoFlyerUrl = document.getElementById('promo-event-flyer-url')?.value || '';
+      } else {
+        toast('Please select an event.', true); return;
+      }
+    } else if (campaignType === 'Other') {
+      promoFlyerUrl = document.getElementById('promo-other-flyer-url')?.value.trim() || '';
+    }
 
     if (!subject || !message) {
       toast('Please fill in the subject and message.', true);
@@ -5502,11 +5601,12 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
       // Replace {first_name} with real name
       const personalizedMsg = message.replace(/\{first_name\}/g, sub.first_name || 'Player');
       const ok = await sendOneEmail(CFG.EMAILJS.SERVICE, CFG.EMAILJS.TEMPLATES.PROMO, {
-        player_name:    `${sub.first_name} ${sub.last_name}`,
-        player_email:   sub.email,
+        player_name:     `${sub.first_name} ${sub.last_name}`,
+        player_email:    sub.email,
         subject,
-        message:        personalizedMsg,
+        message:         personalizedMsg,
         unsubscribe_url: unsubUrl,
+        flyer_url:       promoFlyerUrl || '',
       });
       if (ok) sent++;
       else failedRecipients.push(sub.email);
