@@ -2947,7 +2947,7 @@
       let yR  = 28;                   // y cursor for right column
 
       // Helper: draw one court block in the summary, returns new y after drawing
-      const drawSummaryCourtBlock = (courtNum, playerNames, noShowName, startX, startY) => {
+      const drawSummaryCourtBlock = (courtNum, time, playerNames, noShowName, startX, startY) => {
         const totalRows = playerNames.length + (noShowName ? 1 : 0);
         const blockH    = COURT_HDR_H + totalRows * ROW_H_SUM;
 
@@ -3046,7 +3046,7 @@
           yL = 20; yR = 20;
         }
 
-        const newY = drawSummaryCourtBlock(courtNum, playerNames, noShowName,
+        const newY = drawSummaryCourtBlock(courtNum, time, playerNames, noShowName,
           useLeft ? COL1_X : COL2_X,
           useLeft ? yL     : yR);
 
