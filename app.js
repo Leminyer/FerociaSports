@@ -8,6 +8,17 @@
 (function () {
   'use strict';
 
+  // Format HH:MM (24h) to h:MM AM/PM (12h)
+  const fmtTime12 = (time24) => {
+    if (!time24) return '';
+    const [hStr, mStr] = time24.split(':');
+    let h = parseInt(hStr, 10);
+    const m = (mStr || '00').slice(0, 2);
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12 || 12;
+    return `${h}:${m} ${ampm}`;
+  };
+
   const CFG = window.FEROCIA_CONFIG;
   if (!CFG) {
     console.error('[Ferocia] config.js must load before app.js');
@@ -1618,13 +1629,13 @@
         return;
       }
 
-      // Group by court (date__court_group)
+      // Group by court (date__time__court_group)
       const grouped = {};
       matches.forEach((m) => {
-        const key = `${m.session_date}__${m.court_group}`;
-        if (!grouped[key]) grouped[key] = { date: m.session_date, group: m.court_group, games: {}, noShow: [] };
+        const time = m.session_time || '00:00';
+        const key = `${m.session_date}__${time}__${m.court_group}`;
+        if (!grouped[key]) grouped[key] = { date: m.session_date, time, group: m.court_group, games: {}, noShow: [] };
         if (m.default_no_show) {
-          // No-show rows stored separately — never inside a game slot
           grouped[key].noShow.push(m);
         } else {
           if (!grouped[key].games[m.game_number]) grouped[key].games[m.game_number] = [];
@@ -1632,11 +1643,12 @@
         }
       });
 
-      // Group courts by date
+      // Group by date → time → courts
       const byDate = {};
       Object.values(grouped).forEach((s) => {
-        if (!byDate[s.date]) byDate[s.date] = [];
-        byDate[s.date].push(s);
+        if (!byDate[s.date]) byDate[s.date] = {};
+        if (!byDate[s.date][s.time]) byDate[s.date][s.time] = [];
+        byDate[s.date][s.time].push(s);
       });
 
       const sortedDates = Object.keys(byDate).sort((a, b) => b.localeCompare(a));
@@ -1730,29 +1742,29 @@
       let html = '';
 
       sortedDates.forEach((date, dateIdx) => {
-        const courts = byDate[date];
+        const timeSlots = byDate[date];
+        const allCourts = Object.values(timeSlots).flat();
         const isFirst = dateIdx === 0;
         const groupId = `sdg-${date.replace(/-/g, '')}`;
 
-        // Date label: "Saturday Session — May 2, 2026"
+        // Date label
         const d = new Date(date + 'T00:00:00');
         const weekday = d.toLocaleDateString('en-US', { weekday: 'long' });
         const dateFormatted = d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
         const dateLabel = `${weekday} Session — ${dateFormatted}`;
 
-        // Per-date stats
-        const allDateMatches = courts.flatMap(c => Object.values(c.games).flat());
-        const courtCount   = courts.length;
-        const totalGames   = new Set(allDateMatches.map(m => `${m.court_group}__${m.game_number}`)).size;
+        // Per-date stats across all time slots
+        const allDateMatches = allCourts.flatMap(c => Object.values(c.games).flat());
+        const courtCount    = allCourts.length;
+        const totalGames    = new Set(allDateMatches.map(m => `${m.court_group}__${m.game_number}`)).size;
         const uniquePlayers = new Set(allDateMatches.map(m => m.player_id)).size;
-        const subCount     = allDateMatches.filter(m => m.is_sub).length;
-        const pendingGames = courts.reduce((total, s) =>
+        const subCount      = allDateMatches.filter(m => m.is_sub).length;
+        const pendingGames  = allCourts.reduce((total, s) =>
           total + Object.keys(s.games).filter(gnum =>
             s.games[gnum].some(m => !m.default_no_show && m.score_for === null)
           ).length, 0);
 
-        // Session summary
-        const sum = computeSummary(courts, matches);
+        const sum = computeSummary(allCourts, matches);
 
         html += `<div class="session-date-group" id="${groupId}">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
@@ -1783,10 +1795,8 @@
             </button>
           </div>`;
 
-        // Collapsible content
         html += `<div class="session-date-body" style="display:${isFirst ? 'block' : 'none'};margin-bottom:8px;">`;
 
-        // Session summary cards
         html += `<div class="sess-summary-row">
           <div class="sess-sum-card sc-blue">
             <div class="sess-sum-label">Total Games</div>
@@ -1815,8 +1825,18 @@
           </div>
         </div>`;
 
-        // Court blocks
-        courts.forEach((s) => {
+        // Time slot blocks — sorted by time ascending
+        const sortedTimes = Object.keys(timeSlots).sort();
+        sortedTimes.forEach((time) => {
+          const timeCourts = timeSlots[time];
+          html += `<div style="margin-bottom:10px;">
+            <div style="display:flex;align-items:center;gap:8px;padding:6px 12px;background:#f4f6fc;border-radius:6px;margin-bottom:6px;border-left:3px solid #174CCC;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              <span style="font-size:11px;font-weight:800;color:#174CCC;">${fmtTime12(time)}</span>
+            </div>`;
+
+          // Court blocks inside this time slot
+          timeCourts.forEach((s) => {
           const courtGames   = Object.values(s.games).flat();
           const courtPending = courtGames.some(m => !m.default_no_show && m.score_for === null);
           // Include no-show row IDs so deleting a session removes them too
@@ -1843,8 +1863,8 @@
             <div class="court-block-hdr">
               <span class="court-block-label">Court ${s.group}${courtPending ? ' <span style="font-size:9px;font-weight:800;color:var(--orange);background:var(--orange-light);padding:1px 6px;border-radius:99px;text-transform:uppercase;margin-left:6px;">Pending</span>' : ''}</span>
               <div style="display:flex;gap:6px;align-items:center;">
-                <button class="sess-edit-btn" data-action="editSession" data-matchids="${sessionMatchIds}" data-date="${esc(s.date)}" data-court="${s.group}" title="Edit session">${editSVG}</button>
-                <button class="sess-edit-btn" data-action="deleteSession" data-matchids="${sessionMatchIds}" data-date="${esc(s.date)}" data-court="${s.group}" title="Delete session" style="border-color:rgba(229,57,53,0.3);"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#e53935" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
+                <button class="sess-edit-btn" data-action="editSession" data-matchids="${sessionMatchIds}" data-date="${esc(s.date)}" data-court="${s.group}" data-time="${esc(s.time||'')}" title="Edit session">${editSVG}</button>
+                <button class="sess-edit-btn" data-action="deleteSession" data-matchids="${sessionMatchIds}" data-date="${esc(s.date)}" data-court="${s.group}" data-time="${esc(s.time||'')}" title="Delete session" style="border-color:rgba(229,57,53,0.3);"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#e53935" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
               </div>
             </div>
             ${noShowBannerHtml}`;
@@ -1915,11 +1935,13 @@
           });
 
           html += '</div>'; // court-block
-        });
+          }); // end timeCourts.forEach
+          html += '</div>'; // time-slot div
+        }); // end sortedTimes.forEach
 
         html += '</div>'; // session-date-body
         html += '</div>'; // session-date-group
-      });
+      }); // end sortedDates
 
       document.getElementById('sessions-list').innerHTML = html;
     } catch (e) {
@@ -1958,42 +1980,42 @@
   };
 
   const editSession = (btn) => {
-    const ids = btn.dataset.matchids.split(',').filter(Boolean);
-    const date = btn.dataset.date;
+    const ids   = btn.dataset.matchids.split(',').filter(Boolean);
+    const date  = btn.dataset.date;
     const court = btn.dataset.court;
-    document.getElementById('es-ids').value = ids.join(',');
-    document.getElementById('es-date').value = date;
-    document.getElementById('es-court').value = court;
+    const time  = btn.dataset.time || '';
+    document.getElementById('es-ids').value       = ids.join(',');
+    document.getElementById('es-date').value      = date;
+    document.getElementById('es-time').value      = time;
+    document.getElementById('es-court').value     = court;
     document.getElementById('es-orig-date').value = date;
-    document.getElementById('es-orig-court').value = court;
+    document.getElementById('es-orig-court').value= court;
+    document.getElementById('es-orig-time').value = time;
     document.getElementById('edit-session-modal').classList.add('open');
   };
 
   const saveEditSession = async (e) => {
     e.preventDefault();
     const ids = document.getElementById('es-ids').value.split(',').filter(Boolean);
-    const newDate = document.getElementById('es-date').value;
+    const newDate  = document.getElementById('es-date').value;
+    const newTime  = document.getElementById('es-time').value;
     const newCourt = document.getElementById('es-court').value;
     const origDate = document.getElementById('es-orig-date').value;
-    const origCourt = document.getElementById('es-orig-court').value;
+    const origTime = document.getElementById('es-orig-time').value;
+    const origCourt= document.getElementById('es-orig-court').value;
 
-    if (!newDate || !newCourt) {
-      toast('Please fill in both date and court number.', true);
+    if (!newDate || !newTime || !newCourt) {
+      toast('Please fill in date, time, and court number.', true);
       return;
     }
-    if (newDate !== origDate || newCourt !== origCourt) {
+    if (newDate !== origDate || newTime !== origTime || newCourt !== origCourt) {
       const existing = await api(
-        `matches?session_date=eq.${newDate}&court_group=eq.${newCourt}&ladder_id=eq.${currentLadder.id}&limit=1`,
+        `matches?session_date=eq.${newDate}&session_time=eq.${newTime}&court_group=eq.${newCourt}&ladder_id=eq.${currentLadder.id}&limit=1`,
       );
       if (existing.length) {
-        const d = fmtDate(newDate, {
-          weekday: 'short',
-          month: 'short',
-          day: 'numeric',
-          year: 'numeric',
-        });
+        const d = fmtDate(newDate, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
         toast(
-          `A session already exists for Court ${newCourt} on ${d}. Please choose a different date or court.`,
+          `A session already exists for Court ${newCourt} on ${d} at ${fmtTime12(newTime)}. Please choose a different date, time, or court.`,
           true,
         );
         return;
@@ -2009,6 +2031,7 @@
       // Single bulk PATCH instead of N sequential ones
       await api(`matches?id=in.(${ids.join(',')})`, 'PATCH', {
         session_date: newDate,
+        session_time: newTime,
         court_group: parseInt(newCourt, 10),
       });
       toast('Session updated!');
@@ -2615,10 +2638,11 @@
       toast('Please select a ladder first.', true);
       return;
     }
-    const date = document.getElementById('session-date').value;
-    const courtNum = document.getElementById('court-number').value;
-    if (!date || !courtNum) {
-      toast('Please fill in session date and court number.', true);
+    const date      = document.getElementById('session-date').value;
+    const sessionTm = document.getElementById('session-time').value;
+    const courtNum  = document.getElementById('court-number').value;
+    if (!date || !sessionTm || !courtNum) {
+      toast('Please fill in session date, time, and court number.', true);
       return;
     }
     if (!courtPlayers.length) {
@@ -2632,19 +2656,14 @@
     });
     const allGameNums = [...Array(gameCount).keys()].map((i) => i + 1).concat(extraGames);
 
-    // Validate uniqueness
+    // Validate uniqueness: date + time + court must be unique
     const existing = await api(
-      `matches?session_date=eq.${date}&court_group=eq.${courtNum}&ladder_id=eq.${currentLadder.id}&limit=1`,
+      `matches?session_date=eq.${date}&session_time=eq.${sessionTm}&court_group=eq.${courtNum}&ladder_id=eq.${currentLadder.id}&limit=1`,
     );
     if (existing.length) {
-      const existingDate = fmtDate(date, {
-        weekday: 'short',
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-      });
+      const existingDate = fmtDate(date, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
       toast(
-        `A session for Court ${courtNum} on ${existingDate} already exists. Please edit the existing session or choose a different court/date.`,
+        `A session for Court ${courtNum} on ${existingDate} at ${fmtTime12(sessionTm)} already exists. Please choose a different date, time, or court.`,
         true,
       );
       return;
@@ -2728,7 +2747,7 @@
           const pA = ladderPlayers.find((p) => p.id === pid);
           const isSubA = pA?.ladder_status === 'sub';
           rows.push({
-            session_date: date, court_group: parseInt(courtNum, 10), player_id: pid,
+            session_date: date, session_time: sessionTm, court_group: parseInt(courtNum, 10), player_id: pid,
             game_number: extraGameMap[gameNum] || gameNum,
             score_for: isVoided ? null : scoreA, score_against: isVoided ? null : scoreB,
             points_earned: isSubA ? 0 : ptA, is_sub: isSubA,
@@ -2740,7 +2759,7 @@
           const pB = ladderPlayers.find((p) => p.id === pid);
           const isSubB = pB?.ladder_status === 'sub';
           rows.push({
-            session_date: date, court_group: parseInt(courtNum, 10), player_id: pid,
+            session_date: date, session_time: sessionTm, court_group: parseInt(courtNum, 10), player_id: pid,
             game_number: extraGameMap[gameNum] || gameNum,
             score_for: isVoided ? null : scoreB, score_against: isVoided ? null : scoreA,
             points_earned: isSubB ? 0 : ptB, is_sub: isSubB,
@@ -2770,7 +2789,7 @@
           if (!pid) return;
           const p = ladderPlayers.find((lp) => lp.id === pid);
           rows.push({
-            session_date: date, court_group: parseInt(courtNum, 10), player_id: pid,
+            session_date: date, session_time: sessionTm, court_group: parseInt(courtNum, 10), player_id: pid,
             game_number: extraGameMap[gameNum] || gameNum,
             score_for: null, score_against: null,
             points_earned: 0, is_sub: p?.ladder_status === 'sub',
@@ -2783,7 +2802,7 @@
     // No-show player always included regardless of mode
     if (noShowPlayer) {
       rows.push({
-        session_date: date, court_group: parseInt(courtNum, 10), player_id: noShowPlayer.id,
+        session_date: date, session_time: sessionTm, court_group: parseInt(courtNum, 10), player_id: noShowPlayer.id,
         game_number: 1, score_for: null, score_against: null,
         points_earned: noShowPenalty, is_sub: noShowPlayer.ladder_status === 'sub',
         default_no_show: true, ladder_id: currentLadder.id,
@@ -2821,17 +2840,24 @@
     try {
       // Fetch all matches for this date + ladder, including player names
       const matches = await api(
-        `matches?select=*,players(first_name,last_name)&ladder_id=eq.${ladderId}&session_date=eq.${date}&order=court_group,game_number,id`
+        `matches?select=*,players(first_name,last_name)&ladder_id=eq.${ladderId}&session_date=eq.${date}&order=session_time,court_group,game_number,id`
       );
       if (!matches.length) { toast('No sessions found for this date.', true); return; }
 
-      // Group by court
-      const courts = {};
+      // Group by time → court
+      const byTime = {};
       matches.forEach((m) => {
-        if (!courts[m.court_group]) courts[m.court_group] = { games: {} };
-        if (!courts[m.court_group].games[m.game_number]) courts[m.court_group].games[m.game_number] = [];
-        courts[m.court_group].games[m.game_number].push(m);
+        const t = m.session_time || '00:00';
+        if (!byTime[t]) byTime[t] = {};
+        if (!byTime[t][m.court_group]) byTime[t][m.court_group] = { games: {}, noShow: [] };
+        if (m.default_no_show) {
+          byTime[t][m.court_group].noShow.push(m);
+        } else {
+          if (!byTime[t][m.court_group].games[m.game_number]) byTime[t][m.court_group].games[m.game_number] = [];
+          byTime[t][m.court_group].games[m.game_number].push(m);
+        }
       });
+      const sortedPdfTimes = Object.keys(byTime).sort();
 
       // Ladder info for header
       const ladderName = currentLadder?.name || 'Ladder';
@@ -2877,7 +2903,10 @@
       const WHITE  = [255, 255, 255];
       const ORANGE = [242, 96, 36];
 
-      const courtNums = Object.keys(courts).map(Number).sort((a, b) => a - b);
+      // Build flat list of courts ordered by time then court number for iteration
+      const courtNums = sortedPdfTimes.flatMap(t =>
+        Object.keys(byTime[t]).map(Number).sort((a,b) => a-b).map(cn => ({ time: t, courtNum: cn, data: byTime[t][cn] }))
+      );
 
       // ══════════════════════════════════════════════════════
       // SUMMARY PAGE — page 1: all courts with player list
@@ -2928,7 +2957,7 @@
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(8.5);
         doc.setTextColor(...WHITE);
-        doc.text(`Court ${courtNum}`, startX + COL_W / 2, startY + 5, { align: 'center' });
+        doc.text(`Court ${courtNum} · ${fmtTime12(time)}`, startX + COL_W / 2, startY + 5, { align: 'center' });
 
         // Player rows
         let ry = startY + COURT_HDR_H;
@@ -2966,8 +2995,7 @@
         return startY + blockH;
       };
 
-      courtNums.forEach((courtNum) => {
-        const court = courts[courtNum];
+      courtNums.forEach(({ time, courtNum, data: court }) => {
         const gameNums = Object.keys(court.games).map(Number).sort((a, b) => a - b);
 
         // Collect unique active players for this court
@@ -2980,7 +3008,7 @@
           });
         });
         const playerNames = Object.values(pMap);
-        const noShowMatch = Object.values(court.games).flat().find((m) => m.default_no_show);
+        const noShowMatch = court.noShow && court.noShow.length ? court.noShow[0] : null;
         const noShowName  = noShowMatch?.players
           ? `${noShowMatch.players.first_name} ${noShowMatch.players.last_name}` : null;
 
@@ -3039,10 +3067,9 @@
       // ══════════════════════════════════════════════════════
       // INDIVIDUAL COURT PAGES — one per court
       // ══════════════════════════════════════════════════════
-      courtNums.forEach((courtNum, courtIdx) => {
+      courtNums.forEach(({ time, courtNum, data: court }, courtIdx) => {
         doc.addPage(); // every court starts on a new page (summary is already page 1)
 
-        const court = courts[courtNum];
         const gameNums = Object.keys(court.games).map(Number).sort((a, b) => a - b);
 
         // Collect all unique players in this court (exclude duplicates from multi-game entries)
@@ -3054,8 +3081,8 @@
             }
           });
         });
-        // No-show player
-        const noShowMatch = Object.values(court.games).flat().find((m) => m.default_no_show);
+        // No-show player from noShow array
+        const noShowMatch = court.noShow && court.noShow.length ? court.noShow[0] : null;
         const noShowName = noShowMatch?.players
           ? `${noShowMatch.players.first_name} ${noShowMatch.players.last_name}` : null;
 
@@ -3090,7 +3117,7 @@
         doc.setFont('helvetica', 'normal');
         doc.text(`Date: ${dateLabel}`, ML, 17);
         doc.setFont('helvetica', 'bold');
-        doc.text(`Court: ${courtNum}`, PW - MR, 17, { align: 'right' });
+        doc.text(`Court: ${courtNum}  ·  ${fmtTime12(time)}`, PW - MR, 17, { align: 'right' });
 
         y = 30; // after header
 

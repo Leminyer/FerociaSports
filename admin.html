@@ -1126,7 +1126,10 @@
       <div class="card">
         <div class="card-title">Step 1 — Session details</div>
         <div class="form-row">
-          <div class="form-group"><label>Session date</label><input type="date" id="session-date"></div>
+          <div style="display:flex;gap:12px;">
+            <div class="form-group" style="flex:1;"><label>Session date</label><input type="date" id="session-date"></div>
+            <div class="form-group" style="flex:1;"><label>Session time</label><input type="time" id="session-time" required></div>
+          </div>
           <div class="form-group"><label>Court number</label><input type="number" id="court-number" min="1" placeholder="e.g. 19"></div>
         </div>
       </div>
@@ -2213,8 +2216,12 @@
       <input type="hidden" id="es-ids">
       <input type="hidden" id="es-orig-date">
       <input type="hidden" id="es-orig-court">
+      <input type="hidden" id="es-orig-time">
       <div class="form-row">
         <div class="form-group"><label>Session date</label><input type="date" id="es-date" required></div>
+        <div class="form-group"><label>Session time</label><input type="time" id="es-time" required></div>
+      </div>
+      <div class="form-row">
         <div class="form-group"><label>Court number</label><input type="number" id="es-court" min="1" required placeholder="e.g. 19"></div>
       </div>
       <div class="modal-actions">
