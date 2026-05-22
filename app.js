@@ -1819,7 +1819,9 @@
         courts.forEach((s) => {
           const courtGames   = Object.values(s.games).flat();
           const courtPending = courtGames.some(m => !m.default_no_show && m.score_for === null);
-          const sessionMatchIds = courtGames.map(m => m.id).join(',');
+          // Include no-show row IDs so deleting a session removes them too
+          const allCourtRows    = [...courtGames, ...(s.noShow || [])];
+          const sessionMatchIds = allCourtRows.map(m => m.id).join(',');
 
           // Build no-show banner HTML for court level display
           const noShowBannerHtml = s.noShow && s.noShow.length ? s.noShow.map(ns => {
