@@ -1339,7 +1339,6 @@
           </div>
         </td>
         <td style="text-align:right;padding-right:16px;"><span class="points-display">${p._points}</span><span style="font-size:11px;color:var(--text-muted);font-weight:600;margin-left:2px;">pts</span></td>
-        <td style="text-align:center;font-size:13px;font-weight:700;color:#174CCC;">${p._ptsFor}</td>
         <td style="text-align:center;font-size:13px;font-weight:800;color:${p._diff > 0 ? '#24BC96' : p._diff < 0 ? '#F26024' : '#6b7a99'};">${p._diff > 0 ? '+' : ''}${p._diff}</td>
         <td style="text-align:center;font-size:13px;font-weight:700;color:#24BC96;">${p._wins}</td>
         <td style="text-align:center;font-size:13px;font-weight:700;color:#F26024;">${p._losses}</td>
@@ -1354,7 +1353,6 @@
             <th style="width:48px;">Rank</th>
             <th>Player</th>
             <th style="text-align:right;width:90px;">Points</th>
-            <th style="text-align:center;width:80px;">Pts For</th>
             <th style="text-align:center;width:70px;">Diff</th>
             <th style="text-align:center;width:60px;">Wins</th>
             <th style="text-align:center;width:60px;">Losses</th>
