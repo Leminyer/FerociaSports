@@ -1130,17 +1130,31 @@
     try {
       if (!allPlayers.length) allPlayers = await api('players?select=*&order=id');
       const matches = await api(`matches?select=*&ladder_id=eq.${currentLadder.id}`);
-      const pm = {};
-      ladderPlayers.forEach((p) => (pm[p.id] = 0));
+      const pm   = {}; // points
+      const wm   = {}; // wins
+      const lm   = {}; // losses
+      const pfm  = {}; // pts for
+      const pam  = {}; // pts against
+      ladderPlayers.forEach((p) => { pm[p.id] = 0; wm[p.id] = 0; lm[p.id] = 0; pfm[p.id] = 0; pam[p.id] = 0; });
       matches.forEach((m) => {
-        if (pm[m.player_id] !== undefined) pm[m.player_id] += m.points_earned || 0;
+        if (pm[m.player_id] === undefined) return;
+        pm[m.player_id] += m.points_earned || 0;
+        if (m.default_no_show || m.score_for === null) return;
+        pfm[m.player_id] += m.score_for || 0;
+        pam[m.player_id] += m.score_against || 0;
+        if (m.points_earned === 4) wm[m.player_id]++;
+        else if (m.points_earned !== undefined && m.points_earned < 4) lm[m.player_id]++;
       });
       const ranked = [...ladderPlayers]
         .filter((p) => p.ladder_status === 'active')
         .sort((a, b) => (pm[b.id] || 0) - (pm[a.id] || 0));
       ranked.forEach((p, i) => {
-        p._rank = i + 1;
-        p._points = pm[p.id] || 0;
+        p._rank   = i + 1;
+        p._points = pm[p.id]  || 0;
+        p._wins   = wm[p.id]  || 0;
+        p._losses = lm[p.id]  || 0;
+        p._ptsFor = pfm[p.id] || 0;
+        p._diff   = (pfm[p.id] || 0) - (pam[p.id] || 0);
       });
       allPlayers._ranked = ranked;
       const sessions = [...new Set(matches.map((m) => m.session_date))];
@@ -1324,7 +1338,11 @@
             </div>
           </div>
         </td>
-        <td style="text-align:right;padding-right:24px;"><span class="points-display">${p._points}</span><span style="font-size:11px;color:var(--text-muted);font-weight:600;margin-left:2px;">pts</span></td>
+        <td style="text-align:right;padding-right:16px;"><span class="points-display">${p._points}</span><span style="font-size:11px;color:var(--text-muted);font-weight:600;margin-left:2px;">pts</span></td>
+        <td style="text-align:center;font-size:13px;font-weight:700;color:#174CCC;">${p._ptsFor}</td>
+        <td style="text-align:center;font-size:13px;font-weight:800;color:${p._diff > 0 ? '#24BC96' : p._diff < 0 ? '#F26024' : '#6b7a99'};">${p._diff > 0 ? '+' : ''}${p._diff}</td>
+        <td style="text-align:center;font-size:13px;font-weight:700;color:#24BC96;">${p._wins}</td>
+        <td style="text-align:center;font-size:13px;font-weight:700;color:#F26024;">${p._losses}</td>
         <td style="width:160px;">${trendHTML}</td>
       </tr>`;
     }).join('');
@@ -1335,7 +1353,11 @@
           <tr>
             <th style="width:48px;">Rank</th>
             <th>Player</th>
-            <th style="text-align:right;width:100px;">Points</th>
+            <th style="text-align:right;width:90px;">Points</th>
+            <th style="text-align:center;width:80px;">Pts For</th>
+            <th style="text-align:center;width:70px;">Diff</th>
+            <th style="text-align:center;width:60px;">Wins</th>
+            <th style="text-align:center;width:60px;">Losses</th>
             <th style="text-align:center;width:160px;">Trend</th>
           </tr>
         </thead>
