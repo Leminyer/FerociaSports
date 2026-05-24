@@ -2376,7 +2376,6 @@
         return `<div class="court-player ${chipBg}" style="${isSub ? 'background:rgba(36,188,150,0.06);border-color:rgba(36,188,150,0.3);' : ''}">
           <span class="court-num-badge ${badgeBg}" style="${isSub ? 'background:#24BC96;' : ''}">${i + 1}</span>
           <span class="text-bold" style="font-size:13px;">${esc(p.first_name)} ${esc(p.last_name)}</span>
-          ${p.ladder_status === 'sub' ? '<span class="sub-pill">SUB</span>' : ''}
           <div style="display:flex;gap:5px;margin-left:auto;align-items:center;">
             ${isNoShow
               ? `<span style="font-size:9px;font-weight:800;background:var(--orange);color:white;padding:2px 6px;border-radius:99px;letter-spacing:.5px;">NO-SHOW</span>
