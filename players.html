@@ -283,6 +283,16 @@
   const getInitials = (first, last) =>
     ((first || '')[0] || '').toUpperCase() + ((last || '')[0] || '').toUpperCase();
 
+  const fmtTime12 = (t) => {
+    if (!t) return '';
+    const [hStr, mStr] = t.split(':');
+    let h = parseInt(hStr, 10);
+    const m = (mStr || '00').slice(0, 2);
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12 || 12;
+    return `${h}:${m} ${ampm}`;
+  };
+
   // ── EXACT same as old players.html ─────────────────────────────────────
   const calcPlayerPoints = () => {
     const pm  = {}; // points
@@ -569,43 +579,54 @@
       return;
     }
 
-    // Group — same as old players.html
+    // Group by date__time__court (same as admin sessions)
     const grouped = {};
     allMatches.forEach(m => {
-      const key = `${m.session_date}__${m.court_group}`;
-      if (!grouped[key]) grouped[key] = { date:m.session_date, group:m.court_group, games:{} };
-      if (!grouped[key].games[m.game_number]) grouped[key].games[m.game_number] = [];
-      grouped[key].games[m.game_number].push(m);
+      const time = m.session_time || '00:00';
+      const key = `${m.session_date}__${time}__${m.court_group}`;
+      if (!grouped[key]) grouped[key] = { date:m.session_date, time, group:m.court_group, games:{}, noShow:[] };
+      if (m.default_no_show) {
+        grouped[key].noShow.push(m);
+      } else {
+        if (!grouped[key].games[m.game_number]) grouped[key].games[m.game_number] = [];
+        grouped[key].games[m.game_number].push(m);
+      }
     });
 
-    // Filter completed only — same as old players.html
+    // Filter completed only
     const completed = Object.values(grouped).filter(s =>
-      Object.values(s.games).flat().every(m => m.default_no_show || m.score_for !== null)
+      Object.values(s.games).flat().every(m => m.score_for !== null)
     );
     if (!completed.length) {
       document.getElementById('sessions-content').innerHTML = '<div class="empty">No completed sessions yet.</div>';
       return;
     }
 
+    // Group by date → time → courts
     const byDate = {};
-    completed.forEach(s => { if (!byDate[s.date]) byDate[s.date]=[]; byDate[s.date].push(s); });
+    completed.forEach(s => {
+      if (!byDate[s.date]) byDate[s.date] = {};
+      if (!byDate[s.date][s.time]) byDate[s.date][s.time] = [];
+      byDate[s.date][s.time].push(s);
+    });
     const sortedDates = Object.keys(byDate).sort((a,b) => b.localeCompare(a));
 
     let html = '';
     sortedDates.forEach((date, dateIdx) => {
-      const courts   = byDate[date].sort((a,b)=>a.group-b.group);
-      const isFirst  = dateIdx === 0;
-      const groupId  = `sdg-${date.replace(/-/g,'')}`;
-      const d        = new Date(date+'T00:00:00');
-      const weekday  = d.toLocaleDateString('en-US',{weekday:'long'});
-      const dateFmt  = d.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
-      const dateLabel= `${weekday} Session — ${dateFmt}`;
-      const allDM    = courts.flatMap(c=>Object.values(c.games).flat());
-      const courtCount   = courts.length;
-      const totalGames   = new Set(allDM.map(m=>`${m.court_group}__${m.game_number}`)).size;
-      const uniquePlayers= new Set(allDM.map(m=>m.player_id)).size;
-      const subCount     = allDM.filter(m=>m.is_sub).length;
-      const sum          = computeSummary(courts);
+      const timeSlots = byDate[date];
+      const allCourts = Object.values(timeSlots).flat();
+      const isFirst   = dateIdx === 0;
+      const groupId   = `sdg-${date.replace(/-/g,'')}`;
+      const d         = new Date(date+'T00:00:00');
+      const weekday   = d.toLocaleDateString('en-US',{weekday:'long'});
+      const dateFmt   = d.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
+      const dateLabel = `${weekday} Session — ${dateFmt}`;
+      const allDM     = allCourts.flatMap(c=>Object.values(c.games).flat());
+      const courtCount    = allCourts.length;
+      const totalGames    = new Set(allDM.map(m=>`${m.court_group}__${m.game_number}`)).size;
+      const uniquePlayers = new Set(allDM.map(m=>m.player_id)).size;
+      const subCount      = allDM.filter(m=>m.is_sub).length;
+      const sum           = computeSummary(allCourts);
 
       html += `<div class="session-date-group" id="${groupId}">
         <div style="margin-bottom:10px;">
@@ -632,7 +653,17 @@
             <div class="sess-sum-card sc-orange"><div class="sess-sum-label">Biggest Win</div><div class="sess-sum-val">${sum.biggest?sum.biggest.score:'—'}</div><div class="sess-sum-ctx scc-orange">${sum.biggest?`Court ${sum.biggest.court}, Game ${sum.biggest.game}`:'No scores yet'}</div></div>
             <div class="sess-sum-card sc-blue"><div class="sess-sum-label">Court Highlight</div><div class="sess-sum-val-text">${sum.bestCourt?`Court ${sum.bestCourt}`:'—'}</div><div class="sess-sum-ctx scc-blue">Most competitive</div></div>
           </div>
-          ${courts.map(s => {
+          ${Object.keys(timeSlots).sort().map(time => {
+            const timeCourts = timeSlots[time].sort((a,b)=>a.group-b.group);
+            const timeBlockHTML = timeCourts.map(s => {
+            const noShowBannerHtml = s.noShow && s.noShow.length ? s.noShow.map(ns => {
+              const nsName = ns.players ? `${esc(ns.players.first_name)} ${esc(ns.players.last_name)}` : 'Unknown';
+              return `<div style="display:flex;align-items:center;gap:8px;margin-top:8px;padding:7px 12px;background:var(--orange-light);border:1px solid rgba(242,96,36,0.2);border-radius:8px;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                <span style="font-size:12px;font-weight:800;color:var(--orange);">No-show: ${nsName}</span>
+                <span style="font-size:11px;font-weight:700;color:var(--orange);">${ns.points_earned} pts</span>
+              </div>`;
+            }).join('') : '';
             const gamesHTML = Object.entries(s.games).sort((a,b)=>a[0]-b[0]).map(([gnum,players])=>{
               const [teamA,teamB] = buildTeams(players);
               const scoreA = teamA[0]?teamA[0].score_for:null, scoreB=teamB[0]?teamB[0].score_for:null;
@@ -669,7 +700,16 @@
               <div class="court-block-hdr">
                 <span class="court-block-label">Court ${s.group}${courtPending?` <span style="font-size:9px;font-weight:800;color:var(--orange);background:var(--orange-light);padding:1px 6px;border-radius:99px;margin-left:6px;">Pending</span>`:''}</span>
               </div>
+              ${noShowBannerHtml}
               ${gamesHTML}
+            </div>`;
+            }).join('');
+            return `<div style="margin-bottom:10px;">
+              <div style="display:flex;align-items:center;gap:8px;padding:6px 12px;background:#f4f6fc;border-radius:6px;margin-bottom:6px;border-left:3px solid #174CCC;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <span style="font-size:11px;font-weight:800;color:#174CCC;">${fmtTime12(time)}</span>
+              </div>
+              ${timeBlockHTML}
             </div>`;
           }).join('')}
         </div>
