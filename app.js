@@ -34,6 +34,7 @@
   let courtPlayers = [];
   let noShowPlayer = null;
   let noShowPenalty = -4;
+  let subPlayers = new Set(); // player IDs marked as sub for this specific session
   let gameCount = 0;
   let extraGameCount = 0;
   let extraGames = [];
@@ -2239,6 +2240,7 @@
     courtPlayers = [];
     noShowPlayer = null;
     noShowPenalty = -4;
+    subPlayers = new Set();
     gameCount = 0;
     extraGameCount = 0;
     extraGames = [];
@@ -2309,6 +2311,7 @@
 
   const removeCourtPlayer = (id) => {
     if (noShowPlayer && noShowPlayer.id === id) noShowPlayer = null;
+    subPlayers.delete(id);
     courtPlayers = courtPlayers.filter((p) => p.id !== id);
     renderPlayerDropdown(document.getElementById('player-search-entry')?.value || '');
     renderCourtPlayers();
@@ -2319,9 +2322,24 @@
   };
 
   const markNoShow = (pid) => {
-    noShowPlayer = courtPlayers.find((p) => p.id === parseInt(pid, 10)) || null;
+    const id = parseInt(pid, 10);
+    subPlayers.delete(id); // can't be both sub and no-show
+    noShowPlayer = courtPlayers.find((p) => p.id === id) || null;
     noShowPenalty = -4;
     renderPlayerDropdown(document.getElementById('player-search-entry')?.value || '');
+    renderCourtPlayers();
+  };
+
+  const markSub = (pid) => {
+    const id = parseInt(pid, 10);
+    // Can't be both sub and no-show
+    if (noShowPlayer && noShowPlayer.id === id) { noShowPlayer = null; noShowPenalty = -4; }
+    subPlayers.add(id);
+    renderCourtPlayers();
+  };
+
+  const unmarkSub = (pid) => {
+    subPlayers.delete(parseInt(pid, 10));
     renderCourtPlayers();
   };
 
@@ -2340,16 +2358,36 @@
     const playerChipsHtml = courtPlayers
       .map((p, i) => {
         const isNoShow = noShowPlayer && noShowPlayer.id === p.id;
-        return `<div class="court-player ${isNoShow ? 'no-show' : ''}">
-          <span class="court-num-badge ${isNoShow ? 'no-show' : ''}">${i + 1}</span>
+        const isSub    = subPlayers.has(p.id);
+        const chipBg   = isNoShow ? 'no-show' : isSub ? 'sub-chip' : '';
+        const badgeBg  = isNoShow ? 'no-show' : isSub ? 'sub-badge' : '';
+
+        // Sub pill styles
+        const subActiveStyle  = 'background:rgba(36,188,150,0.15);border:1px solid #24BC96;color:#24BC96;';
+        const subDefaultStyle = 'background:none;border:0.5px solid var(--border);color:var(--text-muted);';
+        const subStyle = isSub ? subActiveStyle : subDefaultStyle;
+        const subAction = isSub ? 'unmarkSub' : 'markSub';
+        const subLabel  = isSub ? 'Sub ✓' : 'Sub';
+
+        // No-show pill styles
+        const nsActiveStyle  = 'background:rgba(242,96,36,0.12);border:1px solid rgba(242,96,36,0.4);color:var(--orange);';
+        const nsDefaultStyle = 'background:none;border:0.5px solid var(--border);color:var(--text-muted);';
+
+        return `<div class="court-player ${chipBg}" style="${isSub ? 'background:rgba(36,188,150,0.06);border-color:rgba(36,188,150,0.3);' : ''}">
+          <span class="court-num-badge ${badgeBg}" style="${isSub ? 'background:#24BC96;' : ''}">${i + 1}</span>
           <span class="text-bold" style="font-size:13px;">${esc(p.first_name)} ${esc(p.last_name)}</span>
-          ${
-            isNoShow
+          ${p.ladder_status === 'sub' ? '<span class="sub-pill">SUB</span>' : ''}
+          <div style="display:flex;gap:5px;margin-left:auto;align-items:center;">
+            ${isNoShow
               ? `<span style="font-size:9px;font-weight:800;background:var(--orange);color:white;padding:2px 6px;border-radius:99px;letter-spacing:.5px;">NO-SHOW</span>
-                <button data-action="cancelNoShow" class="color-orange text-bold cursor-pointer" style="background:none;border:none;font-size:12px;padding:0 2px;">undo</button>`
-              : `<button data-action="markNoShow" data-pid="${p.id}" class="text-muted-11 text-bold cursor-pointer" style="background:none;padding:2px 6px;border:0.5px solid var(--border);border-radius:99px;font-size:10px;">No-show</button>
-                <button data-action="removeCourtPlayerBtn" data-pid="${p.id}" class="cursor-pointer text-muted-13" style="background:none;border:none;font-size:16px;line-height:1;padding:0 2px;">&times;</button>`
-          }
+                 <button data-action="cancelNoShow" class="color-orange text-bold cursor-pointer" style="background:none;border:none;font-size:12px;padding:0 2px;">undo</button>`
+              : `<button data-action="${subAction}" data-pid="${p.id}"
+                  style="padding:2px 8px;border-radius:99px;font-size:10px;font-weight:700;cursor:pointer;${subStyle}">${subLabel}</button>
+                 <button data-action="markNoShow" data-pid="${p.id}"
+                  style="padding:2px 8px;border-radius:99px;font-size:10px;font-weight:700;cursor:pointer;${nsDefaultStyle}">No-show</button>
+                 <button data-action="removeCourtPlayerBtn" data-pid="${p.id}" class="cursor-pointer text-muted-13" style="background:none;border:none;font-size:16px;line-height:1;padding:0 2px;">&times;</button>`
+            }
+          </div>
         </div>`;
       })
       .join('');
@@ -2745,7 +2783,7 @@
         tAIds.forEach((pid) => {
           if (!pid) return;
           const pA = ladderPlayers.find((p) => p.id === pid);
-          const isSubA = pA?.ladder_status === 'sub';
+          const isSubA = pA?.ladder_status === 'sub' || subPlayers.has(pA?.id);
           rows.push({
             session_date: date, session_time: sessionTm, court_group: parseInt(courtNum, 10), player_id: pid,
             game_number: extraGameMap[gameNum] || gameNum,
@@ -2757,7 +2795,7 @@
         tBIds.forEach((pid) => {
           if (!pid) return;
           const pB = ladderPlayers.find((p) => p.id === pid);
-          const isSubB = pB?.ladder_status === 'sub';
+          const isSubB = pB?.ladder_status === 'sub' || subPlayers.has(pB?.id);
           rows.push({
             session_date: date, session_time: sessionTm, court_group: parseInt(courtNum, 10), player_id: pid,
             game_number: extraGameMap[gameNum] || gameNum,
@@ -2792,7 +2830,7 @@
             session_date: date, session_time: sessionTm, court_group: parseInt(courtNum, 10), player_id: pid,
             game_number: extraGameMap[gameNum] || gameNum,
             score_for: null, score_against: null,
-            points_earned: 0, is_sub: p?.ladder_status === 'sub',
+            points_earned: 0, is_sub: p?.ladder_status === 'sub' || subPlayers.has(p?.id),
             default_no_show: false, ladder_id: currentLadder.id,
           });
         });
@@ -5793,8 +5831,10 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     sbToggleMore: () => sbToggleMore(),
     // Court / session entry
     addCourtPlayerBtn: (btn) => addCourtPlayer(parseInt(btn.dataset.pid, 10)),
-    markNoShow: (btn) => markNoShow(btn.dataset.pid),
+    markNoShow:  (btn) => markNoShow(btn.dataset.pid),
     cancelNoShow: () => cancelNoShow(),
+    markSub:     (btn) => markSub(btn.dataset.pid),
+    unmarkSub:   (btn) => unmarkSub(btn.dataset.pid),
     removeCourtPlayerBtn: (btn) => removeCourtPlayer(parseInt(btn.dataset.pid, 10)),
     addExtraGame: () => addExtraGame(),
     removeExtraGame: (btn) => removeExtraGame(parseInt(btn.dataset.gamenum, 10)),
