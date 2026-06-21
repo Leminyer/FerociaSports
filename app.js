@@ -5,6 +5,40 @@
                      toast, confirmModal, FEROCIA_CONFIG
    ============================================================ */
 
+// ── Ladder type selector (global — called from inline onclick) ────────────
+window.selectLadderType = (type) => {
+  const rp       = document.getElementById('ltype-rp');
+  const ftc      = document.getElementById('ltype-ftc');
+  const rpCheck  = document.getElementById('ltype-rp-check');
+  const ftcCheck = document.getElementById('ltype-ftc-check');
+  const inp      = document.getElementById('new-ladder-type');
+  if (!rp || !ftc || !inp) return;
+  inp.value = type;
+
+  const selectedStyle = (el) => {
+    el.style.border          = '1.5px solid #174CCC';
+    el.style.background      = 'linear-gradient(135deg,rgba(23,76,204,0.03),rgba(23,76,204,0.06))';
+    el.style.boxShadow       = '0 0 0 4px rgba(23,76,204,0.1),0 4px 16px rgba(23,76,204,0.12)';
+    el.style.transform       = 'scale(1.01)';
+  };
+  const defaultStyle = (el) => {
+    el.style.border          = '1.5px solid #e0e7f5';
+    el.style.background      = 'white';
+    el.style.boxShadow       = 'none';
+    el.style.transform       = 'scale(1)';
+  };
+
+  if (type === 'rotating_partner') {
+    selectedStyle(rp);  defaultStyle(ftc);
+    if (rpCheck)  rpCheck.style.display  = 'flex';
+    if (ftcCheck) ftcCheck.style.display = 'none';
+  } else {
+    selectedStyle(ftc); defaultStyle(rp);
+    if (ftcCheck) ftcCheck.style.display = 'flex';
+    if (rpCheck)  rpCheck.style.display  = 'none';
+  }
+};
+
 (function () {
   'use strict';
 
@@ -44,7 +78,7 @@
   /* ─── SIDEBAR NAVIGATION ───────────────────────────────── */
 
   // Set active state on sidebar + bottom nav items
-  const sbSetActive = (pageOrKey) => {
+  window.sbSetActive = (pageOrKey) => {
     // Clear all sidebar item active states
     document.querySelectorAll('.sb-item, .sb-sub-item').forEach(el => el.classList.remove('active'));
     document.querySelectorAll('.bn-item').forEach(el => el.classList.remove('active'));
@@ -53,9 +87,13 @@
     // Activate sidebar item by id (sb-<key>) and bottom nav (bn-<key>)
     const maps = {
       'home':         ['sb-home',        'bn-home'],
-      'ladder':       ['sb-standings',   'bn-ladder'],
-      'sessions':     ['sb-sessions',    'bn-ladder'],
-      'entry':        ['sb-entry',       'bn-ladder'],
+      'ladder':           ['sb-standings',    'bn-ladder'],
+      'sessions':         ['sb-sessions',    'bn-ladder'],
+      'entry':            ['sb-entry',       'bn-ladder'],
+      'ftc-standings':    ['sb-ftc-standings','bn-ladder'],
+      'ftc-teams':        ['sb-ftc-teams',   'bn-ladder'],
+      'ftc-schedule':     ['sb-ftc-schedule','bn-ladder'],
+      'ftc-playoffs':     ['sb-ftc-playoffs','bn-ladder'],
       'tournament-view': ['sb-tournament', 'bn-tournament'],
       'players':      ['sb-players',     'bn-players'],
       'add-player':   ['sb-add-player',  null],
@@ -65,12 +103,13 @@
       'orders':       ['sb-orders',      null],
       'promotions':   ['sb-promotions',  null],
       'share':        ['sb-share',       null],
+      'match-hub':    ['sb-match-hub',   null],
     };
     const ids = maps[pageOrKey] || [];
     ids.forEach(id => { if (id) { const el = document.getElementById(id); if (el) el.classList.add('active'); } });
 
     // Bottom nav: pages in "more" drawer activate the ⋯ button
-    const morePages = ['add-player','ladders','t-tournaments','events','orders','promotions','share'];
+    const morePages = ['add-player','ladders','t-tournaments','events','orders','promotions','share','match-hub'];
     if (morePages.includes(pageOrKey)) {
       document.getElementById('bn-more')?.classList.add('active');
       const mdEl = document.getElementById(`md-${pageOrKey}`);
@@ -78,13 +117,27 @@
     }
 
     // Show/hide ladder sub-items and select
-    const isLadderPage = ['ladder','sessions','entry'].includes(pageOrKey);
+    const isLadderPage = ['ladder','sessions','entry','ftc-standings','ftc-teams','ftc-schedule','ftc-playoffs'].includes(pageOrKey);
     const ladderWrap = document.getElementById('sb-ladder-select-wrap');
     if (ladderWrap) ladderWrap.style.display = isLadderPage ? 'block' : 'none';
-    ['sb-standings','sb-sessions','sb-entry'].forEach(id => {
+    ['sb-standings','sb-sessions','sb-entry','sb-ftc-standings','sb-ftc-teams','sb-ftc-schedule','sb-ftc-playoffs'].forEach(id => {
       const el = document.getElementById(id);
-      if (el) el.style.display = isLadderPage ? 'flex' : 'none';
+      if (el) el.style.display = 'none'; // reset all first
     });
+    if (isLadderPage && currentLadder) {
+      const isFTC = currentLadder.ladder_type === 'ftc';
+      if (isFTC) {
+        ['sb-ftc-standings','sb-ftc-teams','sb-ftc-schedule','sb-ftc-playoffs'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.style.display = 'flex';
+        });
+      } else {
+        ['sb-standings','sb-sessions','sb-entry'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.style.display = 'flex';
+        });
+      }
+    }
 
     // Show/hide tournament select
     const isTournPage = ['tournament-view'].includes(pageOrKey);
@@ -325,10 +378,24 @@
     // Always show the sub-items
     const wrap = document.getElementById('sb-ladder-select-wrap');
     if (wrap) wrap.style.display = 'block';
-    ['sb-standings','sb-sessions','sb-entry'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.style.display = 'flex';
-    });
+    (() => {
+      const isFTC = currentLadder?.ladder_type === 'ftc';
+      ['sb-standings','sb-sessions','sb-entry','sb-ftc-standings','sb-ftc-teams','sb-ftc-schedule','sb-ftc-playoffs'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+      });
+      if (isFTC) {
+        ['sb-ftc-standings','sb-ftc-teams','sb-ftc-schedule','sb-ftc-playoffs'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.style.display = 'flex';
+        });
+      } else {
+        ['sb-standings','sb-sessions','sb-entry'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.style.display = 'flex';
+        });
+      }
+    })();
     document.getElementById('sb-ladder')?.classList.add('active');
     document.getElementById('bn-ladder')?.classList.add('active');
   };
@@ -353,18 +420,15 @@
     }
   };
 
-  const loadTournamentSelector = async () => {
+  window.loadTournamentSelector = async () => {
     const sel = document.getElementById('tournament-selector');
     if (!sel) return;
     try {
-      const tournaments = await api('tournaments?select=*&order=id.desc');
+      const tournaments = await api('tournaments?status=eq.active&select=*&order=id.desc');
       sel.innerHTML =
         '<option value="">-- Select a tournament --</option>' +
         tournaments
-          .map(
-            (t) =>
-              `<option value="${t.id}">${esc(t.name)}${t.status === 'completed' ? ' (completed)' : ''}</option>`,
-          )
+          .map((t) => `<option value="${t.id}">${esc(t.name)}</option>`)
           .join('');
     } catch (e) {
       toast(`Error loading tournaments: ${e.message}`, true);
@@ -419,11 +483,16 @@
     if (name === 'players') loadPlayers();
     if (name === 'entry') initEntry();
     if (name === 'ladders') loadLaddersPage();
+    if (name === 'ftc-standings') loadFtcStandings();
+    if (name === 'ftc-teams') loadFtcTeams();
+    if (name === 'ftc-schedule') loadFtcSchedule();
+    if (name === 'ftc-playoffs') loadFtcPlayoffs();
     if (name === 'add-player') initAddPlayer();
     if (name === 'share') loadSharePage();
     if (name === 'orders') loadOrdersPage();
     if (name === 'events') loadEventsPage();
     if (name === 'promotions' && typeof loadPromotionsPage !== 'undefined') loadPromotionsPage();
+    if (name === 'match-hub') loadMatchHub();
     if (name === 't-tournaments' && typeof loadTournamentModule !== 'undefined') loadTournamentModule();
     if (name === 'tournament-view') {
       const el = document.getElementById('tournament-view-content');
@@ -468,24 +537,28 @@
     currentLadder = allLadders.find((l) => l.id === id) || null;
     updateLadderBanner();
     await loadLadderPlayers();
-    showPage('ladder', document.getElementById('sb-standings'));
+    if (currentLadder?.ladder_type === 'ftc') {
+      showPage('ftc-standings', document.getElementById('sb-ftc-standings'));
+    } else {
+      showPage('ladder', document.getElementById('sb-standings'));
+    }
   };
 
   const updateLadderBanner = () => {
-    const ladderPages = ['ladder', 'sessions', 'entry'];
-    const ladderNavBtns = document.querySelectorAll('#sb-standings, #sb-sessions, #sb-entry');
+    const ladderPages    = ['ladder', 'sessions', 'entry'];
+    const ftcPages       = ['ftc-standings', 'ftc-teams', 'ftc-schedule', 'ftc-playoffs'];
+    const allLadderPages = [...ladderPages, ...ftcPages];
+    const ladderNavBtns  = document.querySelectorAll('#sb-standings, #sb-sessions, #sb-entry, #sb-ftc-teams, #sb-ftc-schedule, #sb-ftc-playoffs');
     if (!currentLadder) {
-      ladderNavBtns.forEach((b) => {
-        if (ladderPages.includes(b.dataset.page)) b.disabled = true;
-      });
-      ladderPages.forEach((p) => {
+      ladderNavBtns.forEach((b) => (b.disabled = true));
+      allLadderPages.forEach((p) => {
         const el = document.getElementById(`page-${p}`);
         if (el) el.classList.add('page-disabled');
       });
       return;
     }
     ladderNavBtns.forEach((b) => (b.disabled = false));
-    ladderPages.forEach((p) => {
+    allLadderPages.forEach((p) => {
       const el = document.getElementById(`page-${p}`);
       if (el) el.classList.remove('page-disabled');
     });
@@ -631,15 +704,28 @@
         <!-- Tabs at top -->
         <div class="lop-tabs">
           <button class="lop-tab active" onclick="lopTab(event,'${l.id}','overview')">${ovSVG} Overview</button>
-          <button class="lop-tab" onclick="lopTab(event,'${l.id}','players')">${plrSVG} Players</button>
-          <button class="lop-tab" onclick="lopTab(event,'${l.id}','sessions')">${sessSVG} Sessions</button>
-          <button class="lop-tab" onclick="lopTab(event,'${l.id}','standings')">${stndSVG} Standings</button>
+          ${l.ladder_type === 'ftc' ? `
+            <button class="lop-tab" onclick="lopTab(event,'${l.id}','ftc-standings')">${stndSVG} Standings</button>
+            <button class="lop-tab" onclick="lopTab(event,'${l.id}','ftc-teams')">${plrSVG} Teams</button>
+            <button class="lop-tab" onclick="lopTab(event,'${l.id}','ftc-schedule')">${sessSVG} Schedule</button>
+            <button class="lop-tab" onclick="lopTab(event,'${l.id}','ftc-playoffs')">${stndSVG} Playoffs</button>
+          ` : l.ladder_type === 'rotating_partner' ? `
+            <button class="lop-tab" onclick="lopTab(event,'${l.id}','players')">${plrSVG} Players</button>
+            <button class="lop-tab" onclick="lopTab(event,'${l.id}','sessions')">${sessSVG} Sessions</button>
+            <button class="lop-tab" onclick="lopTab(event,'${l.id}','standings')">${stndSVG} Standings</button>
+          ` : ''}
         </div>
         <!-- Card body -->
         <div class="lop-body">
           <!-- LEFT -->
           <div class="lop-left">
             <div class="lop-name">${esc(l.name)}</div>
+            <div style="margin-bottom:4px;">
+              ${l.ladder_type === 'ftc'
+                ? `<span style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;background:rgba(198,242,33,0.15);color:#3B6D11;border:0.5px solid rgba(198,242,33,0.4);padding:2px 8px;border-radius:99px;">🏆 Ferocia Team Challenge</span>`
+                : `<span style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;background:#e8f0ff;color:#174CCC;border:0.5px solid #c5d6f5;padding:2px 8px;border-radius:99px;">🔄 Rotating Partner</span>`
+              }
+            </div>
             <div class="lop-status-row">
               <span class="${isActive ? 'lop-active-pill' : 'lop-closed-pill'}">${isActive ? 'Season Active' : 'Closed'}</span>
               ${isActive && l.start_date ? `<span class="lop-next">${clkSVG} ${nextSessionStr(l) || 'Active'}</span>` : ''}
@@ -697,32 +783,42 @@
   };
 
   // Quick access tab handler
-  window.lopTab = (e, ladderId, tab) => {
+  window.lopTab = async (e, ladderId, tab) => {
     // Update tab styles for this card
     const card = document.getElementById(`lop-card-${ladderId}`);
     if (!card) return;
     card.querySelectorAll('.lop-tab').forEach(t => t.classList.remove('active'));
     e.currentTarget.classList.add('active');
 
-    if (tab === 'overview') return; // already showing
+    if (tab === 'overview') return; // already showing overview inline
 
-    // Navigate to the right page with this ladder pre-selected
+    // Set this ladder as the current one and select it in the sidebar dropdown
     const ladder = allLadders.find(l => String(l.id) === String(ladderId));
     if (!ladder) return;
     currentLadder = ladder;
     const sel = document.getElementById('ladder-selector');
     if (sel) sel.value = ladderId;
     updateLadderBanner();
+    await loadLadderPlayers(); // ensure ladderPlayers is populated
 
+    // Rotating Partner tabs
     if (tab === 'players') {
       showPage('ladder', document.getElementById('sb-standings'));
-      // Switch to players tab inside ladder page
-      const plrTab = document.querySelector('[data-action="switchLadderTab"][data-tab="players"]');
-      if (plrTab) plrTab.click();
+      await loadLadder();
     } else if (tab === 'sessions') {
-      showPage('sessions', document.getElementById('sb-standings'));
+      showPage('sessions', document.getElementById('sb-sessions'));
     } else if (tab === 'standings') {
       showPage('ladder', document.getElementById('sb-standings'));
+      await loadLadder();
+    // FTC tabs
+    } else if (tab === 'ftc-standings') {
+      showPage('ftc-standings', document.getElementById('sb-ftc-standings'));
+    } else if (tab === 'ftc-teams') {
+      showPage('ftc-teams', document.getElementById('sb-ftc-teams'));
+    } else if (tab === 'ftc-schedule') {
+      showPage('ftc-schedule', document.getElementById('sb-ftc-schedule'));
+    } else if (tab === 'ftc-playoffs') {
+      showPage('ftc-playoffs', document.getElementById('sb-ftc-playoffs'));
     }
   };
 
@@ -770,17 +866,20 @@
 
   const createLadder = async (e) => {
     e.preventDefault();
-    const name = document.getElementById('new-ladder-name').value.trim();
-    const start = document.getElementById('new-ladder-start').value || null;
-    const end = document.getElementById('new-ladder-end').value || null;
+    const name       = document.getElementById('new-ladder-name').value.trim();
+    const start      = document.getElementById('new-ladder-start').value || null;
+    const end        = document.getElementById('new-ladder-end').value   || null;
+    const ladderType = document.getElementById('new-ladder-type')?.value || 'rotating_partner';
     if (!name) {
       toast('Please enter a ladder name.', true);
       return;
     }
     try {
-      await api('ladders', 'POST', { name, status: 'active', start_date: start, end_date: end });
+      await api('ladders', 'POST', { name, status: 'active', start_date: start, end_date: end, ladder_type: ladderType });
       toast(`Ladder "${name}" created!`);
       document.getElementById('create-ladder-form').reset();
+      // Reset type selector back to default
+      selectLadderType('rotating_partner');
       await loadLadderSelector();
       await loadLaddersPage();
     } catch (err) {
@@ -803,10 +902,16 @@
   const openEditLadder = (id) => {
     const l = allLadders.find((x) => x.id === id);
     if (!l) return;
-    document.getElementById('edit-ladder-id').value  = l.id;
+    document.getElementById('edit-ladder-id').value    = l.id;
     document.getElementById('edit-ladder-name').value  = l.name;
     document.getElementById('edit-ladder-start').value = l.start_date || '';
     document.getElementById('edit-ladder-end').value   = l.end_date   || '';
+    // Show ladder type as read-only badge
+    const typeEl  = document.getElementById('edit-ladder-type');
+    const badgeEl = document.getElementById('edit-ladder-type-badge');
+    const typeLabel = l.ladder_type === 'ftc' ? '🏆 Ferocia Team Challenge Ladder' : '🔄 Rotating Partner Ladder';
+    if (typeEl)  typeEl.value       = l.ladder_type || 'rotating_partner';
+    if (badgeEl) badgeEl.textContent = typeLabel;
     const modal = document.getElementById('edit-ladder-modal');
     if (modal) { modal.style.display = 'flex'; document.body.style.overflow = 'hidden'; }
   };
@@ -867,6 +972,16 @@
     const modal = document.getElementById('lp-modal');
     if (modal) { modal.style.display = 'flex'; document.body.style.overflow = 'hidden'; }
     const searchEl = document.getElementById('lp-search');
+    // Reset gender filter to 'all' on open
+    _lpGenderFilter = 'all';
+    ['all','male','female'].forEach(g => {
+      const btn = document.getElementById(`lp-filter-${g}`);
+      if (!btn) return;
+      const active = g === 'all';
+      btn.style.background  = active ? '#174CCC' : 'white';
+      btn.style.borderColor = active ? '#174CCC' : '#e0e7f5';
+      btn.style.color       = active ? 'white'   : '#6b7a99';
+    });
     if (searchEl) {
       searchEl.value = '';
       if (!searchEl._lpWired) {
@@ -936,8 +1051,9 @@
             onclick="lpSegClick(this,'sub',${p.id})">Sub</button>
         </div>` : '';
 
+      const gender = (p.gender || '').toLowerCase(); // 'male' or 'female'
       return `<div class="lp-player-row-new ${isEnrolled ? 'lp-selected' : ''}"
-          data-name="${esc(fullName.toLowerCase())}" data-pid="${p.id}"
+          data-name="${esc(fullName.toLowerCase())}" data-pid="${p.id}" data-gender="${esc(gender)}"
           onclick="lpRowClick(event,${p.id})">
         <div class="lp-cb-box ${isEnrolled ? 'lp-cb-checked' : ''}" data-pid="${p.id}" style="pointer-events:none;">
           ${isEnrolled ? checkSVG : ''}
@@ -1147,7 +1263,11 @@
       });
       const ranked = [...ladderPlayers]
         .filter((p) => p.ladder_status === 'active')
-        .sort((a, b) => (pm[b.id] || 0) - (pm[a.id] || 0));
+        .sort((a, b) =>
+          ((pm[b.id] || 0) - (pm[a.id] || 0)) ||           // 1. Total points
+          ((wm[b.id] || 0) - (wm[a.id] || 0)) ||           // 2. Wins
+          (((pfm[b.id]||0)-(pam[b.id]||0)) - ((pfm[a.id]||0)-(pam[a.id]||0))) // 3. Diff
+        );
       ranked.forEach((p, i) => {
         p._rank   = i + 1;
         p._points = pm[p.id]  || 0;
@@ -1642,7 +1762,7 @@
 
     try {
       const matches = await api(
-        `matches?select=*,players(first_name,last_name)&ladder_id=eq.${currentLadder.id}&order=session_date.desc,court_group,game_number`,
+        `matches?select=*,players(first_name,last_name)&ladder_id=eq.${currentLadder.id}&order=session_date.desc,court_group,game_number,id`,
       );
       if (!matches.length) {
         document.getElementById('sessions-list').innerHTML =
@@ -1900,7 +2020,9 @@
               if (!team || !team.length) return '';
               const p0 = team[0];
               const score = p0.default_no_show ? '-1' : p0.score_for !== null ? String(p0.score_for) : '—';
-              const pts   = p0.default_no_show ? '-1 pt' : p0.score_for !== null ? `+${p0.points_earned} pts` : 'pending';
+              const regularPts = team.filter(p => !p.is_sub).map(p => p.points_earned || 0);
+              const teamPts    = regularPts.length ? Math.max(...regularPts) : (p0.points_earned || 0);
+              const pts        = p0.default_no_show ? '-1 pt' : p0.score_for !== null ? `+${teamPts} pts` : 'pending';
               const isPend = p0.score_for === null && !p0.default_no_show;
 
               let blockClass = 'sess-team-block ';
@@ -2122,8 +2244,15 @@
       if (teamA[0].score_for < teamB[0].score_for) { [teamA, teamB] = [teamB, teamA]; }
     }
 
-    const teamANames = teamA.map(r => r.players ? `${esc(r.players.first_name)} ${esc(r.players.last_name)}` : 'Unknown').join('<br>');
-    const teamBNames = teamB.map(r => r.players ? `${esc(r.players.first_name)} ${esc(r.players.last_name)}` : 'Unknown').join('<br>');
+    const isSubRow = (r) => r.is_sub || ladderPlayers.find(p => p.id === r.player_id)?.ladder_status === 'sub';
+    const teamANames = teamA.map(r => {
+      const name = r.players ? `${esc(r.players.first_name)} ${esc(r.players.last_name)}` : 'Unknown';
+      return isSubRow(r) ? `${name} <span style="font-size:10px;font-weight:700;color:#6b7a99;background:#f0f2f8;padding:1px 6px;border-radius:99px;vertical-align:middle;">Sub</span>` : name;
+    }).join('<br>');
+    const teamBNames = teamB.map(r => {
+      const name = r.players ? `${esc(r.players.first_name)} ${esc(r.players.last_name)}` : 'Unknown';
+      return isSubRow(r) ? `${name} <span style="font-size:10px;font-weight:700;color:#6b7a99;background:#f0f2f8;padding:1px 6px;border-radius:99px;vertical-align:middle;">Sub</span>` : name;
+    }).join('<br>');
     const teamAScore = teamA[0] ? (teamA[0].score_for !== null ? teamA[0].score_for : '') : '';
     const teamBScore = teamB[0] ? (teamB[0].score_for !== null ? teamB[0].score_for : '') : '';
     const teamAAgainst = teamA[0] ? (teamA[0].score_against !== null ? teamA[0].score_against : '') : '';
@@ -2143,13 +2272,23 @@
       <div id="eg-scores-section" class="${isVoided ? 'opacity-04' : ''}">
         <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:start;">
           <div style="background:#e8f0ff;border-radius:8px;padding:14px;">
-            <div style="font-size:12px;font-weight:800;color:#0d1f4a;margin-bottom:8px;line-height:1.5;">${teamANames}</div>
+            <div style="font-size:12px;font-weight:800;color:#0d1f4a;margin-bottom:8px;line-height:1.8;">
+              ${teamA.map(r => {
+                const name = r.players ? `${esc(r.players.first_name)} ${esc(r.players.last_name)}` : 'Unknown';
+                const sub  = isSubRow(r);
+                return `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                  <span>${name}${sub ? ` <span style="font-size:10px;font-weight:700;color:#6b7a99;background:#f0f2f8;padding:1px 6px;border-radius:99px;">Sub</span>` : ''}</span>
+                  <span id="eg-inline-pts-${r.id}" style="font-size:11px;font-weight:700;color:#6b7a99;white-space:nowrap;"></span>
+                </div>`;
+              }).join('')}
+            </div>
             <div class="form-group" style="margin-bottom:6px;">
               <label style="font-size:10px;">Score</label>
               <input type="number" min="0" max="11" id="eg-sf-teamA" value="${teamAScore}" placeholder="0" data-egteam="A">
             </div>
             <div style="font-size:10px;font-weight:600;color:var(--text-muted);">Points: <span id="eg-pts-teamA-display">auto</span></div>
             <input type="hidden" id="eg-ids-teamA" value="${teamAIds}">
+            <input type="hidden" id="eg-sub-ids-teamA" value="${teamA.filter(r => { const lp = ladderPlayers.find(p => p.id === r.player_id); return r.is_sub || lp?.ladder_status === 'sub'; }).map(r=>r.id).join(',')}">
           </div>
           <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding-top:32px;color:rgba(23,76,204,0.3);font-size:10px;font-weight:800;">
             <div style="width:1px;height:20px;background:rgba(23,76,204,0.15);"></div>
@@ -2157,13 +2296,23 @@
             <div style="width:1px;height:20px;background:rgba(23,76,204,0.15);"></div>
           </div>
           <div style="background:#e8f5f1;border-radius:8px;padding:14px;">
-            <div style="font-size:12px;font-weight:800;color:#0d1f4a;margin-bottom:8px;line-height:1.5;">${teamBNames}</div>
+            <div style="font-size:12px;font-weight:800;color:#0d1f4a;margin-bottom:8px;line-height:1.8;">
+              ${teamB.map(r => {
+                const name = r.players ? `${esc(r.players.first_name)} ${esc(r.players.last_name)}` : 'Unknown';
+                const sub  = isSubRow(r);
+                return `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                  <span>${name}${sub ? ` <span style="font-size:10px;font-weight:700;color:#6b7a99;background:#f0f2f8;padding:1px 6px;border-radius:99px;">Sub</span>` : ''}</span>
+                  <span id="eg-inline-pts-${r.id}" style="font-size:11px;font-weight:700;color:#6b7a99;white-space:nowrap;"></span>
+                </div>`;
+              }).join('')}
+            </div>
             <div class="form-group" style="margin-bottom:6px;">
               <label style="font-size:10px;">Score</label>
               <input type="number" min="0" max="11" id="eg-sf-teamB" value="${teamBScore}" placeholder="0" data-egteam="B">
             </div>
             <div style="font-size:10px;font-weight:600;color:var(--text-muted);">Points: <span id="eg-pts-teamB-display">auto</span></div>
             <input type="hidden" id="eg-ids-teamB" value="${teamBIds}">
+            <input type="hidden" id="eg-sub-ids-teamB" value="${teamB.filter(r => { const lp = ladderPlayers.find(p => p.id === r.player_id); return r.is_sub || lp?.ladder_status === 'sub'; }).map(r=>r.id).join(',')}">
           </div>
         </div>
       </div>
@@ -2174,10 +2323,33 @@
     const calcDisplay = () => {
       const sfA = parseInt(document.getElementById('eg-sf-teamA').value, 10);
       const sfB = parseInt(document.getElementById('eg-sf-teamB').value, 10);
-      if (!isNaN(sfA) && !isNaN(sfB)) {
-        document.getElementById('eg-pts-teamA-display').textContent = '+' + calcPoints(sfA, sfB);
-        document.getElementById('eg-pts-teamB-display').textContent = '+' + calcPoints(sfB, sfA);
-      }
+      if (isNaN(sfA) || isNaN(sfB)) return;
+      const ptA = calcPoints(sfA, sfB);
+      const ptB = calcPoints(sfB, sfA);
+      const subIdsA = (document.getElementById('eg-sub-ids-teamA')?.value || '').split(',').filter(Boolean);
+      const subIdsB = (document.getElementById('eg-sub-ids-teamB')?.value || '').split(',').filter(Boolean);
+
+      // Update Team A player lines with inline points
+      teamA.forEach(r => {
+        const elId = `eg-inline-pts-${r.id}`;
+        const el   = document.getElementById(elId);
+        if (!el) return;
+        const sub  = subIdsA.includes(String(r.id));
+        el.textContent = sub ? '0 pts' : `${ptA > 0 ? '+' : ''}${ptA} pts`;
+        el.style.color = sub ? '#6b7a99' : '#174CCC';
+      });
+      // Update Team B player lines with inline points
+      teamB.forEach(r => {
+        const elId = `eg-inline-pts-${r.id}`;
+        const el   = document.getElementById(elId);
+        if (!el) return;
+        const sub  = subIdsB.includes(String(r.id));
+        el.textContent = sub ? '0 pts' : `${ptB > 0 ? '+' : ''}${ptB} pts`;
+        el.style.color = sub ? '#6b7a99' : '#174CCC';
+      });
+      // Legacy displays
+      document.getElementById('eg-pts-teamA-display').textContent = '+' + ptA;
+      document.getElementById('eg-pts-teamB-display').textContent = '+' + ptB;
     };
     document.getElementById('eg-sf-teamA').addEventListener('input', calcDisplay);
     document.getElementById('eg-sf-teamB').addEventListener('input', calcDisplay);
@@ -2214,18 +2386,28 @@
     const ptsA = (!isVoid && !isNaN(sfA) && !isNaN(sfB)) ? calcPoints(sfA, sfB) : 0;
     const ptsB = (!isVoid && !isNaN(sfA) && !isNaN(sfB)) ? calcPoints(sfB, sfA) : 0;
 
+    // Read sub IDs — subs always get 0 points
+    const subIdsA = (document.getElementById('eg-sub-ids-teamA')?.value || '').split(',').filter(Boolean);
+    const subIdsB = (document.getElementById('eg-sub-ids-teamB')?.value || '').split(',').filter(Boolean);
+
     try {
       const updates = [];
-      teamAIds.forEach(id => updates.push(api(`matches?id=eq.${id}`, 'PATCH', {
-        score_for:     isVoid ? null : sfA,
-        score_against: isVoid ? null : sfB,
-        points_earned: isVoid ? 0 : ptsA,
-      })));
-      teamBIds.forEach(id => updates.push(api(`matches?id=eq.${id}`, 'PATCH', {
-        score_for:     isVoid ? null : sfB,
-        score_against: isVoid ? null : sfA,
-        points_earned: isVoid ? 0 : ptsB,
-      })));
+      teamAIds.forEach(id => {
+        const isSub = subIdsA.includes(String(id));
+        updates.push(api(`matches?id=eq.${id}`, 'PATCH', {
+          score_for:     isVoid ? null : sfA,
+          score_against: isVoid ? null : sfB,
+          points_earned: isVoid ? 0 : isSub ? 0 : ptsA,
+        }));
+      });
+      teamBIds.forEach(id => {
+        const isSub = subIdsB.includes(String(id));
+        updates.push(api(`matches?id=eq.${id}`, 'PATCH', {
+          score_for:     isVoid ? null : sfB,
+          score_against: isVoid ? null : sfA,
+          points_earned: isVoid ? 0 : isSub ? 0 : ptsB,
+        }));
+      });
       await Promise.all(updates);
       toast('Game updated successfully!');
       document.getElementById('edit-game-modal').classList.remove('open');
@@ -2324,6 +2506,8 @@
     const p = ladderPlayers.find((x) => x.id === id);
     if (!p || courtPlayers.find((cp) => cp.id === id)) return;
     courtPlayers.push(p);
+    // Auto-activate sub if player is registered as sub in this ladder
+    if (p.ladder_status === 'sub') subPlayers.add(id);
     document.getElementById('player-search-entry').value = '';
     renderPlayerDropdown('');
     renderCourtPlayers();
@@ -2559,13 +2743,30 @@
         <div class="vs-grid">
           <div class="team-pad-blue">
             <div class="blue-tag mb-6">Team A</div>
-            <div style="font-size:16px;font-weight:800;color:var(--text);margin-bottom:10px;min-height:40px;line-height:1.3;">${esc(teamANames)}</div>
+            <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px;line-height:1.8;">
+              ${tA.map(p => {
+                const sub = subPlayers.has(p.id);
+                const pts = document.getElementById ? '' : '';
+                return `<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
+                  <span>${esc(p.first_name + ' ' + p.last_name)}${sub ? ` <span style="font-size:9px;font-weight:700;color:#6b7a99;background:#f0f2f8;padding:1px 5px;border-radius:99px;">Sub</span>` : ''}</span>
+                  <span id="rc-pts-${gameNum}-a-${p.id}" style="font-size:10px;font-weight:700;color:#6b7a99;white-space:nowrap;"></span>
+                </div>`;
+              }).join('')}
+            </div>
             <input type="number" min="0" max="11" placeholder="Score" id="scoreA-${gameNum}" data-autoscore="${gameNum}" class="score-input">
           </div>
           <div class="vs-tag"><span>VS</span></div>
           <div class="team-pad-teal">
             <div class="label-tag mb-6" style="color:var(--teal);">Team B</div>
-            <div style="font-size:16px;font-weight:800;color:var(--text);margin-bottom:10px;min-height:40px;line-height:1.3;">${esc(teamBNames)}</div>
+            <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px;line-height:1.8;">
+              ${tB.map(p => {
+                const sub = subPlayers.has(p.id);
+                return `<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
+                  <span>${esc(p.first_name + ' ' + p.last_name)}${sub ? ` <span style="font-size:9px;font-weight:700;color:#6b7a99;background:#f0f2f8;padding:1px 5px;border-radius:99px;">Sub</span>` : ''}</span>
+                  <span id="rc-pts-${gameNum}-b-${p.id}" style="font-size:10px;font-weight:700;color:#6b7a99;white-space:nowrap;"></span>
+                </div>`;
+              }).join('')}
+            </div>
             <input type="number" min="0" max="11" placeholder="Score" id="scoreB-${gameNum}" data-autoscore="${gameNum}" class="score-input">
           </div>
         </div>
@@ -2606,19 +2807,37 @@
     const ptB = calcPoints(b, a);
     const tAIds = document.getElementById(`teamA-ids-${gameNum}`).value.split(',').filter(Boolean);
     const tBIds = document.getElementById(`teamB-ids-${gameNum}`).value.split(',').filter(Boolean);
-    const tANames = tAIds
-      .map((id) => allPlayers.find((p) => p.id == id))
-      .filter(Boolean)
-      .map((p) => p.first_name)
-      .join(' & ');
-    const tBNames = tBIds
-      .map((id) => allPlayers.find((p) => p.id == id))
-      .filter(Boolean)
-      .map((p) => p.first_name)
-      .join(' & ');
-    const aColor = ptA > ptB ? 'var(--teal)' : 'var(--orange)';
-    const bColor = ptB > ptA ? 'var(--teal)' : 'var(--orange)';
-    preview.innerHTML = `<span style="color:${aColor};font-weight:700;">${esc(tANames || 'Team A')}: ${ptA > 0 ? '+' : ''}${ptA} pts</span> &nbsp;|&nbsp; <span style="color:${bColor};font-weight:700;">${esc(tBNames || 'Team B')}: ${ptB > 0 ? '+' : ''}${ptB} pts</span>`;
+
+    // Check sub status per player and build per-player preview
+    const isSub = (id) => subPlayers.has(Number(id));
+    const playerLabel = (id, pts) => {
+      const p = allPlayers.find(x => x.id == id);
+      const name = p ? p.first_name : `#${id}`;
+      const sub  = isSub(id);
+      const clr  = sub ? 'var(--text-muted)' : pts > 0 ? 'var(--teal)' : 'var(--orange)';
+      const ptsStr = sub ? '0 pts (sub)' : `${pts > 0 ? '+' : ''}${pts} pts`;
+      return `<span style="color:${clr};font-weight:700;">${esc(name)}: ${ptsStr}</span>`;
+    };
+
+    // Update inline pts spans inside game card player rows
+    tAIds.forEach(id => {
+      const el  = document.getElementById(`rc-pts-${gameNum}-a-${id}`);
+      if (!el) return;
+      const sub = isSub(id);
+      el.textContent = sub ? '0 pts' : `${ptA > 0 ? '+' : ''}${ptA} pts`;
+      el.style.color  = sub ? '#6b7a99' : '#174CCC';
+    });
+    tBIds.forEach(id => {
+      const el  = document.getElementById(`rc-pts-${gameNum}-b-${id}`);
+      if (!el) return;
+      const sub = isSub(id);
+      el.textContent = sub ? '0 pts' : `${ptB > 0 ? '+' : ''}${ptB} pts`;
+      el.style.color  = sub ? '#6b7a99' : '#174CCC';
+    });
+    // Keep summary preview for overall display
+    const teamAParts = tAIds.map(id => playerLabel(id, ptA));
+    const teamBParts = tBIds.map(id => playerLabel(id, ptB));
+    preview.innerHTML = [...teamAParts, ...teamBParts].join(' &nbsp;|&nbsp; ');
   };
 
   const autoCalcExtraGame = (gameNum) => {
@@ -2960,7 +3179,7 @@
       const WHITE  = [255, 255, 255];
       const ORANGE = [242, 96, 36];
 
-      // Build flat list of courts ordered by time then court number for iteration
+      // Build flat list: grouped by time slot, courts sorted numerically within each slot
       const courtNums = sortedPdfTimes.flatMap(t =>
         Object.keys(byTime[t]).map(Number).sort((a,b) => a-b).map(cn => ({ time: t, courtNum: cn, data: byTime[t][cn] }))
       );
@@ -2999,9 +3218,20 @@
       const ROW_H_SUM   = 6;          // player name row height
       const COURT_GAP   = 5;          // vertical gap between courts
 
+      // Split courts into two halves: left column first half, right column second half
+      // This ensures reading top-to-bottom left then right gives sequential court order
+      const half = Math.ceil(courtNums.length / 2);
+      const leftCourts  = courtNums.slice(0, half);
+      const rightCourts = courtNums.slice(half);
+      const orderedCourts = [];
+      const maxLen = Math.max(leftCourts.length, rightCourts.length);
+      // Interleave so we can use single forEach with col tracking
+      // Actually just concatenate: draw all left first, then all right
+      // We'll handle this by tracking which column we're in via index
       let col = 0;                    // 0 = left column, 1 = right column
       let yL  = 28;                   // y cursor for left column
       let yR  = 28;                   // y cursor for right column
+      const splitCourts = [...leftCourts.map(c => ({...c, col:0})), ...rightCourts.map(c => ({...c, col:1}))];
 
       // Helper: draw one court block in the summary, returns new y after drawing
       const drawSummaryCourtBlock = (courtNum, time, playerNames, noShowName, startX, startY) => {
@@ -3052,7 +3282,7 @@
         return startY + blockH;
       };
 
-      courtNums.forEach(({ time, courtNum, data: court }) => {
+      splitCourts.forEach(({ time, courtNum, data: court, col: fixedCol }) => {
         const gameNums = Object.keys(court.games).map(Number).sort((a, b) => a - b);
 
         // Collect unique active players for this court
@@ -3072,9 +3302,8 @@
         const totalRows = playerNames.length + (noShowName ? 1 : 0);
         const blockH    = COURT_HDR_H + totalRows * ROW_H_SUM + COURT_GAP;
 
-        // Decide which column to place this court in
-        // Strategy: always place in the shorter column
-        const useLeft = yL <= yR;
+        // Use pre-assigned column: left half first, then right half
+        const useLeft = fixedCol === 0;
         const startX  = useLeft ? COL1_X : COL2_X;
         const startY  = useLeft ? yL     : yR;
 
@@ -3258,9 +3487,23 @@
         // ── GAME LOOP ─────────────────────────────────────────────
         gameNums.forEach((gn) => {
           const gamePlayers = court.games[gn].filter((m) => !m.default_no_show);
-          const half = Math.ceil(gamePlayers.length / 2);
-          const teamANames = gamePlayers.slice(0, half).map((m) => m.players ? `${m.players.first_name} ${m.players.last_name}` : '?');
-          const teamBNames = gamePlayers.slice(half).map((m) => m.players ? `${m.players.first_name} ${m.players.last_name}` : '?');
+          // Split into teams using same logic as sessions page:
+          // group by score_for value (same score = same team); pending = slice(0,2)/slice(2,4)
+          const pdfBuildTeams = (players) => {
+            const allPending = players.every(p => p.score_for === null);
+            if (allPending) return [players.slice(0, 2), players.slice(2)];
+            const teamMap = {};
+            players.forEach(p => {
+              const k = p.score_for !== null ? String(p.score_for) : 'pending';
+              if (!teamMap[k]) teamMap[k] = [];
+              teamMap[k].push(p);
+            });
+            const sorted = Object.keys(teamMap).sort((a,b) => parseFloat(b) - parseFloat(a));
+            return [teamMap[sorted[0]]||[], teamMap[sorted[1]]||[]];
+          };
+          const [teamAPlayers, teamBPlayers] = pdfBuildTeams(gamePlayers);
+          const teamANames = teamAPlayers.map((m) => m.players ? `${m.players.first_name} ${m.players.last_name}` : '?');
+          const teamBNames = teamBPlayers.map((m) => m.players ? `${m.players.first_name} ${m.players.last_name}` : '?');
           const gamePlayerIds = new Set(gamePlayers.map((m) => m.player_id));
           const sittingOut = Object.entries(playerMap)
             .filter(([pid]) => !gamePlayerIds.has(parseInt(pid, 10)))
@@ -3548,7 +3791,12 @@
           <td class="players-td" style="text-align:center;">${indHTML}</td>
           <td class="players-td" style="text-align:center;">${d.statusHTML}</td>
           <td class="players-td" style="text-align:center;">
-            <button class="sess-edit-btn" data-action="openEdit" data-pid="${p.id}" title="Edit player">${editSVG}</button>
+            <div style="display:flex;align-items:center;justify-content:center;gap:6px;">
+              <button class="ppm-profile-btn" data-action="openPlayerProfile" data-pid="${p.id}" title="View profile">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              </button>
+              <button class="sess-edit-btn" data-action="openEdit" data-pid="${p.id}" title="Edit player">${editSVG}</button>
+            </div>
           </td>
         </tr>
         <tr id="${expandId}" class="player-expand-row" style="display:none;">
@@ -4030,6 +4278,1074 @@
     wrap.style.display = status === 'inactive' ? '' : 'none';
   };
 
+  // ── PLAYER PROFILE MODAL ─────────────────────────────────────────────────
+
+  window.closePlayerProfile = () => {
+    document.getElementById('player-profile-modal').classList.remove('open');
+    document.body.style.overflow = '';
+  };
+
+  window.openPlayerProfile = async (id) => {
+    const modal = document.getElementById('player-profile-modal');
+    modal.classList.add('open');
+    document.body.style.overflow = 'hidden';
+    document.getElementById('ppm-body').innerHTML = '<div class="loading" style="padding:40px;">Loading player profile...</div>';
+
+    // ── Fetch player + all data fresh ────────────────────────────────────
+    let p = (allPlayers || []).find(x => x.id === id);
+    if (!p) {
+      const rows = await api(`players?id=eq.${id}&select=*`).catch(() => []);
+      p = rows[0];
+    }
+    if (!p) { document.getElementById('ppm-body').innerHTML = '<div class="loading">Player not found.</div>'; return; }
+
+    // ── Header ────────────────────────────────────────────────────────────
+    const initials = ((p.first_name||'')[0]||'').toUpperCase() + ((p.last_name||'')[0]||'').toUpperCase();
+    const avColors = ['#174CCC','#F26024','#24BC96','#9a6e00','#7B2FBE','#C04A0E'];
+    const avColor  = avColors[id % avColors.length];
+    const avEl = document.getElementById('ppm-av');
+    avEl.textContent = initials;
+    avEl.style.background = avColor;
+    document.getElementById('ppm-name').textContent = `${p.first_name} ${p.last_name}`;
+    const isActive = p.status === 'active';
+    document.getElementById('ppm-status-pill').className = isActive ? 'ppm-active' : 'ppm-inactive';
+    document.getElementById('ppm-status-pill').innerHTML = isActive ? '🟢 Active' : '⚪ Inactive';
+    document.getElementById('ppm-footer-info').textContent = `Player ID #${p.id}${p.date_joined ? ' · Joined ' + fmtDate(p.date_joined) : ''}`;
+
+    // ── Fetch all data fresh ──────────────────────────────────────────────
+    const rpc = async (fn, args) => {
+      const { data, error } = await supabase.rpc(fn, args);
+      if (error) { console.warn(`[rpc] ${fn}:`, error.message); return []; }
+      return data || [];
+    };
+    const [allMatches, ladderPlayerRows, allLadders,
+      myTournTeams, myTournaments, myTournCategories, allBracketMatches
+    ] = await Promise.all([
+      api(`matches?player_id=eq.${id}&select=*&order=session_date.desc`).catch(() => []),
+      api(`ladder_players?player_id=eq.${id}&select=*`).catch(() => []),
+      api(`ladders?select=id,name`).catch(() => []),
+      rpc('get_player_tournament_teams',       { p_player_id: id }),
+      rpc('get_player_tournaments',             { p_player_id: id }),
+      rpc('get_player_tournament_categories',   { p_player_id: id }),
+      rpc('get_player_bracket_matches',         { p_player_id: id }),
+    ]);
+
+    // ── Ladder stats ──────────────────────────────────────────────────────
+    const ladderMatches = allMatches.filter(m => !m.default_no_show && m.score_for !== null && m.score_against !== null);
+    const ladderWins    = ladderMatches.filter(m => m.score_for > m.score_against).length;
+    const ladderLosses  = ladderMatches.length - ladderWins;
+    const ladderPlayed  = ladderMatches.length;
+
+    // ── Ladder seasons ────────────────────────────────────────────────────
+    const ladderIds = [...new Set(ladderPlayerRows.map(lp => lp.ladder_id))];
+    const myLadders = allLadders.filter(l => ladderIds.includes(l.id));
+
+    // ── Tournament data — all from RPCs, no client-side filtering needed ──
+    const myTeamIds = (myTournTeams || []).map(tt => tt.id);
+
+    // ── Tournament bracket stats ──────────────────────────────────────────
+    const myBracketMatches = (allBracketMatches || []).filter(bm => bm.status === 'completed');
+    const tournWins   = myBracketMatches.filter(bm => myTeamIds.includes(bm.winner_id)).length;
+    const tournLosses = myBracketMatches.length - tournWins;
+
+    // ── Overall combined stats ────────────────────────────────────────────
+    const totalWins   = ladderWins + tournWins;
+    const totalLosses = ladderLosses + tournLosses;
+    const totalPlayed = ladderPlayed + myBracketMatches.length;
+    const winPct      = totalPlayed > 0 ? Math.round(totalWins / totalPlayed * 100) : 0;
+
+    // Quick stats for header
+    const ppmSVG = (d) => `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6b7a99" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+    const genderSVG  = ppmSVG('<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>');
+    const calSVG     = ppmSVG('<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>');
+    const tournSVG   = ppmSVG('<path d="M6 9H4a2 2 0 0 1-2-2V5h4"/><path d="M18 9h2a2 2 0 0 0 2-2V5h-4"/><path d="M12 17v4"/><path d="M8 21h8"/><path d="M6 9a6 6 0 0 0 12 0V3H6v6z"/>');
+    const ladderSVG  = ppmSVG('<rect x="2" y="7" width="20" height="14" rx="2"/><polyline points="16 3 12 7 8 3"/>');
+    document.getElementById('ppm-qs').innerHTML = [
+      p.gender ? `<span class="ppm-q">${genderSVG} <b>${esc(p.gender)}</b></span>` : '',
+      p.date_joined ? `<span class="ppm-q">${calSVG} Joined <b>${fmtDate(p.date_joined)}</b></span>` : '',
+      (myTournaments||[]).length ? `<span class="ppm-q">${tournSVG} <b>${(myTournaments||[]).length}</b> Tournament${(myTournaments||[]).length!==1?'s':''}</span>` : '',
+      (myLadders||[]).length ? `<span class="ppm-q">${ladderSVG} <b>${myLadders.length}</b> Ladder${myLadders.length!==1?'s':''}</span>` : '',
+    ].join('');
+
+    // ── Streak & last 10 ─────────────────────────────────────────────────
+    const orderedResults = ladderMatches.map(m => m.score_for > m.score_against ? 'W' : 'L');
+    let streak = 0, streakType = '';
+    if (orderedResults.length) {
+      streakType = orderedResults[0];
+      for (let i = 0; i < orderedResults.length; i++) {
+        if (orderedResults[i] === streakType) streak++;
+        else break;
+      }
+    }
+    const last10 = orderedResults.slice(0, 10); // from ladderMatches ordered newest first
+    const last10W = last10.filter(r => r==='W').length;
+    const last10L = last10.length - last10W;
+
+    // ── Tournament history ────────────────────────────────────────────────
+    const finishLabel = (bm) => {
+      if (!bm) return '';
+      if (bm.round_name === 'Final') {
+        const won = bm.winner_id && myTeamIds.includes(bm.winner_id);
+        return won ? '<span class="ppm-hbadge ppm-hb-gold">🥇 Champion</span>' : '<span class="ppm-hbadge ppm-hb-blue">🥈 Runner Up</span>';
+      }
+      if (bm.round_name?.toLowerCase().includes('semi')) return '<span class="ppm-hbadge ppm-hb-gray">Semifinalist</span>';
+      return '<span class="ppm-hbadge ppm-hb-gray">Participant</span>';
+    };
+
+    const tournHistHTML = (myTournaments||[]).length
+      ? (myTournaments||[]).map(t => {
+          const tCatIds = (myTournCategories||[]).filter(c => c.tournament_id === t.id).map(c => c.id);
+          const lastBm  = (allBracketMatches||[]).filter(bm =>
+            tCatIds.includes(bm.category_id) &&
+            (myTeamIds.includes(bm.team_a_id) || myTeamIds.includes(bm.team_b_id)) &&
+            bm.status === 'completed'
+          ).slice(-1)[0];
+          return `<div class="ppm-hist-row">
+            <div>
+              <div class="ppm-hist-name">${esc(t.name)}</div>
+              <div class="ppm-hist-sub">${t.date ? fmtDate(t.date) : ''}</div>
+            </div>
+            ${finishLabel(lastBm) || '<span class="ppm-hbadge ppm-hb-gray">Participant</span>'}
+          </div>`;
+        }).join('')
+      : '<div style="padding:16px;font-size:12px;font-weight:600;color:#6b7a99;">No tournament history yet.</div>';
+
+    // ── Ladder history ────────────────────────────────────────────────────
+    const ladderHistHTML = (myLadders||[]).length
+      ? myLadders.map(l => {
+          const lp   = ladderPlayerRows.find(r => r.ladder_id === l.id);
+          const stat = lp?.status === 'sub' ? '<span style="font-size:10px;font-weight:700;padding:3px 10px;border-radius:99px;background:#f0f2f8;color:#6b7a99;">Sub</span>'
+                     : lp?.status === 'active' ? '<span style="font-size:10px;font-weight:700;padding:3px 10px;border-radius:99px;background:rgba(36,188,150,0.12);color:#085041;">Active</span>'
+                     : '<span style="font-size:11px;font-weight:600;color:#6b7a99;">Enrolled</span>';
+          return `<div class="ppm-hist-row">
+            <div>
+              <div class="ppm-hist-name">${esc(l.name)}</div>
+            </div>
+            ${stat}
+          </div>`;
+        }).join('')
+      : '<div style="padding:16px;font-size:12px;font-weight:600;color:#6b7a99;">No ladder history yet.</div>';
+
+    // ── Achievements ──────────────────────────────────────────────────────
+    const badges = [];
+    if ((myBracketMatches||[]).some(bm =>
+      bm.round_name === 'Final' && myTeamIds.includes(bm.winner_id)
+    )) badges.push({ icon:'🏆', label:'Champion', bg:'rgba(246,166,35,0.08)', border:'rgba(246,166,35,0.3)', color:'#9a6200' });
+
+    if (streak >= 5 && streakType === 'W') badges.push({ icon:'🔥', label:`${streak} Win Streak`, bg:'rgba(242,96,36,0.06)', border:'rgba(242,96,36,0.2)', color:'#F26024' });
+    else if (streak >= 3 && streakType === 'W') badges.push({ icon:'🔥', label:`${streak} Win Streak`, bg:'rgba(242,96,36,0.06)', border:'rgba(242,96,36,0.2)', color:'#F26024' });
+
+    if ((myBracketMatches||[]).some(bm =>
+      bm.round_name === 'Final' && !myTeamIds.includes(bm.winner_id)
+    )) badges.push({ icon:'🥈', label:'Runner Up', bg:'#e8f0ff', border:'#c5d6f5', color:'#174CCC' });
+
+    if (winPct >= 70 && (ladderPlayed + myBracketMatches.length) >= 10) badges.push({ icon:'⚡', label:'Top Performer', bg:'rgba(36,188,150,0.08)', border:'rgba(36,188,150,0.25)', color:'#085041' });
+    if (myLadders.length >= 3) badges.push({ icon:'🎯', label:'Ladder Veteran', bg:'#f8f9ff', border:'#e0e7f5', color:'#6b7a99' });
+    if (myTournaments.length >= 5) badges.push({ icon:'👑', label:'Season Regular', bg:'rgba(123,47,190,0.07)', border:'rgba(123,47,190,0.2)', color:'#7B2FBE' });
+
+    const badgesHTML = badges.length
+      ? badges.map(b => `<span class="ppm-bdg" style="background:${b.bg};border-color:${b.border};color:${b.color};">${b.icon} ${b.label}</span>`).join('')
+      : '<span style="font-size:12px;font-weight:600;color:#6b7a99;">No achievements yet — keep playing!</span>';
+
+    // ── Activity timeline ─────────────────────────────────────────────────
+    const fmtShort = (d) => { if (!d) return ''; const dt = new Date(d + 'T00:00:00'); return dt.toLocaleDateString('en-US', {month:'short', day:'numeric'}); };
+    const recent8 = ladderMatches.slice(0, 8);
+    let opponentMap = {}; // matchId -> "Name & Name"
+
+    if (recent8.length) {
+      try {
+        // Fetch all sibling rows in same game slots (different player)
+        const uniqDates   = [...new Set(recent8.map(m => m.session_date))];
+        const uniqLadders = [...new Set(recent8.map(m => m.ladder_id))];
+        const siblings = await api(
+          `matches?player_id=neq.${id}&session_date=in.(${uniqDates.join(',')})&ladder_id=in.(${uniqLadders.join(',')})&select=id,player_id,session_date,court_group,game_number,ladder_id,score_for,score_against`
+        );
+
+        // Fetch player names for all unique player_ids in siblings
+        const sibPlayerIds = [...new Set(siblings.map(s => s.player_id).filter(Boolean))];
+        let playerNameMap = {};
+        if (sibPlayerIds.length) {
+          const playerRows = await api(`players?id=in.(${sibPlayerIds.join(',')})&select=id,first_name,last_name`);
+          playerRows.forEach(p => { playerNameMap[p.id] = `${p.first_name} ${p.last_name}`; });
+        }
+
+        // For each of our matches, find opponents:
+        // Opponents have same slot but OPPOSITE score (their score_for = our score_against)
+        recent8.forEach(m => {
+          const slotSibs = siblings.filter(s =>
+            s.session_date === m.session_date &&
+            s.court_group  === m.court_group  &&
+            s.game_number  === m.game_number  &&
+            s.ladder_id    === m.ladder_id
+          );
+          // Opponents: their score_for equals our score_against
+          const opponents = slotSibs.filter(s => s.score_for === m.score_against);
+          if (opponents.length) {
+            opponentMap[m.id] = opponents.map(s => playerNameMap[s.player_id] || `#${s.player_id}`).join(' & ');
+          } else {
+            // Fallback: just use all siblings if score matching fails
+            const names = slotSibs.slice(0,2).map(s => playerNameMap[s.player_id] || `#${s.player_id}`);
+            if (names.length) opponentMap[m.id] = names.join(' & ');
+          }
+        });
+      } catch(e) {}
+    }
+
+    const timelineHTML = recent8.map(m => {
+      const won = m.score_for > m.score_against;
+      const dotColor = won ? '#24BC96' : '#F26024';
+      const oppName  = opponentMap[m.id] || 'Opponent';
+      const scoreStr = won
+        ? `<span style="color:#24BC96;font-weight:800;">${m.score_for}–${m.score_against}</span>`
+        : `<span style="color:#F26024;font-weight:800;">${m.score_for}–${m.score_against}</span>`;
+      return `<div class="ppm-tl-item">
+        <div class="ppm-tl-date">${fmtShort(m.session_date)}</div>
+        <div class="ppm-tl-dot" style="background:${dotColor};"></div>
+        <div>
+          <div class="ppm-tl-text">${won?'Won':'Lost'} vs ${esc(oppName)} ${scoreStr}</div>
+          <div class="ppm-tl-ctx">Ladder match</div>
+        </div>
+      </div>`;
+    }).join('') || '<div style="padding:8px 0;font-size:12px;font-weight:600;color:#6b7a99;">No activity yet.</div>';
+
+    // ── Best Finish + Podium Finishes ────────────────────────────────────
+    const bm3rd       = (myBracketMatches||[]).filter(bm => bm.round_name === '3rd Place');
+    const finalsPlayed = (myBracketMatches||[]).filter(bm => bm.round_name === 'Final');
+    const semisPlayed  = (myBracketMatches||[]).filter(bm => bm.round_name === 'Semifinals');
+    const isChampion   = finalsPlayed.some(bm => myTeamIds.includes(bm.winner_id));
+    const isRunnerUp   = finalsPlayed.some(bm => !myTeamIds.includes(bm.winner_id));
+    const is3rdPlace   = bm3rd.some(bm => myTeamIds.includes(bm.winner_id));
+    const isSemi       = semisPlayed.length > 0 || bm3rd.some(bm => !myTeamIds.includes(bm.winner_id));
+    const hasAny       = (myBracketMatches||[]).length > 0;
+    const bestFinishIcon  = isChampion ? '🥇' : isRunnerUp ? '🥈' : is3rdPlace ? '🥉' : isSemi ? '🏅' : hasAny ? '🎽' : '—';
+    const bestFinishLabel = isChampion ? 'Champion' : isRunnerUp ? 'Runner Up' : is3rdPlace ? '3rd Place' : isSemi ? 'Semifinalist' : hasAny ? 'Participant' : '—';
+
+    // Podium = distinct tournaments where player finished 1st, 2nd or 3rd
+    const catToTournMap = {};
+    (myTournCategories||[]).forEach(c => { catToTournMap[c.id] = c.tournament_id; });
+    const podiumMatches = [
+      ...finalsPlayed,                                      // 1st and 2nd place
+      ...bm3rd.filter(bm => myTeamIds.includes(bm.winner_id)), // 3rd place wins only
+    ];
+    const podiumTournIds = [...new Set(
+      podiumMatches.map(bm => catToTournMap[bm.category_id]).filter(Boolean)
+    )];
+    const podiumCount = podiumTournIds.length;
+
+    // ── Section header helper ─────────────────────────────────────────────
+    const secHdr = (icon, title) => `<div class="ppm-sec-hdr">${icon}<span class="ppm-sec-title">${title}</span></div>`;
+    const ppmSecSVG = (d) => `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+    const trophySVG = ppmSecSVG('<path d="M6 9H4a2 2 0 0 1-2-2V5h4"/><path d="M18 9h2a2 2 0 0 0 2-2V5h-4"/><path d="M12 17v4"/><path d="M8 21h8"/><path d="M6 9a6 6 0 0 0 12 0V3H6v6z"/>');
+    const boltSVG   = ppmSecSVG('<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>');
+    const barSVG    = ppmSecSVG('<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>');
+    const clockSVG  = ppmSecSVG('<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>');
+    const screenSVG = ppmSecSVG('<rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>');
+    const medalSVG  = ppmSecSVG('<circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/>');
+    const starSVG   = ppmSecSVG('<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>');
+    const snowSVG   = ppmSecSVG('<line x1="12" y1="2" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="19.07" y1="4.93" x2="4.93" y2="19.07"/>');
+
+    // ── Render all sections ───────────────────────────────────────────────
+    const streakBoxClass = streakType === 'W' ? 'ppm-streak-win' : 'ppm-streak-loss';
+    const fireSVG    = ppmSecSVG('<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>');
+    const streakIcon = streakType === 'W' ? fireSVG : snowSVG;
+    const streakText = streak > 0
+      ? (streakType === 'W' ? `${streak} Match Win Streak` : `${streak} Consecutive Loss${streak>1?'es':''}`)
+      : 'No active streak';
+
+    document.getElementById('ppm-body').innerHTML = `
+      <!-- S2: Snapshot -->
+      <div class="ppm-sec">
+        ${secHdr(screenSVG, 'Competition Snapshot')}
+        <div class="ppm-sec-body">
+          <div class="ppm-snap-grid">
+            <div class="ppm-snap-card"><div class="ppm-snap-val" style="color:#174CCC;">${(myTournaments||[]).length}</div><div class="ppm-snap-lbl">Tournaments</div></div>
+            <div class="ppm-snap-card"><div class="ppm-snap-val" style="color:#174CCC;">${myLadders.length}</div><div class="ppm-snap-lbl">Ladder Seasons</div></div>
+            <div class="ppm-snap-card"><div class="ppm-snap-val">${ladderPlayed + myBracketMatches.length}</div><div class="ppm-snap-lbl">Matches Played</div></div>
+            <div class="ppm-snap-card"><div class="ppm-snap-val" style="color:#24BC96;">${winPct}%</div><div class="ppm-snap-lbl">Win %</div></div>
+            <div class="ppm-snap-card"><div class="ppm-snap-val" style="color:#24BC96;">${totalWins}</div><div class="ppm-snap-lbl">Total Wins</div></div>
+            <div class="ppm-snap-card"><div class="ppm-snap-val" style="color:#F26024;">${totalLosses}</div><div class="ppm-snap-lbl">Total Losses</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- S3: Momentum -->
+      <div class="ppm-sec">
+        ${secHdr(boltSVG, 'Momentum')}
+        <div class="ppm-sec-body">
+          <div class="ppm-streak-lbl">Current Streak</div>
+          <div class="ppm-streak-box ${streakBoxClass}">
+            <span style="font-size:26px;line-height:1;">${streakIcon}</span>
+            <div>
+              <div style="font-size:15px;font-weight:800;color:#0d1f4a;">${streakText}</div>
+            </div>
+          </div>
+          <div class="ppm-streak-lbl">Last 10 Matches</div>
+          <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap;">
+            ${last10.map(r => `<span class="${r==='W'?'ppm-pill-w':'ppm-pill-l'}">${r}</span>`).join('')}
+            ${last10.length ? `<span style="font-size:11px;font-weight:800;color:${last10W>=last10L?'#24BC96':'#F26024'};margin-left:10px;">${last10W}W ${last10L}L</span>` : '<span style="font-size:11px;color:#6b7a99;font-weight:600;">No matches yet</span>'}
+          </div>
+        </div>
+      </div>
+
+      <!-- S4: Competition History -->
+      <div class="ppm-sec">
+        ${secHdr(trophySVG, 'Competition History')}
+        <div class="ppm-itabs">
+          <button class="ppm-itab ppm-on" onclick="ppmTab(this,'ppm-hist-t')">Tournaments</button>
+          <button class="ppm-itab" onclick="ppmTab(this,'ppm-hist-l')">Ladders</button>
+        </div>
+        <div id="ppm-hist-t">${tournHistHTML}</div>
+        <div id="ppm-hist-l" style="display:none;">${ladderHistHTML}</div>
+      </div>
+
+      <!-- S5: Career Statistics -->
+      <div class="ppm-sec">
+        ${secHdr(barSVG, 'Career Statistics')}
+        <div class="ppm-sec-body">
+          <div class="ppm-career-grid">
+            <div class="ppm-career-card">
+              <div class="ppm-career-lbl">Tournament Record</div>
+              <div class="ppm-career-val">${myBracketMatches.length ? tournWins + 'W – ' + tournLosses + 'L' : '—'}</div>
+              ${myBracketMatches.length ? `<div class="ppm-career-sub" style="color:${tournWins/myBracketMatches.length>=0.5?'#24BC96':'#F26024'};">${Math.round(tournWins/myBracketMatches.length*100)}% win rate</div>` : ''}
+            </div>
+            <div class="ppm-career-card">
+              <div class="ppm-career-lbl">Ladder Record</div>
+              <div class="ppm-career-val">${ladderPlayed ? ladderWins + 'W – ' + ladderLosses + 'L' : '—'}</div>
+              ${ladderPlayed ? `<div class="ppm-career-sub" style="color:${ladderWins/ladderPlayed>=0.5?'#174CCC':'#F26024'};">${Math.round(ladderWins/ladderPlayed*100)}% win rate</div>` : ''}
+            </div>
+            <div class="ppm-career-card">
+              <div class="ppm-career-lbl">Overall Record</div>
+              <div class="ppm-career-val">${totalWins}W – ${totalLosses}L</div>
+              <div class="ppm-career-sub" style="color:${winPct>=50?'#24BC96':'#F26024'};font-size:14px;font-weight:800;">${winPct}%</div>
+            </div>
+            <div class="ppm-career-card">
+              <div class="ppm-career-lbl">Points Earned</div>
+              <div class="ppm-career-val" style="color:#174CCC;">${ladderMatches.reduce((s,m)=>s+(m.points_earned||0),0)}</div>
+            </div>
+            <div class="ppm-career-card">
+              <div class="ppm-career-lbl">Best Finish</div>
+              <div class="ppm-career-val" style="font-size:26px;">${bestFinishIcon}</div>
+              <div class="ppm-career-sub">${bestFinishLabel}</div>
+            </div>
+            <div class="ppm-career-card">
+              <div class="ppm-career-lbl">Podium Finishes</div>
+              <div class="ppm-career-val" style="color:#F6A623;">${podiumCount}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- S6: Achievements -->
+      <div class="ppm-sec">
+        ${secHdr(medalSVG, 'Achievements')}
+        <div class="ppm-sec-body">
+          <div style="display:flex;flex-wrap:wrap;">${badgesHTML}</div>
+        </div>
+      </div>
+
+      <!-- S7: Recent Activity -->
+      <div class="ppm-sec">
+        ${secHdr(clockSVG, 'Recent Activity')}
+        <div class="ppm-sec-body" style="padding:8px 16px;">
+          <div>${timelineHTML}</div>
+        </div>
+      </div>
+    `;
+  };
+
+  window.ppmTab = (btn, showId) => {
+    btn.closest('.ppm-sec').querySelectorAll('.ppm-itab').forEach(t => t.classList.remove('ppm-on'));
+    btn.classList.add('ppm-on');
+    ['ppm-hist-t','ppm-hist-l'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = el.id === showId ? 'block' : 'none';
+    });
+  };
+
+  // ── MATCH HUB ─────────────────────────────────────────────────────────────
+
+  let _mhMatches = [];
+  let _mhFilter  = 'all';
+  let _lmGameCount = 1;
+  let _lmType = 'singles';
+
+  const LM_SEL_IDS = ['lm-a-p1','lm-a-p2','lm-b-p1','lm-b-p2'];
+
+  const MH_TYPE_LABELS = {
+    singles: 'Singles', mens: "Men's Doubles",
+    womens: "Women's Doubles", mixed: 'Mixed Doubles'
+  };
+
+  // ── Load Match Hub page ───────────────────────────────────────────────
+  const loadMatchHub = async () => {
+    // Ensure players are loaded for name rendering
+    if (!allPlayers.length) {
+      try { allPlayers = await api('players?select=*&order=first_name'); } catch(_) {}
+    }
+    _mhMatches = await api('friendly_matches?select=*&order=match_date.desc').catch(() => []);
+    mhRenderCards();
+    mhRenderTable();
+  };
+
+  const mhRenderCards = () => {
+    const now   = new Date();
+    const month = now.getMonth();
+    const year  = now.getFullYear();
+    const total   = _mhMatches.length;
+    const thisMonth = _mhMatches.filter(m => {
+      const d = new Date(m.match_date);
+      return d.getMonth() === month && d.getFullYear() === year;
+    }).length;
+    const pending  = _mhMatches.filter(m => m.status === 'pending').length;
+    const dnaCount = _mhMatches.filter(m => m.use_dna).length;
+    // Active players: unique player IDs across all matches
+    const pids = new Set();
+    _mhMatches.forEach(m => {
+      [m.team_a_p1_id,m.team_a_p2_id,m.team_b_p1_id,m.team_b_p2_id].filter(Boolean).forEach(id => pids.add(id));
+    });
+    const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const el = (id, val) => { const e = document.getElementById(id); if (e) e.textContent = val; };
+    el('mh-total',   total);
+    el('mh-month',   thisMonth);
+    el('mh-month-lbl', monthNames[month] + ' ' + year);
+    el('mh-players', pids.size);
+    el('mh-pending', pending);
+    el('mh-dna',     dnaCount);
+
+  };
+
+  let _mhTypeFilter = 'all';
+
+  window.mhFilterDdl = () => {
+    _mhFilter     = document.getElementById('mh-purpose-ddl')?.value || 'all';
+    _mhTypeFilter = document.getElementById('mh-type-ddl')?.value   || 'all';
+    mhRenderTable();
+  };
+
+  const mhRenderTable = () => {
+    const container = document.getElementById('mh-table-body');
+    if (!container) return;
+    let filtered = _mhFilter === 'all'
+      ? _mhMatches
+      : _mhFilter === 'pending'
+        ? _mhMatches.filter(m => m.status === 'pending')
+        : _mhMatches.filter(m => m.purpose === _mhFilter);
+    if (_mhTypeFilter !== 'all') {
+      filtered = filtered.filter(m => m.match_type === _mhTypeFilter);
+    }
+
+    if (!filtered.length) {
+      container.innerHTML = '<div class="empty" style="padding:24px;">No matches found.</div>';
+      return;
+    }
+
+    const purposeClass = { Friendly:'mh-b-friendly', Training:'mh-b-training', Challenge:'mh-b-challenge', 'Rating Observation':'mh-b-rating' };
+    const usageBadges = (m) => {
+      const b = [];
+      if (m.use_dna)     b.push('<span class="mh-badge mh-b-dna">DNA</span>');
+      if (m.use_rating)  b.push('<span class="mh-badge mh-b-training">Rating</span>');
+      if (m.use_private) b.push('<span class="mh-badge" style="background:#f0f2f8;color:#6b7a99;">Private</span>');
+      return b.join(' ') || '—';
+    };
+
+    const pName = (id) => {
+      const p = allPlayers.find(x => x.id === id);
+      return p ? `${p.first_name} ${p.last_name}` : '—';
+    };
+
+    const rows = filtered.map(m => {
+      const isPending = m.status === 'pending';
+      const g1 = (m.game1_score_a !== null && m.game1_score_b !== null) ? `${m.game1_score_a}–${m.game1_score_b}` : '';
+      const g2 = (m.game2_score_a !== null && m.game2_score_b !== null) ? `${m.game2_score_a}–${m.game2_score_b}` : '';
+      const g3 = (m.game3_score_a !== null && m.game3_score_b !== null) ? `${m.game3_score_a}–${m.game3_score_b}` : '';
+      const scoreStr = [g1,g2,g3].filter(Boolean).join(', ') || '—';
+      const teamAStr = [pName(m.team_a_p1_id), pName(m.team_a_p2_id)].filter(p=>p!=='—').join(' / ');
+      const teamBStr = [pName(m.team_b_p1_id), pName(m.team_b_p2_id)].filter(p=>p!=='—').join(' / ');
+      const winner = m.winner_team === 'A' ? teamAStr : m.winner_team === 'B' ? teamBStr : '—';
+      return `<tr>
+        <td style="color:#6b7a99;white-space:nowrap;">${fmtDate(m.match_date)}</td>
+        <td>${esc(MH_TYPE_LABELS[m.match_type] || m.match_type)}</td>
+        <td style="font-size:11px;">${esc(teamAStr)}<br><span style="color:#6b7a99;">vs ${esc(teamBStr)}</span></td>
+        <td style="font-weight:800;">${scoreStr}</td>
+        <td style="font-size:11px;color:#174CCC;font-weight:700;">${esc(winner)}</td>
+        <td><span class="mh-badge ${purposeClass[m.purpose]||''}">${esc(m.purpose||'—')}</span></td>
+        <td>${usageBadges(m)}</td>
+        <td><span class="mh-badge ${isPending?'mh-b-pending':'mh-b-complete'}">${isPending?'Pending':'Complete'}</span></td>
+        <td style="white-space:nowrap;">
+          ${isPending
+            ? `<button class="mh-action" style="color:#F26024;border-color:#F26024;" onclick="mhEnterScore(${m.id})">Enter Score</button>`
+            : `<button class="mh-action" onclick="mhViewMatch(${m.id})">View</button>`
+          }
+          <button class="mh-action" style="color:#e53935;border-color:#fca5a5;margin-left:4px;" onclick="mhDeleteMatch(${m.id})">Delete</button>
+        </td>
+      </tr>`;
+    }).join('');
+
+    container.innerHTML = `<table class="mh-table">
+      <thead><tr>
+        <th>Date</th><th>Match Type</th><th>Players</th><th>Score</th>
+        <th>Winner</th><th>Purpose</th><th>Data Usage</th><th>Status</th><th>Actions</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+  };
+
+  window.mhDeleteMatch = async (id) => {
+    document.getElementById('t-modal-title').textContent = 'Delete Match';
+    document.getElementById('t-modal-body').innerHTML = `
+      <div style="display:flex;flex-direction:column;align-items:center;text-align:center;padding:8px 0 20px;">
+        <div style="width:52px;height:52px;border-radius:14px;background:#fee2e2;display:flex;align-items:center;justify-content:center;margin-bottom:16px;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#e53935" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+        </div>
+        <div style="font-size:15px;font-weight:800;color:#0d1f4a;margin-bottom:6px;">Delete this match?</div>
+        <div style="font-size:13px;font-weight:600;color:#6b7a99;line-height:1.6;">This will permanently remove the match and all its data. This action cannot be undone.</div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;">
+        <button onclick="mhConfirmDelete(${id})" style="padding:9px 22px;border:none;border-radius:99px;background:#e53935;color:white;font-family:'Montserrat',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Delete Match</button>
+      </div>`;
+    const xBtn = document.getElementById('t-modal-close-x');
+    if (xBtn) xBtn.style.display = 'flex';
+    openTModal();
+  };
+
+  window.mhConfirmDelete = async (id) => {
+    closeTModal();
+    try {
+      await api(`friendly_matches?id=eq.${id}`, 'DELETE');
+      toast('Match deleted.');
+      loadMatchHub();
+    } catch(e) { toast('Error deleting match: ' + e.message, true); }
+  };
+
+  window.closeViewMatchModal = () => {
+    document.getElementById('view-match-modal').classList.remove('open');
+    document.body.style.overflow = '';
+  };
+
+  window.mhViewMatch = async (id) => {
+    const m = _mhMatches.find(x => x.id === id);
+    if (!m) return;
+    // Ensure players are loaded
+    if (!allPlayers.length) {
+      try { allPlayers = await api('players?select=*&order=first_name'); } catch(_) {}
+    }
+    const getPlayer = (pid) => allPlayers.find(x => Number(x.id) === Number(pid));
+    const pName     = (pid) => { const p = getPlayer(pid); return p ? `${p.first_name} ${p.last_name}` : null; };
+    const initials  = (pid) => { const p = getPlayer(pid); return p ? (p.first_name[0]||'') + (p.last_name[0]||'') : '?'; };
+
+    // All players on each team
+    const teamAIds = [m.team_a_p1_id, m.team_a_p2_id].filter(Boolean);
+    const teamBIds = [m.team_b_p1_id, m.team_b_p2_id].filter(Boolean);
+    const teamANames = teamAIds.map(pName).filter(Boolean);
+    const teamBNames = teamBIds.map(pName).filter(Boolean);
+    const isWinA = m.winner_team === 'A';
+
+    // Score totals across games
+    const games = [
+      [m.game1_score_a, m.game1_score_b],
+      [m.game2_score_a, m.game2_score_b],
+      [m.game3_score_a, m.game3_score_b],
+    ].filter(([a,b]) => a !== null && b !== null);
+    const totalA = games.reduce((s,[a])=>s+a,0);
+    const totalB = games.reduce((s,[,b])=>s+b,0);
+
+    // Score display — for singles/doubles show per-game or total
+    const scoreDisplay = games.length > 0
+      ? `${isWinA ? totalA : totalB} - ${isWinA ? totalB : totalA}`
+      : '— - —';
+    const finalScoreStr = games.map(([a,b])=>`${a}–${b}`).join(', ');
+
+    // Match type pill SVG
+    const typeSVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`;
+    const trophySVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#24BC96" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4a2 2 0 0 1-2-2V5h4"/><path d="M18 9h2a2 2 0 0 0 2-2V5h-4"/><path d="M12 17v4"/><path d="M8 21h8"/><path d="M6 9a6 6 0 0 0 12 0V3H6v6z"/></svg>`;
+    const infoSVG  = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
+    const targetSVG= `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#24BC96" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>`;
+    const barSVG   = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#7B2FBE" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>`;
+    const trendSVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>`;
+    const peopleSVG= `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`;
+    const shieldSVG= `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#7B2FBE" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`;
+    const handSVG  = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#24BC96" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>`;
+    const calSVG   = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6b7a99" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
+    const courtSVG = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6b7a99" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/><line x1="3" y1="12" x2="21" y2="12"/></svg>`;
+
+    // Avatar helper
+    const avatar = (pid, bgColor, textColor) => {
+      const ini = initials(pid);
+      return `<div style="width:44px;height:44px;border-radius:50%;background:${bgColor};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:${textColor};flex-shrink:0;">${ini}</div>`;
+    };
+
+    // Data usage label
+    const usageItems = [m.use_dna?'DNA':null, m.use_rating?'Rating':null, m.use_private?'Private':null].filter(Boolean);
+    const usageLabel = usageItems.length ? usageItems.join(' + ') : 'Not Reported';
+
+    // Purpose badge colors
+    const purposeColor = { Friendly:'#24BC96', Training:'#174CCC', Challenge:'#F26024', 'Rating Observation':'#7B2FBE' }[m.purpose] || '#6b7a99';
+    const purposeBgCol = { Friendly:'rgba(36,188,150,0.1)', Training:'#e8f0ff', Challenge:'rgba(242,96,36,0.08)', 'Rating Observation':'rgba(123,47,190,0.08)' }[m.purpose] || '#f0f2f8';
+
+    // Winner/loser result text
+    const winnerName = teamANames.length ? (isWinA ? teamANames.join(' & ') : teamBNames.join(' & ')) : '—';
+    const loserName  = teamANames.length ? (isWinA ? teamBNames.join(' & ') : teamANames.join(' & ')) : '—';
+
+    // Build competition impact HTML outside template to avoid nested backtick parsing issues
+    const winIds  = isWinA ? teamAIds : teamBIds;
+    const loseIds = isWinA ? teamBIds : teamAIds;
+
+    const playerRow = (pid, isWin) => {
+      const ini  = initials(pid);
+      const name = esc(pName(pid) || '—');
+      const bg   = isWin ? 'rgba(36,188,150,0.15)' : '#f0f2f8';
+      const clr  = isWin ? '#085041' : '#6b7a99';
+      const pts  = isWin
+        ? '<span style="font-size:11px;font-weight:700;color:#24BC96;">+1 Win</span>'
+        : '<span style="font-size:11px;font-weight:700;color:#F26024;">+1 Loss</span>';
+      return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">'
+        + '<div style="width:36px;height:36px;border-radius:50%;background:' + bg + ';display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:' + clr + ';flex-shrink:0;">' + ini + '</div>'
+        + '<div><div style="font-size:12px;font-weight:800;color:#0d1f4a;">' + name + '</div>' + pts + '</div>'
+        + '</div>';
+    };
+    const impactHTML = '<div style="background:white;border-radius:10px;border:0.5px solid #e0e7f5;overflow:hidden;">'
+      + '<div style="display:flex;align-items:center;gap:6px;padding:12px 14px;border-bottom:0.5px solid #e0e7f5;">'
+      + trendSVG
+      + '<span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#0d1f4a;">Competition Impact</span>'
+      + '</div>'
+      + '<div style="display:grid;grid-template-columns:1fr 1fr;">'
+      + '<div style="padding:14px;border-right:0.5px solid #e0e7f5;">' + winIds.map(pid => playerRow(pid, true)).join('') + '</div>'
+      + '<div style="padding:14px;">' + loseIds.map(pid => playerRow(pid, false)).join('') + '</div>'
+      + '</div></div>';
+
+
+    document.getElementById('vm-title').textContent = fmtDate(m.match_date) + ' • ' + (m.purpose || 'Friendly Match');
+
+    document.getElementById('vm-body').innerHTML = `
+      <!-- Match type pill -->
+      <div style="margin-bottom:16px;">
+        <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 14px;border-radius:99px;background:#e8f0ff;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#174CCC;">
+          ${typeSVG} ${esc(MH_TYPE_LABELS[m.match_type]||m.match_type)}
+        </span>
+      </div>
+
+      <!-- Score row — equal height cards, names per line, Team A/B labels -->
+      <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:stretch;margin-bottom:16px;">
+        <!-- Team A card -->
+        <div style="background:${isWinA?'rgba(36,188,150,0.04)':'white'};border-radius:12px;padding:16px;border:1px solid ${isWinA?'rgba(36,188,150,0.3)':'#e0e7f5'};display:flex;flex-direction:column;justify-content:space-between;">
+          <div>
+            ${m.match_type !== 'singles' ? '<div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#6b7a99;margin-bottom:8px;">Team A</div>' : ''}
+            <div style="display:flex;align-items:center;gap:10px;">
+              ${avatar(teamAIds[0], '#e8f0ff', '#174CCC')}
+              <div>
+                ${teamANames.map(n=>`<div style="font-size:13px;font-weight:800;color:#0d1f4a;line-height:1.3;">${esc(n)}</div>`).join('')}
+              </div>
+            </div>
+          </div>
+          ${isWinA ? `<div style="margin-top:10px;display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:99px;background:rgba(36,188,150,0.12);font-size:10px;font-weight:800;color:#24BC96;">${trophySVG} MATCH WINNER</div>` : ''}
+        </div>
+
+        <!-- Score center -->
+        <div style="text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 0;">
+          <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:6px;">
+            <span style="font-size:52px;font-weight:900;color:${isWinA?'#24BC96':'#0d1f4a'};line-height:1;font-family:'Bebas Neue',sans-serif;">${games.length?games[0][0]:'—'}</span>
+            <span style="font-size:24px;font-weight:800;color:#b0bbd6;">-</span>
+            <span style="font-size:52px;font-weight:900;color:${!isWinA?'#24BC96':'#0d1f4a'};line-height:1;font-family:'Bebas Neue',sans-serif;">${games.length?games[0][1]:'—'}</span>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:center;gap:8px;">
+            <div style="height:1px;width:28px;background:#e0e7f5;"></div>
+            <span style="font-size:10px;font-weight:800;color:#b0bbd6;letter-spacing:1px;">VS</span>
+            <div style="height:1px;width:28px;background:#e0e7f5;"></div>
+          </div>
+        </div>
+
+        <!-- Team B card -->
+        <div style="background:${!isWinA?'rgba(36,188,150,0.04)':'white'};border-radius:12px;padding:16px;border:1px solid ${!isWinA?'rgba(36,188,150,0.3)':'#e0e7f5'};display:flex;flex-direction:column;justify-content:space-between;">
+          <div>
+            ${m.match_type !== 'singles' ? '<div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#6b7a99;margin-bottom:8px;">Team B</div>' : ''}
+            <div style="display:flex;align-items:center;gap:10px;">
+              ${avatar(teamBIds[0], !isWinA?'rgba(36,188,150,0.15)':'#e8f0ff', !isWinA?'#085041':'#174CCC')}
+              <div>
+                ${teamBNames.map(n=>`<div style="font-size:13px;font-weight:800;color:#0d1f4a;line-height:1.3;">${esc(n)}</div>`).join('')}
+              </div>
+            </div>
+          </div>
+          ${!isWinA ? `<div style="margin-top:10px;display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:99px;background:rgba(36,188,150,0.12);font-size:10px;font-weight:800;color:#24BC96;">${trophySVG} MATCH WINNER</div>` : ''}
+        </div>
+      </div>
+
+      <!-- Result banner -->
+      <div style="background:rgba(36,188,150,0.06);border-radius:10px;border:0.5px solid rgba(36,188,150,0.2);padding:14px 16px;display:flex;align-items:flex-start;gap:12px;margin-bottom:14px;">
+        <div style="width:36px;height:36px;border-radius:50%;background:rgba(36,188,150,0.15);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          ${trophySVG}
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#24BC96;margin-bottom:3px;">Result</div>
+          <div style="font-size:13px;font-weight:800;color:#0d1f4a;margin-bottom:2px;">${esc(winnerName)} defeated ${esc(loserName)}</div>
+          <div style="font-size:11px;font-weight:600;color:#6b7a99;">Final Score: ${finalScoreStr || scoreDisplay}</div>
+        </div>
+      </div>
+
+      <!-- Info row: 3 columns -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px;">
+        <!-- Match Information -->
+        <div style="background:white;border-radius:10px;border:0.5px solid #e0e7f5;padding:14px;">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;">
+            ${infoSVG}
+            <span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#0d1f4a;">Match Information</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+              <span style="display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#6b7a99;">${peopleSVG} Format</span>
+              <span style="font-size:11px;font-weight:700;color:#0d1f4a;">${esc(MH_TYPE_LABELS[m.match_type]||m.match_type)}</span>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+              <span style="display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#6b7a99;">${calSVG} Date</span>
+              <span style="font-size:11px;font-weight:700;color:#0d1f4a;">${fmtDate(m.match_date)}</span>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+              <span style="display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#6b7a99;">${courtSVG} Court</span>
+              <span style="font-size:11px;font-weight:700;color:#0d1f4a;">${m.court ? esc(m.court) : '—'}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Purpose -->
+        <div style="background:white;border-radius:10px;border:0.5px solid #e0e7f5;padding:14px;">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;">
+            ${targetSVG}
+            <span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#0d1f4a;">Purpose</span>
+          </div>
+          <span style="display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:99px;background:${purposeBgCol};font-size:11px;font-weight:700;color:${purposeColor};">
+            ${handSVG} ${esc(m.purpose||'Friendly')}
+          </span>
+        </div>
+
+        <!-- Data Usage -->
+        <div style="background:white;border-radius:10px;border:0.5px solid #e0e7f5;padding:14px;">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;">
+            ${barSVG}
+            <span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#0d1f4a;">Data Usage</span>
+          </div>
+          <span style="display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:99px;background:rgba(123,47,190,0.08);font-size:11px;font-weight:700;color:#7B2FBE;">
+            ${shieldSVG} ${esc(usageLabel)}
+          </span>
+        </div>
+      </div>
+
+      <!-- Competition Impact — built outside template to avoid nested backtick issues -->
+      ${impactHTML}
+      ${m.notes ? `<div style="background:#f8f9ff;border-radius:10px;padding:12px 14px;border:0.5px solid #e0e7f5;margin-bottom:14px;"><div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#6b7a99;margin-bottom:5px;">Notes</div><div style="font-size:12px;font-weight:600;color:#0d1f4a;line-height:1.6;">${esc(m.notes)}</div></div>` : ''}
+    `;
+
+    document.getElementById('view-match-modal').classList.add('open');
+    document.body.style.overflow = 'hidden';
+    // Scroll body to top after render
+    const vmBody = document.getElementById('vm-body');
+    if (vmBody) vmBody.scrollTop = 0;
+  };
+
+  window.mhEnterScore = (id) => { toast('Enter score — coming soon!'); };
+
+  // ── Log Match Modal ───────────────────────────────────────────────────
+  window.openLogMatchModal = () => {
+    // ── Full form reset ───────────────────────────────────────────────
+    // Date — always reset to today
+    const d = document.getElementById('lm-date');
+    if (d) d.value = new Date().toISOString().split('T')[0];
+    const t = document.getElementById('lm-time');
+    if (t) t.value = '';
+
+    // Reset match type to Singles
+    _lmType = 'singles';
+    document.querySelectorAll('.lm-pill').forEach(p => p.classList.remove('lm-on'));
+    const firstPill = document.querySelector('.lm-pill');
+    if (firstPill) firstPill.classList.add('lm-on');
+    // Hide P2 dropdowns for singles
+    ['lm-a-p2-wrap','lm-b-p2-wrap'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) { el.style.opacity = '0.4'; }
+    });
+    ['lm-a-p2','lm-b-p2'].forEach(id => {
+      const sel = document.getElementById(id);
+      if (sel) { sel.value = ''; sel.disabled = true; }
+    });
+
+    // Reset scores
+    ['lm-g1a','lm-g1b','lm-g2a','lm-g2b','lm-g3a','lm-g3b'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+
+    // Reset game rows
+    _lmGameCount = 1;
+    document.getElementById('lm-g2-row').style.display = 'none';
+    document.getElementById('lm-g3-row').style.display = 'none';
+    document.getElementById('lm-add-game-btn').style.display = 'inline-flex';
+
+    // Reset purpose to Friendly
+    document.querySelectorAll('.lm-purpose').forEach(c => {
+      c.classList.remove('lm-on');
+      const icon = c.querySelector('.lm-purpose-icon');
+      if (icon) { icon.style.background = '#f0f2f8'; }
+      const svg = icon?.querySelector('svg');
+      if (svg) svg.setAttribute('stroke','#6b7a99');
+    });
+    const firstPurpose = document.querySelector('.lm-purpose');
+    if (firstPurpose) {
+      firstPurpose.classList.add('lm-on');
+      const icon = firstPurpose.querySelector('.lm-purpose-icon');
+      if (icon) { icon.style.background = '#174CCC'; }
+      const svg = icon?.querySelector('svg');
+      if (svg) svg.setAttribute('stroke','white');
+    }
+    const purposeHid = document.getElementById('lm-purpose-val');
+    if (purposeHid) purposeHid.value = 'Friendly';
+
+    // Reset data usage — DNA on, others off
+    document.querySelectorAll('.lm-data-row').forEach((row, i) => {
+      const chk = row.querySelector('.lm-chk');
+      if (i === 0) {
+        row.classList.add('lm-on');
+        if (chk) { chk.style.background='#174CCC'; chk.style.borderColor='#174CCC'; chk.innerHTML='<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'; }
+      } else {
+        row.classList.remove('lm-on');
+        if (chk) { chk.style.background='white'; chk.style.borderColor='#e0e7f5'; chk.innerHTML=''; }
+      }
+    });
+    document.getElementById('lm-use-dna').value     = 'true';
+    document.getElementById('lm-use-rating').value  = 'false';
+    document.getElementById('lm-use-private').value = 'false';
+
+    // Reset notes
+    const notes = document.getElementById('lm-notes');
+    if (notes) notes.value = '';
+    const court = document.getElementById('lm-court');
+    if (court) court.value = '';
+
+    // Clear all player selects before repopulating (prevents stale values restoring)
+    LM_SEL_IDS.forEach(id => {
+      const sel = document.getElementById(id);
+      if (sel) sel.value = '';
+    });
+    lmPopulateSelects();
+
+    // Open modal
+    document.getElementById('log-match-modal').classList.add('open');
+    document.body.style.overflow = 'hidden';
+    lmUpdatePreview();
+  };
+
+  window.closeLogMatchModal = () => {
+    document.getElementById('log-match-modal').classList.remove('open');
+    document.body.style.overflow = '';
+  };
+
+  const lmPopulateSelects = () => {
+    // Gender filter based on match type
+    const genderFilter = (selId) => {
+      if (_lmType === 'mens')   return 'Male';
+      if (_lmType === 'womens') return 'Female';
+      if (_lmType === 'mixed') {
+        // P1 slots: no restriction; P2 slots: opposite of P1
+        return null; // all players, mixed validation on save
+      }
+      return null; // singles — all players
+    };
+
+    const isP2 = (id) => id === 'lm-a-p2' || id === 'lm-b-p2';
+
+    LM_SEL_IDS.forEach(selId => {
+      const sel = document.getElementById(selId);
+      if (!sel) return;
+      const curVal = sel.value;
+
+      // Disable P2 fields for singles
+      if (_lmType === 'singles' && isP2(selId)) {
+        sel.disabled = true;
+        sel.value = '';
+        return;
+      } else {
+        sel.disabled = false;
+      }
+
+      // Determine gender filter for this select
+      let gFilter = null;
+      if (_lmType === 'mens')   gFilter = 'Male';
+      if (_lmType === 'womens') gFilter = 'Female';
+
+      sel.innerHTML = '<option value="">Select player...</option>';
+      (allPlayers || [])
+        .filter(p => p.status === 'active' && (!gFilter || p.gender === gFilter))
+        .sort((a,b) => a.first_name.localeCompare(b.first_name))
+        .forEach(p => {
+          const opt = document.createElement('option');
+          opt.value = p.id;
+          opt.textContent = `${p.first_name} ${p.last_name}`;
+          sel.appendChild(opt);
+        });
+      // Restore previous value only if still valid
+      if (curVal && sel.querySelector(`option[value="${curVal}"]`)) sel.value = curVal;
+    });
+    lmSyncSelects();
+  };
+
+  window.lmSyncSelects = () => {
+    const selected = {};
+    LM_SEL_IDS.forEach(id => {
+      const val = document.getElementById(id)?.value;
+      if (val) selected[val] = id;
+    });
+    LM_SEL_IDS.forEach(id => {
+      const sel = document.getElementById(id);
+      if (!sel) return;
+      const curVal = sel.value;
+      Array.from(sel.options).forEach(opt => {
+        if (!opt.value) return;
+        const takenBy = selected[opt.value];
+        opt.disabled  = takenBy && takenBy !== id;
+        opt.textContent = opt.disabled
+          ? (allPlayers.find(p => p.id == opt.value)?.first_name || opt.value) + ' (selected)'
+          : (allPlayers.find(p => String(p.id) === opt.value)
+              ? `${allPlayers.find(p => String(p.id) === opt.value).first_name} ${allPlayers.find(p => String(p.id) === opt.value).last_name}`
+              : opt.textContent.replace(' (selected)',''));
+      });
+      sel.value = curVal;
+    });
+    lmUpdatePreview();
+  };
+
+  window.lmSetType = (btn, type) => {
+    document.querySelectorAll('.lm-pill').forEach(p => p.classList.remove('lm-on'));
+    btn.classList.add('lm-on');
+    _lmType = type;
+    const isDoubles = type !== 'singles';
+    ['lm-a-p2-wrap','lm-b-p2-wrap'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.opacity = isDoubles ? '1' : '0.4';
+    });
+    // Repopulate with gender filter + disable P2 for singles
+    lmPopulateSelects();
+    lmUpdatePreview();
+  };
+
+  window.lmAddGame = () => {
+    if (_lmGameCount >= 3) return;
+    _lmGameCount++;
+    document.getElementById(`lm-g${_lmGameCount}-row`).style.display = 'grid';
+    if (_lmGameCount >= 3) document.getElementById('lm-add-game-btn').style.display = 'none';
+  };
+
+  window.lmSelectPurpose = (card, value) => {
+    document.querySelectorAll('.lm-purpose').forEach(c => {
+      c.classList.remove('lm-on');
+      const icon = c.querySelector('.lm-purpose-icon');
+      if (icon) { icon.style.background = '#f0f2f8'; }
+      const svg = icon?.querySelector('svg');
+      if (svg) svg.setAttribute('stroke','#6b7a99');
+    });
+    card.classList.add('lm-on');
+    const icon = card.querySelector('.lm-purpose-icon');
+    if (icon) { icon.style.background = '#174CCC'; }
+    const svg = icon?.querySelector('svg');
+    if (svg) svg.setAttribute('stroke','white');
+    const hid = document.getElementById('lm-purpose-val');
+    if (hid) hid.value = value;
+    lmUpdatePreview();
+  };
+
+  window.lmToggleData = (row, field) => {
+    const isOn = row.classList.toggle('lm-on');
+    const chk  = row.querySelector('.lm-chk');
+    if (chk) {
+      chk.style.background   = isOn ? '#174CCC' : 'white';
+      chk.style.borderColor  = isOn ? '#174CCC' : '#e0e7f5';
+      chk.innerHTML = isOn
+        ? '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
+        : '';
+    }
+    const hid = document.getElementById(`lm-use-${field}`);
+    if (hid) hid.value = isOn ? 'true' : 'false';
+    lmUpdatePreview();
+  };
+
+  const lmUpdatePreview = () => {
+    const typeLabel = MH_TYPE_LABELS[_lmType] || _lmType;
+    const purpose   = document.getElementById('lm-purpose-val')?.value || 'Friendly';
+    const date      = document.getElementById('lm-date')?.value || '';
+    const usageParts = [];
+    if (document.getElementById('lm-use-dna')?.value === 'true')     usageParts.push('Player DNA');
+    if (document.getElementById('lm-use-rating')?.value === 'true')  usageParts.push('Rating');
+    if (document.getElementById('lm-use-private')?.value === 'true') usageParts.push('Private');
+    const usage = usageParts.length ? usageParts.join(' + ') : 'None';
+    const textEl = document.getElementById('lm-preview-text');
+    const subEl  = document.getElementById('lm-preview-sub');
+    if (textEl) textEl.textContent = `${typeLabel} · ${date ? fmtDate(date) : '—'} · ${purpose}`;
+    if (subEl)  subEl.textContent  = `Data: ${usage} · Saving will lock the match record`;
+  };
+
+  window.lmSaveMatch = async () => {
+    const ap1 = document.getElementById('lm-a-p1')?.value;
+    const ap2 = document.getElementById('lm-a-p2')?.value;
+    const bp1 = document.getElementById('lm-b-p1')?.value;
+    const bp2 = document.getElementById('lm-b-p2')?.value;
+    const date = document.getElementById('lm-date')?.value;
+    if (!ap1 || !bp1) { toast('Please select at least Player 1 for each team.', true); return; }
+    if (!date)         { toast('Please select a match date.', true); return; }
+    const g1a = document.getElementById('lm-g1a')?.value;
+    const g1b = document.getElementById('lm-g1b')?.value;
+    if (!g1a || !g1b)  { toast('Please enter Game 1 scores.', true); return; }
+
+    // Fix 5: Mixed doubles validation — each team needs 1M + 1F
+    if (_lmType === 'mixed') {
+      const getGender = (pid) => allPlayers.find(p => String(p.id) === String(pid))?.gender;
+      const gA1 = getGender(ap1), gA2 = getGender(ap2);
+      const gB1 = getGender(bp1), gB2 = getGender(bp2);
+      if (!ap2 || !bp2) { toast('Mixed doubles requires 2 players per team.', true); return; }
+      const teamAValid = (gA1 === 'Male' && gA2 === 'Female') || (gA1 === 'Female' && gA2 === 'Male');
+      const teamBValid = (gB1 === 'Male' && gB2 === 'Female') || (gB1 === 'Female' && gB2 === 'Male');
+      if (!teamAValid) { toast('Team A must have one Male and one Female player.', true); return; }
+      if (!teamBValid) { toast('Team B must have one Male and one Female player.', true); return; }
+    }
+
+    const body = {
+      match_type:   _lmType,
+      match_date:   date,
+      match_time:   document.getElementById('lm-time')?.value || null,
+      court:        document.getElementById('lm-court')?.value?.trim() || null,
+      team_a_p1_id: parseInt(ap1),
+      team_a_p2_id: document.getElementById('lm-a-p2')?.value ? parseInt(document.getElementById('lm-a-p2').value) : null,
+      team_b_p1_id: parseInt(bp1),
+      team_b_p2_id: document.getElementById('lm-b-p2')?.value ? parseInt(document.getElementById('lm-b-p2').value) : null,
+      game1_score_a: parseInt(g1a), game1_score_b: parseInt(g1b),
+      game2_score_a: document.getElementById('lm-g2a')?.value ? parseInt(document.getElementById('lm-g2a').value) : null,
+      game2_score_b: document.getElementById('lm-g2b')?.value ? parseInt(document.getElementById('lm-g2b').value) : null,
+      game3_score_a: document.getElementById('lm-g3a')?.value ? parseInt(document.getElementById('lm-g3a').value) : null,
+      game3_score_b: document.getElementById('lm-g3b')?.value ? parseInt(document.getElementById('lm-g3b').value) : null,
+      winner_team:  (() => {
+        // Count games won per team
+        const games = [
+          [parseInt(g1a)||0, parseInt(g1b)||0],
+          [parseInt(document.getElementById('lm-g2a')?.value)||0, parseInt(document.getElementById('lm-g2b')?.value)||0],
+          [parseInt(document.getElementById('lm-g3a')?.value)||0, parseInt(document.getElementById('lm-g3b')?.value)||0],
+        ].filter(([a,b]) => a > 0 || b > 0);
+        const wA = games.filter(([a,b]) => a > b).length;
+        const wB = games.filter(([a,b]) => b > a).length;
+        return wA >= wB ? 'A' : 'B';
+      })(),
+      purpose:      document.getElementById('lm-purpose-val')?.value || 'Friendly',
+      use_dna:      document.getElementById('lm-use-dna')?.value === 'true',
+      use_rating:   document.getElementById('lm-use-rating')?.value === 'true',
+      use_private:  document.getElementById('lm-use-private')?.value === 'true',
+      notes:        document.getElementById('lm-notes')?.value || null,
+      status:       'completed',
+    };
+
+    try {
+      await api('friendly_matches', 'POST', body);
+      toast('Match logged successfully!');
+      closeLogMatchModal();
+      loadMatchHub();
+    } catch(e) {
+      toast('Error saving match: ' + e.message, true);
+    }
+  };
+
   const openEdit = async (id) => {
     const p = allPlayers.find((x) => x.id === id);
     if (!p) return;
@@ -4068,7 +5384,7 @@
     document.getElementById('edit-modal').classList.add('open');
   };
 
-  const closeModal = () => document.getElementById('edit-modal').classList.remove('open');
+  window.closeModal = () => document.getElementById('edit-modal').classList.remove('open');
 
   const saveEditPlayer = async (e) => {
     e.preventDefault();
@@ -4116,7 +5432,30 @@
     };
 
     try {
+      // Capture original values from cache BEFORE updating
+      const _origPlayer = allPlayers.find(p => p.id === id);
+      const _origFirst  = (_origPlayer?.first_name || '').trim();
+      const _origLast   = (_origPlayer?.last_name  || '').trim();
+      const _origEmail  = (_origPlayer?.email      || '').trim();
+
       await api(`players?id=eq.${id}`, 'PATCH', body);
+
+      // Sync subscriber record if exists — match by original name + email
+      try {
+        const { data: matchingSubs } = await supabase
+          .from('subscribers')
+          .select('id')
+          .ilike('first_name', _origFirst)
+          .ilike('last_name',  _origLast)
+          .ilike('email',      _origEmail)
+          .limit(1);
+        if (matchingSubs && matchingSubs.length) {
+          await supabase
+            .from('subscribers')
+            .update({ first_name: body.first_name, last_name: body.last_name, email: body.email })
+            .eq('id', matchingSubs[0].id);
+        }
+      } catch(_e) {}
 
       // Record history if needed. We do this AFTER the player update so
       // we don't end up with an orphan history row if the update fails.
@@ -5839,6 +7178,3134 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
 
   /* ─── EVENT DELEGATION ─────────────────────────────────── */
 
+  /* ─── FTC LADDER — PHASE 5: STANDINGS & STATS ─────────────── */
+
+  window.ftcStdTab = (e, tab) => {
+    document.getElementById('ftc-std-team-tab').style.display   = tab === 'team'   ? 'block' : 'none';
+    document.getElementById('ftc-std-player-tab').style.display = tab === 'player' ? 'block' : 'none';
+    const tabs = document.querySelectorAll('#page-ftc-standings .lop-tab');
+    tabs.forEach(t => t.classList.remove('active'));
+    e.currentTarget.classList.add('active');
+  };
+
+  const loadFtcStandings = async () => {
+    if (!currentLadder) return;
+
+    // Set page title
+    const titleEl = document.getElementById('ftc-standings-title');
+    if (titleEl) { titleEl.textContent = currentLadder.name || ''; titleEl.style.display = 'block'; }
+
+    // Ensure teams + matches + players loaded
+    if (!ftcTeams.length) {
+      try { ftcTeams = await api(`ftc_ladder_teams?ladder_id=eq.${currentLadder.id}&select=*&order=id`); } catch(e) {}
+    }
+    if (!ftcMatches.length) {
+      try { ftcMatches = await api(`ftc_ladder_matches?ladder_id=eq.${currentLadder.id}&select=*&order=schedule_id,match_type`); } catch(e) {}
+    }
+    if (!ladderPlayers.length) { try { await loadLadderPlayers(); } catch(e) {} }
+
+    const completedMatches = ftcMatches.filter(m => m.status === 'completed' && !m.is_tiebreaker);
+    const completedSchedule = ftcSchedule.filter(s => !s.is_bye);
+    const weeksComplete = ftcSchedule.length
+      ? [...new Set(ftcSchedule.filter(s => s.status === 'completed').map(s => s.week_number))].length
+      : 0;
+    const totalWeeks = [...new Set(ftcSchedule.map(s => s.week_number))].length;
+
+    // ── Compute team stats ────────────────────────────────────────────────
+    const teamStats = {};
+    ftcTeams.forEach(t => {
+      teamStats[t.id] = { team: t, pts: 0, wins: 0, losses: 0, played: 0,
+        ptsFor: 0, ptsAgainst: 0,
+        byType: { mens:{w:0,l:0}, womens:{w:0,l:0}, mixed1:{w:0,l:0}, mixed2:{w:0,l:0} },
+        form: [] };
+    });
+
+    completedMatches.forEach(m => {
+      const aWins = m.score_a > m.score_b;
+      const bWins = m.score_b > m.score_a;
+      if (teamStats[m.team_a_id]) {
+        teamStats[m.team_a_id].pts      += m.league_pts_a || 0;
+        teamStats[m.team_a_id].ptsFor   += m.score_a || 0;
+        teamStats[m.team_a_id].ptsAgainst += m.score_b || 0;
+        teamStats[m.team_a_id].played++;
+        if (aWins) teamStats[m.team_a_id].wins++;   else teamStats[m.team_a_id].losses++;
+        if (m.match_type && teamStats[m.team_a_id].byType[m.match_type]) {
+          if (aWins) teamStats[m.team_a_id].byType[m.match_type].w++;
+          else       teamStats[m.team_a_id].byType[m.match_type].l++;
+        }
+      }
+      if (teamStats[m.team_b_id]) {
+        teamStats[m.team_b_id].pts      += m.league_pts_b || 0;
+        teamStats[m.team_b_id].ptsFor   += m.score_b || 0;
+        teamStats[m.team_b_id].ptsAgainst += m.score_a || 0;
+        teamStats[m.team_b_id].played++;
+        if (bWins) teamStats[m.team_b_id].wins++;   else teamStats[m.team_b_id].losses++;
+        if (m.match_type && teamStats[m.team_b_id].byType[m.match_type]) {
+          if (bWins) teamStats[m.team_b_id].byType[m.match_type].w++;
+          else       teamStats[m.team_b_id].byType[m.match_type].l++;
+        }
+      }
+    });
+
+    // Build form (last 5 matchup results per team)
+    const schedByWeek = {};
+    ftcSchedule.filter(s => !s.is_bye && s.status === 'completed').forEach(s => {
+      if (!schedByWeek[s.id]) schedByWeek[s.id] = s;
+    });
+    Object.values(schedByWeek).forEach(s => {
+      const matchesForSched = completedMatches.filter(m => m.schedule_id === s.id);
+      const winsA = matchesForSched.filter(m => m.winner_team_id === s.team_a_id).length;
+      const winsB = matchesForSched.filter(m => m.winner_team_id === s.team_b_id).length;
+      if (teamStats[s.team_a_id]) teamStats[s.team_a_id].form.push(winsA > winsB ? 'W' : 'L');
+      if (teamStats[s.team_b_id]) teamStats[s.team_b_id].form.push(winsB > winsA ? 'W' : 'L');
+    });
+
+    // Rank teams by pts desc, then wins, then diff
+    const ranked = Object.values(teamStats).sort((a,b) =>
+      (b.pts - a.pts) || (b.wins - a.wins) || ((b.ptsFor-b.ptsAgainst)-(a.ptsFor-a.ptsAgainst))
+    );
+
+    // ── Compute player stats ──────────────────────────────────────────────
+    const playerStats = {};
+    const pName = (id) => {
+      if (!id) return null;
+      const p = ladderPlayers.find(x => x.id === id);
+      return p ? { id: p.id, name: `${p.first_name} ${p.last_name}`, initials: (p.first_name[0]||'') + (p.last_name[0]||'') } : null;
+    };
+
+    const ensurePlayer = (pid, teamId) => {
+      if (!pid) return;
+      if (!playerStats[pid]) {
+        const info = pName(pid);
+        const team = ftcTeams.find(t => t.id === teamId);
+        playerStats[pid] = {
+          id: pid, name: info?.name || `#${pid}`, initials: info?.initials || '?',
+          teamName: team?.name || '—', teamId,
+          played: 0, wins: 0, losses: 0, pts: 0,
+          byType: { mens:{w:0,l:0}, womens:{w:0,l:0}, mixed1:{w:0,l:0}, mixed2:{w:0,l:0} },
+          history: []
+        };
+      }
+    };
+
+    completedMatches.forEach(m => {
+      const aWins = m.score_a > m.score_b;
+      const type  = m.match_type;
+      // Team A players
+      [m.team_a_p1_id, m.team_a_p2_id].filter(Boolean).forEach(pid => {
+        ensurePlayer(pid, m.team_a_id);
+        const ps = playerStats[pid];
+        ps.played++; ps.pts += m.league_pts_a || 0;
+        if (aWins) ps.wins++; else ps.losses++;
+        if (type && ps.byType[type]) { if (aWins) ps.byType[type].w++; else ps.byType[type].l++; }
+        const partner = pid === m.team_a_p1_id ? m.team_a_p2_id : m.team_a_p1_id;
+        ps.history.push({
+          week: ftcSchedule.find(s => s.id === m.schedule_id)?.week_number || '?',
+          type, partnerId: partner,
+          opp1: m.team_b_p1_id, opp2: m.team_b_p2_id,
+          scoreA: m.score_a, scoreB: m.score_b, won: aWins, pts: m.league_pts_a
+        });
+      });
+      // Team B players
+      [m.team_b_p1_id, m.team_b_p2_id].filter(Boolean).forEach(pid => {
+        ensurePlayer(pid, m.team_b_id);
+        const ps = playerStats[pid];
+        ps.played++; ps.pts += m.league_pts_b || 0;
+        if (!aWins) ps.wins++; else ps.losses++;
+        if (type && ps.byType[type]) { if (!aWins) ps.byType[type].w++; else ps.byType[type].l++; }
+        const partner = pid === m.team_b_p1_id ? m.team_b_p2_id : m.team_b_p1_id;
+        ps.history.push({
+          week: ftcSchedule.find(s => s.id === m.schedule_id)?.week_number || '?',
+          type, partnerId: partner,
+          opp1: m.team_a_p1_id, opp2: m.team_a_p2_id,
+          scoreA: m.score_b, scoreB: m.score_a, won: !aWins, pts: m.league_pts_b
+        });
+      });
+    });
+
+    const rankedPlayers = Object.values(playerStats).sort((a,b) => (b.pts - a.pts) || (b.wins - a.wins));
+
+    // ── Render stat cards ─────────────────────────────────────────────────
+    const leaderTeam = ranked[0];
+    document.getElementById('ftc-std-stats').innerHTML = `
+      <div class="stat stat-blue">
+        <div class="stat-label">Teams</div>
+        <div class="stat-value">${ftcTeams.length}</div>
+        <div class="stat-ctx ctx-blue">Registered this season</div>
+      </div>
+      <div class="stat stat-green">
+        <div class="stat-label">Matches Played</div>
+        <div class="stat-value">${completedMatches.length}</div>
+        <div class="stat-ctx ctx-green">Across all matchups</div>
+      </div>
+      <div class="stat stat-lime">
+        <div class="stat-label">Weeks Complete</div>
+        <div class="stat-value">${weeksComplete}/${totalWeeks}</div>
+        <div class="stat-ctx">Regular season</div>
+      </div>
+      <div class="stat stat-gold">
+        <div class="stat-label">Leader</div>
+        <div class="stat-leader-name">${esc(leaderTeam?.team?.name || '—')}</div>
+        <div class="stat-leader-pts">${leaderTeam?.pts || 0} PTS</div>
+        <div class="stat-leader-week">↑ Season leader</div>
+        <div class="stat-leader-streak">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#F26024" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          Top of the ladder
+        </div>
+      </div>`;
+
+    // ── Render podium ─────────────────────────────────────────────────────
+    const medals  = ['gold','silver','bronze'];
+    const top3    = ranked.slice(0,3);
+    const order   = top3.length === 1 ? [0] : top3.length === 2 ? [1,0] : [1,0,2];
+    const podiumHTML = (teams, eyebrow) => {
+      return `<div class="podium-half">
+        <div class="podium-eyebrow">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0d1f4a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4a2 2 0 0 1-2-2V5h4"/><path d="M18 9h2a2 2 0 0 0 2-2V5h-4"/><path d="M12 17v4"/><path d="M8 21h8"/><path d="M6 9a6 6 0 0 0 12 0V3H6v6z"/></svg>
+          ${eyebrow}
+        </div>
+        <div class="podium">
+          ${order.map(idx => {
+            if (idx >= teams.length) return '';
+            const item   = teams[idx];
+            const medal  = medals[idx];
+            const isGold = idx === 0;
+            const initials = (item.name||'').split(' ').map(w=>w[0]||'').join('').slice(0,2).toUpperCase();
+            return `<div class="podium-slot">
+              <div class="podium-avatar ${medal}${isGold?' podium-avatar gold-first':''}" style="${isGold?'width:62px;height:62px;':''}">${esc(initials)}${isGold?'<span class="podium-crown">👑</span>':''}</div>
+              <div class="podium-name">${esc(item.name)}</div>
+              <div class="podium-pts">${item.pts} pts</div>
+              <div class="podium-bar ${medal}">${isGold?'🥇':idx===1?'🥈':'🥉'}</div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>`;
+    };
+
+    const top3Players = rankedPlayers.slice(0,3).map(p => ({ name: p.name, pts: p.pts }));
+    const top3Teams   = top3.map(t => ({ name: t.team.name, pts: t.pts }));
+    const orderP      = top3Players.length===1?[0]:top3Players.length===2?[1,0]:[1,0,2];
+
+    document.getElementById('ftc-std-podium').innerHTML = `
+      <div class="podium-row">
+        ${podiumHTML(top3Teams, 'Team Standings')}
+        <div class="podium-half" style="border-left:0.5px solid #e0e7f5;">
+          <div class="podium-eyebrow">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0d1f4a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            Top Player Performers
+          </div>
+          <div class="podium">
+            ${orderP.map(idx => {
+              if (idx >= top3Players.length) return '';
+              const item   = top3Players[idx];
+              const medal  = medals[idx];
+              const isGold = idx === 0;
+              const initials = (item.name||'').split(' ').map(w=>w[0]||'').join('').slice(0,2).toUpperCase();
+              return `<div class="podium-slot">
+                <div class="podium-avatar ${medal}${isGold?' podium-avatar gold-first':''}" style="${isGold?'width:62px;height:62px;':''}">${esc(initials)}${isGold?'<span class="podium-crown">👑</span>':''}</div>
+                <div class="podium-name">${esc(item.name.split(' ')[0])} ${esc((item.name.split(' ')[1]||'')[0]||'')}.</div>
+                <div class="podium-pts">${item.pts} pts</div>
+                <div class="podium-bar ${medal}">${isGold?'🥇':idx===1?'🥈':'🥉'}</div>
+              </div>`;
+            }).join('')}
+          </div>
+        </div>
+      </div>`;
+
+    // ── Helper: type pill ─────────────────────────────────────────────────
+    const typePill = (type, stat) => {
+      if (!stat || (stat.w + stat.l) === 0) return '<span style="color:#b0bbd6;font-size:10px;">—</span>';
+      const colors = { mens:'#174CCC', womens:'#F26024', mixed1:'#24BC96', mixed2:'#9a6e00' };
+      const bg     = { mens:'#e8f0ff', womens:'rgba(242,96,36,0.1)', mixed1:'rgba(36,188,150,0.1)', mixed2:'rgba(154,110,0,0.1)' };
+      const color  = colors[type] || '#6b7a99';
+      const bgc    = bg[type] || '#f0f2f8';
+      return `<span style="display:inline-flex;padding:2px 7px;border-radius:99px;font-size:9px;font-weight:700;background:${bgc};color:${color};">${stat.w}W ${stat.l}L</span>`;
+    };
+
+    // ── Render team standings table ───────────────────────────────────────
+    const rankBadge = (i) => {
+      const styles = ['background:linear-gradient(135deg,#f6d365,#fda085)', 'background:#C0C0C0;color:#444', 'background:#CD7F32'];
+      const bg = styles[i] || 'background:#e0e7f5;color:#6b7a99';
+      return `<span style="width:24px;height:24px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:white;${bg}">${i+1}</span>`;
+    };
+
+    const formDots = (form) => form.slice(-5).map(r =>
+      `<span style="width:12px;height:12px;border-radius:50%;display:inline-block;background:${r==='W'?'#24BC96':'#F26024'};"></span>`
+    ).join('');
+
+    document.getElementById('ftc-std-team-table').innerHTML = `
+      <table style="width:100%;border-collapse:collapse;">
+        <thead>
+          <tr style="background:#f8f9ff;border-bottom:0.5px solid #e0e7f5;">
+            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:8px 8px 8px 16px;text-align:left;width:40px;">#</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:8px;text-align:left;">Team</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:8px;text-align:center;">Pts</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:8px;text-align:center;">W</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:8px;text-align:center;">L</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:8px;text-align:center;">Diff</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:8px;text-align:center;">Men's DB</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:8px;text-align:center;">Women's DB</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:8px;text-align:center;">Mixed #1</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:8px;text-align:center;">Mixed #2</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:8px;text-align:center;">Played</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:8px;text-align:left;min-width:80px;">Form</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${ranked.map((ts,i) => {
+            const diff = ts.ptsFor - ts.ptsAgainst;
+            const diffStr = diff > 0 ? `+${diff}` : String(diff);
+            const diffColor = diff > 0 ? '#24BC96' : diff < 0 ? '#F26024' : '#6b7a99';
+            return `<tr style="border-bottom:0.5px solid #f4f5f8;">
+              <td style="padding:10px 8px 10px 16px;">${rankBadge(i)}</td>
+              <td style="padding:10px 8px;font-size:13px;font-weight:800;color:#0d1f4a;">${esc(ts.team.name)}</td>
+              <td style="padding:10px 8px;text-align:center;"><span style="font-size:14px;font-weight:800;color:#174CCC;">${ts.pts}</span></td>
+              <td style="padding:10px 8px;text-align:center;font-weight:700;color:#24BC96;">${ts.wins}</td>
+              <td style="padding:10px 8px;text-align:center;font-weight:700;color:#F26024;">${ts.losses}</td>
+              <td style="padding:10px 8px;text-align:center;font-weight:700;color:${diffColor};">${diffStr}</td>
+              <td style="padding:10px 8px;text-align:center;">${typePill('mens',ts.byType.mens)}</td>
+              <td style="padding:10px 8px;text-align:center;">${typePill('womens',ts.byType.womens)}</td>
+              <td style="padding:10px 8px;text-align:center;">${typePill('mixed1',ts.byType.mixed1)}</td>
+              <td style="padding:10px 8px;text-align:center;">${typePill('mixed2',ts.byType.mixed2)}</td>
+              <td style="padding:10px 8px;text-align:center;font-weight:600;color:#6b7a99;">${ts.played}</td>
+              <td style="padding:10px 8px;"><div style="display:flex;gap:3px;">${formDots(ts.form)}</div></td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>`;
+
+    // ── Render player stats table ─────────────────────────────────────────
+    const colors = ['#174CCC','#F26024','#24BC96','#9a6e00','#7B2FBE','#C04A0E'];
+    document.getElementById('ftc-std-player-table').innerHTML = `
+      <table style="width:100%;border-collapse:collapse;">
+        <thead>
+          <tr style="background:#f8f9ff;border-bottom:0.5px solid #e0e7f5;">
+            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:8px 8px 8px 16px;text-align:left;">Player</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:8px;text-align:center;">Played</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:8px;text-align:center;">W</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:8px;text-align:center;">L</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:8px;text-align:center;">Win %</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:8px;text-align:center;">Pts</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:8px;text-align:center;">Men's DB</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:8px;text-align:center;">Women's DB</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:8px;text-align:center;">Mixed #1</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:8px;text-align:center;">Mixed #2</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rankedPlayers.map((ps, pi) => {
+            const winPct = ps.played ? Math.round(ps.wins / ps.played * 100) : 0;
+            const avatarColor = colors[pi % colors.length];
+            const pNameShort = (id) => { const p = ladderPlayers.find(x => x.id === id); return p ? `${p.first_name[0]}. ${p.last_name}` : '—'; };
+            const typeLabels = { mens:'MD', womens:'WD', mixed1:'MX1', mixed2:'MX2' };
+            const typeBg     = { mens:'#e8f0ff', womens:'rgba(242,96,36,0.1)', mixed1:'rgba(36,188,150,0.1)', mixed2:'rgba(154,110,0,0.1)' };
+            const typeClr    = { mens:'#174CCC', womens:'#F26024', mixed1:'#24BC96', mixed2:'#9a6e00' };
+            const historyRows = ps.history.map(h => `
+              <tr>
+                <td style="font-size:11px;padding:5px 8px;border-bottom:0.5px solid #f0f2f8;">Wk ${h.week}</td>
+                <td style="padding:5px 8px;border-bottom:0.5px solid #f0f2f8;"><span style="font-size:8px;font-weight:800;padding:2px 5px;border-radius:4px;background:${typeBg[h.type]||'#f0f2f8'};color:${typeClr[h.type]||'#6b7a99'};">${typeLabels[h.type]||h.type}</span></td>
+                <td style="font-size:11px;padding:5px 8px;border-bottom:0.5px solid #f0f2f8;color:#6b7a99;">${pNameShort(h.partnerId)}</td>
+                <td style="font-size:11px;padding:5px 8px;border-bottom:0.5px solid #f0f2f8;color:#6b7a99;">${pNameShort(h.opp1)} / ${pNameShort(h.opp2)}</td>
+                <td style="font-size:11px;font-weight:800;padding:5px 8px;border-bottom:0.5px solid #f0f2f8;text-align:center;color:${h.won?'#24BC96':'#F26024'};">${h.scoreA}–${h.scoreB}</td>
+                <td style="padding:5px 8px;border-bottom:0.5px solid #f0f2f8;text-align:center;"><span style="display:inline-flex;padding:2px 7px;border-radius:99px;font-size:9px;font-weight:700;background:${h.won?'rgba(36,188,150,0.12)':'rgba(242,96,36,0.08)'};color:${h.won?'#085041':'#F26024'};">${h.won?'W':'L'}</span></td>
+                <td style="font-size:11px;font-weight:700;padding:5px 8px;border-bottom:0.5px solid #f0f2f8;text-align:center;color:${h.won?'#24BC96':'#F26024'};">+${h.pts}</td>
+              </tr>`).join('');
+            return `<tr style="border-bottom:0.5px solid #f4f5f8;cursor:pointer;" onclick="ftcTogglePlayerRow(${ps.id})">
+              <td style="padding:10px 8px 10px 16px;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <div style="width:28px;height:28px;border-radius:50%;background:${avatarColor};display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:white;flex-shrink:0;">${esc(ps.initials)}</div>
+                  <div>
+                    <div style="font-size:12px;font-weight:800;color:#0d1f4a;">${esc(ps.name)}</div>
+                    <div style="font-size:9px;font-weight:600;color:#6b7a99;">${esc(ps.teamName)}</div>
+                  </div>
+                </div>
+              </td>
+              <td style="padding:10px 8px;text-align:center;font-weight:700;">${ps.played}</td>
+              <td style="padding:10px 8px;text-align:center;font-weight:700;color:#24BC96;">${ps.wins}</td>
+              <td style="padding:10px 8px;text-align:center;font-weight:700;color:#F26024;">${ps.losses}</td>
+              <td style="padding:10px 8px;text-align:center;">
+                <div style="display:flex;flex-direction:column;align-items:center;gap:3px;">
+                  <span style="font-weight:800;font-size:12px;color:${winPct>=50?'#24BC96':'#F26024'};">${winPct}%</span>
+                  <div style="height:5px;border-radius:99px;background:#e0e7f5;width:60px;overflow:hidden;"><div style="height:100%;border-radius:99px;background:${winPct>=50?'#24BC96':'#F26024'};width:${winPct}%;"></div></div>
+                </div>
+              </td>
+              <td style="padding:10px 8px;text-align:center;"><span style="font-size:14px;font-weight:800;color:#174CCC;">${ps.pts}</span></td>
+              <td style="padding:10px 8px;text-align:center;">${typePill('mens',ps.byType.mens)}</td>
+              <td style="padding:10px 8px;text-align:center;">${typePill('womens',ps.byType.womens)}</td>
+              <td style="padding:10px 8px;text-align:center;">${typePill('mixed1',ps.byType.mixed1)}</td>
+              <td style="padding:10px 8px;text-align:center;">${typePill('mixed2',ps.byType.mixed2)}</td>
+            </tr>
+            <tr id="ftc-player-row-${ps.id}" style="display:none;">
+              <td colspan="10" style="padding:0;background:#f8f9ff;">
+                <div style="padding:12px 16px;">
+                  <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#174CCC;margin-bottom:8px;">${esc(ps.name)} — Match History</div>
+                  <table style="width:100%;border-collapse:collapse;">
+                    <tr><th style="background:transparent;font-size:9px;color:#6b7a99;padding:4px 8px;border-bottom:0.5px solid #e0e7f5;text-align:left;">Week</th><th style="background:transparent;font-size:9px;color:#6b7a99;padding:4px 8px;border-bottom:0.5px solid #e0e7f5;">Type</th><th style="background:transparent;font-size:9px;color:#6b7a99;padding:4px 8px;border-bottom:0.5px solid #e0e7f5;">Partner</th><th style="background:transparent;font-size:9px;color:#6b7a99;padding:4px 8px;border-bottom:0.5px solid #e0e7f5;">vs Opponents</th><th style="background:transparent;font-size:9px;color:#6b7a99;padding:4px 8px;border-bottom:0.5px solid #e0e7f5;text-align:center;">Score</th><th style="background:transparent;font-size:9px;color:#6b7a99;padding:4px 8px;border-bottom:0.5px solid #e0e7f5;text-align:center;">Result</th><th style="background:transparent;font-size:9px;color:#6b7a99;padding:4px 8px;border-bottom:0.5px solid #e0e7f5;text-align:center;">Pts</th></tr>
+                    ${historyRows}
+                  </table>
+                </div>
+              </td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>`;
+  };
+
+  window.ftcTogglePlayerRow = (pid) => {
+    const row = document.getElementById(`ftc-player-row-${pid}`);
+    if (row) row.style.display = row.style.display === 'none' ? 'table-row' : 'none';
+  };
+
+  /* ─── FTC LADDER — PLAYOFFS ───────────────────────────────── */
+  // ── Playoff state ────────────────────────────────────────────────────────
+  let ftcPlayoffBracket  = null; // { format:'top4'|'top6', rounds:[...], champion:null }
+  let ftcPlayoffMatches  = [];   // playoff ftc_ladder_matches rows
+  let ftcPlayoffSchedule = [];   // playoff ftc_ladder_schedule rows (one per matchup)
+  let _ftcPlayoffScoresModalScheduleId = null; // currently open playoff scores modal
+  // Debug exposure
+  window._dbg = { get ftcPlayoffSchedule(){ return ftcPlayoffSchedule; }, get ftcPlayoffMatches(){ return ftcPlayoffMatches; }, get ftcTeams(){ return ftcTeams; } };
+
+  const loadFtcPlayoffs = async () => {
+    if (!currentLadder) return;
+    const el = document.getElementById('ftc-playoffs-title');
+    if (el) { el.textContent = currentLadder.name || ''; el.style.display = 'block'; }
+
+    // Ensure base data loaded
+    if (!ftcTeams.length) {
+      try { ftcTeams = await api(`ftc_ladder_teams?ladder_id=eq.${currentLadder.id}&select=*&order=id`); } catch(e) {}
+    }
+    if (!ftcMatches.length) {
+      try { ftcMatches = await api(`ftc_ladder_matches?ladder_id=eq.${currentLadder.id}&select=*&order=schedule_id,match_type`); } catch(e) {}
+    }
+    if (!ladderPlayers.length) { try { await loadLadderPlayers(); } catch(e) {} }
+
+    // Load playoff schedule + matches
+    try {
+      ftcPlayoffSchedule = await api(`ftc_ladder_schedule?ladder_id=eq.${currentLadder.id}&is_playoff=eq.true&order=playoff_round,id`);
+    } catch(e) { ftcPlayoffSchedule = []; }
+    try {
+      const psIds = ftcPlayoffSchedule.map(s => s.id);
+      ftcPlayoffMatches = psIds.length
+        ? await api(`ftc_ladder_matches?schedule_id=in.(${psIds.join(',')})&select=*&order=schedule_id,match_type`)
+        : [];
+    } catch(e) { ftcPlayoffMatches = []; }
+
+    renderFtcPlayoffPage();
+  };
+
+  // ── Render the full playoffs page ─────────────────────────────────────────
+  const renderFtcPlayoffPage = () => {
+    const hasSchedule = ftcPlayoffSchedule.length > 0;
+    renderFtcPlayoffSteps(hasSchedule);
+    if (!hasSchedule) {
+      renderFtcPlayoffSetup();
+      document.getElementById('ftc-playoff-bracket').innerHTML = '';
+      document.getElementById('ftc-playoff-champion').style.display = 'none';
+    } else {
+      document.getElementById('ftc-playoff-setup').innerHTML = '';
+      renderFtcBracket();
+      renderFtcChampion();
+    }
+  };
+
+  // ── Step indicator ────────────────────────────────────────────────────────
+  const renderFtcPlayoffSteps = (hasBracket) => {
+    const el = document.getElementById('ftc-playoff-steps');
+    if (!el) return;
+    const steps = [
+      { label: 'Regular Season', done: true },
+      { label: 'Setup', done: hasBracket },
+      { label: 'Bracket', done: false, active: hasBracket },
+      { label: 'Champion', done: false },
+    ];
+    el.innerHTML = steps.map((s, i) => {
+      const cls = s.done ? 'background:#e8f0ff;color:#174CCC;' : s.active ? 'background:#174CCC;color:white;' : 'background:#f0f2f8;color:#6b7a99;';
+      const icon = s.done ? '✓ ' : `${i+1} `;
+      const line = i < steps.length-1 ? '<div style="flex:1;height:1px;background:#e0e7f5;max-width:24px;"></div>' : '';
+      return `<div style="display:flex;align-items:center;gap:8px;padding:7px 14px;border-radius:99px;font-size:11px;font-weight:700;${cls}">${icon}${s.label}</div>${line}`;
+    }).join('');
+  };
+
+  // ── Setup section — seeding table + settings ──────────────────────────────
+  const renderFtcPlayoffSetup = () => {
+    const el = document.getElementById('ftc-playoff-setup');
+    if (!el) return;
+
+    // Compute standings from regular season matches
+    const completedMatches = ftcMatches.filter(m => m.status === 'completed' && !m.is_tiebreaker);
+    const teamStats = {};
+    ftcTeams.forEach(t => { teamStats[t.id] = { team:t, pts:0, wins:0, losses:0, ptsFor:0, ptsAgainst:0 }; });
+    completedMatches.forEach(m => {
+      const aW = m.score_a > m.score_b;
+      if (teamStats[m.team_a_id]) { teamStats[m.team_a_id].pts += m.league_pts_a||0; teamStats[m.team_a_id].ptsFor += m.score_a||0; teamStats[m.team_a_id].ptsAgainst += m.score_b||0; if (aW) teamStats[m.team_a_id].wins++; else teamStats[m.team_a_id].losses++; }
+      if (teamStats[m.team_b_id]) { teamStats[m.team_b_id].pts += m.league_pts_b||0; teamStats[m.team_b_id].ptsFor += m.score_b||0; teamStats[m.team_b_id].ptsAgainst += m.score_a||0; if (!aW) teamStats[m.team_b_id].wins++; else teamStats[m.team_b_id].losses++; }
+    });
+    const ranked = Object.values(teamStats).sort((a,b) => (b.pts-a.pts)||(b.wins-a.wins)||((b.ptsFor-b.ptsAgainst)-(a.ptsFor-a.ptsAgainst)));
+    const rankBadgeStyle = ['background:linear-gradient(135deg,#f6d365,#fda085)','background:#C0C0C0;color:#444','background:#CD7F32','background:#174CCC'];
+
+    const rows = ranked.map((ts,i) => {
+      const diff = ts.ptsFor - ts.ptsAgainst;
+      const inTop = i < 4; // default top 4
+      return `<tr>
+        <td style="padding:8px 8px 8px 16px;"><span style="width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:white;${rankBadgeStyle[i]||'background:#e0e7f5;color:#6b7a99;'}">${i+1}</span></td>
+        <td style="font-size:13px;font-weight:800;color:${inTop?'#0d1f4a':'#b0bbd6'};">${esc(ts.team.name)}</td>
+        <td style="text-align:center;font-weight:700;color:#174CCC;">${ts.pts}</td>
+        <td style="text-align:center;font-weight:700;color:#24BC96;">${ts.wins}</td>
+        <td style="text-align:center;font-weight:700;color:#F26024;">${ts.losses}</td>
+        <td style="text-align:center;font-weight:700;color:${diff>=0?'#24BC96':'#F26024'};">${diff>=0?'+':''}${diff}</td>
+        <td style="text-align:center;" id="ftc-po-incl-${i}">
+          <span style="font-size:9px;font-weight:800;padding:2px 8px;border-radius:99px;${inTop?'background:rgba(36,188,150,0.12);color:#085041;':'background:#f0f2f8;color:#b0bbd6;'}">${inTop?'✓ In':'Out'}</span>
+        </td>
+      </tr>`;
+    }).join('');
+
+    el.innerHTML = `
+      <div class="card" style="margin-bottom:14px;">
+        <div style="font-size:14px;font-weight:800;color:#0d1f4a;margin-bottom:4px;">Playoff Settings</div>
+        <div style="font-size:11px;font-weight:600;color:#6b7a99;margin-bottom:14px;">Configure bracket before generating.</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+          <div>
+            <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#6b7a99;margin-bottom:6px;">Teams advancing</div>
+            <select id="ftc-po-format" style="font-size:12px;font-weight:700;color:#0d1f4a;padding:8px 12px;border:0.5px solid #174CCC;border-radius:8px;background:white;width:100%;" onchange="ftcUpdatePlayoffFormat()">
+              <option value="top4">Top 4 teams (Semi → Final)</option>
+              <option value="top6">Top 6 teams (QF → Semi → Final)</option>
+              <option value="top8">Top 8 teams (QF → Semi → Final)</option>
+            </select>
+          </div>
+          <div>
+            <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#6b7a99;margin-bottom:6px;">Bracket format</div>
+            <select id="ftc-po-bracket-type" style="font-size:12px;font-weight:700;color:#0d1f4a;padding:8px 12px;border:0.5px solid #174CCC;border-radius:8px;background:white;width:100%;">
+              <option value="single">Single elimination</option>
+              <option value="double">Double elimination</option>
+            </select>
+          </div>
+        </div>
+        <div style="background:#f0f4ff;border-radius:8px;padding:10px 14px;border-left:3px solid #174CCC;font-size:11px;font-weight:600;color:#174CCC;margin-bottom:14px;">
+          Seeding auto-calculated from standings (pts → wins → diff). Toggle teams in/out below.
+        </div>
+        <table style="width:100%;border-collapse:collapse;">
+          <thead><tr style="background:#f8f9ff;border-bottom:0.5px solid #e0e7f5;">
+            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:8px 8px 8px 16px;width:40px;">#</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:8px;">Team</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:8px;text-align:center;">Pts</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:8px;text-align:center;">W</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:8px;text-align:center;">L</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:8px;text-align:center;">Diff</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:8px;text-align:center;width:80px;">Include</th>
+          </tr></thead>
+          <tbody id="ftc-po-seed-body">${rows}</tbody>
+        </table>
+        <div style="display:flex;justify-content:flex-end;margin-top:14px;">
+          <button onclick="ftcGeneratePlayoffBracket()" style="display:inline-flex;align-items:center;gap:6px;padding:8px 20px;border:none;border-radius:99px;background:#174CCC;color:white;font-family:'Montserrat',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            Generate Bracket
+          </button>
+        </div>
+      </div>`;
+  };
+
+  // Update include badges when format changes
+  window.ftcUpdatePlayoffFormat = () => {
+    const format = document.getElementById('ftc-po-format')?.value || 'top4';
+    const n = format === 'top8' ? 8 : format === 'top6' ? 6 : 4;
+    const rows = document.querySelectorAll('#ftc-po-seed-body tr');
+    rows.forEach((row, i) => {
+      const cell = row.querySelector(`[id^="ftc-po-incl-"]`);
+      if (!cell) return;
+      const inTop = i < n;
+      cell.innerHTML = `<span style="font-size:9px;font-weight:800;padding:2px 8px;border-radius:99px;${inTop?'background:rgba(36,188,150,0.12);color:#085041;':'background:#f0f2f8;color:#b0bbd6;'}">${inTop?'✓ In':'Out'}</span>`;
+      const teamNm = row.querySelector('td:nth-child(2)');
+      if (teamNm) teamNm.style.color = inTop ? '#0d1f4a' : '#b0bbd6';
+    });
+  };
+
+  // ── Generate bracket: create schedule + match rows in DB ─────────────────
+  window.ftcGeneratePlayoffBracket = async () => {
+    if (!currentLadder) return;
+    const format = document.getElementById('ftc-po-format')?.value || 'top4';
+    const n = format === 'top8' ? 8 : format === 'top6' ? 6 : 4;
+
+    // Compute seeded teams (reuse standings logic)
+    const completedMatches = ftcMatches.filter(m => m.status === 'completed' && !m.is_tiebreaker);
+    const teamStats = {};
+    ftcTeams.forEach(t => { teamStats[t.id] = { team:t, pts:0, wins:0, losses:0, ptsFor:0, ptsAgainst:0 }; });
+    completedMatches.forEach(m => {
+      const aW = m.score_a > m.score_b;
+      if (teamStats[m.team_a_id]) { teamStats[m.team_a_id].pts+=m.league_pts_a||0; teamStats[m.team_a_id].ptsFor+=m.score_a||0; teamStats[m.team_a_id].ptsAgainst+=m.score_b||0; if(aW)teamStats[m.team_a_id].wins++;else teamStats[m.team_a_id].losses++; }
+      if (teamStats[m.team_b_id]) { teamStats[m.team_b_id].pts+=m.league_pts_b||0; teamStats[m.team_b_id].ptsFor+=m.score_b||0; teamStats[m.team_b_id].ptsAgainst+=m.score_a||0; if(!aW)teamStats[m.team_b_id].wins++;else teamStats[m.team_b_id].losses++; }
+    });
+    const seeded = Object.values(teamStats).sort((a,b)=>(b.pts-a.pts)||(b.wins-a.wins)||((b.ptsFor-b.ptsAgainst)-(a.ptsFor-a.ptsAgainst))).slice(0,n).map(ts=>ts.team);
+
+    // Build matchup schedule rows
+    // Top4: SF1=(1v4), SF2=(2v3), F=(winnersof)
+    // Top6: QF1=(3v6), QF2=(4v5), SF1=(1vQF1), SF2=(2vQF2), F
+    let scheduleRows = [];
+    if (format === 'top4') {
+      scheduleRows = [
+        { playoff_round:'semifinal', playoff_match_num:1, team_a_id:seeded[0]?.id, team_b_id:seeded[3]?.id, seed_a:1, seed_b:4 },
+        { playoff_round:'semifinal', playoff_match_num:2, team_a_id:seeded[1]?.id, team_b_id:seeded[2]?.id, seed_a:2, seed_b:3 },
+        { playoff_round:'final',     playoff_match_num:1, team_a_id:null, team_b_id:null, seed_a:null, seed_b:null },
+      ];
+    } else if (format === 'top6') {
+      scheduleRows = [
+        { playoff_round:'quarterfinal', playoff_match_num:1, team_a_id:seeded[2]?.id, team_b_id:seeded[5]?.id, seed_a:3, seed_b:6 },
+        { playoff_round:'quarterfinal', playoff_match_num:2, team_a_id:seeded[3]?.id, team_b_id:seeded[4]?.id, seed_a:4, seed_b:5 },
+        { playoff_round:'semifinal',    playoff_match_num:1, team_a_id:seeded[0]?.id, team_b_id:null, seed_a:1, seed_b:null },
+        { playoff_round:'semifinal',    playoff_match_num:2, team_a_id:seeded[1]?.id, team_b_id:null, seed_a:2, seed_b:null },
+        { playoff_round:'final',        playoff_match_num:1, team_a_id:null, team_b_id:null, seed_a:null, seed_b:null },
+      ];
+    } else {
+      // top8: 1v8, 2v7, 3v6, 4v5 in QFs; SF and Final placeholders (TBD after QF results)
+      scheduleRows = [
+        { playoff_round:'quarterfinal', playoff_match_num:1, team_a_id:seeded[0]?.id, team_b_id:seeded[7]?.id, seed_a:1, seed_b:8 },
+        { playoff_round:'quarterfinal', playoff_match_num:2, team_a_id:seeded[1]?.id, team_b_id:seeded[6]?.id, seed_a:2, seed_b:7 },
+        { playoff_round:'quarterfinal', playoff_match_num:3, team_a_id:seeded[2]?.id, team_b_id:seeded[5]?.id, seed_a:3, seed_b:6 },
+        { playoff_round:'quarterfinal', playoff_match_num:4, team_a_id:seeded[3]?.id, team_b_id:seeded[4]?.id, seed_a:4, seed_b:5 },
+        { playoff_round:'semifinal',    playoff_match_num:1, team_a_id:null, team_b_id:null, seed_a:null, seed_b:null },
+        { playoff_round:'semifinal',    playoff_match_num:2, team_a_id:null, team_b_id:null, seed_a:null, seed_b:null },
+        { playoff_round:'final',        playoff_match_num:1, team_a_id:null, team_b_id:null, seed_a:null, seed_b:null },
+      ];
+    }
+
+    try {
+      const matchTypes = ['mens','womens','mixed1','mixed2'];
+
+      // Step 1: Insert all schedule rows at once
+      await api('ftc_ladder_schedule', 'POST', scheduleRows.map(r => ({
+        ladder_id:   currentLadder.id,
+        week_number: 99,
+        is_playoff:  true,
+        status:      'scheduled',
+        ...r,
+      })));
+
+      // Step 2: Reload schedule from DB to get real IDs
+      ftcPlayoffSchedule = await api(`ftc_ladder_schedule?ladder_id=eq.${currentLadder.id}&is_playoff=eq.true&order=playoff_round,id`);
+
+      // Step 3: Insert match rows for matchups where both teams are known
+      const matchRows = [];
+      for (const s of ftcPlayoffSchedule.filter(s => s.team_a_id && s.team_b_id)) {
+        const tA = ftcTeams.find(t => t.id === s.team_a_id);
+        const tB = ftcTeams.find(t => t.id === s.team_b_id);
+        for (const mt of matchTypes) {
+          matchRows.push({
+            schedule_id:  s.id,
+            ladder_id:    currentLadder.id,
+            match_type:   mt,
+            team_a_id:    s.team_a_id,
+            team_b_id:    s.team_b_id,
+            team_a_p1_id: mt==='mens'?tA?.m1_id:mt==='womens'?tA?.f1_id:mt==='mixed1'?tA?.mixed1_ma_id:tA?.mixed2_ma_id,
+            team_a_p2_id: mt==='mens'?tA?.m2_id:mt==='womens'?tA?.f2_id:mt==='mixed1'?tA?.mixed1_fa_id:tA?.mixed2_fa_id,
+            team_b_p1_id: mt==='mens'?tB?.m1_id:mt==='womens'?tB?.f1_id:mt==='mixed1'?tB?.mixed1_ma_id:tB?.mixed2_ma_id,
+            team_b_p2_id: mt==='mens'?tB?.m2_id:mt==='womens'?tB?.f2_id:mt==='mixed1'?tB?.mixed1_fa_id:tB?.mixed2_fa_id,
+            status:       'scheduled',
+          });
+        }
+      }
+      if (matchRows.length) await api('ftc_ladder_matches', 'POST', matchRows);
+
+      // Step 4: Reload matches from DB and render
+      const psIds = ftcPlayoffSchedule.map(s => s.id);
+      ftcPlayoffMatches = psIds.length
+        ? await api(`ftc_ladder_matches?schedule_id=in.(${psIds.join(',')})&select=*&order=schedule_id,match_type`)
+        : [];
+
+      toast('Playoff bracket generated!');
+      renderFtcPlayoffPage();
+    } catch(err) {
+      toast(`Error generating bracket: ${err.message}`, true);
+      console.error('Playoff generate error:', err);
+    }
+  };
+
+  // ── Render the bracket ────────────────────────────────────────────────────
+  const renderFtcBracket = () => {
+    const el = document.getElementById('ftc-playoff-bracket');
+    if (!el || !ftcPlayoffSchedule.length) return;
+
+    const tName = (id) => { if (!id) return null; const t = ftcTeams.find(x => x.id === id); return t ? esc(t.name) : `#${id}`; };
+    const roundLabel = { quarterfinal:'Quarterfinals', semifinal:'Semifinals', final:'Final' };
+    const rounds = ['quarterfinal','semifinal','final'].filter(r => ftcPlayoffSchedule.some(s => s.playoff_round === r));
+
+    const renderMatchCard = (sched) => {
+      const matches = ftcPlayoffMatches.filter(m => m.schedule_id === sched.id && !m.is_tiebreaker);
+      const winsA = matches.filter(m => m.status==='completed' && m.winner_team_id===sched.team_a_id).length;
+      const winsB = matches.filter(m => m.status==='completed' && m.winner_team_id===sched.team_b_id).length;
+      const done  = sched.status === 'completed';
+      const hasBothTeams = sched.team_a_id && sched.team_b_id;
+      const nmA = tName(sched.team_a_id) || (sched.seed_a ? `Winner SF${sched.seed_a>2?sched.seed_a-2:sched.seed_a}` : 'TBD');
+      const nmB = tName(sched.team_b_id) || (sched.seed_b ? `Winner SF${sched.seed_b>2?sched.seed_b-2:sched.seed_b}` : 'TBD');
+      const winAStyle = done && winsA > winsB ? 'background:rgba(36,188,150,0.06);border-left:3px solid #24BC96;' : '';
+      const winBStyle = done && winsB > winsA ? 'background:rgba(36,188,150,0.06);border-left:3px solid #24BC96;' : '';
+      const isFinal   = sched.playoff_round === 'final';
+      const clickable = hasBothTeams;
+      const onclick   = clickable ? `ftcOpenPlayoffScoresModal(${sched.id})` : '';
+
+      return `<div style="border:${isFinal?'1.5px solid #174CCC':'0.5px solid #e0e7f5'};border-radius:8px;overflow:hidden;${clickable?'cursor:pointer;':'opacity:.6;'}transition:box-shadow .15s;" ${clickable?`onclick="${onclick}" onmouseover="this.style.boxShadow='0 2px 12px rgba(23,76,204,0.12)'" onmouseout="this.style.boxShadow='none'"`:''}  >
+        ${isFinal?`<div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#174CCC;padding:4px 10px;background:#e8f0ff;text-align:center;display:flex;align-items:center;justify-content:center;gap:5px;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4a2 2 0 0 1-2-2V5h4"/><path d="M18 9h2a2 2 0 0 0 2-2V5h-4"/><path d="M12 17v4"/><path d="M8 21h8"/><path d="M6 9a6 6 0 0 0 12 0V3H6v6z"/></svg> Championship</div>`:''}
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-bottom:0.5px solid #f4f5f8;background:white;${winAStyle}">
+          <div style="display:flex;align-items:center;gap:5px;">
+            <span style="font-size:9px;font-weight:800;color:#b0bbd6;width:14px;">${sched.seed_a||''}</span>
+            <span style="font-size:12px;font-weight:800;color:${sched.team_a_id?'#0d1f4a':'#b0bbd6'};">${nmA}</span>
+          </div>
+          <span style="font-size:13px;font-weight:800;color:${done&&winsA>winsB?'#24BC96':'#6b7a99'};">${hasBothTeams?winsA:'—'}</span>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:${sched.team_b_id?'white':'#fafbff'};${winBStyle}">
+          <div style="display:flex;align-items:center;gap:5px;">
+            <span style="font-size:9px;font-weight:800;color:#b0bbd6;width:14px;">${sched.seed_b||''}</span>
+            <span style="font-size:12px;font-weight:800;color:${sched.team_b_id?'#0d1f4a':'#b0bbd6'};">${nmB}</span>
+          </div>
+          <span style="font-size:13px;font-weight:800;color:${done&&winsB>winsA?'#24BC96':'#6b7a99'};">${hasBothTeams?winsB:'—'}</span>
+        </div>
+        <div style="font-size:9px;font-weight:700;text-align:center;padding:3px;background:#f8f9ff;color:${done?'#24BC96':clickable?'#174CCC':'#b0bbd6'};">
+          ${done?'✓ Complete':clickable?'Click to enter scores':'Awaiting previous round'}
+        </div>
+      </div>`;
+    };
+
+    const champion = ftcPlayoffSchedule.find(s => s.playoff_round==='final' && s.status==='completed');
+    const champTeamId = champion ? (ftcPlayoffMatches.filter(m=>m.schedule_id===champion.id&&m.status==='completed').reduce((acc,m)=>{ if(m.winner_team_id===champion.team_a_id)acc.a++; else acc.b++; return acc; },{a:0,b:0})) : null;
+
+    let bracketHtml = `<div class="card" style="margin-bottom:14px;">
+      <div style="font-size:14px;font-weight:800;color:#0d1f4a;margin-bottom:4px;">Playoff Bracket — ${rounds.includes('quarterfinal')?(seededCount>=8?'Top 8':'Top 6'):'Top 4'}</div>
+      <div style="font-size:11px;font-weight:600;color:#6b7a99;margin-bottom:16px;">Click any matchup to enter or edit scores. Same 4-game format (MD, WD, MX1, MX2).</div>
+      <div style="display:flex;align-items:flex-start;gap:0;overflow-x:auto;padding-bottom:8px;">`;
+
+    rounds.forEach((round, ri) => {
+      const roundSchedules = ftcPlayoffSchedule.filter(s => s.playoff_round === round);
+      bracketHtml += `<div style="min-width:180px;flex-shrink:0;">
+        <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#6b7a99;text-align:center;margin-bottom:10px;">${roundLabel[round]||round}</div>
+        <div style="display:flex;flex-direction:column;gap:${round==='final'?'0':'20px'};">
+          ${roundSchedules.map(s => renderMatchCard(s)).join('')}
+        </div>
+      </div>`;
+      // Connector between rounds
+      if (ri < rounds.length - 1) {
+        bracketHtml += `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;width:32px;flex-shrink:0;padding-top:32px;">
+          <div style="width:16px;height:1px;background:#e0e7f5;"></div>
+        </div>`;
+      }
+    });
+
+    // Champion slot
+    const champFinal = ftcPlayoffSchedule.find(s => s.playoff_round==='final');
+    const champId = champFinal?.status==='completed' ? (ftcPlayoffMatches.filter(m=>m.schedule_id===champFinal.id&&!m.is_tiebreaker).reduce((a,m)=>{ if(m.winner_team_id===champFinal.team_a_id)a.wA++; else a.wB++; return a; },{wA:0,wB:0})) : null;
+    const champTeam = champId && champFinal ? (champId.wA > champId.wB ? ftcTeams.find(t=>t.id===champFinal.team_a_id) : ftcTeams.find(t=>t.id===champFinal.team_b_id)) : null;
+
+    bracketHtml += `<div style="display:flex;align-items:center;width:32px;flex-shrink:0;"><div style="height:1px;width:32px;background:#e0e7f5;"></div></div>
+      <div style="min-width:120px;flex-shrink:0;text-align:center;padding-top:32px;">
+        <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#6b7a99;margin-bottom:10px;">Champion</div>
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="${champTeam?'#174CCC':'#b0bbd6'}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:6px;"><path d="M6 9H4a2 2 0 0 1-2-2V5h4"/><path d="M18 9h2a2 2 0 0 0 2-2V5h-4"/><path d="M12 17v4"/><path d="M8 21h8"/><path d="M6 9a6 6 0 0 0 12 0V3H6v6z"/></svg>
+        <div style="font-size:13px;font-weight:800;color:${champTeam?'#0d1f4a':'#b0bbd6'};">${champTeam?esc(champTeam.name):'TBD'}</div>
+        <div style="font-size:9px;font-weight:600;color:#b0bbd6;margin-top:2px;">${champTeam?'Season Champion':'Awaiting Final'}</div>
+      </div>`;
+
+    bracketHtml += `</div></div>`;
+    el.innerHTML = bracketHtml;
+  };
+
+  // ── Render champion card ──────────────────────────────────────────────────
+  const renderFtcChampion = () => {
+    const champFinal = ftcPlayoffSchedule.find(s => s.playoff_round==='final' && s.status==='completed');
+    const el = document.getElementById('ftc-playoff-champion');
+    if (!el) return;
+    if (!champFinal) { el.style.display='none'; return; }
+    const results = ftcPlayoffMatches.filter(m=>m.schedule_id===champFinal.id&&!m.is_tiebreaker);
+    const wA = results.filter(m=>m.winner_team_id===champFinal.team_a_id).length;
+    const wB = results.filter(m=>m.winner_team_id===champFinal.team_b_id).length;
+    const champTeam = wA>wB ? ftcTeams.find(t=>t.id===champFinal.team_a_id) : ftcTeams.find(t=>t.id===champFinal.team_b_id);
+    const runnerUp  = wA>wB ? ftcTeams.find(t=>t.id===champFinal.team_b_id) : ftcTeams.find(t=>t.id===champFinal.team_a_id);
+    const champWins = Math.max(wA,wB); const runnerWins = Math.min(wA,wB);
+    const allPoMatches = ftcPlayoffMatches.filter(m=>!m.is_tiebreaker&&m.status==='completed');
+    const champPoWins  = allPoMatches.filter(m=>m.winner_team_id===champTeam?.id).length;
+    const champPoSeed  = ftcPlayoffSchedule.find(s=>s.team_a_id===champTeam?.id||s.team_b_id===champTeam?.id);
+    const seed = champPoSeed?.team_a_id===champTeam?.id ? champPoSeed.seed_a : champPoSeed?.seed_b;
+    el.style.display='block';
+    el.innerHTML=`<div class="card" style="text-align:center;padding:32px;border:1.5px solid #174CCC;background:linear-gradient(180deg,#f0f4ff,white);">
+      <div style="display:flex;justify-content:center;margin-bottom:12px;">
+        <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4a2 2 0 0 1-2-2V5h4"/><path d="M18 9h2a2 2 0 0 0 2-2V5h-4"/><path d="M12 17v4"/><path d="M8 21h8"/><path d="M6 9a6 6 0 0 0 12 0V3H6v6z"/></svg>
+      </div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:36px;letter-spacing:1px;color:#0d1f4a;margin-bottom:4px;">${esc(champTeam?.name||'Champion')}</div>
+      <div style="font-size:13px;font-weight:700;color:#174CCC;margin-bottom:2px;">${esc(currentLadder?.name||'')} Champions</div>
+      <div style="font-size:11px;font-weight:600;color:#6b7a99;margin-bottom:20px;">Defeated ${esc(runnerUp?.name||'Runner-up')} ${champWins}–${runnerWins} in the Championship</div>
+      <div style="display:flex;justify-content:center;gap:16px;flex-wrap:wrap;">
+        <div style="background:white;border:0.5px solid #e0e7f5;border-radius:10px;padding:12px 20px;min-width:90px;">
+          <div style="font-size:22px;font-weight:800;color:#174CCC;">${champWins}–${runnerWins}</div>
+          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#6b7a99;margin-top:3px;">Final Score</div>
+        </div>
+        <div style="background:white;border:0.5px solid #e0e7f5;border-radius:10px;padding:12px 20px;min-width:90px;">
+          <div style="font-size:22px;font-weight:800;color:#24BC96;">${champPoWins}</div>
+          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#6b7a99;margin-top:3px;">Playoff Wins</div>
+        </div>
+        <div style="background:white;border:0.5px solid #e0e7f5;border-radius:10px;padding:12px 20px;min-width:90px;">
+          <div style="font-size:22px;font-weight:800;color:#F6A623;">${seed?`#${seed}`:'—'}</div>
+          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#6b7a99;margin-top:3px;">Regular Season Seed</div>
+        </div>
+      </div>
+    </div>`;
+  };
+
+  // ── Playoff Match Scores Modal ────────────────────────────────────────────
+  window.ftcOpenPlayoffScoresModal = (scheduleId) => {
+    _ftcPlayoffScoresModalScheduleId = scheduleId;
+    const sched = ftcPlayoffSchedule.find(s => parseInt(s.id,10) === parseInt(scheduleId,10));
+    if (!sched) return;
+    const tA = ftcTeams.find(t => t.id === sched.team_a_id);
+    const tB = ftcTeams.find(t => t.id === sched.team_b_id);
+    const roundLabels = { quarterfinal:'Quarterfinal', semifinal:'Semifinal', final:'Championship Final' };
+    document.getElementById('ftc-psm-subtitle').textContent =
+      `${esc(tA?.name||'—')} vs ${esc(tB?.name||'—')} · ${roundLabels[sched.playoff_round]||sched.playoff_round}`;
+    document.getElementById('ftc-psm-hdr-a').textContent = `Team ${tA?.name||'A'}`;
+    document.getElementById('ftc-psm-hdr-b').textContent = `Team ${tB?.name||'B'}`;
+    document.getElementById('ftc-playoff-scores-modal').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    ftcRefreshPlayoffMatchModal(scheduleId);
+  };
+
+  window.ftcClosePlayoffScoresModal = () => {
+    document.getElementById('ftc-playoff-scores-modal').style.display = 'none';
+    _ftcPlayoffScoresModalScheduleId = null;
+    document.body.style.overflow = '';
+  };
+
+  window.ftcRefreshPlayoffMatchModal = (scheduleId) => {
+    if (!scheduleId) scheduleId = _ftcPlayoffScoresModalScheduleId;
+    if (!scheduleId) return;
+    const sidNum = parseInt(scheduleId, 10);
+    const sched  = ftcPlayoffSchedule.find(s => parseInt(s.id,10) === sidNum);
+    if (!sched) return;
+    const tA = ftcTeams.find(t => t.id === sched.team_a_id);
+    const tB = ftcTeams.find(t => t.id === sched.team_b_id);
+    const sid = parseInt(scheduleId, 10);
+    const matches = ftcPlayoffMatches.filter(m => parseInt(m.schedule_id,10) === sid && !m.is_tiebreaker);
+    const winsA   = matches.filter(m => m.status==='completed' && m.winner_team_id===sched.team_a_id).length;
+    const winsB   = matches.filter(m => m.status==='completed' && m.winner_team_id===sched.team_b_id).length;
+
+    // Update column headers with team names
+    const hdrA = document.getElementById('ftc-psm-hdr-a');
+    const hdrB = document.getElementById('ftc-psm-hdr-b');
+    if (hdrA) hdrA.textContent = `Team ${tA?.name||'A'}`;
+    if (hdrB) hdrB.textContent = `Team ${tB?.name||'B'}`;
+
+    // Match type config
+    const typeOrder = ['mens','womens','mixed1','mixed2'];
+    const typeLabels  = { mens:"Men's Doubles", womens:"Women's Doubles", mixed1:'Mixed #1', mixed2:'Mixed #2' };
+    const typeBadgeBg = { mens:'#EEF2FF', womens:'#FFF0EC', mixed1:'#EDFAF6', mixed2:'#F3EEFF' };
+    const typeBadgeClr= { mens:'#174CCC', womens:'#E8501A', mixed1:'#0D9E73', mixed2:'#7B35D9' };
+
+    const pName = (id) => {
+      if (!id) return null;
+      const p = ladderPlayers.find(x => x.id === id);
+      return p ? `${p.first_name} ${p.last_name}` : null;
+    };
+
+    // Build score input box HTML
+    const scoreBox = (val, inputId) => {
+      const display = val !== null && val !== undefined ? String(val) : '--';
+      return `<div style="display:flex;flex-direction:column;align-items:center;">
+        <div style="display:flex;align-items:center;border:1.5px solid #e0e7f5;border-radius:8px;overflow:hidden;background:white;">
+          <input id="${inputId}" type="number" min="0" max="99" value="${val!==null&&val!==undefined?val:''}" placeholder="--"
+            style="width:48px;height:36px;border:none;outline:none;text-align:center;font-family:'Montserrat',sans-serif;font-size:18px;font-weight:700;color:#0d1f4a;background:transparent;padding:0;"
+            oninput="ftcPsmScoreChange('${inputId}')">
+          <div style="display:flex;flex-direction:column;border-left:1px solid #e0e7f5;">
+            <button onclick="ftcPsmIncrement('${inputId}',1)" style="width:20px;height:18px;border:none;background:white;cursor:pointer;font-size:9px;color:#6b7a99;display:flex;align-items:center;justify-content:center;border-bottom:1px solid #e0e7f5;">▲</button>
+            <button onclick="ftcPsmIncrement('${inputId}',-1)" style="width:20px;height:18px;border:none;background:white;cursor:pointer;font-size:9px;color:#6b7a99;display:flex;align-items:center;justify-content:center;">▼</button>
+          </div>
+        </div>
+      </div>`;
+    };
+
+    // Render each row
+    const rowsHtml = typeOrder.map((mt, idx) => {
+      const m = matches.find(x => x.match_type === mt);
+      const num = idx + 1;
+      const scored = m && m.score_a !== null && m.score_b !== null;
+      const aWins  = scored && m.score_a > m.score_b;
+      const bWins  = scored && m.score_b > m.score_a;
+      const winnerName = aWins ? (tA?.name||'Team A') : bWins ? (tB?.name||'Team B') : null;
+      const p1A = pName(m?.team_a_p1_id); const p2A = pName(m?.team_a_p2_id);
+      const p1B = pName(m?.team_b_p1_id); const p2B = pName(m?.team_b_p2_id);
+      const idA = `psm-score-${m?.id||mt}-a`;
+      const idB = `psm-score-${m?.id||mt}-b`;
+
+      return `<div style="display:grid;grid-template-columns:160px 1fr 220px 1fr 150px;align-items:center;padding:16px 16px;border-bottom:1px solid #e0e7f5;" data-match-id="${m?.id||''}" data-mt="${mt}">
+        <!-- Match number + type badge -->
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="font-size:12px;font-weight:800;color:#6b7a99;min-width:16px;">${num}</span>
+          <span style="font-size:10px;font-weight:700;padding:4px 10px;border-radius:99px;background:${typeBadgeBg[mt]};color:${typeBadgeClr[mt]};text-transform:uppercase;letter-spacing:.3px;">${typeLabels[mt]}</span>
+        </div>
+        <!-- Team A players -->
+        <div>
+          <div style="font-size:13px;font-weight:700;color:#0d1f4a;line-height:1.5;">${p1A||'TBD'}<br>${p2A||'TBD'}</div>
+          <div style="display:flex;align-items:center;gap:4px;margin-top:4px;">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#6b7a99" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            <span style="font-size:10px;font-weight:600;color:#6b7a99;">${esc(tA?.name||'Team A')}</span>
+          </div>
+        </div>
+        <!-- Score inputs + winner -->
+        <div style="display:flex;flex-direction:column;align-items:center;gap:5px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            ${scoreBox(m?.score_a??null, idA)}
+            <span style="font-size:11px;font-weight:600;color:#9aa5b8;">vs</span>
+            ${scoreBox(m?.score_b??null, idB)}
+          </div>
+          ${winnerName
+            ? `<div style="display:flex;align-items:center;gap:4px;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#24BC96" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                <span style="font-size:11px;font-weight:600;color:#24BC96;">${esc(winnerName)} wins</span>
+               </div>`
+            : `<div style="display:flex;align-items:center;gap:4px;opacity:.5;">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#6b7a99" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <span style="font-size:10px;color:#6b7a99;">Not played yet</span>
+               </div>`}
+        </div>
+        <!-- Team B players -->
+        <div>
+          <div style="font-size:13px;font-weight:700;color:#0d1f4a;line-height:1.5;">${p1B||'TBD'}<br>${p2B||'TBD'}</div>
+          <div style="display:flex;align-items:center;gap:4px;margin-top:4px;">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#6b7a99" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            <span style="font-size:10px;font-weight:600;color:#6b7a99;">${esc(tB?.name||'Team B')}</span>
+          </div>
+        </div>
+        <!-- Actions -->
+        <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+          <button onclick="ftcPsmSaveScore('${m?.id||''}','${mt}',${sidNum})"
+            style="display:inline-flex;align-items:center;gap:5px;padding:8px 16px;border:none;border-radius:8px;background:#174CCC;color:white;font-family:'Montserrat',sans-serif;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            Save Score
+          </button>
+          <button onclick="ftcPsmClearScore('${m?.id||''}','${mt}',${sidNum})"
+            style="display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border:none;background:transparent;color:#6b7a99;font-family:'Montserrat',sans-serif;font-size:11px;font-weight:600;cursor:pointer;">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#6b7a99" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+            Clear
+          </button>
+        </div>
+      </div>`;
+    }).join('');
+
+    // Tiebreaker row (row 5)
+    const tbMatch = ftcPlayoffMatches.find(m => parseInt(m.schedule_id,10) === sid && m.is_tiebreaker);
+    const need22  = winsA === 2 && winsB === 2;
+    const tbIdA   = `psm-score-tb-a`;
+    const tbIdB   = `psm-score-tb-b`;
+    const tbScored = tbMatch && tbMatch.score_a !== null;
+    const tbWinnerName = tbScored ? (tbMatch.score_a>tbMatch.score_b ? tA?.name : tB?.name) : null;
+
+    const tieRow = `<div style="display:grid;grid-template-columns:160px 1fr 220px 1fr 150px;align-items:center;padding:16px 16px;background:${need22?'white':'#fafbff'};" data-mt="tiebreaker">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:12px;font-weight:800;color:#6b7a99;min-width:16px;">5</span>
+        <div>
+          <span style="font-size:9px;font-weight:800;padding:4px 10px;border-radius:99px;border:1px solid #7B35D9;color:#7B35D9;text-transform:uppercase;letter-spacing:.3px;display:inline-block;">Tie-Breaker</span>
+          <div style="font-size:9px;font-weight:600;color:#9aa5b8;margin-top:2px;">(If Needed)</div>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:13px;font-weight:700;color:${need22?'#0d1f4a':'#b0bbd6'};line-height:1.5;">TBD<br>&nbsp;</div>
+        <div style="display:flex;align-items:center;gap:4px;margin-top:4px;">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#6b7a99" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <span style="font-size:10px;font-weight:600;color:#6b7a99;">${esc(tA?.name||'Team A')}</span>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:5px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          ${scoreBox(tbScored?tbMatch.score_a:null, tbIdA)}
+          <span style="font-size:11px;font-weight:600;color:#9aa5b8;">vs</span>
+          ${scoreBox(tbScored?tbMatch.score_b:null, tbIdB)}
+        </div>
+        ${tbWinnerName
+          ? `<div style="display:flex;align-items:center;gap:4px;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#24BC96" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              <span style="font-size:11px;font-weight:600;color:#24BC96;">${esc(tbWinnerName)} wins</span>
+             </div>`
+          : `<div style="display:flex;align-items:center;gap:4px;opacity:.5;">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#6b7a99" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              <span style="font-size:10px;color:#6b7a99;">Not played yet</span>
+             </div>`}
+      </div>
+      <div>
+        <div style="font-size:13px;font-weight:700;color:${need22?'#0d1f4a':'#b0bbd6'};line-height:1.5;">TBD<br>&nbsp;</div>
+        <div style="display:flex;align-items:center;gap:4px;margin-top:4px;">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#6b7a99" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <span style="font-size:10px;font-weight:600;color:#6b7a99;">${esc(tB?.name||'Team B')}</span>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+        <button onclick="${need22?`ftcPsmSaveTiebreaker(${sidNum},${sched.team_a_id},${sched.team_b_id})`:'void(0)'}"
+          style="display:inline-flex;align-items:center;gap:5px;padding:8px 16px;border:none;border-radius:8px;background:${need22?'#174CCC':'#e0e7f5'};color:${need22?'white':'#b0bbd6'};font-family:'Montserrat',sans-serif;font-size:12px;font-weight:700;cursor:${need22?'pointer':'not-allowed'};white-space:nowrap;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          Save Score
+        </button>
+        ${tbScored?`<button onclick="ftcPsmClearScore('${tbMatch.id}','tiebreaker',${sidNum})" style="display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border:none;background:transparent;color:#6b7a99;font-family:'Montserrat',sans-serif;font-size:11px;font-weight:600;cursor:pointer;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#6b7a99" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>Clear</button>`:''}
+      </div>
+    </div>`;
+
+    const rowsEl = document.getElementById('ftc-psm-rows');
+    if (rowsEl) rowsEl.innerHTML = rowsHtml + tieRow;
+  };
+
+
+  // ── Playoff score modal helper functions ─────────────────────────────────
+  window.ftcPsmIncrement = (inputId, delta) => {
+    const el = document.getElementById(inputId);
+    if (!el) return;
+    const cur = parseInt(el.value, 10) || 0;
+    el.value = Math.max(0, cur + delta);
+    ftcPsmScoreChange(inputId);
+  };
+
+  window.ftcPsmScoreChange = (inputId) => {
+    // Auto-show winner text — handled by ftcRefreshPlayoffMatchModal after save
+    // Nothing needed here; just keeps input live
+  };
+
+  window.ftcPsmSaveScore = async (matchId, mt, scheduleId) => {
+    const idA = `psm-score-${matchId||mt}-a`;
+    const idB = `psm-score-${matchId||mt}-b`;
+    const scoreA = parseInt(document.getElementById(idA)?.value, 10);
+    const scoreB = parseInt(document.getElementById(idB)?.value, 10);
+    if (isNaN(scoreA) || isNaN(scoreB)) { toast('Enter scores for both teams.', true); return; }
+    if (scoreA === scoreB) { toast('Scores cannot be equal — use tiebreaker.', true); return; }
+    const m = ftcPlayoffMatches.find(x => String(x.id) === String(matchId));
+    if (!m) { toast('Match not found.', true); return; }
+    const aWins = scoreA > scoreB;
+    const pts   = ftcLeaguePts(scoreA, scoreB);
+    try {
+      await api(`ftc_ladder_matches?id=eq.${m.id}`, 'PATCH', {
+        score_a: scoreA, score_b: scoreB,
+        league_pts_a: pts.a, league_pts_b: pts.b,
+        winner_team_id: aWins ? m.team_a_id : m.team_b_id,
+        status: 'completed',
+      });
+      // Update local state
+      const idx = ftcPlayoffMatches.findIndex(x => x.id === m.id);
+      if (idx >= 0) Object.assign(ftcPlayoffMatches[idx], {
+        score_a: scoreA, score_b: scoreB,
+        league_pts_a: pts.a, league_pts_b: pts.b,
+        winner_team_id: aWins ? m.team_a_id : m.team_b_id,
+        status: 'completed',
+      });
+      toast('Score saved!');
+      ftcRefreshPlayoffMatchModal(scheduleId);
+      await ftcCheckAndUpdatePlayoffMatchupStatus(scheduleId);
+      renderFtcBracket();
+    } catch(err) { toast(`Error: ${err.message}`, true); }
+  };
+
+  window.ftcPsmClearScore = async (matchId, mt, scheduleId) => {
+    const m = ftcPlayoffMatches.find(x => String(x.id) === String(matchId));
+    if (!m) return;
+    try {
+      await api(`ftc_ladder_matches?id=eq.${m.id}`, 'PATCH', {
+        score_a: null, score_b: null,
+        league_pts_a: 0, league_pts_b: 0,
+        winner_team_id: null, status: 'scheduled',
+      });
+      const idx = ftcPlayoffMatches.findIndex(x => x.id === m.id);
+      if (idx >= 0) Object.assign(ftcPlayoffMatches[idx], {
+        score_a: null, score_b: null, league_pts_a: 0, league_pts_b: 0,
+        winner_team_id: null, status: 'scheduled',
+      });
+      toast('Score cleared.');
+      ftcRefreshPlayoffMatchModal(scheduleId);
+      renderFtcBracket();
+    } catch(err) { toast(`Error: ${err.message}`, true); }
+  };
+
+  window.ftcPsmSaveTiebreaker = async (scheduleId, teamAId, teamBId) => {
+    const scoreA = parseInt(document.getElementById('psm-score-tb-a')?.value, 10);
+    const scoreB = parseInt(document.getElementById('psm-score-tb-b')?.value, 10);
+    if (isNaN(scoreA) || isNaN(scoreB)) { toast('Enter tiebreaker scores.', true); return; }
+    if (scoreA === scoreB) { toast('Tiebreaker cannot end in a tie.', true); return; }
+    const sched = ftcPlayoffSchedule.find(s => parseInt(s.id,10) === parseInt(scheduleId,10));
+    if (!sched) return;
+    const winnerId = scoreA > scoreB ? teamAId : teamBId;
+    const tieType  = document.getElementById('ftc-tie-type')?.value || 'dreambreaker';
+    try {
+      await api('ftc_ladder_matches', 'POST', {
+        schedule_id: scheduleId, ladder_id: currentLadder.id,
+        match_type: 'tiebreaker', team_a_id: teamAId, team_b_id: teamBId,
+        score_a: scoreA, score_b: scoreB,
+        league_pts_a: ftcLeaguePts(scoreA,scoreB).a, league_pts_b: ftcLeaguePts(scoreA,scoreB).b,
+        winner_team_id: winnerId, tiebreaker_type: tieType,
+        is_tiebreaker: true, status: 'completed',
+      });
+      // Reload matches
+      const psIds = ftcPlayoffSchedule.map(s => s.id);
+      ftcPlayoffMatches = psIds.length
+        ? await api(`ftc_ladder_matches?schedule_id=in.(${psIds.join(',')})&select=*&order=schedule_id,match_type`)
+        : [];
+      // Mark schedule complete
+      await api(`ftc_ladder_schedule?id=eq.${scheduleId}`, 'PATCH', { status:'completed' });
+      const si = ftcPlayoffSchedule.findIndex(s => parseInt(s.id,10)===parseInt(scheduleId,10));
+      if (si >= 0) ftcPlayoffSchedule[si].status = 'completed';
+      await ftcAdvancePlayoffWinner(sched, winnerId, scoreA>scoreB?sched.seed_a:sched.seed_b);
+      toast('Tiebreaker saved!');
+      ftcRefreshPlayoffMatchModal(scheduleId);
+      renderFtcBracket();
+    } catch(err) { toast(`Error: ${err.message}`, true); }
+  };
+
+  // ── Check playoff matchup status and advance bracket ─────────────────────
+  const ftcCheckAndUpdatePlayoffMatchupStatus = async (scheduleId) => {
+    const sched = ftcPlayoffSchedule.find(s => s.id === scheduleId);
+    if (!sched) return;
+    const slotMatches = ftcPlayoffMatches.filter(m => m.schedule_id === scheduleId && !m.is_tiebreaker);
+    if (slotMatches.length < 4 || !slotMatches.every(m => m.status === 'completed')) return;
+    const winsA = slotMatches.filter(m => m.winner_team_id === sched.team_a_id).length;
+    const winsB = slotMatches.filter(m => m.winner_team_id === sched.team_b_id).length;
+    if (winsA === 2 && winsB === 2) {
+      setTimeout(() => ftcOpenTiebreakerModal(scheduleId, sched.team_a_id, sched.team_b_id), 300);
+      return;
+    }
+    const winnerId = winsA > winsB ? sched.team_a_id : sched.team_b_id;
+    const winnerSeed = winsA > winsB ? sched.seed_a : sched.seed_b;
+    try {
+      await api(`ftc_ladder_schedule?id=eq.${scheduleId}`, 'PATCH', { status:'completed' });
+      const si = ftcPlayoffSchedule.findIndex(s => s.id === scheduleId);
+      if (si >= 0) ftcPlayoffSchedule[si].status = 'completed';
+      // Advance winner to next round
+      await ftcAdvancePlayoffWinner(sched, winnerId, winnerSeed);
+    } catch(e) { toast(`Error: ${e.message}`, true); }
+  };
+
+  const ftcAdvancePlayoffWinner = async (completedSched, winnerId, winnerSeed) => {
+    const round = completedSched.playoff_round;
+    const matchNum = completedSched.playoff_match_num;
+    let nextRound = null, teamSlot = null;
+    if (round === 'quarterfinal') { nextRound = 'semifinal'; teamSlot = matchNum === 1 ? 'b' : 'b'; }
+    else if (round === 'semifinal') { nextRound = 'final'; teamSlot = matchNum === 1 ? 'a' : 'b'; }
+    if (!nextRound) return;
+    const nextSched = ftcPlayoffSchedule.find(s => s.playoff_round === nextRound &&
+      (nextRound === 'final' ? (teamSlot === 'a' ? !s.team_a_id : !s.team_b_id) : s.playoff_match_num === matchNum));
+    if (!nextSched) return;
+    const patch = teamSlot === 'a'
+      ? { team_a_id: winnerId, seed_a: winnerSeed }
+      : { team_b_id: winnerId, seed_b: winnerSeed };
+    await api(`ftc_ladder_schedule?id=eq.${nextSched.id}`, 'PATCH', patch);
+    const ni = ftcPlayoffSchedule.findIndex(s => s.id === nextSched.id);
+    if (ni >= 0) Object.assign(ftcPlayoffSchedule[ni], patch);
+    // Create match rows for next round if both teams now known
+    const updated = ftcPlayoffSchedule.find(s => s.id === nextSched.id);
+    if (updated?.team_a_id && updated?.team_b_id) {
+      const typeOrder = ['mens','womens','mixed1','mixed2'];
+      const tA = ftcTeams.find(t => t.id === updated.team_a_id);
+      const tB = ftcTeams.find(t => t.id === updated.team_b_id);
+      const newMatches = typeOrder.map(mt => ({
+        schedule_id: updated.id, ladder_id: currentLadder.id, match_type: mt,
+        team_a_id: updated.team_a_id, team_b_id: updated.team_b_id,
+        team_a_p1_id: mt==='mens'?tA?.m1_id:mt==='womens'?tA?.f1_id:mt==='mixed1'?tA?.mixed1_ma_id:tA?.mixed2_ma_id,
+        team_a_p2_id: mt==='mens'?tA?.m2_id:mt==='womens'?tA?.f2_id:mt==='mixed1'?tA?.mixed1_fa_id:tA?.mixed2_fa_id,
+        team_b_p1_id: mt==='mens'?tB?.m1_id:mt==='womens'?tB?.f1_id:mt==='mixed1'?tB?.mixed1_ma_id:tB?.mixed2_ma_id,
+        team_b_p2_id: mt==='mens'?tB?.m2_id:mt==='womens'?tB?.f2_id:mt==='mixed1'?tB?.mixed1_fa_id:tB?.mixed2_fa_id,
+        status: 'scheduled',
+      }));
+      const created = await api('ftc_ladder_matches', 'POST', newMatches);
+      const arr = Array.isArray(created) ? created : [created];
+      ftcPlayoffMatches.push(...arr);
+    }
+  };
+
+  /* ─── FTC LADDER — PHASE 3: SCHEDULE GENERATION ─────────── */
+
+  let ftcSchedule = []; // loaded schedule rows from DB
+  let ftcMatches  = []; // loaded individual matches (ftc_ladder_matches)
+
+  // ── Round-robin schedule algorithm (circle method) ────────────────────
+  // Returns array of rounds, each round is array of {teamA, teamB} or {teamA, bye:true}
+  const ftcGenerateRoundRobin = (teams, totalWeeks) => {
+    const n = teams.length;
+    if (n < 2) return [];
+
+    // For odd number of teams, add a dummy bye team
+    const list = n % 2 === 0 ? [...teams] : [...teams, null];
+    const size  = list.length;
+    const rounds = [];
+
+    for (let r = 0; r < size - 1; r++) {
+      const round = [];
+      for (let i = 0; i < size / 2; i++) {
+        const home = list[i];
+        const away = list[size - 1 - i];
+        if (home === null || away === null) {
+          // bye — the non-null team sits out
+          const realTeam = home !== null ? home : away;
+          round.push({ teamA: realTeam, teamB: null, bye: true });
+        } else {
+          round.push({ teamA: home, teamB: away, bye: false });
+        }
+      }
+      rounds.push(round);
+      // Rotate all except first element
+      const last = list.splice(size - 1, 1)[0];
+      list.splice(1, 0, last);
+    }
+
+    // If totalWeeks > rounds.length, repeat the schedule
+    const result = [];
+    let weekNum = 1;
+    while (result.length < totalWeeks) {
+      const round = rounds[result.length % rounds.length];
+      result.push({ week: weekNum++, matchups: round });
+    }
+    return result.slice(0, totalWeeks);
+  };
+
+  // ── Get the next occurrence of a weekday from a start date ───────────
+  const ftcNextWeekday = (startDateStr, targetDay) => {
+    const d = new Date(startDateStr + 'T00:00:00');
+    const current = d.getDay();
+    const diff = (targetDay - current + 7) % 7;
+    d.setDate(d.getDate() + diff);
+    return d.toISOString().slice(0, 10);
+  };
+
+  // ── Add weeks to a date ───────────────────────────────────────────────
+  const ftcAddWeeks = (dateStr, weeks) => {
+    const d = new Date(dateStr + 'T00:00:00');
+    d.setDate(d.getDate() + weeks * 7);
+    return d.toISOString().slice(0, 10);
+  };
+
+  // ── Format date for display ───────────────────────────────────────────
+  const ftcFmtDate = (iso) => {
+    if (!iso) return '—';
+    const d = new Date(iso + 'T00:00:00');
+    return d.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' });
+  };
+
+  // ── Load schedule page ────────────────────────────────────────────────
+  // Team color palette for shields
+  const FTC_TEAM_COLORS = ['#174CCC','#F26024','#24BC96','#9a6e00','#7B2FBE','#C04A0E','#085041','#B91C1C'];
+  const FTC_COURT_COLORS = ['#174CCC','#24BC96','#F26024','#9a6e00','#7B2FBE'];
+
+  const ftcTeamInitials = (name) => {
+    if (!name) return '?';
+    const words = name.trim().split(/\s+/);
+    return words.length >= 2 ? (words[0][0] + words[1][0]).toUpperCase() : name.slice(0,2).toUpperCase();
+  };
+
+  const ftcTeamColor = (teamId) => {
+    const idx = ftcTeams.findIndex(t => t.id === teamId);
+    return FTC_TEAM_COLORS[idx >= 0 ? idx % FTC_TEAM_COLORS.length : 0];
+  };
+
+  // Auto-set day of week when start date is picked
+  window.ftcAutoSetDay = (dateStr) => {
+    if (!dateStr) return;
+    const d = new Date(dateStr + 'T00:00:00');
+    const dayEl = document.getElementById('ftc-sch-day');
+    if (dayEl) dayEl.value = String(d.getDay()); // 0=Sun … 6=Sat
+    ftcUpdateSchStats();
+  };
+
+  window.ftcUpdateSchStats = () => {
+    const n = ftcTeams.length;
+    const weeks = document.getElementById('ftc-sch-weeks')?.value || '6';
+    const court = document.getElementById('ftc-sch-court')?.value?.trim() || '—';
+    const teamsEl = document.getElementById('ftc-sch-stat-teams');
+    const teamsSubEl = document.getElementById('ftc-sch-stat-teams-sub');
+    const weeksEl = document.getElementById('ftc-sch-stat-weeks');
+    const courtsEl = document.getElementById('ftc-sch-stat-courts');
+    if (teamsEl) teamsEl.textContent = n;
+    if (teamsSubEl) teamsSubEl.textContent = n % 2 === 0 ? 'All teams play each week' : '1 team gets a bye each week';
+    if (weeksEl) weeksEl.textContent = `${weeks} weeks`;
+    if (courtsEl) courtsEl.textContent = court || '—';
+    const countEl = document.getElementById('ftc-sch-team-count');
+    if (countEl) {
+      if (n < 2) {
+        countEl.innerHTML = '⚠ Register at least 2 teams before generating a schedule.';
+        countEl.style.color = 'var(--orange)';
+      } else {
+        countEl.innerHTML = `${n} teams registered &nbsp;•&nbsp; ${n%2===0?'All teams play each week':'1 team gets a bye each week'} &nbsp;•&nbsp; Matches are automatically balanced`;
+        countEl.style.color = '#174CCC';
+      }
+    }
+  };
+
+  const loadFtcSchedule = async () => {
+    if (!currentLadder) return;
+    // Set page title (Bebas Neue, same as RP ladder pages)
+    const schTitleEl = document.getElementById('ftc-schedule-title');
+    if (schTitleEl) {
+      schTitleEl.textContent = currentLadder.name || '';
+      schTitleEl.style.display = 'block';
+    }
+    // Reset preview card — hide it on every fresh load
+    const previewCard = document.getElementById('ftc-sch-preview-card');
+    const previewWeeks = document.getElementById('ftc-preview-weeks');
+    if (previewCard)  previewCard.style.display = 'none';
+    if (previewWeeks) previewWeeks.innerHTML = '';
+    // Ensure ftcTeams is loaded — may be empty if navigating directly to Schedule tab
+    if (!ftcTeams.length) {
+      try {
+        ftcTeams = await api(
+          `ftc_ladder_teams?ladder_id=eq.${currentLadder.id}&select=*&order=id`
+        );
+      } catch (e) { /* non-fatal */ }
+    }
+    // Pre-fill start date from ladder start_date, then auto-set day of week
+    const startEl = document.getElementById('ftc-sch-start-date');
+    if (startEl && !startEl.value && currentLadder.start_date) {
+      startEl.value = currentLadder.start_date;
+    }
+    // Always sync day of week to whatever start date is set
+    if (startEl && startEl.value) {
+      ftcAutoSetDay(startEl.value);
+    }
+    ftcUpdateSchStats();
+    const el = document.getElementById('ftc-schedule-list');
+    el.style.display = '';
+    el.innerHTML = '<div class="loading">Loading schedule...</div>';
+    try {
+      ftcSchedule = await api(
+        `ftc_ladder_schedule?ladder_id=eq.${currentLadder.id}&select=*&order=week_number,id`
+      );
+      // Also fetch all individual matches for this ladder
+      ftcMatches = await api(
+        `ftc_ladder_matches?ladder_id=eq.${currentLadder.id}&select=*&order=schedule_id,match_type`
+      );
+      // Toggle delete/generate/preview buttons based on whether schedule exists
+      const _delBtn  = document.getElementById('ftc-delete-schedule-btn');
+      const _genBtn  = document.getElementById('ftc-generate-schedule-btn');
+      const _prevBtn = document.querySelector('button[onclick="ftcPreviewSchedule()"]');
+      if (ftcSchedule.length > 0) {
+        if (_delBtn)  _delBtn.style.display  = 'inline-flex';
+        if (_genBtn)  _genBtn.style.display  = 'none';
+        if (_prevBtn) _prevBtn.style.display = 'none';
+      } else {
+        if (_delBtn)  _delBtn.style.display  = 'none';
+        if (_genBtn)  _genBtn.style.display  = 'inline-flex';
+        if (_prevBtn) _prevBtn.style.display = 'inline-flex';
+      }
+      renderFtcSchedule();
+    } catch (err) {
+      el.innerHTML = `<div class="error">Error: ${esc(err.message)}</div>`;
+    }
+  };
+
+  // ── Preview schedule — table layout per week (accordion) ──────────────
+  window.ftcPreviewSchedule = () => {
+    if (ftcTeams.length < 2) {
+      toast('Register at least 2 teams before generating a schedule.', true);
+      return;
+    }
+    const weeks     = parseInt(document.getElementById('ftc-sch-weeks')?.value || '6', 10);
+    const startDate = document.getElementById('ftc-sch-start-date')?.value;
+    const targetDay = parseInt(document.getElementById('ftc-sch-day')?.value || '6', 10);
+    if (!startDate) { toast('Please select a start date.', true); return; }
+
+    ftcUpdateSchStats();
+    const firstMatchDate = ftcNextWeekday(startDate, targetDay);
+    const rounds         = ftcGenerateRoundRobin(ftcTeams, weeks);
+
+    const courtStr = document.getElementById('ftc-sch-court')?.value?.trim() || '';
+    const courts   = courtStr ? courtStr.split(',').map(c => c.trim()).filter(Boolean) : [];
+
+    // Update preview card header
+    const titleTxt = document.getElementById('ftc-preview-title-txt');
+    if (titleTxt) titleTxt.textContent = 'SEASON PREVIEW';
+
+    // Court legend
+    const legendEl = document.getElementById('ftc-preview-legend');
+    if (legendEl) {
+      legendEl.innerHTML = courts.map((c, i) =>
+        `<div class="ftc-legend-item"><span class="ftc-ldot" style="background:${FTC_COURT_COLORS[i%FTC_COURT_COLORS.length]};"></span>Court ${esc(c)}</div>`
+      ).join('');
+    }
+
+    const tName = (t) => t ? esc(t.name || `Team ${ftcTeams.indexOf(t)+1}`) : '—';
+
+    let weeksHtml = `<div style="background:white;border:0.5px solid #e0e7f5;border-radius:12px;padding:20px 24px;box-shadow:0 1px 4px rgba(23,76,204,0.06);">
+      <div style="font-size:16px;font-weight:800;color:#0d1f4a;margin-bottom:4px;">Season Preview</div>
+      <div style="font-size:11px;font-weight:600;color:#6b7a99;margin-bottom:16px;">Review your season schedule. Click any week to see matchups.</div>`;
+
+    rounds.forEach((round, i) => {
+      const date    = ftcAddWeeks(firstMatchDate, i);
+      const dateStr = ftcFmtDate(date);
+      const isFirst = i === 0;
+      const matchups = round.matchups.filter(m => !m.bye);
+      const byes     = round.matchups.filter(m => m.bye);
+      const byeText  = byes.length ? byes.map(b => tName(b.teamA)).join(', ') : null;
+      // "Complete by" = date of next week
+      const completeByDate = ftcFmtDate(ftcAddWeeks(firstMatchDate, i + 1));
+
+      weeksHtml += `<div style="border:0.5px solid #e0e7f5;border-radius:10px;margin-bottom:8px;background:white;">
+        <!-- Week header -->
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;cursor:pointer;background:white;"
+          onclick="ftcPrvToggleWeek(${round.week})">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span style="width:22px;height:22px;border-radius:50%;background:#174CCC;color:white;font-size:10px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;">${round.week}</span>
+            <div>
+              <div style="font-size:12px;font-weight:800;color:#0d1f4a;display:flex;align-items:center;gap:6px;">
+                Week ${round.week}
+                <span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:99px;background:#e8f0ff;color:#174CCC;">Scheduled</span>
+                ${byeText ? `<span style="font-size:9px;font-weight:700;color:#F26024;">BYE: ${byeText}</span>` : ''}
+              </div>
+              <div style="font-size:10px;font-weight:600;color:#6b7a99;margin-top:1px;">${dateStr} &nbsp;·&nbsp; ${matchups.length} matchup${matchups.length!==1?'s':''}</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div style="display:flex;align-items:center;gap:5px;font-size:10px;font-weight:600;color:#24BC96;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              Complete by ${completeByDate}
+            </div>
+            <span id="ftc-prv-chevron-${round.week}" style="font-size:11px;color:#6b7a99;transition:transform .2s;display:inline-block;transform:${isFirst?'rotate(180deg)':'rotate(0deg)'};">▼</span>
+          </div>
+        </div>
+
+        <!-- Week body -->
+        <div id="ftc-prv-week-${round.week}" style="display:${isFirst?'block':'none'};">
+          <!-- Table header -->
+          <div style="display:grid;grid-template-columns:minmax(180px,1fr) 85px 110px 160px 110px;gap:16px;padding:6px 16px;background:#f8f9ff;border-top:0.5px solid #e0e7f5;border-bottom:0.5px solid #e0e7f5;">
+            <div style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;">Matchup</div>
+            <div style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;">Time</div>
+            <div style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;">Courts</div>
+            <div style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;">Matches</div>
+            <div style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;">Status</div>
+          </div>
+          <!-- Matchup rows -->
+          ${matchups.map((m, mi) => {
+            const c1idx  = mi * (courts.length >= 2 ? 2 : 1);
+            const c2idx  = c1idx + 1;
+            const court1 = courts[c1idx] || courts[c1idx % Math.max(courts.length,1)] || '—';
+            const court2 = courts.length >= 2 ? (courts[c2idx] || courts[c2idx % courts.length] || '—') : null;
+            const courtDisplay = court2 ? `${court1} – ${court2}` : court1;
+            const time   = document.getElementById('ftc-sch-time')?.value || '';
+            const timeDisplay = time ? fmtTime12(time) : '—';
+
+            return `<div style="display:grid;grid-template-columns:minmax(180px,1fr) 85px 110px 160px 110px;gap:16px;padding:10px 16px;border-bottom:0.5px solid #f4f5f8;align-items:center;">
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span style="font-size:13px;font-weight:800;color:#0d1f4a;">${tName(m.teamA)}</span>
+                <span style="font-size:9px;font-weight:700;color:#b0bbd6;background:#f0f2f8;padding:2px 6px;border-radius:99px;">vs</span>
+                <span style="font-size:13px;font-weight:800;color:#0d1f4a;">${tName(m.teamB)}</span>
+              </div>
+              <div style="font-size:11px;font-weight:600;color:#6b7a99;">${timeDisplay}</div>
+              <div style="font-size:11px;font-weight:600;color:#6b7a99;">${courtDisplay}</div>
+              <div style="display:flex;align-items:center;gap:5px;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6b7a99" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                <span style="font-size:11px;font-weight:700;color:#6b7a99;">4</span>
+                <span style="font-size:10px;font-weight:600;color:#b0bbd6;">MD, WD, MX1, MX2</span>
+              </div>
+              <div><span style="font-size:9px;font-weight:700;padding:3px 8px;border-radius:99px;background:#e8f0ff;color:#174CCC;">Scheduled</span></div>
+            </div>`;
+          }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+    });
+
+    weeksHtml += '</div>'; // close white card
+    const weeksEl = document.getElementById('ftc-preview-weeks');
+    if (weeksEl) weeksEl.innerHTML = weeksHtml;
+
+    const card = document.getElementById('ftc-sch-preview-card');
+    if (card) card.style.display = 'block';
+
+    const schedEl = document.getElementById('ftc-schedule-list');
+    if (schedEl) schedEl.style.display = 'none';
+  };
+
+  window.ftcPrvToggleWeek = (week) => {
+    const body = document.getElementById(`ftc-prv-week-${week}`);
+    const chev = document.getElementById(`ftc-prv-chevron-${week}`);
+    if (!body) return;
+    const isOpen = body.style.display !== 'none';
+    // Collapse all other open preview weeks first
+    if (!isOpen) {
+      document.querySelectorAll('[id^="ftc-prv-week-"]').forEach(el => {
+        if (el.id !== `ftc-prv-week-${week}` && el.style.display !== 'none') {
+          el.style.display = 'none';
+          const wn = el.id.replace('ftc-prv-week-', '');
+          const c = document.getElementById(`ftc-prv-chevron-${wn}`);
+          if (c) c.style.transform = 'rotate(0deg)';
+        }
+      });
+    }
+    body.style.display = isOpen ? 'none' : 'block';
+    if (chev) chev.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(180deg)';
+  };
+  // ── Create matches for existing schedule (no matches yet) ───────────────
+  window.ftcGenerateMatchesForSchedule = async () => {
+    if (!currentLadder || !ftcTeams.length) return;
+    try {
+      const scheduleRows = await api(
+        `ftc_ladder_schedule?ladder_id=eq.${currentLadder.id}&select=id,team_a_id,team_b_id,is_bye,court&order=week_number,id`
+      );
+      const matchTypes = ['mens','womens','mixed1','mixed2'];
+      const matchRows  = [];
+      scheduleRows.filter(s => !s.is_bye).forEach(s => {
+        const tA = ftcTeams.find(t => t.id === s.team_a_id);
+        const tB = ftcTeams.find(t => t.id === s.team_b_id);
+        if (!tA || !tB) return;
+        const courtParts = s.court ? s.court.split(',').map(c => c.trim()) : [];
+        const court1 = courtParts[0] || null;
+        const court2 = courtParts[1] || court1;
+        const assignments = {
+          mens:   { ap1: tA.m1_id,       ap2: tA.m2_id,       bp1: tB.m1_id,       bp2: tB.m2_id,       court: court1 },
+          womens: { ap1: tA.f1_id,        ap2: tA.f2_id,        bp1: tB.f1_id,        bp2: tB.f2_id,        court: court2 },
+          mixed1: { ap1: tA.mixed1_ma_id, ap2: tA.mixed1_fa_id, bp1: tB.mixed1_ma_id, bp2: tB.mixed1_fa_id, court: court1 },
+          mixed2: { ap1: tA.mixed2_ma_id, ap2: tA.mixed2_fa_id, bp1: tB.mixed2_ma_id, bp2: tB.mixed2_fa_id, court: court2 },
+        };
+        matchTypes.forEach(type => {
+          const a = assignments[type];
+          matchRows.push({
+            schedule_id: s.id, ladder_id: currentLadder.id, match_type: type,
+            team_a_id: s.team_a_id, team_b_id: s.team_b_id,
+            team_a_p1_id: a.ap1||null, team_a_p2_id: a.ap2||null,
+            team_b_p1_id: a.bp1||null, team_b_p2_id: a.bp2||null,
+            court: a.court, status: 'pending',
+          });
+        });
+      });
+      if (matchRows.length) {
+        await api('ftc_ladder_matches', 'POST', matchRows);
+        toast(`${matchRows.length} individual matches created!`);
+        await loadFtcSchedule();
+      } else {
+        toast('No matchups found to create matches for.', true);
+      }
+    } catch (err) {
+      toast(`Error: ${err.message}`, true);
+    }
+  };
+
+  // ── Generate and save schedule to DB ─────────────────────────────────
+  // ── Delete existing schedule ─────────────────────────────────────────
+  window.ftcDeleteSchedule = async () => {
+    const ok = await confirmModal({
+      title:   'Delete schedule?',
+      message: 'This will permanently delete the schedule and all individual match lineups. Match scores already recorded will also be lost. This cannot be undone.',
+      confirm: 'Delete Schedule',
+      danger:  true,
+    });
+    if (!ok) return;
+    try {
+      await api(`ftc_ladder_matches?ladder_id=eq.${currentLadder.id}`, 'DELETE');
+      await api(`ftc_ladder_schedule?ladder_id=eq.${currentLadder.id}`, 'DELETE');
+      ftcSchedule = [];
+      ftcMatches  = [];
+      toast('Schedule deleted. You can now generate a new one.');
+      await loadFtcSchedule();
+    } catch (err) {
+      toast(`Error: ${err.message}`, true);
+    }
+  };
+
+  window.ftcGenerateSchedule = async () => {
+    if (ftcTeams.length < 2) {
+      toast('Register at least 2 teams before generating a schedule.', true);
+      return;
+    }
+    const weeks     = parseInt(document.getElementById('ftc-sch-weeks')?.value || '6', 10);
+    const startDate = document.getElementById('ftc-sch-start-date')?.value;
+    const targetDay = parseInt(document.getElementById('ftc-sch-day')?.value || '6', 10);
+    const time      = document.getElementById('ftc-sch-time')?.value || null;
+    const court     = document.getElementById('ftc-sch-court')?.value.trim() || null;
+    if (!startDate) { toast('Please select a start date.', true); return; }
+
+    // Block if schedule already exists — must delete manually to start over
+    if (ftcSchedule.length > 0) {
+      toast('A schedule already exists for this ladder. To start over, delete the existing schedule first.', true);
+      return;
+    }
+
+    const firstMatchDate = ftcNextWeekday(startDate, targetDay);
+    const rounds = ftcGenerateRoundRobin(ftcTeams, weeks);
+
+    // Validate: no team should get a bye more than once across ALL weeks
+    const byeCounts = {};
+    rounds.forEach(round => {
+      round.matchups.filter(m => m.bye).forEach(m => {
+        const tid = m.teamA?.id;
+        if (tid) byeCounts[tid] = (byeCounts[tid] || 0) + 1;
+      });
+    });
+    const doubleBye = Object.entries(byeCounts).find(([,c]) => c > 1);
+    if (doubleBye) {
+      const team = ftcTeams.find(t => String(t.id) === doubleBye[0]);
+      toast(`Schedule error: ${team?.name || 'A team'} was assigned a bye more than once. Please check team count and weeks.`, true);
+      return;
+    }
+
+    const rows = [];
+    rounds.forEach((round, i) => {
+      const matchDate = ftcAddWeeks(firstMatchDate, i);
+      round.matchups.forEach(m => {
+        rows.push({
+          ladder_id:   currentLadder.id,
+          week_number: round.week,
+          match_date:  matchDate,
+          match_time:  time,
+          court:       court,
+          team_a_id:   m.teamA?.id || null,
+          team_b_id:   m.bye ? null : (m.teamB?.id || null),
+          is_bye:      m.bye,
+          status:      'scheduled',
+        });
+      });
+    });
+
+    try {
+      // Save schedule rows
+      const savedSchedule = await api('ftc_ladder_schedule', 'POST', rows);
+
+      // Fetch saved rows to get their IDs (Supabase returns inserted rows)
+      const scheduleIds = await api(
+        `ftc_ladder_schedule?ladder_id=eq.${currentLadder.id}&order=week_number,id&select=id,team_a_id,team_b_id,is_bye,court`
+      );
+
+      // Build ftc_ladder_matches (4 per non-bye matchup)
+      const matchTypes = ['mens','womens','mixed1','mixed2'];
+      const matchRows  = [];
+
+      scheduleIds.filter(s => !s.is_bye).forEach(s => {
+        const tA = ftcTeams.find(t => t.id === s.team_a_id);
+        const tB = ftcTeams.find(t => t.id === s.team_b_id);
+        if (!tA || !tB) return;
+
+        // Determine courts from schedule court field (e.g. "19, 20")
+        const courtParts = s.court ? s.court.split(',').map(c => c.trim()) : [];
+        const court1 = courtParts[0] || null;
+        const court2 = courtParts[1] || court1; // fall back to court1 if only one
+
+        // Player assignments per match type
+        const assignments = {
+          mens:   { ap1: tA.m1_id,          ap2: tA.m2_id,          bp1: tB.m1_id,          bp2: tB.m2_id,          court: court1 },
+          womens: { ap1: tA.f1_id,           ap2: tA.f2_id,           bp1: tB.f1_id,           bp2: tB.f2_id,           court: court2 },
+          mixed1: { ap1: tA.mixed1_ma_id,     ap2: tA.mixed1_fa_id,    bp1: tB.mixed1_ma_id,    bp2: tB.mixed1_fa_id,    court: court1 },
+          mixed2: { ap1: tA.mixed2_ma_id,     ap2: tA.mixed2_fa_id,    bp1: tB.mixed2_ma_id,    bp2: tB.mixed2_fa_id,    court: court2 },
+        };
+
+        matchTypes.forEach(type => {
+          const a = assignments[type];
+          matchRows.push({
+            schedule_id:    s.id,
+            ladder_id:      currentLadder.id,
+            match_type:     type,
+            team_a_id:      s.team_a_id,
+            team_b_id:      s.team_b_id,
+            team_a_p1_id:   a.ap1 || null,
+            team_a_p2_id:   a.ap2 || null,
+            team_b_p1_id:   a.bp1 || null,
+            team_b_p2_id:   a.bp2 || null,
+            court:          a.court,
+            status:         'pending',
+          });
+        });
+      });
+
+      if (matchRows.length) {
+        await api('ftc_ladder_matches', 'POST', matchRows);
+      }
+
+      const nonBye = scheduleIds.filter(s => !s.is_bye).length;
+      toast(`Schedule generated — ${weeks} weeks, ${nonBye} matchups, ${matchRows.length} matches created!`);
+      await loadFtcSchedule();
+    } catch (err) {
+      toast(`Error: ${err.message}`, true);
+    }
+  };
+
+  // Match type display labels
+  const FTC_MATCH_LABELS = {
+    mens:   { label: "Men's Doubles",   abbr: 'MD',  color: '#174CCC', bg: '#e8f0ff' },
+    womens: { label: "Women's Doubles", abbr: 'WD',  color: '#F26024', bg: 'rgba(242,96,36,0.08)' },
+    mixed1: { label: 'Mixed #1',        abbr: 'MX1', color: '#24BC96', bg: 'rgba(36,188,150,0.08)' },
+    mixed2: { label: 'Mixed #2',        abbr: 'MX2', color: '#9a6e00', bg: 'rgba(154,110,0,0.08)'  },
+  };
+
+  // ── Render schedule list — table layout per week (smart accordion) ───────
+  const renderFtcSchedule = () => {
+    const el = document.getElementById('ftc-schedule-list');
+    if (!ftcSchedule.length) {
+      el.innerHTML = `<div class="card" style="padding:40px 24px;text-align:center;">
+        <div style="margin-bottom:14px;">
+          <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="#b0bbd6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        </div>
+        <div style="font-size:14px;font-weight:800;color:#0d1f4a;margin-bottom:6px;">No schedule saved yet</div>
+        <div style="font-size:11px;font-weight:600;color:#6b7a99;line-height:1.6;">Adjust your settings above and click "Generate &amp; Save"<br>to create and save your season schedule.</div>
+      </div>`;
+      return;
+    }
+
+    // Group by week — exclude playoff rows (week 99 / is_playoff)
+    const byWeek = {};
+    ftcSchedule.filter(s => !s.is_playoff && s.week_number !== 99).forEach(s => {
+      if (!byWeek[s.week_number]) byWeek[s.week_number] = [];
+      byWeek[s.week_number].push(s);
+    });
+
+    // Index matches by schedule_id
+    const matchesBySchedule = {};
+    ftcMatches.forEach(m => {
+      if (!matchesBySchedule[m.schedule_id]) matchesBySchedule[m.schedule_id] = [];
+      matchesBySchedule[m.schedule_id].push(m);
+    });
+
+    // If schedule exists but NO individual matches exist at all
+    const nonByeSchedule = ftcSchedule.filter(s => !s.is_bye);
+    const totalMatchRows  = nonByeSchedule.reduce((sum, s) => sum + (matchesBySchedule[s.id]?.length || 0), 0);
+    if (nonByeSchedule.length > 0 && totalMatchRows === 0) {
+      const totalWeeks = Object.keys(byWeek).length;
+      el.innerHTML = `<div class="card" style="padding:28px 24px;text-align:center;">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;margin-bottom:12px;opacity:0.4;"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <div style="font-size:13px;font-weight:800;color:#0d1f4a;margin-bottom:6px;">Schedule ready — matches not yet created</div>
+        <div style="font-size:11px;font-weight:600;color:#6b7a99;margin-bottom:16px;line-height:1.6;">
+          ${totalWeeks} week${totalWeeks!==1?'s':''} scheduled. Click below to create the individual match lineups.
+        </div>
+        <button onclick="ftcGenerateMatchesForSchedule()" style="padding:9px 22px;border:none;border-radius:99px;background:linear-gradient(180deg,#2456d3,#174CCC);color:white;font-family:'Montserrat',sans-serif;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:7px;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
+          Create Match Lineups
+        </button>
+      </div>`;
+      return;
+    }
+
+    const pName = (id) => {
+      if (!id) return '<span style="color:#b0bbd6;">TBD</span>';
+      const p = ladderPlayers.find(x => x.id === id);
+      return p ? `${esc(p.first_name)} ${esc(p.last_name)}` : `Player #${id}`;
+    };
+    const teamName = (id) => {
+      if (!id) return '<span style="color:#b0bbd6;">TBD</span>';
+      const t = ftcTeams.find(x => x.id === id);
+      return t ? esc(t.name || `Team ${ftcTeams.indexOf(t)+1}`) : `Team #${id}`;
+    };
+
+    const totalWeeks = Object.keys(byWeek).length;
+    const completed  = ftcSchedule.filter(s => s.status === 'completed').length;
+
+    // Determine current week = first week with at least one non-completed non-bye matchup
+    const sortedWeekNums = Object.keys(byWeek).map(Number).sort((a,b) => a-b);
+    let currentWeek = sortedWeekNums[0];
+    for (const wn of sortedWeekNums) {
+      const hasIncomplete = byWeek[wn].some(s => !s.is_bye && s.status !== 'completed');
+      if (hasIncomplete) { currentWeek = wn; break; }
+    }
+
+    let html = `<div style="background:white;border:0.5px solid #e0e7f5;border-radius:12px;padding:20px 24px;box-shadow:0 1px 4px rgba(23,76,204,0.06);">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+        <div style="font-size:16px;font-weight:800;color:#0d1f4a;">Season Schedule</div>
+        <div style="font-size:11px;font-weight:700;color:#6b7a99;">${totalWeeks} week${totalWeeks!==1?'s':''} · ${nonByeSchedule.length} matchups · ${completed} completed</div>
+      </div>
+      <div style="font-size:11px;font-weight:600;color:#6b7a99;margin-bottom:16px;">Review your season schedule. Click any week to see matchups.</div>`;
+
+    sortedWeekNums.forEach(weekNum => {
+      const matchups    = byWeek[weekNum];
+      const isOpen      = weekNum === currentWeek;
+      const firstDate   = matchups[0]?.match_date;
+      const allDone     = matchups.every(m => m.status === 'completed');
+      const anyDone     = matchups.some(m => m.status === 'completed');
+      const nonByeCount = matchups.filter(m => !m.is_bye).length;
+
+      // "Complete by" = date of next week's matchup (7 days later)
+      const completeByDate = firstDate
+        ? ftcFmtDate(ftcAddWeeks(firstDate, 1))
+        : '—';
+
+      const statusPill = allDone
+        ? `<span class="ftc-status-pill ftc-status-completed">Complete</span>`
+        : anyDone
+          ? `<span class="ftc-status-pill" style="background:rgba(242,96,36,0.1);color:#F26024;">In Progress</span>`
+          : `<span class="ftc-status-pill ftc-status-scheduled">Scheduled</span>`;
+
+      const weekColor = allDone ? '#24BC96' : anyDone ? '#F26024' : '#174CCC';
+
+      // BYE in this week
+      const byeRow = matchups.find(m => m.is_bye);
+      const byeText = byeRow
+        ? `<span style="display:inline-flex;align-items:center;gap:6px;margin-left:10px;padding:3px 10px 3px 5px;background:rgba(242,96,36,0.08);border-radius:99px;">
+            <span style="font-size:9px;font-weight:800;padding:2px 7px;border-radius:99px;background:#F26024;color:white;letter-spacing:.3px;">BYE / REST</span>
+            <span style="font-size:10px;font-weight:700;color:#F26024;">${teamName(byeRow.team_a_id)} sits out this week</span>
+           </span>`
+        : '';
+
+      html += `<div style="border:0.5px solid #e0e7f5;border-radius:10px;margin-bottom:8px;background:white;">
+
+        <!-- Week header -->
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;cursor:pointer;position:relative;background:#f8f9ff;border-radius:10px 10px 0 0;"
+          onclick="ftcToggleWeek(${weekNum})">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span style="width:22px;height:22px;border-radius:50%;background:${weekColor};color:white;font-size:10px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;">${weekNum}</span>
+            <div>
+              <div style="font-size:12px;font-weight:800;color:#0d1f4a;display:flex;align-items:center;gap:6px;">
+                Week ${weekNum} &nbsp;${statusPill}
+              </div>
+              <div style="font-size:10px;font-weight:600;color:#6b7a99;margin-top:1px;">
+                ${firstDate ? ftcFmtDate(firstDate) : 'No date set'} &nbsp;·&nbsp; ${nonByeCount} matchup${nonByeCount!==1?'s':''}
+              </div>
+            </div>
+          </div>
+          ${byeText ? `<div style="position:absolute;left:50%;transform:translateX(-50%);pointer-events:none;display:flex;align-items:center;">${byeText}</div>` : ''}
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div style="display:flex;align-items:center;gap:5px;font-size:10px;font-weight:600;color:#24BC96;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              Complete by ${completeByDate}
+            </div>
+            <span id="ftc-wk-chev-${weekNum}" style="font-size:11px;color:#6b7a99;transition:transform .2s;display:inline-block;transform:${isOpen?'rotate(180deg)':'rotate(0deg)'};">▼</span>
+          </div>
+        </div>
+
+        <!-- Week body -->
+        <div id="ftc-week-body-${weekNum}" style="display:${isOpen?'block':'none'};">
+          <!-- Table using <table> for guaranteed column alignment -->
+          <table style="width:100%;border-collapse:collapse;table-layout:fixed;">
+            <colgroup>
+              <col style="width:220px;">
+              <col style="width:90px;">
+              <col style="width:100px;">
+              <col style="width:160px;">
+              <col style="width:110px;">
+              <col style="width:160px;">
+            </colgroup>
+            <thead>
+              <tr style="background:white;">
+                <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:7px 16px;text-align:left;">Matchup</th>
+                <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:7px 0;text-align:left;">Time</th>
+                <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:7px 0;text-align:left;">Courts</th>
+                <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:7px 0;text-align:left;">Matches</th>
+                <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:7px 0;text-align:left;">Status</th>
+                <th style="padding:7px 16px;text-align:right;"></th>
+              </tr>
+            </thead>
+            <tbody>
+          ${matchups.filter(m => !m.is_bye).map(s => {
+            const subMatches    = matchesBySchedule[s.id] || [];
+            const courtParts    = s.court ? s.court.split(',').map(c => c.trim()) : [];
+            const courtDisplay  = courtParts.length >= 2 ? `${courtParts[0]} – ${courtParts[1]}` : (courtParts[0] || '—');
+            const timeDisplay   = s.match_time ? fmtTime12(s.match_time) : '—';
+            const rowStatus     = s.status === 'completed' ? 'ftc-status-completed' : 'ftc-status-scheduled';
+            const regularMatches = subMatches.filter(m => !m.is_tiebreaker);
+            const completedCount = regularMatches.filter(m => m.status === 'completed').length;
+            const matchCount     = regularMatches.length || 4;
+            const matchProgress  = `${completedCount}/${matchCount}`;
+            const progressColor  = completedCount === matchCount ? '#24BC96' : completedCount > 0 ? '#F26024' : '#6b7a99';
+            const expandId      = `ftc-match-expand-${s.id}`;
+            const chevId        = `ftc-match-chev-${s.id}`;
+
+            // Build expandable match detail rows — extracted from template to avoid IIFE-in-template parse issues
+            const buildMatchDetailHtml = (subMatches, courtParts) => {
+              const c1 = courtParts[0] || null;
+              const c2 = courtParts[1] || null;
+              const useTwoCourts = !!c2;
+              const typeOrder = ['mens','womens','mixed1','mixed2'];
+              const c1Matches = subMatches.filter(m => ['mens','mixed1'].includes(m.match_type));
+              const c2Matches = subMatches.filter(m => ['womens','mixed2'].includes(m.match_type));
+
+              // ── Match counter shared across courts ───────────────────
+              let matchCounter = 0;
+
+              const renderMatchDetailRow = (m) => {
+                matchCounter++;
+                const gameNum = matchCounter;
+                const info    = FTC_MATCH_LABELS[m.match_type] || { label: m.match_type, color:'#6b7a99' };
+                const scored  = m.score_a !== null && m.score_b !== null;
+                const aWins   = scored && m.score_a > m.score_b;
+                const bWins   = scored && m.score_b > m.score_a;
+                const scoreA  = scored ? String(m.score_a) : '—';
+                const scoreB  = scored ? String(m.score_b) : '—';
+                const ptsA    = scored ? '+' + m.league_pts_a + ' pts' : '';
+                const ptsB    = scored ? '+' + m.league_pts_b + ' pts' : '';
+                // Fix 4: winner bg green, loser bg gray
+                const bgA     = 'transparent';
+                const bgB     = 'transparent';
+                const nameA   = (scored && bWins) ? '#b0bbd6' : '#0d1f4a';
+                const nameB   = (scored && aWins) ? '#b0bbd6' : '#0d1f4a';
+                const sclrA   = aWins ? '#24BC96' : '#b0bbd6';
+                const sclrB   = bWins ? '#24BC96' : '#b0bbd6';
+
+                return (
+                  '<tr style="border-bottom:0.5px solid #f0f2f8;background:#f8f9ff;">' +
+                  // Fix 3: number + label on same line
+                  '<td style="padding:10px 0 10px 12px;vertical-align:middle;white-space:nowrap;">' +
+                    '<div style="display:flex;align-items:baseline;gap:5px;">' +
+                      '<span style="font-size:11px;font-weight:800;color:#6b7a99;">' + gameNum + '</span>' +
+                      '<div>' +
+                        '<div style="font-size:11px;font-weight:700;color:#0d1f4a;">' + info.label + '</div>' +
+                        '<div style="font-size:9px;font-weight:700;color:#b0bbd6;">' + (info.abbr||'') + '</div>' +
+                      '</div>' +
+                    '</div>' +
+                  '</td>' +
+                  // Fix 6: Team A — no box, just players + sub button
+                  '<td style="padding:10px 8px 10px 16px;vertical-align:middle;text-align:right;">' +
+                    '<div style="font-size:12px;font-weight:700;color:' + nameA + ';line-height:1.5;margin-bottom:5px;">' + pName(m.team_a_p1_id) + '<br>' + pName(m.team_a_p2_id) + (m.forfeit_team_id === m.team_a_id ? ' <span style="font-size:9px;font-weight:800;background:rgba(242,96,36,0.1);color:#F26024;padding:1px 5px;border-radius:4px;vertical-align:middle;">FF</span>' : '') + '</div>' +
+                    '<div style="display:flex;justify-content:flex-end;"><button class="ftc-edit-mini" onclick="event.stopPropagation();ftcOpenMatchEditTeam(' + m.id + ',\'A\')" style="font-size:9px;padding:2px 8px;">Sub Team A</button></div>' +
+                  '</td>' +
+                  // Score center
+                  '<td style="padding:10px 8px;vertical-align:middle;text-align:center;">' +
+                    '<div style="display:flex;align-items:center;justify-content:center;gap:8px;">' +
+                      '<div style="font-size:20px;font-weight:800;color:' + sclrA + ';">' + scoreA + '</div>' +
+                      '<span style="font-size:10px;font-weight:700;color:#b0bbd6;">vs</span>' +
+                      '<div style="font-size:20px;font-weight:800;color:' + sclrB + ';">' + scoreB + '</div>' +
+                    '</div>' +
+                    (scored
+                      ? (ptsA ? '<div style="font-size:9px;color:#6b7a99;margin-top:2px;">' + ptsA + ' / ' + ptsB + '</div>' : '')
+                      : '<button class="ftc-edit-mini" onclick="event.stopPropagation();ftcOpenScoreModal(' + m.id + ')" style="margin-top:4px;border:1px solid #174CCC;color:#174CCC;background:white;font-size:10px;">Report Score</button>') +
+                  '</td>' +
+                  // Fix 6: Team B — no box, just players + sub button
+                  '<td style="padding:10px 8px;vertical-align:middle;">' +
+                    '<div style="font-size:12px;font-weight:700;color:' + nameB + ';line-height:1.5;margin-bottom:5px;">' + pName(m.team_b_p1_id) + '<br>' + pName(m.team_b_p2_id) + (m.forfeit_team_id === m.team_b_id ? ' <span style="font-size:9px;font-weight:800;background:rgba(242,96,36,0.1);color:#F26024;padding:1px 5px;border-radius:4px;vertical-align:middle;">FF</span>' : '') + '</div>' +
+                    '<button class="ftc-edit-mini" onclick="event.stopPropagation();ftcOpenMatchEditTeam(' + m.id + ',\'B\')" style="font-size:9px;padding:2px 8px;">Sub Team B</button>' +
+                  '</td>' +
+                  // Status
+                  '<td style="padding:10px 8px;vertical-align:middle;text-align:center;white-space:nowrap;">' +
+                    '<span class="ftc-status-pill ' + (scored ? 'ftc-status-completed' : 'ftc-status-scheduled') + '">' + (scored ? 'Complete' : 'Scheduled') + '</span>' +
+                  '</td>' +
+                  // Actions
+                  '<td style="padding:10px 8px;vertical-align:middle;text-align:center;white-space:nowrap;">' +
+                    (scored ? '<button class="ftc-edit-mini" onclick="event.stopPropagation();ftcOpenScoreModal(' + m.id + ')" title="Edit score"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>' : '') +
+                  '</td>' +
+                  '</tr>'
+                );
+              };
+
+              const renderCourtBlock = (courtLabel, courtColor, matches, teamAName, teamBName) => {
+                return (
+                  // Fix 4: gray box with rounded corners per court
+                  '<div style="border:0.5px solid #e0e7f5;border-radius:10px;margin:8px 12px;overflow:hidden;background:white;">' +
+                  '<table style="width:100%;border-collapse:collapse;table-layout:fixed;">' +
+                  '<colgroup>' +
+                    '<col style="width:130px;">' +
+                    '<col style="width:280px;">' +
+                    '<col style="width:200px;">' +
+                    '<col style="width:280px;">' +
+                    '<col style="width:100px;">' +
+                    '<col style="width:80px;">' +
+                  '</colgroup>' +
+                  '<thead>' +
+                  // Fix 2: white bg, no separator line below team names row
+                  '<tr style="background:white;">' +
+                    '<th style="padding:8px 0 8px 12px;text-align:left;">' +
+                      '<div style="display:flex;align-items:center;gap:5px;">' +
+                        '<span style="width:8px;height:8px;border-radius:50%;background:' + courtColor + ';display:inline-block;"></span>' +
+                        '<span style="font-size:10px;font-weight:800;color:' + courtColor + ';text-transform:uppercase;letter-spacing:.5px;">Court ' + courtLabel + '</span>' +
+                      '</div>' +
+                    '</th>' +
+                    // Fix 5: Remove (Home) and (Away)
+                    '<th style="font-size:9px;font-weight:800;color:#6b7a99;padding:8px 8px 8px 16px;text-align:right;text-transform:uppercase;letter-spacing:.4px;">Team ' + esc(teamAName) + '</th>' +
+                    '<th style="font-size:9px;font-weight:800;color:#6b7a99;padding:8px;text-align:center;text-transform:uppercase;letter-spacing:.4px;">Score</th>' +
+                    '<th style="font-size:9px;font-weight:800;color:#6b7a99;padding:8px;text-align:left;text-transform:uppercase;letter-spacing:.4px;">Team ' + esc(teamBName) + '</th>' +
+                    '<th style="font-size:9px;font-weight:800;color:#6b7a99;padding:8px;text-align:center;text-transform:uppercase;letter-spacing:.4px;">Status</th>' +
+                    '<th style="font-size:9px;font-weight:800;color:#6b7a99;padding:8px;text-align:center;text-transform:uppercase;letter-spacing:.4px;">Actions</th>' +
+                  '</tr>' +
+                  
+                  '</thead>' +
+                  '<tbody>' +
+                  matches.map(m => renderMatchDetailRow(m)).join('') +
+                  '</tbody>' +
+                  '</table>' +
+                  '</div>'
+                );
+              };
+
+              // Get team names for column headers
+              const tAn = ftcTeams.find(t => t.id === (subMatches[0]?.team_a_id))?.name || 'Team A';
+              const tBn = ftcTeams.find(t => t.id === (subMatches[0]?.team_b_id))?.name || 'Team B';
+              if (!useTwoCourts) {
+                const ordered = typeOrder.map(t => subMatches.find(m => m.match_type === t)).filter(Boolean);
+                return renderCourtBlock(c1 || '—', '#174CCC', ordered, tAn, tBn);
+              }
+              return renderCourtBlock(c1, '#174CCC', c1Matches, tAn, tBn) +
+                     renderCourtBlock(c2, '#24BC96', c2Matches, tAn, tBn);
+            }
+            // Season schedule — no tiebreaker (tiebreaker is playoff only)
+            const regularSubMatches = subMatches.filter(m => !m.is_tiebreaker);
+
+            const matchDetailHtml = subMatches.length > 0
+              ? '<div id="' + expandId + '" style="display:none;border-top:0.5px solid #e0e7f5;background:white;">' +
+                buildMatchDetailHtml(regularSubMatches, courtParts) +
+                '</div>'
+              : '';
+
+            return `<tr style="cursor:${subMatches.length?'pointer':'default'};"
+                onclick="${subMatches.length?`ftcToggleMatchExpand('${s.id}')`:''}">
+                <td style="padding:11px 16px;vertical-align:middle;">
+                  <div style="display:flex;align-items:center;gap:8px;">
+                    <span style="font-size:13px;font-weight:800;color:#0d1f4a;">${teamName(s.team_a_id)}</span>
+                    <span style="font-size:9px;font-weight:700;color:#b0bbd6;background:#f0f2f8;padding:2px 6px;border-radius:99px;">vs</span>
+                    <span style="font-size:13px;font-weight:800;color:#0d1f4a;">${teamName(s.team_b_id)}</span>
+                  </div>
+                </td>
+                <td style="font-size:11px;font-weight:600;color:#6b7a99;padding:11px 0;vertical-align:middle;">${timeDisplay}</td>
+                <td style="font-size:11px;font-weight:600;color:#6b7a99;padding:11px 0;vertical-align:middle;">${courtDisplay}</td>
+                <td style="padding:11px 0;vertical-align:middle;">
+                  <div style="display:flex;align-items:center;gap:5px;">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6b7a99" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    <span style="font-size:11px;font-weight:700;color:${progressColor};">${matchProgress}</span>
+                    <span style="font-size:10px;font-weight:600;color:#b0bbd6;">MD, WD, MX1, MX2</span>
+                  </div>
+                </td>
+                <td style="padding:11px 0;vertical-align:middle;">
+                  <span class="ftc-status-pill ${rowStatus}">${s.status}</span>
+                </td>
+                <td style="padding:11px 16px;text-align:right;vertical-align:middle;white-space:nowrap;">
+                  ${subMatches.length ? `<span id="${chevId}" style="font-size:10px;color:#6b7a99;display:inline-block;transform:rotate(0deg);transition:transform .15s;margin-right:6px;">▼</span>` : ''}
+                  <button class="ftc-edit-mini" onclick="event.stopPropagation();ftcOpenOverrideModal(${s.id},'${s.match_date||''}','${s.match_time||''}','${esc(s.court||'')}')">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    Edit Matchup
+                  </button>
+                </td>
+              </tr>
+              ${matchDetailHtml ? `<tr><td colspan="6" style="padding:0;">${matchDetailHtml}</td></tr>` : ''}`;
+          }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+    });
+
+    html += '</div>'; // close white card
+
+    // Capture currently open state before replacing DOM
+    const openWeeks    = [...document.querySelectorAll('[id^="ftc-week-body-"]')]
+      .filter(e => e.style.display !== 'none').map(e => e.id.replace('ftc-week-body-',''));
+    const openMatchups = [...document.querySelectorAll('[id^="ftc-match-expand-"]')]
+      .filter(e => e.style.display !== 'none').map(e => e.id.replace('ftc-match-expand-',''));
+
+    el.innerHTML = html;
+
+    // Restore open state
+    openWeeks.forEach(wn => {
+      const wb = document.getElementById(`ftc-week-body-${wn}`);
+      const wc = document.getElementById(`ftc-wk-chev-${wn}`);
+      if (wb) wb.style.display = 'block';
+      if (wc) wc.style.transform = 'rotate(180deg)';
+    });
+    openMatchups.forEach(sid => {
+      const mb = document.getElementById(`ftc-match-expand-${sid}`);
+      const mc = document.getElementById(`ftc-match-chev-${sid}`);
+      if (mb) mb.style.display = 'block';
+      if (mc) mc.style.transform = 'rotate(180deg)';
+    });
+  };
+
+  window.ftcToggleMatchExpand = (schedId) => {
+    const body = document.getElementById(`ftc-match-expand-${schedId}`);
+    const chev = document.getElementById(`ftc-match-chev-${schedId}`);
+    if (!body) return;
+    const isOpen = body.style.display !== 'none';
+    // Collapse all other open matchup details first
+    if (!isOpen) {
+      document.querySelectorAll('[id^="ftc-match-expand-"]').forEach(el => {
+        if (el.id !== `ftc-match-expand-${schedId}` && el.style.display !== 'none') {
+          el.style.display = 'none';
+          const sid = el.id.replace('ftc-match-expand-', '');
+          const c = document.getElementById(`ftc-match-chev-${sid}`);
+          if (c) c.style.transform = 'rotate(0deg)';
+        }
+      });
+    }
+    body.style.display = isOpen ? 'none' : 'block';
+    if (chev) chev.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(180deg)';
+  };
+  window.ftcToggleWeek = (week) => {
+    const body = document.getElementById(`ftc-week-body-${week}`);
+    const chev = document.getElementById(`ftc-wk-chev-${week}`);
+    if (!body) return;
+    const isOpen = body.style.display !== 'none';
+    // Collapse all other open weeks first
+    if (!isOpen) {
+      document.querySelectorAll('[id^="ftc-week-body-"]').forEach(el => {
+        if (el.id !== `ftc-week-body-${week}` && el.style.display !== 'none') {
+          el.style.display = 'none';
+          const wn = el.id.replace('ftc-week-body-', '');
+          const c = document.getElementById(`ftc-wk-chev-${wn}`);
+          if (c) c.style.transform = 'rotate(0deg)';
+        }
+      });
+    }
+    body.style.display = isOpen ? 'none' : 'block';
+    if (chev) chev.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(180deg)';
+  };
+
+  // ── Phase 4: Score Recording ─────────────────────────────────────────
+
+  // Helper: compute league pts from score (win=2, lose=1)
+  const ftcLeaguePts = (scoreA, scoreB) => {
+    if (scoreA === null || scoreB === null) return { a: 0, b: 0 };
+    const calcPts = (sf, sa) => {
+      if (sf > sa) return 4;
+      const d = sa - sf;
+      if (d <= 2) return 3;
+      if (d <= 4) return 2;
+      if (d <= 8) return 1;
+      return 0;
+    };
+    return { a: calcPts(scoreA, scoreB), b: calcPts(scoreB, scoreA) };
+  };
+
+  // Helper: player name from id
+  const ftcPName = (id) => {
+    if (!id) return 'TBD';
+    const p = ladderPlayers.find(x => x.id === id);
+    return p ? `${p.first_name} ${p.last_name}` : `#${id}`;
+  };
+
+  // Update score boxes styling + winner banner
+  window.ftcScoreUpdate = () => {
+    const a = parseInt(document.getElementById('ftc-score-input-a')?.value, 10);
+    const b = parseInt(document.getElementById('ftc-score-input-b')?.value, 10);
+    const boxA = document.getElementById('ftc-score-box-a');
+    const boxB = document.getElementById('ftc-score-box-b');
+    const banner = document.getElementById('ftc-score-banner');
+    const bannerText = document.getElementById('ftc-score-banner-text');
+    const nameA = document.getElementById('ftc-score-team-a-name')?.textContent || 'Team A';
+    const nameB = document.getElementById('ftc-score-team-b-name')?.textContent || 'Team B';
+    if (!isNaN(a) && !isNaN(b) && (a !== b)) {
+      const winA = a > b;
+      if (boxA) boxA.style.border = winA ? '1.5px solid #24BC96' : '1.5px solid #e0e7f5';
+      if (boxB) boxB.style.border = !winA ? '1.5px solid #24BC96' : '1.5px solid #e0e7f5';
+      if (boxA) boxA.style.background = winA ? 'rgba(36,188,150,0.04)' : 'white';
+      if (boxB) boxB.style.background = !winA ? 'rgba(36,188,150,0.04)' : 'white';
+      const winner = winA ? nameA : nameB;
+      const pts = ftcLeaguePts(a, b);
+      const winnerPts = winA ? pts.a : pts.b;
+      if (banner) banner.style.display = 'flex';
+      if (bannerText) bannerText.textContent = `${winner} wins · ${a} – ${b} · +${winnerPts} league pts`;
+    } else {
+      if (boxA) { boxA.style.border = '1.5px solid #e0e7f5'; boxA.style.background = 'white'; }
+      if (boxB) { boxB.style.border = '1.5px solid #e0e7f5'; boxB.style.background = 'white'; }
+      if (banner) banner.style.display = 'none';
+    }
+  };
+
+  // Forfeit toggle handling
+  const FTC_FORFEIT_ACTIVE   = 'background:rgba(242,96,36,0.1);color:#F26024;border:0.5px solid #F26024;';
+  const FTC_FORFEIT_INACTIVE = 'background:#f0f2f8;color:#6b7a99;border:0.5px solid transparent;';
+  let ftcForfeitState = { a: false, b: false };
+
+  window.ftcForfeit = (side) => {
+    const btnA = document.getElementById('ftc-forfeit-a');
+    const btnB = document.getElementById('ftc-forfeit-b');
+    const inA  = document.getElementById('ftc-score-input-a');
+    const inB  = document.getElementById('ftc-score-input-b');
+
+    // Toggle the clicked side
+    ftcForfeitState[side] = !ftcForfeitState[side];
+    // Deactivate the other side
+    const other = side === 'a' ? 'b' : 'a';
+    ftcForfeitState[other] = false;
+
+    // Apply visual state — set each property individually to ensure override
+    const applyForfeitStyle = (btn, active) => {
+      if (!btn) return;
+      btn.style.background = active ? 'rgba(242,96,36,0.1)' : '#f0f2f8';
+      btn.style.color       = active ? '#F26024'             : '#6b7a99';
+      btn.style.border      = active ? '0.5px solid #F26024' : '0.5px solid transparent';
+    };
+    applyForfeitStyle(btnA, ftcForfeitState.a);
+    applyForfeitStyle(btnB, ftcForfeitState.b);
+
+    // Set scores based on active forfeit
+    if (ftcForfeitState.a) {
+      if (inA) inA.value = '0';
+      if (inB) inB.value = '11';
+    } else if (ftcForfeitState.b) {
+      if (inA) inA.value = '11';
+      if (inB) inB.value = '0';
+    } else {
+      // Both deactivated — clear scores
+      if (inA) inA.value = '';
+      if (inB) inB.value = '';
+    }
+    ftcScoreUpdate();
+  };
+
+  // Open score modal
+  window.ftcOpenScoreModal = (matchId, callerContext) => {
+    // Reset forfeit state on modal open
+    ftcForfeitState = { a: false, b: false };
+    const btnA = document.getElementById('ftc-forfeit-a');
+    const btnB = document.getElementById('ftc-forfeit-b');
+    if (btnA) { btnA.style.background='#f0f2f8'; btnA.style.color='#6b7a99'; btnA.style.border='0.5px solid transparent'; }
+    if (btnB) { btnB.style.background='#f0f2f8'; btnB.style.color='#6b7a99'; btnB.style.border='0.5px solid transparent'; }
+    window._ftcScoreCallerContext = callerContext || 'schedule';
+    const m = ftcMatches.find(x => x.id === matchId);
+    if (!m) return;
+    const tA   = ftcTeams.find(t => t.id === m.team_a_id);
+    const tB   = ftcTeams.find(t => t.id === m.team_b_id);
+    const info = FTC_MATCH_LABELS[m.match_type] || { label: m.match_type };
+    const schedRow = ftcSchedule.find(s => s.id === m.schedule_id);
+    const courtLabel = schedRow?.court ? `Court ${schedRow.court.split(',')[0]?.trim()}` : '';
+
+    document.getElementById('ftc-score-match-id').value = matchId;
+    document.getElementById('ftc-score-subtitle').textContent =
+      `${esc(tA?.name||'Team A')} vs ${esc(tB?.name||'Team B')} · ${courtLabel} · ${info.label}`;
+    document.getElementById('ftc-score-team-a-name').textContent = tA?.name || 'Team A';
+    document.getElementById('ftc-score-team-b-name').textContent = tB?.name || 'Team B';
+    document.getElementById('ftc-score-team-a-players').textContent =
+      `${ftcPName(m.team_a_p1_id)} · ${ftcPName(m.team_a_p2_id)}`;
+    document.getElementById('ftc-score-team-b-players').textContent =
+      `${ftcPName(m.team_b_p1_id)} · ${ftcPName(m.team_b_p2_id)}`;
+
+    // Pre-fill existing scores
+    document.getElementById('ftc-score-input-a').value = m.score_a ?? '';
+    document.getElementById('ftc-score-input-b').value = m.score_b ?? '';
+
+    // Reset box borders
+    document.getElementById('ftc-score-box-a').style.border = '1.5px solid #e0e7f5';
+    document.getElementById('ftc-score-box-b').style.border = '1.5px solid #e0e7f5';
+    document.getElementById('ftc-score-box-a').style.background = 'white';
+    document.getElementById('ftc-score-box-b').style.background = 'white';
+    document.getElementById('ftc-score-banner').style.display = 'none';
+
+    ftcScoreUpdate();
+    document.getElementById('ftc-score-modal').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+  };
+
+  window.ftcCloseScoreModal = () => {
+    document.getElementById('ftc-score-modal').style.display = 'none';
+    document.body.style.overflow = '';
+  };
+
+  // Save score
+  window.ftcSaveScore = async () => {
+    const matchId = parseInt(document.getElementById('ftc-score-match-id').value, 10);
+    const scoreA  = parseInt(document.getElementById('ftc-score-input-a').value, 10);
+    const scoreB  = parseInt(document.getElementById('ftc-score-input-b').value, 10);
+    if (isNaN(scoreA) || isNaN(scoreB)) { toast('Please enter scores for both teams.', true); return; }
+    if (scoreA === scoreB) { toast('Scores cannot be equal — use tiebreaker for ties.', true); return; }
+
+    const m = ftcMatches.find(x => x.id === matchId);
+    if (!m) return;
+    const pts = ftcLeaguePts(scoreA, scoreB);
+    const winnerId  = scoreA > scoreB ? m.team_a_id : m.team_b_id;
+    const forfeitId = ftcForfeitState.a ? m.team_a_id : ftcForfeitState.b ? m.team_b_id : null;
+
+    const saveBtn = document.getElementById('ftc-score-save-btn');
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving...'; }
+    try {
+      await api(`ftc_ladder_matches?id=eq.${matchId}`, 'PATCH', {
+        score_a:          scoreA,
+        score_b:          scoreB,
+        league_pts_a:     pts.a,
+        league_pts_b:     pts.b,
+        winner_team_id:   winnerId,
+        forfeit_team_id:  forfeitId,
+        status:           'completed',
+      });
+      // Update local state
+      m.score_a = scoreA; m.score_b = scoreB;
+      m.league_pts_a = pts.a; m.league_pts_b = pts.b;
+      m.winner_team_id = winnerId; m.forfeit_team_id = forfeitId; m.status = 'completed';
+      // Update ftcMatches array
+      const idx = ftcMatches.findIndex(x => x.id === matchId);
+      if (idx >= 0) ftcMatches[idx] = { ...ftcMatches[idx], ...m };
+
+      toast('Score recorded!');
+      ftcCloseScoreModal();
+
+      const ctx = window._ftcScoreCallerContext || 'schedule';
+      if (ctx === 'playoff') {
+        // Refresh playoff match scores modal + bracket without closing playoff modal
+        ftcRefreshPlayoffMatchModal(m.schedule_id);
+        await ftcCheckAndUpdatePlayoffMatchupStatus(m.schedule_id);
+        renderFtcBracket();
+      } else {
+        // Regular season flow
+        await ftcCheckAndUpdateMatchupStatus(m.schedule_id);
+        renderFtcSchedule();
+      }
+    } catch (err) {
+      toast(`Error: ${err.message}`, true);
+    } finally {
+      if (saveBtn) { saveBtn.disabled = false; saveBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Save Result'; }
+    }
+  };
+
+  // Check if all matches in a schedule slot are done and update status
+  const ftcCheckAndUpdateMatchupStatus = async (scheduleId) => {
+    const slotMatches = ftcMatches.filter(m => m.schedule_id === scheduleId && !m.is_tiebreaker);
+    const allDone = slotMatches.length === 4 && slotMatches.every(m => m.status === 'completed');
+    if (allDone) {
+      // Count wins per team
+      const winsA = slotMatches.filter(m => m.winner_team_id === m.team_a_id).length;
+      const winsB = slotMatches.filter(m => m.winner_team_id === m.team_b_id).length;
+      if (winsA === 2 && winsB === 2) {
+        // 2-2 tie — prompt tiebreaker
+        const sched = ftcSchedule.find(s => s.id === scheduleId);
+        if (sched) setTimeout(() => ftcOpenTiebreakerModal(scheduleId, sched.team_a_id, sched.team_b_id), 300);
+        return;
+      }
+      // Update schedule row status to completed
+      await api(`ftc_ladder_schedule?id=eq.${scheduleId}`, 'PATCH', { status: 'completed' });
+      const si = ftcSchedule.findIndex(s => s.id === scheduleId);
+      if (si >= 0) ftcSchedule[si].status = 'completed';
+    }
+  };
+
+  // Tiebreaker modal
+  window.ftcOpenTiebreakerModal = (scheduleId, teamAId, teamBId) => {
+    const tA = ftcTeams.find(t => t.id === teamAId);
+    const tB = ftcTeams.find(t => t.id === teamBId);
+    document.getElementById('ftc-tie-schedule-id').value = scheduleId;
+    document.getElementById('ftc-tie-subtitle').textContent =
+      `${esc(tA?.name||'Team A')} vs ${esc(tB?.name||'Team B')} · 2 – 2 tie`;
+    document.getElementById('ftc-tie-team-a').textContent = tA?.name || 'Team A';
+    document.getElementById('ftc-tie-team-b').textContent = tB?.name || 'Team B';
+    document.getElementById('ftc-tie-input-a').value = '';
+    document.getElementById('ftc-tie-input-b').value = '';
+    document.getElementById('ftc-tie-box-a').style.border = '1.5px solid #e0e7f5';
+    document.getElementById('ftc-tie-box-b').style.border = '1.5px solid #e0e7f5';
+    document.getElementById('ftc-tie-banner').style.display = 'none';
+    document.getElementById('ftc-tiebreaker-modal').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+  };
+
+  window.ftcCloseTiebreakerModal = () => {
+    document.getElementById('ftc-tiebreaker-modal').style.display = 'none';
+    document.body.style.overflow = '';
+  };
+
+  window.ftcTieUpdate = () => {
+    const a = parseInt(document.getElementById('ftc-tie-input-a')?.value, 10);
+    const b = parseInt(document.getElementById('ftc-tie-input-b')?.value, 10);
+    const boxA = document.getElementById('ftc-tie-box-a');
+    const boxB = document.getElementById('ftc-tie-box-b');
+    const banner = document.getElementById('ftc-tie-banner');
+    const bannerText = document.getElementById('ftc-tie-banner-text');
+    const nameA = document.getElementById('ftc-tie-team-a')?.textContent || 'Team A';
+    const nameB = document.getElementById('ftc-tie-team-b')?.textContent || 'Team B';
+    if (!isNaN(a) && !isNaN(b) && a !== b) {
+      const winA = a > b;
+      if (boxA) { boxA.style.border = winA ? '1.5px solid #24BC96' : '1.5px solid #e0e7f5'; }
+      if (boxB) { boxB.style.border = !winA ? '1.5px solid #24BC96' : '1.5px solid #e0e7f5'; }
+      if (banner) banner.style.display = 'flex';
+      if (bannerText) bannerText.textContent = `${winA ? nameA : nameB} wins tiebreaker · ${a} – ${b}`;
+    } else {
+      if (boxA) boxA.style.border = '1.5px solid #e0e7f5';
+      if (boxB) boxB.style.border = '1.5px solid #e0e7f5';
+      if (banner) banner.style.display = 'none';
+    }
+  };
+
+  window.ftcSaveTiebreaker = async () => {
+    const scheduleId = parseInt(document.getElementById('ftc-tie-schedule-id').value, 10);
+    const scoreA = parseInt(document.getElementById('ftc-tie-input-a').value, 10);
+    const scoreB = parseInt(document.getElementById('ftc-tie-input-b').value, 10);
+    const tieType = document.getElementById('ftc-tie-type').value;
+    if (isNaN(scoreA) || isNaN(scoreB)) { toast('Please enter scores for both teams.', true); return; }
+    if (scoreA === scoreB) { toast('Tiebreaker cannot end in a tie.', true); return; }
+    const sched = ftcSchedule.find(s => s.id === scheduleId);
+    if (!sched) return;
+    const winnerId = scoreA > scoreB ? sched.team_a_id : sched.team_b_id;
+    try {
+      // Create a tiebreaker match row
+      await api('ftc_ladder_matches', 'POST', [{
+        schedule_id:     scheduleId,
+        ladder_id:       currentLadder.id,
+        match_type:      'tiebreaker',
+        team_a_id:       sched.team_a_id,
+        team_b_id:       sched.team_b_id,
+        score_a:         scoreA,
+        score_b:         scoreB,
+        league_pts_a:    scoreA > scoreB ? 2 : 1,
+        league_pts_b:    scoreB > scoreA ? 2 : 1,
+        winner_team_id:  winnerId,
+        tiebreaker_type: tieType,
+        is_tiebreaker:   true,
+        status:          'completed',
+      }]);
+      // Update schedule status
+      await api(`ftc_ladder_schedule?id=eq.${scheduleId}`, 'PATCH', { status: 'completed' });
+      const si = ftcSchedule.findIndex(s => s.id === scheduleId);
+      if (si >= 0) ftcSchedule[si].status = 'completed';
+      // Refresh
+      ftcMatches = await api(`ftc_ladder_matches?ladder_id=eq.${currentLadder.id}&select=*&order=schedule_id,match_type`);
+      toast('Tiebreaker recorded!');
+      ftcCloseTiebreakerModal();
+      const tieCtx = window._ftcScoreCallerContext || 'schedule';
+      if (tieCtx === 'playoff') {
+        ftcRefreshPlayoffMatchModal(scheduleId);
+        renderFtcBracket();
+      } else {
+        renderFtcSchedule();
+      }
+    } catch (err) {
+      toast(`Error: ${err.message}`, true);
+    }
+  };
+
+  // ── Override modal ────────────────────────────────────────────────────
+  window.ftcOpenOverrideModal = (id, date, time, court) => {
+    document.getElementById('ftc-override-id').value    = id;
+    document.getElementById('ftc-override-date').value  = date;
+    document.getElementById('ftc-override-time').value  = time;
+    document.getElementById('ftc-override-court').value = court;
+    document.getElementById('ftc-override-modal').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+  };
+
+  window.ftcCloseOverrideModal = () => {
+    document.getElementById('ftc-override-modal').style.display = 'none';
+    document.body.style.overflow = '';
+  };
+
+  window.ftcSaveOverride = async () => {
+    const id    = document.getElementById('ftc-override-id').value;
+    const date  = document.getElementById('ftc-override-date').value;
+    const time  = document.getElementById('ftc-override-time').value;
+    const court = document.getElementById('ftc-override-court').value.trim();
+    try {
+      await api(`ftc_ladder_schedule?id=eq.${id}`, 'PATCH', {
+        match_date: date || null,
+        match_time: time || null,
+        court:      court || null,
+      });
+      toast('Matchup updated.');
+      ftcCloseOverrideModal();
+      await loadFtcSchedule();
+    } catch (err) {
+      toast(`Error: ${err.message}`, true);
+    }
+  };
+
+  // ── Individual match edit (player sub toggle) ────────────────────────
+  // Open match edit filtered to one team's slots only
+  window.ftcOpenMatchEditTeam = (matchId, team) => {
+    // Temporarily filter: show only slots for the specified team (A or B)
+    const m = ftcMatches.find(x => x.id === matchId);
+    if (!m) return;
+    const tA = ftcTeams.find(t => t.id === m.team_a_id);
+    const tB = ftcTeams.find(t => t.id === m.team_b_id);
+    const info = FTC_MATCH_LABELS[m.match_type] || { label: m.match_type, color:'#174CCC' };
+    const pName = (id) => {
+      if (!id) return 'TBD';
+      const p = ladderPlayers.find(x => x.id === id);
+      return p ? `${p.first_name} ${p.last_name}` : `#${id}`;
+    };
+    const allSlots = [
+      { label: `${esc(tA?.name||'Team A')} — Player 1`, pid: m.team_a_p1_id, subId: ftcGetSub(tA, m.match_type, 1), field: 'team_a_p1_id', team: 'A', slot: 1 },
+      { label: `${esc(tA?.name||'Team A')} — Player 2`, pid: m.team_a_p2_id, subId: ftcGetSub(tA, m.match_type, 2), field: 'team_a_p2_id', team: 'A', slot: 2 },
+      { label: `${esc(tB?.name||'Team B')} — Player 1`, pid: m.team_b_p1_id, subId: ftcGetSub(tB, m.match_type, 1), field: 'team_b_p1_id', team: 'B', slot: 1 },
+      { label: `${esc(tB?.name||'Team B')} — Player 2`, pid: m.team_b_p2_id, subId: ftcGetSub(tB, m.match_type, 2), field: 'team_b_p2_id', team: 'B', slot: 2 },
+    ];
+    // Filter to the requested team
+    const slots = allSlots.filter(s => s.team === team);
+    const titleEl = document.getElementById('ftc-match-edit-title');
+    if (titleEl) titleEl.textContent = `${info.label} — Sub ${team === 'A' ? esc(tA?.name||'Team A') : esc(tB?.name||'Team B')}`;
+    const idEl = document.getElementById('ftc-match-edit-id');
+    if (idEl) idEl.value = matchId;
+    const bodyEl = document.getElementById('ftc-match-edit-body');
+    if (bodyEl) {
+      bodyEl.innerHTML = slots.map((s, i) => {
+        const isSub = s.subId && s.pid === s.subId;
+        const subName = s.subId ? pName(s.subId) : null;
+        return `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:0.5px solid #f4f5f8;">
+          <div>
+            <div style="font-size:10px;font-weight:700;color:#6b7a99;margin-bottom:2px;">${s.label}</div>
+            <div style="font-size:13px;font-weight:800;color:#0d1f4a;" id="ftc-me-name-${i}">${pName(s.pid)}</div>
+            ${subName ? `<div style="font-size:10px;font-weight:600;color:#24BC96;margin-top:1px;">Sub available: ${subName}</div>` : '<div style="font-size:10px;font-weight:600;color:#b0bbd6;margin-top:1px;">No sub available</div>'}
+          </div>
+          ${subName ? `<div style="display:flex;align-items:center;gap:8px;">
+            <button id="ftc-me-toggle-${i}"
+              data-mid="${matchId}" data-field="${s.field}" data-regular="${isSub ? ftcGetRegular(s.team==='A'?tA:tB, m.match_type, s.slot) : s.pid}" data-sub="${s.subId}" data-issub="${isSub}"
+              onclick="ftcToggleSub(${i})"
+              style="padding:5px 12px;border-radius:99px;font-family:'Montserrat',sans-serif;font-size:10px;font-weight:700;cursor:pointer;border:none;background:${isSub ? '#174CCC' : '#e0e7f5'};color:${isSub ? 'white' : '#6b7a99'};">
+              ${isSub ? 'Undo Sub' : 'Use Sub'}
+            </button>
+          </div>` : ''}
+        </div>`;
+      }).join('');
+    }
+    document.getElementById('ftc-match-edit-modal').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+  };
+
+  window.ftcOpenMatchEdit = (matchId) => {
+    const m = ftcMatches.find(x => x.id === matchId);
+    if (!m) return;
+    const tA = ftcTeams.find(t => t.id === m.team_a_id);
+    const tB = ftcTeams.find(t => t.id === m.team_b_id);
+    const info = FTC_MATCH_LABELS[m.match_type] || { label: m.match_type, color:'#174CCC' };
+    const pName = (id) => {
+      if (!id) return 'TBD';
+      const p = ladderPlayers.find(x => x.id === id);
+      return p ? `${p.first_name} ${p.last_name}` : `#${id}`;
+    };
+
+    // Determine which subs are available per team per slot
+    const slots = [
+      { label: `${esc(tA?.name||'Team A')} — Player 1`, pid: m.team_a_p1_id, subId: ftcGetSub(tA, m.match_type, 1), field: 'team_a_p1_id', team: 'A', slot: 1 },
+      { label: `${esc(tA?.name||'Team A')} — Player 2`, pid: m.team_a_p2_id, subId: ftcGetSub(tA, m.match_type, 2), field: 'team_a_p2_id', team: 'A', slot: 2 },
+      { label: `${esc(tB?.name||'Team B')} — Player 1`, pid: m.team_b_p1_id, subId: ftcGetSub(tB, m.match_type, 1), field: 'team_b_p1_id', team: 'B', slot: 1 },
+      { label: `${esc(tB?.name||'Team B')} — Player 2`, pid: m.team_b_p2_id, subId: ftcGetSub(tB, m.match_type, 2), field: 'team_b_p2_id', team: 'B', slot: 2 },
+    ];
+
+    const titleEl = document.getElementById('ftc-match-edit-title');
+    if (titleEl) titleEl.textContent = `${info.label} — Edit Players`;
+
+    const idEl = document.getElementById('ftc-match-edit-id');
+    if (idEl) idEl.value = matchId;
+
+    const bodyEl = document.getElementById('ftc-match-edit-body');
+    if (bodyEl) {
+      bodyEl.innerHTML = slots.map((s, i) => {
+        const isSub = s.subId && s.pid === s.subId;
+        const regularName = pName(isSub ? ftcGetRegular(s.team==='A'?tA:tB, m.match_type, s.slot) : s.pid);
+        const subName     = s.subId ? pName(s.subId) : null;
+        return `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:0.5px solid #f4f5f8;">
+          <div>
+            <div style="font-size:10px;font-weight:700;color:#6b7a99;margin-bottom:2px;">${s.label}</div>
+            <div style="font-size:13px;font-weight:800;color:#0d1f4a;" id="ftc-me-name-${i}">${pName(s.pid)}</div>
+            ${subName ? `<div style="font-size:10px;font-weight:600;color:#24BC96;margin-top:1px;">Sub available: ${subName}</div>` : '<div style="font-size:10px;font-weight:600;color:#b0bbd6;margin-top:1px;">No sub available</div>'}
+          </div>
+          ${subName ? `<div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:10px;font-weight:600;color:#6b7a99;">${isSub ? 'Using sub' : 'Regular'}</span>
+            <button id="ftc-me-toggle-${i}"
+              data-mid="${matchId}" data-field="${s.field}" data-regular="${isSub ? ftcGetRegular(s.team==='A'?tA:tB, m.match_type, s.slot) : s.pid}" data-sub="${s.subId}" data-issub="${isSub}"
+              onclick="ftcToggleSub(${i})"
+              style="padding:5px 12px;border-radius:99px;font-family:'Montserrat',sans-serif;font-size:10px;font-weight:700;cursor:pointer;border:none;background:${isSub ? '#174CCC' : '#e0e7f5'};color:${isSub ? 'white' : '#6b7a99'};">
+              ${isSub ? 'Undo Sub' : 'Use Sub'}
+            </button>
+          </div>` : ''}
+        </div>`;
+      }).join('');
+    }
+
+    document.getElementById('ftc-match-edit-modal').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+  };
+
+  // Get the sub player ID for a given team, match type, and slot (1 or 2)
+  const ftcGetSub = (team, matchType, slot) => {
+    if (!team) return null;
+    // For men's/mixed man slot → m_sub_id; for women's/mixed woman slot → f_sub_id
+    if (matchType === 'mens') return slot === 1 ? team.m_sub_id : team.m_sub_id;
+    if (matchType === 'womens') return slot === 1 ? team.f_sub_id : team.f_sub_id;
+    if (matchType === 'mixed1' || matchType === 'mixed2') {
+      // slot 1 = man, slot 2 = woman
+      return slot === 1 ? team.m_sub_id : team.f_sub_id;
+    }
+    return null;
+  };
+
+  // Get the regular (non-sub) player ID for a given slot
+  const ftcGetRegular = (team, matchType, slot) => {
+    if (!team) return null;
+    if (matchType === 'mens')   return slot === 1 ? team.m1_id : team.m2_id;
+    if (matchType === 'womens') return slot === 1 ? team.f1_id : team.f2_id;
+    if (matchType === 'mixed1') return slot === 1 ? team.mixed1_ma_id : team.mixed1_fa_id;
+    if (matchType === 'mixed2') return slot === 1 ? team.mixed2_ma_id : team.mixed2_fa_id;
+    return null;
+  };
+
+  window.ftcToggleSub = (slotIdx) => {
+    const btn     = document.getElementById(`ftc-me-toggle-${slotIdx}`);
+    const nameEl  = document.getElementById(`ftc-me-name-${slotIdx}`);
+    if (!btn || !nameEl) return;
+    const isSub   = btn.dataset.issub === 'true';
+    const regular = parseInt(btn.dataset.regular, 10);
+    const sub     = parseInt(btn.dataset.sub, 10);
+    const newVal  = isSub ? regular : sub;
+    // Update local ftcMatches
+    const matchId = parseInt(btn.dataset.mid, 10);
+    const field   = btn.dataset.field;
+    const match   = ftcMatches.find(x => x.id === matchId);
+    if (match) match[field] = newVal;
+    // Update UI
+    const pName = (id) => {
+      const p = ladderPlayers.find(x => x.id === id);
+      return p ? `${p.first_name} ${p.last_name}` : `#${id}`;
+    };
+    nameEl.textContent = pName(newVal);
+    btn.dataset.issub  = String(!isSub);
+    btn.style.background = !isSub ? '#174CCC' : '#e0e7f5';
+    btn.style.color      = !isSub ? 'white'   : '#6b7a99';
+    btn.textContent      = !isSub ? 'Undo Sub' : 'Use Sub';
+  };
+
+  window.ftcSaveMatchEdit = async () => {
+    const matchId = parseInt(document.getElementById('ftc-match-edit-id').value, 10);
+    const m = ftcMatches.find(x => x.id === matchId);
+    if (!m) return;
+    const saveBtn = document.getElementById('ftc-match-edit-save');
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving...'; }
+    try {
+      await api(`ftc_ladder_matches?id=eq.${matchId}`, 'PATCH', {
+        team_a_p1_id: m.team_a_p1_id,
+        team_a_p2_id: m.team_a_p2_id,
+        team_b_p1_id: m.team_b_p1_id,
+        team_b_p2_id: m.team_b_p2_id,
+      });
+      toast('Match players updated.');
+      document.getElementById('ftc-match-edit-modal').style.display = 'none';
+      document.body.style.overflow = '';
+      ftcMatches = await api(`ftc_ladder_matches?ladder_id=eq.${currentLadder.id}&select=*&order=schedule_id,match_type`);
+      renderFtcSchedule();
+    } catch (err) {
+      toast(`Error: ${err.message}`, true);
+    } finally {
+      if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save Changes'; }
+    }
+  };
+
+  window.ftcCloseMatchEdit = () => {
+    document.getElementById('ftc-match-edit-modal').style.display = 'none';
+    document.body.style.overflow = '';
+  };
+
+  /* ─── FTC LADDER — PHASE 2: TEAM REGISTRATION ────────────── */
+
+  let ftcTeams = []; // all teams for currentLadder
+
+  // ── Load and render teams page ──────────────────────────────────────────
+  const loadFtcTeams = async () => {
+    if (!currentLadder) return;
+    // Set page title (Bebas Neue, same as RP ladder pages)
+    const teamsTitleEl = document.getElementById('ftc-teams-title');
+    if (teamsTitleEl) {
+      teamsTitleEl.textContent = currentLadder.name || '';
+      teamsTitleEl.style.display = 'block';
+    }
+    // Update hero
+    const heroTitle = document.getElementById('ftc-hero-title');
+    const heroSub   = document.getElementById('ftc-hero-sub');
+    const heroTag   = document.getElementById('ftc-hero-tagline');
+    if (heroTitle) heroTitle.textContent = currentLadder.name || 'Ferocia Team Challenge';
+    if (heroSub) {
+      const start = currentLadder.start_date
+        ? new Date(currentLadder.start_date + 'T00:00:00').toLocaleDateString('en-US',{month:'long',year:'numeric'})
+        : 'Season Dates TBD';
+      heroSub.textContent = `Season 1 • ${start}`;
+    }
+    if (heroTag) heroTag.innerHTML = `🔥 ${esc(currentLadder.name || 'Ferocia Team Challenge')} &nbsp;•&nbsp; Playoffs Included`;
+    const el = document.getElementById('ftc-teams-list');
+    el.innerHTML = '<div class="loading">Loading teams...</div>';
+    try {
+      ftcTeams = await api(
+        `ftc_ladder_teams?ladder_id=eq.${currentLadder.id}&select=*&order=id`
+      );
+      const statEl = document.getElementById('ftc-stat-teams');
+      if (statEl) statEl.textContent = ftcTeams.length;
+      // Show search only when at least 1 team exists
+      const searchWrap = document.getElementById('ftc-search-wrap');
+      if (searchWrap) searchWrap.style.display = ftcTeams.length > 0 ? 'block' : 'none';
+      renderFtcTeams();
+    } catch (err) {
+      el.innerHTML = `<div class="error">Error: ${esc(err.message)}</div>`;
+    }
+  };
+
+  const renderFtcTeams = (filterStr = '') => {
+    const el = document.getElementById('ftc-teams-list');
+    let teams = ftcTeams;
+    if (filterStr) {
+      const q = filterStr.toLowerCase();
+      teams = ftcTeams.filter(t => {
+        const nameMatch = (t.name || '').toLowerCase().includes(q);
+        const capPlayer = t.captain_player_id ? ladderPlayers.find(x => x.id === t.captain_player_id) : null;
+        const capMatch  = capPlayer ? `${capPlayer.first_name} ${capPlayer.last_name}`.toLowerCase().includes(q) : false;
+        const playerIds = [t.m1_id,t.m2_id,t.f1_id,t.f2_id,t.m_sub_id,t.f_sub_id].filter(Boolean);
+        const playerMatch = playerIds.some(pid => {
+          const p = ladderPlayers.find(x => x.id === pid);
+          return p && `${p.first_name} ${p.last_name}`.toLowerCase().includes(q);
+        });
+        return nameMatch || capMatch || playerMatch;
+      });
+    }
+
+    if (!teams.length && !filterStr) {
+      el.innerHTML = `<div class="ftc-empty">
+        <div class="ftc-empty-icon">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.4;"><circle cx="12" cy="8" r="5"/><path d="M8.56 13.9l-1.56 6.1 5-3 5 3-1.56-6.1"/></svg>
+        </div>
+        <div class="ftc-empty-title">Ready to build the competition?</div>
+        <div class="ftc-empty-sub">Register the first team and start the season.<br>Teams will appear here once registered.</div>
+        <button class="ftc-register-btn" onclick="ftcOpenRegisterModal()" style="margin:0 auto;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
+          Register First Team
+        </button>
+      </div>`;
+      return;
+    }
+    if (!teams.length) {
+      el.innerHTML = '<div class="ftc-empty" style="padding:32px;"><div class="ftc-empty-title">No teams match your search.</div></div>';
+      return;
+    }
+
+    const playerName = (id) => {
+      if (!id) return null;
+      const p = ladderPlayers.find(x => x.id === id);
+      return p ? `${esc(p.first_name)} ${esc(p.last_name)}` : null;
+    };
+
+    const cards = teams.map((t, i) => {
+      const label = t.name ? esc(t.name) : `Team ${i + 1}`;
+      const initial = (t.name || `T${i+1}`)[0].toUpperCase();
+      const capPlayer = t.captain_player_id ? ladderPlayers.find(x => x.id === t.captain_player_id) : null;
+      const capName = capPlayer ? `${esc(capPlayer.first_name)} ${esc(capPlayer.last_name)}` : null;
+      const playerCount = [t.m1_id,t.m2_id,t.f1_id,t.f2_id,t.m_sub_id,t.f_sub_id].filter(Boolean).length;
+
+      return `<div class="ftc-team-card">
+        <div class="ftc-card-header">
+          <div class="ftc-card-avatar">${initial}</div>
+          <div style="flex:1;min-width:0;">
+            <div class="ftc-card-name">${label}</div>
+            ${capName ? `<div class="ftc-card-captain">⭐ ${capName}</div>` : '<div class="ftc-card-captain" style="color:#b0bbd6;">No captain assigned</div>'}
+          </div>
+        </div>
+        <div class="ftc-card-body">
+          <div class="ftc-card-row">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            ${playerCount} Player${playerCount!==1?'s':''}
+          </div>
+          <div class="ftc-card-row">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            0–0 Record
+          </div>
+          ${t.mixed1_ma_id ? `<div class="ftc-card-row">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+            Mixed pairs assigned
+          </div>` : ''}
+        </div>
+        <div class="ftc-card-actions">
+          <button class="ftc-card-btn" onclick="ftcOpenViewModal(${t.id})">View</button>
+          <button class="ftc-card-btn" onclick="ftcOpenEditModal(${t.id})">Edit</button>
+          <button class="ftc-card-btn danger" onclick="ftcDeleteTeam(${t.id}, '${label}')">Delete</button>
+        </div>
+      </div>`;
+    }).join('');
+
+    el.innerHTML = `<div style="font-size:11px;font-weight:700;color:#6b7a99;margin-bottom:12px;">${teams.length} team${teams.length!==1?'s':''} registered</div>
+      <div class="ftc-teams-grid">${cards}</div>`;
+  };
+
+  window.ftcFilterTeams = (val) => renderFtcTeams(val);
+  // ── Populate player dropdowns with cross-exclusion ─────────────────────
+  // ── Single source of truth for all FTC dropdowns ──────────────────────────
+  // editTeamId: the team being edited (null for new). Excludes other-team players.
+  // Reads current form selections to cross-exclude within the form.
+  const ftcBuildDropdowns = (editTeamId = null, initialVals = null) => {
+    // Players used in OTHER teams
+    const usedInOtherTeams = new Set(
+      ftcTeams
+        .filter(t => t.id !== editTeamId)
+        .flatMap(t => [t.m1_id, t.m2_id, t.f1_id, t.f2_id, t.m_sub_id, t.f_sub_id].filter(Boolean))
+        .map(String)
+    );
+    const avail = ladderPlayers.filter(p => !usedInOtherTeams.has(String(p.id)));
+    const men   = avail.filter(p => p.gender === 'Male');
+    const women = avail.filter(p => p.gender === 'Female');
+
+    // Use explicit initial values if provided (edit mode), else read from DOM
+    const gv = (id) => document.getElementById(id)?.value || '';
+    const iv = (key, id) => initialVals ? (String(initialVals[key] || '')) : gv(id);
+    const m1v = iv('m1', 'ftc-m1'), m2v = iv('m2', 'ftc-m2');
+    const f1v = iv('f1', 'ftc-f1'), f2v = iv('f2', 'ftc-f2');
+    const m1mCur = iv('mix1m', 'ftc-mixed1-m'), m2mCur = iv('mix2m', 'ftc-mixed2-m');
+    const m1fCur = iv('mix1f', 'ftc-mixed1-f'), m2fCur = iv('mix2f', 'ftc-mixed2-f');
+    const msubv  = iv('msub', 'ftc-msub'),       fsubv  = iv('fsub', 'ftc-fsub');
+
+    const opt = (p, sel) => `<option value="${p.id}"${String(p.id)===String(sel)?' selected':''}>${esc(p.first_name)} ${esc(p.last_name)}</option>`;
+
+    // Starter dropdowns — each excludes the OTHER starter of same gender
+    const m1el = document.getElementById('ftc-m1');
+    const m2el = document.getElementById('ftc-m2');
+    const f1el = document.getElementById('ftc-f1');
+    const f2el = document.getElementById('ftc-f2');
+    if (m1el) m1el.innerHTML = `<option value="">Select male player...</option>`   + men.filter(p => !m2v || String(p.id) !== m2v).map(p => opt(p, m1v)).join('');
+    if (m2el) m2el.innerHTML = `<option value="">Select male player...</option>`   + men.filter(p => !m1v || String(p.id) !== m1v).map(p => opt(p, m2v)).join('');
+    if (f1el) f1el.innerHTML = `<option value="">Select female player...</option>` + women.filter(p => !f2v || String(p.id) !== f2v).map(p => opt(p, f1v)).join('');
+    if (f2el) f2el.innerHTML = `<option value="">Select female player...</option>` + women.filter(p => !f1v || String(p.id) !== f1v).map(p => opt(p, f2v)).join('');
+
+    // Sub dropdowns — exclude both starters of same gender
+    const msubEl = document.getElementById('ftc-msub');
+    const fsubEl = document.getElementById('ftc-fsub');
+    if (msubEl) msubEl.innerHTML = `<option value="">None</option>` + men.filter(p => String(p.id) !== m1v && String(p.id) !== m2v).map(p => opt(p, msubv)).join('');
+    if (fsubEl) fsubEl.innerHTML = `<option value="">None</option>` + women.filter(p => String(p.id) !== f1v && String(p.id) !== f2v).map(p => opt(p, fsubv)).join('');
+
+    // Mixed doubles — only starters are eligible, cross-excluded between pairs
+    const starterMen   = men.filter(p => m1v && m2v ? (String(p.id)===m1v||String(p.id)===m2v) : (String(p.id)===m1v||String(p.id)===m2v));
+    const starterWomen = women.filter(p => f1v && f2v ? (String(p.id)===f1v||String(p.id)===f2v) : (String(p.id)===f1v||String(p.id)===f2v));
+    const mix1mEl = document.getElementById('ftc-mixed1-m');
+    const mix2mEl = document.getElementById('ftc-mixed2-m');
+    const mix1fEl = document.getElementById('ftc-mixed1-f');
+    const mix2fEl = document.getElementById('ftc-mixed2-f');
+    if (mix1mEl) mix1mEl.innerHTML = `<option value="">Select man...</option>`    + starterMen.filter(p => !m2mCur || String(p.id) !== m2mCur).map(p => opt(p, m1mCur)).join('');
+    if (mix2mEl) mix2mEl.innerHTML = `<option value="">Select man...</option>`    + starterMen.filter(p => !m1mCur || String(p.id) !== m1mCur).map(p => opt(p, m2mCur)).join('');
+    if (mix1fEl) mix1fEl.innerHTML = `<option value="">Select woman...</option>`  + starterWomen.filter(p => !m2fCur || String(p.id) !== m2fCur).map(p => opt(p, m1fCur)).join('');
+    if (mix2fEl) mix2fEl.innerHTML = `<option value="">Select woman...</option>`  + starterWomen.filter(p => !m1fCur || String(p.id) !== m1fCur).map(p => opt(p, m2fCur)).join('');
+
+    ftcUpdateCaptainUI();
+  };
+
+  // Legacy wrappers so existing callers still work
+  const ftcPopulateDropdowns = (editTeamId = null) => ftcBuildDropdowns(editTeamId);
+  window.ftcRefreshStarterDropdowns = () => {
+    const editTeamId = parseInt(document.getElementById('ftc-team-id')?.value || '0', 10) || null;
+    ftcBuildDropdowns(editTeamId);
+  };
+
+  // ── Update mixed doubles dropdowns based on starter selections ──────────
+  // Update captain radio pill styles + labels from dropdown selections
+  window.ftcUpdateCaptainUI = () => {
+    const slotMap = { m1:'ftc-m1', m2:'ftc-m2', f1:'ftc-f1', f2:'ftc-f2' };
+    const labelMap = { m1:'Man 1', m2:'Man 2', f1:'Woman 1', f2:'Woman 2' };
+    Object.entries(slotMap).forEach(([slot, selId]) => {
+      const sel   = document.getElementById(selId);
+      const label = document.getElementById(`ftc-cap-${slot}-label`);
+      if (!label) return;
+      const val = sel?.value;
+      if (val) {
+        const p = ladderPlayers.find(x => String(x.id) === String(val));
+        label.textContent = p ? `${p.first_name} ${p.last_name}` : labelMap[slot];
+      } else {
+        label.textContent = labelMap[slot];
+      }
+    });
+    // Update pill active styles
+    const selected = document.querySelector('input[name="ftc-captain"]:checked')?.value || '';
+    ['none','m1','m2','f1','f2'].forEach(slot => {
+      const wrap = document.getElementById(`ftc-cap-${slot}-wrap`);
+      if (!wrap) return;
+      const isActive = selected === slot || (slot === 'none' && selected === '');
+      wrap.classList.toggle('selected', isActive);
+    });
+  };
+
+  // ftcUpdateMixedOptions: delegates to ftcBuildDropdowns (preserves all selections)
+  window.ftcUpdateMixedOptions = () => {
+    const editTeamId = parseInt(document.getElementById('ftc-team-id')?.value || '0', 10) || null;
+    ftcBuildDropdowns(editTeamId);
+  };
+
+  // ── Wizard navigation ──────────────────────────────────────────────────
+  let ftcCurrentStep = 1;
+  const FTC_TOTAL_STEPS = 6;
+
+  const ftcGoToStep = (step) => {
+    ftcCurrentStep = step;
+    // Show/hide panels
+    for (let i = 1; i <= FTC_TOTAL_STEPS; i++) {
+      const panel = document.getElementById(`ftc-panel-${i}`);
+      if (panel) panel.classList.toggle('active', i === step);
+    }
+    // Update sidebar step states
+    for (let i = 1; i <= FTC_TOTAL_STEPS; i++) {
+      const num   = document.getElementById(`ftc-stepnum-${i}`);
+      const label = document.getElementById(`ftc-steplabel-${i}`);
+      if (!num || !label) continue;
+      if (i < step) {
+        num.className   = 'ftc-step-num done';
+        num.innerHTML   = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+        label.className = 'ftc-step-label done';
+      } else if (i === step) {
+        num.className   = 'ftc-step-num active';
+        num.textContent = i;
+        label.className = 'ftc-step-label active';
+      } else {
+        num.className   = 'ftc-step-num';
+        num.textContent = i;
+        label.className = 'ftc-step-label';
+      }
+    }
+    // Show/hide nav buttons
+    const backBtn = document.getElementById('ftc-btn-back');
+    const nextBtn = document.getElementById('ftc-btn-next');
+    const saveBtn = document.getElementById('ftc-btn-save');
+    if (backBtn) backBtn.style.display = step > 1 ? 'inline-flex' : 'none';
+    if (nextBtn) nextBtn.style.display = step < FTC_TOTAL_STEPS ? 'inline-flex' : 'none';
+    if (saveBtn) saveBtn.style.display = step === FTC_TOTAL_STEPS ? 'inline-flex' : 'none';
+    // Build review on step 6
+    if (step === FTC_TOTAL_STEPS) ftcBuildReview();
+  };
+
+  window.ftcWizardNext = () => {
+    // Validate current step before advancing
+    if (ftcCurrentStep === 2) {
+      if (!document.getElementById('ftc-m1')?.value ||
+          !document.getElementById('ftc-m2')?.value ||
+          !document.getElementById('ftc-f1')?.value ||
+          !document.getElementById('ftc-f2')?.value) {
+        toast('Please select all 4 starters before continuing.', true);
+        return;
+      }
+      const ids = ['ftc-m1','ftc-m2','ftc-f1','ftc-f2'].map(id => document.getElementById(id).value);
+      if (new Set(ids).size < 4) {
+        toast('Each starter slot must be a different player.', true);
+        return;
+      }
+    }
+    if (ftcCurrentStep === 5) {
+      const m1m = document.getElementById('ftc-mixed1-m')?.value;
+      const m1f = document.getElementById('ftc-mixed1-f')?.value;
+      const m2m = document.getElementById('ftc-mixed2-m')?.value;
+      const m2f = document.getElementById('ftc-mixed2-f')?.value;
+      const mixedErr = ftcValidateMixed(m1m, m1f, m2m, m2f);
+      if (mixedErr) {
+        const valEl = document.getElementById('ftc-mixed-validation');
+        if (valEl) { valEl.textContent = mixedErr; valEl.style.display = 'block'; }
+        return;
+      }
+      const valEl = document.getElementById('ftc-mixed-validation');
+      if (valEl) valEl.style.display = 'none';
+    }
+    if (ftcCurrentStep < FTC_TOTAL_STEPS) ftcGoToStep(ftcCurrentStep + 1);
+  };
+
+  window.ftcWizardBack = () => {
+    if (ftcCurrentStep > 1) ftcGoToStep(ftcCurrentStep - 1);
+  };
+
+  const ftcBuildReview = () => {
+    const el = document.getElementById('ftc-review-content');
+    if (!el) return;
+    const pName = (id) => {
+      if (!id) return '—';
+      const p = ladderPlayers.find(x => String(x.id) === String(id) || x.id === id);
+      return p ? `${p.first_name} ${p.last_name}` : '—';
+    };
+    const slot = document.querySelector('input[name="ftc-captain"]:checked')?.value || '';
+    const slotToSel = { m1:'ftc-m1', m2:'ftc-m2', f1:'ftc-f1', f2:'ftc-f2' };
+    const capPid = slot && slotToSel[slot] ? document.getElementById(slotToSel[slot])?.value : null;
+    const capName = capPid ? pName(capPid) : 'None';
+
+    el.innerHTML = `
+      <div class="ftc-review-section">
+        <div class="ftc-review-label">Team Identity</div>
+        <div class="ftc-review-row"><span class="ftc-review-key">Team Name</span><span class="ftc-review-val">${document.getElementById('ftc-team-name')?.value || '—'}</span></div>
+        <div class="ftc-review-row"><span class="ftc-review-key">Captain</span><span class="ftc-review-val">${capName}</span></div>
+      </div>
+      <div class="ftc-review-section">
+        <div class="ftc-review-label">Starters</div>
+        <div class="ftc-review-row"><span class="ftc-review-key">Man 1</span><span class="ftc-review-val">${pName(document.getElementById('ftc-m1')?.value)}</span></div>
+        <div class="ftc-review-row"><span class="ftc-review-key">Man 2</span><span class="ftc-review-val">${pName(document.getElementById('ftc-m2')?.value)}</span></div>
+        <div class="ftc-review-row"><span class="ftc-review-key">Woman 1</span><span class="ftc-review-val">${pName(document.getElementById('ftc-f1')?.value)}</span></div>
+        <div class="ftc-review-row"><span class="ftc-review-key">Woman 2</span><span class="ftc-review-val">${pName(document.getElementById('ftc-f2')?.value)}</span></div>
+      </div>
+      <div class="ftc-review-section">
+        <div class="ftc-review-label">Substitutes</div>
+        <div class="ftc-review-row"><span class="ftc-review-key">Male Sub</span><span class="ftc-review-val">${pName(document.getElementById('ftc-msub')?.value) || 'None'}</span></div>
+        <div class="ftc-review-row"><span class="ftc-review-key">Female Sub</span><span class="ftc-review-val">${pName(document.getElementById('ftc-fsub')?.value) || 'None'}</span></div>
+      </div>
+      <div class="ftc-review-section">
+        <div class="ftc-review-label">Mixed Doubles</div>
+        <div class="ftc-review-row"><span class="ftc-review-key">Mixed #1</span><span class="ftc-review-val">${pName(document.getElementById('ftc-mixed1-m')?.value)} + ${pName(document.getElementById('ftc-mixed1-f')?.value)}</span></div>
+        <div class="ftc-review-row"><span class="ftc-review-key">Mixed #2</span><span class="ftc-review-val">${pName(document.getElementById('ftc-mixed2-m')?.value)} + ${pName(document.getElementById('ftc-mixed2-f')?.value)}</span></div>
+      </div>`;
+  };
+
+  // ── Open register modal ─────────────────────────────────────────────────
+  window.ftcOpenRegisterModal = () => {
+    document.getElementById('ftc-team-id').value   = '';
+    document.getElementById('ftc-team-name').value = '';
+    document.getElementById('ftc-modal-title').textContent    = 'Register Team';
+    document.getElementById('ftc-modal-subtitle').textContent = 'Create your team and assign your players.';
+    ['ftc-m1','ftc-m2','ftc-f1','ftc-f2','ftc-msub','ftc-fsub',
+     'ftc-mixed1-m','ftc-mixed1-f','ftc-mixed2-m','ftc-mixed2-f'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+    const noneRadio = document.getElementById('ftc-cap-none');
+    if (noneRadio) noneRadio.checked = true;
+    const valEl = document.getElementById('ftc-mixed-validation');
+    if (valEl) valEl.style.display = 'none';
+    ftcPopulateDropdowns();
+    ftcUpdateCaptainUI();
+    ftcGoToStep(1);
+    document.getElementById('ftc-team-modal').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+  };
+
+  // ── Open edit modal ─────────────────────────────────────────────────────
+  window.ftcOpenViewModal = (teamId) => {
+    const t = ftcTeams.find(x => x.id === teamId);
+    if (!t) return;
+    const pName = (id) => {
+      if (!id) return '<span style="color:#b0bbd6;">—</span>';
+      const p = ladderPlayers.find(x => x.id === id);
+      return p ? `${esc(p.first_name)} ${esc(p.last_name)}` : '—';
+    };
+    const capPlayer = t.captain_player_id ? ladderPlayers.find(x => x.id === t.captain_player_id) : null;
+    const teamLabel = t.name || 'Unnamed Team';
+    const row = (label, val) => `
+      <div class="ftc-review-row">
+        <span class="ftc-review-key">${label}</span>
+        <span class="ftc-review-val">${val}</span>
+      </div>`;
+
+    const el = document.getElementById('ftc-view-content');
+    const titleEl = document.getElementById('ftc-view-title');
+    if (titleEl) titleEl.textContent = teamLabel;
+    if (el) el.innerHTML = `
+      <div class="ftc-review-section">
+        <div class="ftc-review-label">Team Identity</div>
+        ${row('Team Name', teamLabel)}
+        ${row('Captain', capPlayer ? `⭐ ${esc(capPlayer.first_name)} ${esc(capPlayer.last_name)}` : '<span style="color:#b0bbd6;">None assigned</span>')}
+      </div>
+      <div class="ftc-review-section">
+        <div class="ftc-review-label">Starters</div>
+        ${row('Man 1', pName(t.m1_id))}
+        ${row('Man 2', pName(t.m2_id))}
+        ${row('Woman 1', pName(t.f1_id))}
+        ${row('Woman 2', pName(t.f2_id))}
+      </div>
+      <div class="ftc-review-section">
+        <div class="ftc-review-label">Substitutes</div>
+        ${row('Male Sub', pName(t.m_sub_id))}
+        ${row('Female Sub', pName(t.f_sub_id))}
+      </div>
+      <div class="ftc-review-section">
+        <div class="ftc-review-label">Mixed Doubles</div>
+        ${row('Mixed #1', t.mixed1_ma_id ? `${pName(t.mixed1_ma_id)} + ${pName(t.mixed1_fa_id)}` : '<span style="color:#b0bbd6;">Not assigned</span>')}
+        ${row('Mixed #2', t.mixed2_ma_id ? `${pName(t.mixed2_ma_id)} + ${pName(t.mixed2_fa_id)}` : '<span style="color:#b0bbd6;">Not assigned</span>')}
+      </div>`;
+    document.getElementById('ftc-view-edit-id').value = teamId;
+    document.getElementById('ftc-view-modal').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+  };
+
+  window.ftcCloseViewModal = () => {
+    document.getElementById('ftc-view-modal').style.display = 'none';
+    document.body.style.overflow = '';
+  };
+
+  window.ftcViewToEdit = () => {
+    const teamId = parseInt(document.getElementById('ftc-view-edit-id').value, 10);
+    ftcCloseViewModal();
+    ftcOpenEditModal(teamId);
+  };
+
+  window.ftcOpenEditModal = (teamId) => {
+    const t = ftcTeams.find(x => x.id === teamId);
+    if (!t) return;
+    document.getElementById('ftc-team-id').value      = t.id;
+    document.getElementById('ftc-team-name').value    = t.name || '';
+    // captain is now set via radio group below
+    document.getElementById('ftc-modal-title').textContent    = 'Edit Team';
+    document.getElementById('ftc-modal-subtitle').textContent = 'Update team details. Past matches are not affected.';
+    // Pass initial values directly so ftcBuildDropdowns renders options with correct selected state
+    ftcBuildDropdowns(t.id, {
+      m1:    t.m1_id,         m2:    t.m2_id,
+      f1:    t.f1_id,         f2:    t.f2_id,
+      msub:  t.m_sub_id,      fsub:  t.f_sub_id,
+      mix1m: t.mixed1_ma_id,  mix1f: t.mixed1_fa_id,
+      mix2m: t.mixed2_ma_id,  mix2f: t.mixed2_fa_id,
+    });
+    // Set captain radio
+    const slotMap = { m1: t.m1_id, m2: t.m2_id, f1: t.f1_id, f2: t.f2_id };
+    const capId = t.captain_player_id;
+    let capSlot = '';
+    if (capId) {
+      Object.entries(slotMap).forEach(([slot, pid]) => {
+        if (String(pid) === String(capId)) capSlot = slot;
+      });
+    }
+    const capRadio = document.getElementById(capSlot ? `ftc-cap-${capSlot}` : 'ftc-cap-none');
+    if (capRadio) capRadio.checked = true;
+    ftcUpdateCaptainUI();
+    const valEl = document.getElementById('ftc-mixed-validation');
+    if (valEl) valEl.style.display = 'none';
+    ftcGoToStep(1);
+    document.getElementById('ftc-team-modal').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+  };
+
+  // ── Close modal ─────────────────────────────────────────────────────────
+  window.ftcCloseModal = () => {
+    document.getElementById('ftc-team-modal').style.display = 'none';
+    document.body.style.overflow = '';
+  };
+
+  // ── Validate mixed doubles pairs ────────────────────────────────────────
+  const ftcValidateMixed = (m1m, m1f, m2m, m2f) => {
+    if (!m1m || !m1f || !m2m || !m2f) return null; // incomplete — skip
+    if (m1m === m2m && m1f === m2f) {
+      return 'The same mixed doubles pair cannot play both Mixed #1 and Mixed #2. Please assign different player combinations.';
+    }
+    return null;
+  };
+
+  // ── Save team (create or update) ────────────────────────────────────────
+  window.ftcSaveTeam = async () => {
+    const teamId  = document.getElementById('ftc-team-id').value;
+    const isEdit  = !!teamId;
+
+    const gv = (id) => document.getElementById(id)?.value || null;
+
+    // Validate required starters
+    if (!gv('ftc-m1') || !gv('ftc-m2') || !gv('ftc-f1') || !gv('ftc-f2')) {
+      toast('Please assign all 4 starters (Man 1, Man 2, Woman 1, Woman 2).', true);
+      return;
+    }
+
+    // Validate no duplicate starter
+    const starterIds = [gv('ftc-m1'), gv('ftc-m2'), gv('ftc-f1'), gv('ftc-f2')];
+    if (new Set(starterIds).size < 4) {
+      toast('Each starter slot must be a different player.', true);
+      return;
+    }
+
+    // Mixed doubles validation (also checked on step nav)
+    const m1m = gv('ftc-mixed1-m'), m1f = gv('ftc-mixed1-f');
+    const m2m = gv('ftc-mixed2-m'), m2f = gv('ftc-mixed2-f');
+    const mixedErr = ftcValidateMixed(m1m, m1f, m2m, m2f);
+    if (mixedErr) { toast(mixedErr, true); return; }
+
+    const body = {
+      ladder_id:    currentLadder.id,
+      name:              document.getElementById('ftc-team-name').value.trim() || null,
+      captain_player_id: (() => {
+        const slot = document.querySelector('input[name="ftc-captain"]:checked')?.value;
+        if (!slot) return null;
+        const slotToField = { m1:'ftc-m1', m2:'ftc-m2', f1:'ftc-f1', f2:'ftc-f2' };
+        const pid = document.getElementById(slotToField[slot])?.value;
+        return pid ? parseInt(pid, 10) : null;
+      })(),
+      m1_id:        parseInt(gv('ftc-m1'), 10),
+      m2_id:        parseInt(gv('ftc-m2'), 10),
+      f1_id:        parseInt(gv('ftc-f1'), 10),
+      f2_id:        parseInt(gv('ftc-f2'), 10),
+      m_sub_id:     gv('ftc-msub')    ? parseInt(gv('ftc-msub'), 10)    : null,
+      f_sub_id:     gv('ftc-fsub')    ? parseInt(gv('ftc-fsub'), 10)    : null,
+      mixed1_ma_id: m1m ? parseInt(m1m, 10) : null,
+      mixed1_fa_id: m1f ? parseInt(m1f, 10) : null,
+      mixed2_ma_id: m2m ? parseInt(m2m, 10) : null,
+      mixed2_fa_id: m2f ? parseInt(m2f, 10) : null,
+    };
+
+    const btn = document.getElementById('ftc-btn-save');
+    const origHTML = btn ? btn.innerHTML : '';
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
+
+    try {
+      if (isEdit) {
+        await api(`ftc_ladder_teams?id=eq.${teamId}`, 'PATCH', body);
+        toast('Team updated successfully!');
+      } else {
+        await api('ftc_ladder_teams', 'POST', body);
+        toast('Team registered successfully!');
+      }
+      ftcCloseModal();
+      await loadFtcTeams();
+    } catch (err) {
+      toast(`Error: ${err.message}`, true);
+    } finally {
+      if (btn) { btn.disabled = false; btn.innerHTML = origHTML; }
+    }
+  };
+
+  // ── Delete team ─────────────────────────────────────────────────────────
+  window.ftcDeleteTeam = async (teamId, teamLabel) => {
+    const ok = await confirmModal({
+      title:   'Delete team?',
+      message: `Remove "${teamLabel}" from this ladder? This cannot be undone.`,
+      confirm: 'Delete Team',
+      danger:  true,
+    });
+    if (!ok) return;
+    try {
+      await api(`ftc_ladder_teams?id=eq.${teamId}`, 'DELETE');
+      toast('Team deleted.');
+      await loadFtcTeams();
+    } catch (err) {
+      toast(`Error: ${err.message}`, true);
+    }
+  };
+
   // Click handler — looks up the action handler for any [data-action] click
   const CLICK_HANDLERS = {
     // Navigation
@@ -5877,6 +10344,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     closeLpModal: () => closeLpModal(),
     // Players
     openEdit: (btn) => openEdit(parseInt(btn.dataset.pid, 10)),
+    openPlayerProfile: (btn) => openPlayerProfile(parseInt(btn.dataset.pid, 10)),
     closeModal: () => closeModal(),
     openPlayerHistory: () => openPlayerHistory(),
     closePlayerHistory: () => closePlayerHistory(),
@@ -6017,13 +10485,36 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
   });
 
   // Input handler — search + auto-calc previews
+  // ── Ladder Participants gender filter ─────────────────────────────────
+  let _lpGenderFilter = 'all'; // 'all' | 'male' | 'female'
+
+  window.lpGenderFilter = (gender) => {
+    _lpGenderFilter = gender;
+    // Update pill styles
+    ['all','male','female'].forEach(g => {
+      const btn = document.getElementById(`lp-filter-${g}`);
+      if (!btn) return;
+      const active = g === gender;
+      btn.style.background   = active ? '#174CCC' : 'white';
+      btn.style.borderColor  = active ? '#174CCC' : '#e0e7f5';
+      btn.style.color        = active ? 'white'   : '#6b7a99';
+    });
+    lpApplyFilters();
+  };
+
+  window.lpApplyFilters = () => {
+    const q = (document.getElementById('lp-search')?.value || '').toLowerCase();
+    document.querySelectorAll('#lp-enrolled .lp-player-row-new').forEach((row) => {
+      const nameMatch   = row.dataset.name?.includes(q) ?? true;
+      const genderMatch = _lpGenderFilter === 'all' || row.dataset.gender === _lpGenderFilter;
+      row.style.display = (nameMatch && genderMatch) ? '' : 'none';
+    });
+  };
+
   document.addEventListener('input', (e) => {
     const el = e.target;
     if (el.id === 'lp-search') {
-      const q = el.value.toLowerCase();
-      document.querySelectorAll('#lp-enrolled .lp-player-row').forEach((row) => {
-        row.style.display = row.dataset.name.includes(q) ? '' : 'none';
-      });
+      lpApplyFilters();
       return;
     }
     if (el.id === 'player-search-entry') {
@@ -6075,7 +10566,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
   // Sidebar initialized — set home as active on boot
   sbSetActive('home');
   // Hide ladder sub-items until a ladder is selected
-  ['sb-standings','sb-sessions','sb-entry'].forEach(id => {
+  ['sb-standings','sb-sessions','sb-entry','sb-ftc-standings','sb-ftc-teams','sb-ftc-schedule','sb-ftc-playoffs'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = 'none';
   });
@@ -6097,7 +10588,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
   document.getElementById('player-status-filter')?.addEventListener('change', filterPlayers);
   document.getElementById('player-search')?.addEventListener('input', filterPlayers);
   document.querySelector('#edit-ladder-modal form')?.addEventListener('submit', saveEditLadder);
-  document.querySelector('#edit-modal form')?.addEventListener('submit', saveEditPlayer);
+  document.getElementById('edit-player-form')?.addEventListener('submit', saveEditPlayer);
   document.getElementById('add-player-form')?.addEventListener('submit', addPlayer);
 
   // Expose helpers that tournament.js (loaded right after this file) needs.
