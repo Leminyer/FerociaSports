@@ -1167,6 +1167,9 @@ async function openEmergencyClose(id) {
         </button>
       </div>
     </div>`;
+  // Show the X close button
+  const xBtn = document.getElementById('t-modal-close-x');
+  if (xBtn) xBtn.style.display = 'flex';
   openTModal();
 
   // Enable button only when both reason + checkbox filled
@@ -1675,14 +1678,22 @@ function renderTournamentDetail(t, categories) {
   // Start Tournament button — disabled until active
   const canStart = t.status === 'draft';
   const startBtnHTML = t.status === 'completed' ? '' : `
-    <button id="td-start-btn"
-      onclick="${t.status === 'draft' ? `startTournament(${t.id})` : `completeTournament(${t.id})`}"
-      style="display:inline-flex;align-items:center;gap:6px;padding:9px 20px;border:none;border-radius:99px;
-             background:${t.status === 'active' ? 'linear-gradient(180deg,#F26024,#d44e10)' : 'linear-gradient(180deg,#2456d3 0%,#174CCC 100%)'};
-             color:white;font-family:'Montserrat',sans-serif;font-size:11px;font-weight:700;cursor:pointer;">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-      ${t.status === 'active' ? 'Complete Tournament' : 'Start Tournament'}
-    </button>`;
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+      <button id="td-start-btn"
+        onclick="${t.status === 'draft' ? `startTournament(${t.id})` : `completeTournament(${t.id})`}"
+        style="display:inline-flex;align-items:center;gap:6px;padding:9px 20px;border:none;border-radius:99px;
+               background:${t.status === 'active' ? 'linear-gradient(180deg,#F26024,#d44e10)' : 'linear-gradient(180deg,#2456d3 0%,#174CCC 100%)'};
+               color:white;font-family:'Montserrat',sans-serif;font-size:11px;font-weight:700;cursor:pointer;">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        ${t.status === 'active' ? 'Complete Tournament' : 'Start Tournament'}
+      </button>
+      ${t.status === 'active' ? `<button onclick="openEmergencyClose(${t.id})"
+        style="display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border:0.5px solid rgba(242,96,36,0.4);border-radius:99px;
+               background:rgba(242,96,36,0.08);color:#F26024;font-family:'Montserrat',sans-serif;font-size:11px;font-weight:700;cursor:pointer;">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        Emergency Close
+      </button>` : ''}
+    </div>`;
 
   // Category emojis — cycle through
   const catEmojis = ['🏆','🎾','🏅','⚡','🔥','👑','🎯','🥇'];
