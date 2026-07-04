@@ -10605,6 +10605,12 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     openTournamentNotifyModal,  // called by tournament.js notify button
     sendTestPromoEmail,
   };
+  // Also expose directly on window for legacy references in tournament.js
+  window.api          = api;
+  window.esc          = esc;
+  window.fmtDate      = fmtDate;
+  window.confirmModal = confirmModal;
+  window.toast        = toast;
 
   // Track auth state so tournament.js can wait on it too
   window.app.authReady = new Promise((resolve) => {

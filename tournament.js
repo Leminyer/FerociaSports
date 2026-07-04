@@ -4,11 +4,11 @@
 // Globals consumed: api, esc, escapeHtml, fmtDate, confirmModal
 // ============================================================
 
-// Aliases — keep tApi/tEsc names so we don't have to rename 100+ call sites.
-const tApi = window.api;
-const tEsc = window.esc;
-const tFmtDate = window.fmtDate;
-const tConfirm = window.confirmModal;
+// Aliases — lazy references so tournament.js works after app.js initializes window.app
+const tApi     = (...args) => (window.app?.api || window.api)(...args);
+const tEsc     = (...args) => (window.app?.esc || window.esc || (s => s))(...args);
+const tFmtDate = (...args) => (window.app?.fmtDate || window.fmtDate || (d => d))(...args);
+const tConfirm = (...args) => (window.app?.confirmModal || window.confirmModal || (() => Promise.resolve(true)))(...args);
 
 function tToast(msg, isError = false) {
   // Use the shared toast if available; otherwise fall back to native alert.
@@ -611,7 +611,11 @@ async function renderTournamentList() {
   const resSVG    = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="5"/><path d="M8.56 13.9l-1.56 6.1 5-3 5 3-1.56-6.1"/></svg>`;
 
   const pillClass = (s) => s === 'active' ? 'top-pill-active' : s === 'completed' ? 'top-pill-completed' : 'top-pill-draft';
-  const pillLabel = (s) => s === 'active' ? 'Active' : s === 'completed' ? 'Completed' : 'Draft';
+  const pillLabel = (s, t) => {
+    if (s === 'active')    return 'Active';
+    if (s === 'completed') return t?.emergency_closed ? '⚠️ Cancelled' : 'Completed';
+    return 'Draft';
+  };
 
   const tournamentCards = filtered.map(t => {
     const isClosed = t.status !== 'active' && t.status !== 'draft';
@@ -721,7 +725,7 @@ async function renderTournamentList() {
         <div class="t-op-left">
           <div class="t-op-name">${tEsc(t.name)}</div>
           <div class="t-op-status-row">
-            <span class="${pillClass(t.status)}">${pillLabel(t.status)}</span>
+            <span class="${t.emergency_closed ? 'top-pill-cancelled' : pillClass(t.status)}">${pillLabel(t.status, t)}</span>
             ${t.date ? `<span class="t-op-date-badge">${calSVG} ${fmtDate(t.date)}</span>` : ''}
           </div>
           <div class="t-op-meta">${trophySVG} ${catCount} Categor${catCount !== 1 ? 'ies' : 'y'}</div>
@@ -769,6 +773,10 @@ async function renderTournamentList() {
                 ? `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg> Activate`
                 : `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg> Reopen`}
           </button>
+          ${t.status === 'active' ? `<button class="t-op-btn" style="background:rgba(242,96,36,0.08);color:#F26024;border-color:rgba(242,96,36,0.3);" onclick="openEmergencyClose(${t.id})">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            Emergency Close
+          </button>` : ''}
           <button class="t-op-btn t-op-btn-danger" onclick="deleteTournament(${t.id})">${trashSVG} Delete</button>
         </div>
       </div>
@@ -1097,6 +1105,102 @@ async function tCheckFinalizeConfirm(id) {
   const chk = document.getElementById('t-complete-confirm-chk');
   if (!chk?.checked) return;
   await confirmCompleteTournamentFromList(id);
+}
+
+async function openEmergencyClose(id) {
+  document.getElementById('t-modal-title').textContent = 'Emergency Close Tournament';
+  document.getElementById('t-modal-body').innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:16px;">
+      <!-- Warning banner -->
+      <div style="display:flex;align-items:flex-start;gap:12px;padding:14px;background:rgba(242,96,36,0.06);border-radius:10px;border:0.5px solid rgba(242,96,36,0.2);">
+        <div style="width:36px;height:36px;border-radius:50%;background:rgba(242,96,36,0.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#F26024" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        </div>
+        <div>
+          <div style="font-size:13px;font-weight:800;color:#F26024;margin-bottom:4px;">Emergency Close</div>
+          <div style="font-size:12px;font-weight:600;color:#6b7a99;line-height:1.6;">This will close the tournament immediately regardless of completion status. All results already recorded will be kept. The tournament will be marked as <strong style="color:#F26024;">Cancelled</strong>.</div>
+        </div>
+      </div>
+
+      <!-- What is kept -->
+      <div style="background:#f8f9ff;border-radius:10px;padding:14px;border:0.5px solid #e0e7f5;">
+        <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#6b7a99;margin-bottom:10px;">What happens</div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <div style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:#0d1f4a;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#24BC96" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            All recorded scores and results are preserved
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:#0d1f4a;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#24BC96" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            Tournament moves to history with a Cancelled badge
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:#0d1f4a;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F26024" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            Pending matches will remain unresolved
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:#0d1f4a;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F26024" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            No champion will be declared
+          </div>
+        </div>
+      </div>
+
+      <!-- Reason field -->
+      <div>
+        <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#0d1f4a;margin-bottom:6px;">Reason for closing <span style="color:#e53935;">*</span></div>
+        <textarea id="emergency-reason" rows="3" placeholder="e.g. Rain cancellation — tournament suspended at 40% completion on Jul 4, 2026" style="width:100%;padding:10px 12px;border:0.5px solid #e0e7f5;border-radius:8px;font-family:'Montserrat',sans-serif;font-size:12px;font-weight:600;color:#0d1f4a;outline:none;resize:vertical;"></textarea>
+        <div id="emergency-reason-err" style="display:none;font-size:11px;font-weight:700;color:#e53935;margin-top:4px;">Please enter a reason before closing.</div>
+      </div>
+
+      <!-- Confirm checkbox -->
+      <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;padding:12px;background:#f8f9ff;border-radius:8px;border:0.5px solid #e0e7f5;">
+        <input type="checkbox" id="emergency-confirm-chk" style="margin-top:2px;accent-color:#F26024;width:16px;height:16px;flex-shrink:0;">
+        <span style="font-size:12px;font-weight:600;color:#0d1f4a;line-height:1.5;">I understand this action cannot be undone. The tournament will be permanently marked as cancelled.</span>
+      </label>
+
+      <!-- Footer -->
+      <div style="display:flex;justify-content:flex-end;gap:10px;">
+        <button onclick="closeTModal()" style="padding:9px 20px;border:0.5px solid #e0e7f5;border-radius:99px;background:white;font-family:'Montserrat',sans-serif;font-size:12px;font-weight:700;color:#0d1f4a;cursor:pointer;">Cancel</button>
+        <button id="emergency-close-btn" onclick="confirmEmergencyClose(${id})" style="padding:9px 22px;border:none;border-radius:99px;background:#F26024;color:white;font-family:'Montserrat',sans-serif;font-size:12px;font-weight:700;cursor:pointer;opacity:0.4;pointer-events:none;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          Close Tournament
+        </button>
+      </div>
+    </div>`;
+  openTModal();
+
+  // Enable button only when both reason + checkbox filled
+  const syncBtn = () => {
+    const reason = document.getElementById('emergency-reason')?.value?.trim();
+    const checked = document.getElementById('emergency-confirm-chk')?.checked;
+    const btn = document.getElementById('emergency-close-btn');
+    if (!btn) return;
+    const ready = reason && checked;
+    btn.style.opacity = ready ? '1' : '0.4';
+    btn.style.pointerEvents = ready ? 'auto' : 'none';
+  };
+  document.getElementById('emergency-reason')?.addEventListener('input', syncBtn);
+  document.getElementById('emergency-confirm-chk')?.addEventListener('change', syncBtn);
+}
+
+async function confirmEmergencyClose(id) {
+  const reason = document.getElementById('emergency-reason')?.value?.trim();
+  if (!reason) {
+    document.getElementById('emergency-reason-err').style.display = 'block';
+    return;
+  }
+  try {
+    await tApi(`tournaments?id=eq.${id}`, 'PATCH', {
+      status: 'completed',
+      emergency_closed: true,
+      close_reason: reason,
+    });
+    closeTModal();
+    window.toast('Tournament closed successfully.');
+    loadTournamentModule();
+  } catch(e) {
+    window.toast('Error closing tournament: ' + e.message, true);
+  }
 }
 
 async function confirmCompleteTournamentFromList(id) {
@@ -1555,15 +1659,17 @@ function renderTournamentDetail(t, categories) {
   // Compute live header meta from categories data
   const totalTeams = 0; // will be updated when category loads
   const catCount = categories.length;
-  const statusLabel = t.status === 'active' ? 'Active' : t.status === 'completed' ? 'Completed' : 'Draft';
+  const statusLabel = t.status === 'active' ? 'Active' : t.status === 'completed' ? (t.emergency_closed ? '⚠️ Cancelled' : 'Completed') : 'Draft';
   const statusPillStyle = t.status === 'active'
     ? 'background:#d4f5ed;color:#085041;'
+    : (t.status === 'completed' && t.emergency_closed)
+    ? 'background:rgba(242,96,36,0.1);color:#F26024;border:0.5px solid rgba(242,96,36,0.3);'
     : t.status === 'completed'
     ? 'background:#e8f0ff;color:#174CCC;'
     : 'background:#f4f5f8;color:#6b7a99;';
 
   // Progress label
-  const progressLabel = t.status === 'draft' ? 'Not Started' : t.status === 'active' ? 'In Progress' : 'Completed';
+  const progressLabel = t.status === 'draft' ? 'Not Started' : t.status === 'active' ? 'In Progress' : (t.emergency_closed ? 'Cancelled' : 'Completed');
   const progressColor = t.status === 'draft' ? '#b0bbd6' : t.status === 'active' ? '#24BC96' : '#174CCC';
 
   // Start Tournament button — disabled until active
