@@ -6311,8 +6311,20 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     }
 
     _emailInFlight = false;
+
+    // Show completion state before closing
+    if (!failedRecipients.length) {
+      sendBtn.style.background = 'linear-gradient(180deg,#2ab87a,#1d9e68)';
+      sendBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Sent ${sent} emails!`;
+    } else {
+      sendBtn.style.background = 'linear-gradient(180deg,#F26024,#d44e10)';
+      sendBtn.innerHTML = `⚠ Sent ${sent}, ${failedRecipients.length} failed`;
+    }
+
+    await sleep(2000);
     sendBtn.disabled = false;
     sendBtn.innerHTML = sendBtnOrigText;
+    sendBtn.style.background = '';
     document.getElementById('notify-modal').classList.remove('open');
 
     if (!failedRecipients.length) {
@@ -6460,8 +6472,20 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     }
 
     _emailInFlight = false;
+
+    // Show completion state before closing
+    if (!failedRecipients.length) {
+      sendBtn.style.background = 'linear-gradient(180deg,#2ab87a,#1d9e68)';
+      sendBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Sent ${sent} emails!`;
+    } else {
+      sendBtn.style.background = 'linear-gradient(180deg,#F26024,#d44e10)';
+      sendBtn.innerHTML = `⚠ Sent ${sent}, ${failedRecipients.length} failed`;
+    }
+
+    await sleep(2000);
     sendBtn.disabled = false;
     sendBtn.innerHTML = sendBtnOrigText;
+    sendBtn.style.background = '';
     closeTournamentNotifyModal();
 
     if (!failedRecipients.length) {
