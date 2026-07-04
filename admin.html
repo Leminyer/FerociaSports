@@ -882,6 +882,28 @@
   .ppm-footer{padding:12px 24px;border-top:0.5px solid #e0e7f5;display:flex;align-items:center;justify-content:space-between;background:white;flex-shrink:0;}
   .ppm-profile-btn{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:6px;border:0.5px solid #e0e7f5;background:white;color:#174CCC;cursor:pointer;transition:all .15s;}
   .ppm-profile-btn:hover{background:#e8f0ff;border-color:#c5d6f5;}
+  /* ── BULK IMPORT ─────────────────────────────────────────── */
+  .import-section{background:white;border:0.5px solid #e0e7f5;border-radius:12px;padding:18px 20px;margin-bottom:24px;max-width:1100px;}
+  .import-section-title{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#0d1f4a;margin-bottom:4px;display:flex;align-items:center;gap:6px;}
+  .import-section-sub{font-size:12px;font-weight:600;color:#6b7a99;margin-bottom:14px;}
+  .import-drop-zone{border:1.5px dashed #c5d6f5;border-radius:10px;padding:28px;text-align:center;cursor:pointer;background:#f8f9ff;transition:all .15s;}
+  .import-drop-zone:hover,.import-drop-zone.drag-over{border-color:#174CCC;background:#e8f0ff;}
+  .import-drop-zone-icon{width:40px;height:40px;border-radius:10px;background:#e8f0ff;display:flex;align-items:center;justify-content:center;margin:0 auto 10px;}
+  .import-drop-text{font-size:13px;font-weight:700;color:#0d1f4a;margin-bottom:4px;}
+  .import-drop-sub{font-size:11px;font-weight:600;color:#6b7a99;}
+  .import-preview{margin-top:16px;}
+  .import-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;}
+  .import-sum-card{border-radius:8px;padding:12px 14px;border:0.5px solid #e0e7f5;}
+  .import-sum-val{font-size:22px;font-weight:800;line-height:1;margin-bottom:3px;font-family:'Bebas Neue',sans-serif;}
+  .import-sum-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#6b7a99;}
+  .import-table{width:100%;border-collapse:collapse;font-size:12px;}
+  .import-table th{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#6b7a99;padding:8px 10px;text-align:left;background:#f8f9ff;border-bottom:0.5px solid #e0e7f5;}
+  .import-table td{padding:9px 10px;border-bottom:0.5px solid #f4f5f8;font-weight:600;color:#0d1f4a;vertical-align:middle;}
+  .import-table tr:last-child td{border-bottom:none;}
+  .import-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:700;}
+  .import-b-new{background:rgba(36,188,150,0.1);color:#085041;}
+  .import-b-dup{background:#fff8e6;color:#9a6200;}
+  .import-b-err{background:#fee2e2;color:#e53935;}
   /* ── MATCH HUB ─────────────────────────────────────────── */
   .mh-cards{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:20px;}
   .mh-card{background:var(--white);border-radius:10px;padding:16px 18px 14px;border:0.5px solid #e0e7f5;border-top:3px solid transparent;box-shadow:0 1px 4px rgba(23,76,204,0.06);}
@@ -2479,6 +2501,52 @@
     <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:#0d1f4a;letter-spacing:1px;line-height:1;margin-bottom:4px;">Add New Player</div>
     <div style="font-size:12px;font-weight:600;color:#6b7a99;margin-bottom:24px;">Create a new player profile for ladders, tournaments, and events.</div>
 
+    <!-- ── BULK IMPORT SECTION ── -->
+    <div class="import-section">
+      <div class="import-section-title">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Bulk Import Players
+      </div>
+      <div class="import-section-sub">Upload a CSV file to add multiple players at once. Duplicates (same first name + last name + email) will be skipped automatically.</div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+        <button onclick="importDownloadTemplate()" style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border:0.5px solid #e0e7f5;border-radius:99px;background:white;font-family:'Montserrat',sans-serif;font-size:11px;font-weight:700;color:#174CCC;cursor:pointer;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download Template
+        </button>
+        <span style="font-size:11px;font-weight:600;color:#6b7a99;">CSV format: first_name, last_name, email, phone, gender</span>
+      </div>
+      <!-- Drop zone -->
+      <div class="import-drop-zone" id="import-drop-zone" onclick="document.getElementById('import-file-input').click()" ondragover="importDragOver(event)" ondragleave="importDragLeave(event)" ondrop="importDrop(event)">
+        <div class="import-drop-zone-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        </div>
+        <div class="import-drop-text">Click to upload or drag & drop</div>
+        <div class="import-drop-sub">CSV files only · max 5MB</div>
+      </div>
+      <input type="file" id="import-file-input" accept=".csv" style="display:none;" onchange="importHandleFile(this.files[0])">
+      <!-- Preview area -->
+      <div id="import-preview-area" style="display:none;" class="import-preview">
+        <div class="import-summary" id="import-summary"></div>
+        <div style="background:white;border:0.5px solid #e0e7f5;border-radius:10px;overflow:hidden;margin-bottom:14px;">
+          <div style="overflow-x:auto;max-height:320px;overflow-y:auto;">
+            <table class="import-table">
+              <thead><tr>
+                <th>#</th><th>First Name</th><th>Last Name</th><th>Email</th><th>Phone</th><th>Gender</th><th>Status</th>
+              </tr></thead>
+              <tbody id="import-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <button onclick="importReset()" style="padding:8px 18px;border:0.5px solid #e0e7f5;border-radius:99px;background:white;font-family:'Montserrat',sans-serif;font-size:12px;font-weight:700;color:#6b7a99;cursor:pointer;">Clear</button>
+          <button id="import-confirm-btn" onclick="importConfirm()" style="display:inline-flex;align-items:center;gap:6px;padding:9px 22px;border:none;border-radius:99px;background:linear-gradient(180deg,#2456d3,#174CCC);color:white;font-family:'Montserrat',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            <span id="import-confirm-label">Import Players</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- Layout: form + preview -->
     <div style="display:grid;grid-template-columns:1fr 300px;gap:24px;align-items:start;max-width:1100px;">
 
@@ -4009,7 +4077,7 @@
   </div>
 </div>
 
-<script src="app.js?v=20260619"></script>
+<script src="app.js?v=20260620"></script>
 <script src="tournament.js?v=20260526"></script>
 <script>
   // ── Sidebar toggle — persisted in localStorage ──────────────────────

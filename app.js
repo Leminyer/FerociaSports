@@ -1770,9 +1770,19 @@ window.selectLadderType = (type) => {
         return;
       }
 
+      // Deduplicate matches — keep only the latest row per player+game+court+date
+      const deduped = {};
+      matches.forEach((m) => {
+        const dedupeKey = `${m.session_date}__${m.court_group}__${m.game_number}__${m.player_id}`;
+        if (!deduped[dedupeKey] || m.id > deduped[dedupeKey].id) {
+          deduped[dedupeKey] = m;
+        }
+      });
+      const dedupedMatches = Object.values(deduped);
+
       // Group by court (date__time__court_group)
       const grouped = {};
-      matches.forEach((m) => {
+      dedupedMatches.forEach((m) => {
         const time = m.session_time || '00:00';
         const key = `${m.session_date}__${time}__${m.court_group}`;
         if (!grouped[key]) grouped[key] = { date: m.session_date, time, group: m.court_group, games: {}, noShow: [] };
@@ -5344,6 +5354,216 @@ window.selectLadderType = (type) => {
     } catch(e) {
       toast('Error saving match: ' + e.message, true);
     }
+  };
+
+  // ── BULK PLAYER IMPORT ────────────────────────────────────────────────────
+
+  let _importRows = []; // parsed and validated rows
+
+  // ── Download CSV template ──────────────────────────────────────────────
+  window.importDownloadTemplate = () => {
+    const csv = 'first_name,last_name,email,phone,gender\nJohn,Smith,john@email.com,561-555-1234,Male\nJane,Doe,jane@email.com,954-555-5678,Female';
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = 'players_import_template.csv';
+    a.click(); URL.revokeObjectURL(url);
+  };
+
+  // ── Drag & drop handlers ───────────────────────────────────────────────
+  window.importDragOver = (e) => { e.preventDefault(); document.getElementById('import-drop-zone')?.classList.add('drag-over'); };
+  window.importDragLeave = () => { document.getElementById('import-drop-zone')?.classList.remove('drag-over'); };
+  window.importDrop = (e) => {
+    e.preventDefault();
+    document.getElementById('import-drop-zone')?.classList.remove('drag-over');
+    const file = e.dataTransfer?.files?.[0];
+    if (file) importHandleFile(file);
+  };
+
+  // ── Reset import state ─────────────────────────────────────────────────
+  window.importReset = () => {
+    _importRows = [];
+    document.getElementById('import-preview-area').style.display = 'none';
+    document.getElementById('import-file-input').value = '';
+  };
+
+  // ── Parse and validate CSV ─────────────────────────────────────────────
+  window.importHandleFile = async (file) => {
+    if (!file) return;
+    if (!file.name.endsWith('.csv')) { toast('Please upload a CSV file.', true); return; }
+
+    // Ensure players are loaded for dedup check
+    if (!allPlayers.length) {
+      try { allPlayers = await api('players?select=first_name,last_name,email&order=id'); } catch(_) {}
+    }
+
+    const text = await file.text();
+    const lines = text.split(/\r?\n/).filter(l => l.trim());
+    if (lines.length < 2) { toast('CSV file is empty or has no data rows.', true); return; }
+
+    // Parse header
+    const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/^"|"$/g,''));
+    const colIdx = {
+      first_name: headers.indexOf('first_name'),
+      last_name:  headers.indexOf('last_name'),
+      email:      headers.indexOf('email'),
+      phone:      headers.indexOf('phone'),
+      gender:     headers.indexOf('gender'),
+    };
+
+    if (colIdx.first_name < 0 || colIdx.last_name < 0 || colIdx.email < 0) {
+      toast('CSV must have columns: first_name, last_name, email', true);
+      return;
+    }
+
+    const today = new Date().toISOString().split('T')[0];
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    _importRows = lines.slice(1).map((line, i) => {
+      // Handle quoted CSV fields
+      const cols = line.match(/(".*?"|[^,]+|(?<=,)(?=,)|^(?=,)|(?<=,)$)/g) || line.split(',');
+      const get = (idx) => idx >= 0 ? (cols[idx] || '').replace(/^"|"$/g, '').trim() : '';
+
+      const row = {
+        rowNum:     i + 2,
+        first_name: get(colIdx.first_name),
+        last_name:  get(colIdx.last_name),
+        email:      get(colIdx.email),
+        phone:      get(colIdx.phone),
+        gender:     get(colIdx.gender),
+        date_joined: today,
+        status:     'active',
+        _state:     'new', // new | duplicate | error
+        _errors:    [],
+      };
+
+      // Validate required fields
+      if (!row.first_name) row._errors.push('Missing first name');
+      if (!row.last_name)  row._errors.push('Missing last name');
+      if (!row.email)      row._errors.push('Missing email');
+      else if (!emailRegex.test(row.email)) row._errors.push('Invalid email format');
+      if (row.gender && !['male','female'].includes(row.gender.toLowerCase())) {
+        row._errors.push('Gender must be Male or Female');
+      } else if (row.gender) {
+        // Normalize capitalization
+        row.gender = row.gender.charAt(0).toUpperCase() + row.gender.slice(1).toLowerCase();
+      }
+
+      if (row._errors.length) { row._state = 'error'; return row; }
+
+      // Dedup check: all 3 must match (case-insensitive)
+      const isDup = allPlayers.some(p =>
+        p.first_name?.toLowerCase() === row.first_name.toLowerCase() &&
+        p.last_name?.toLowerCase()  === row.last_name.toLowerCase()  &&
+        p.email?.toLowerCase()      === row.email.toLowerCase()
+      );
+      if (isDup) { row._state = 'duplicate'; return row; }
+
+      return row;
+    }).filter(r => r.first_name || r.last_name || r.email); // skip completely empty rows
+
+    importRenderPreview();
+  };
+
+  // ── Render preview table ───────────────────────────────────────────────
+  const importRenderPreview = () => {
+    const newRows  = _importRows.filter(r => r._state === 'new');
+    const dupRows  = _importRows.filter(r => r._state === 'duplicate');
+    const errRows  = _importRows.filter(r => r._state === 'error');
+
+    // Summary cards
+    document.getElementById('import-summary').innerHTML = `
+      <div class="import-sum-card" style="background:rgba(36,188,150,0.04);border-color:rgba(36,188,150,0.2);">
+        <div class="import-sum-val" style="color:#24BC96;">${newRows.length}</div>
+        <div class="import-sum-lbl">Ready to Import</div>
+      </div>
+      <div class="import-sum-card" style="background:#fff8e6;border-color:#f5d78e;">
+        <div class="import-sum-val" style="color:#9a6200;">${dupRows.length}</div>
+        <div class="import-sum-lbl">Duplicates (skipped)</div>
+      </div>
+      <div class="import-sum-card" style="background:#fee2e2;border-color:#fca5a5;">
+        <div class="import-sum-val" style="color:#e53935;">${errRows.length}</div>
+        <div class="import-sum-lbl">Errors (skipped)</div>
+      </div>`;
+
+    // Table rows — show all, color-coded
+    document.getElementById('import-table-body').innerHTML = _importRows.map(r => {
+      const badge = r._state === 'new'
+        ? '<span class="import-badge import-b-new">✓ New</span>'
+        : r._state === 'duplicate'
+          ? '<span class="import-badge import-b-dup">⚠ Duplicate</span>'
+          : `<span class="import-badge import-b-err" title="${esc(r._errors.join(', '))}">✕ Error</span>`;
+      const rowStyle = r._state === 'error' ? 'background:#fff8f8;' : r._state === 'duplicate' ? 'background:#fffdf0;' : '';
+      return `<tr style="${rowStyle}">
+        <td style="color:#6b7a99;">${r.rowNum}</td>
+        <td>${esc(r.first_name)}</td>
+        <td>${esc(r.last_name)}</td>
+        <td>${esc(r.email)}</td>
+        <td>${esc(r.phone||'—')}</td>
+        <td>${esc(r.gender||'—')}</td>
+        <td>${badge}</td>
+      </tr>`;
+    }).join('');
+
+    // Update confirm button label
+    const label = document.getElementById('import-confirm-label');
+    if (label) label.textContent = `Import ${newRows.length} Player${newRows.length !== 1 ? 's' : ''}`;
+    const btn = document.getElementById('import-confirm-btn');
+    if (btn) {
+      btn.style.opacity = newRows.length ? '1' : '0.4';
+      btn.style.pointerEvents = newRows.length ? 'auto' : 'none';
+    }
+
+    document.getElementById('import-preview-area').style.display = 'block';
+  };
+
+  // ── Execute import ─────────────────────────────────────────────────────
+  window.importConfirm = async () => {
+    const toInsert = _importRows.filter(r => r._state === 'new');
+    if (!toInsert.length) return;
+
+    const btn = document.getElementById('import-confirm-btn');
+    if (btn) { btn.style.opacity = '0.5'; btn.style.pointerEvents = 'none'; }
+
+    let successCount = 0;
+    let failCount    = 0;
+
+    for (const row of toInsert) {
+      try {
+        const playerBody = {
+          first_name:  row.first_name,
+          last_name:   row.last_name,
+          email:       row.email,
+          phone:       row.phone || null,
+          gender:      row.gender || null,
+          date_joined: row.date_joined,
+          status:      'active',
+        };
+        const [newPlayer] = await api('players', 'POST', playerBody);
+
+        // Sync to subscribers
+        if (newPlayer?.id) {
+          try {
+            await api('subscribers', 'POST', {
+              first_name: row.first_name,
+              last_name:  row.last_name,
+              email:      row.email,
+              status:     'active',
+            });
+          } catch(_) {}
+        }
+        successCount++;
+      } catch(e) {
+        failCount++;
+      }
+    }
+
+    // Reload players cache
+    try { allPlayers = await api('players?select=*&order=first_name'); } catch(_) {}
+
+    toast(`✓ ${successCount} player${successCount !== 1 ? 's' : ''} imported successfully${failCount ? ` · ${failCount} failed` : ''}.`);
+    importReset();
+    if (typeof loadPlayers === 'function') loadPlayers();
   };
 
   const openEdit = async (id) => {
