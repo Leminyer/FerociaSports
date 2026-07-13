@@ -506,7 +506,7 @@ window.selectLadderType = (type) => {
 
   const loadLadderSelector = async () => {
     try {
-      allLadders = await api('ladders?select=*&order=id.desc');
+      allLadders = await api('ladders?select=*&status=neq.closed&order=id.desc');
     } catch (e) {
       toast(`Error loading ladders: ${e.message}`, true);
       return;
@@ -523,7 +523,7 @@ window.selectLadderType = (type) => {
       allLadders
         .map(
           (l) =>
-            `<option value="${l.id}">${esc(l.name)}${l.status === 'closed' ? ' (closed)' : ''}</option>`,
+            `<option value="${l.id}">${esc(l.name)}</option>`,
         )
         .join('');
 
