@@ -3433,7 +3433,10 @@ window.selectLadderType = (type) => {
         const gameNumsForEst = Object.keys(court.games).map(Number).sort((a,b)=>a-b);
         gameNumsForEst.forEach((gn) => {
           if (gn === 4 && playerCount === 4) return; // handled separately
-          const gp = court.games[gn].filter(m => !m.default_no_show);
+          // Deduplicate by player_id before measuring height
+          const gpDeduped = {};
+          court.games[gn].forEach(m => { if (!gpDeduped[m.player_id] || m.id > gpDeduped[m.player_id].id) gpDeduped[m.player_id] = m; });
+          const gp = Object.values(gpDeduped).filter(m => !m.default_no_show);
           const half = Math.ceil(gp.length / 2);
           const tACount = half;
           const tBCount = gp.length - half;
