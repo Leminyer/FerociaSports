@@ -3496,7 +3496,14 @@ window.selectLadderType = (type) => {
 
         // ── GAME LOOP ─────────────────────────────────────────────
         gameNums.forEach((gn) => {
-          const gamePlayers = court.games[gn].filter((m) => !m.default_no_show);
+          // Deduplicate by player_id — keep latest row per player
+          const gameDeduped = {};
+          court.games[gn].forEach(m => {
+            if (!gameDeduped[m.player_id] || m.id > gameDeduped[m.player_id].id) {
+              gameDeduped[m.player_id] = m;
+            }
+          });
+          const gamePlayers = Object.values(gameDeduped).filter((m) => !m.default_no_show);
           // Split into teams using same logic as sessions page:
           // group by score_for value (same score = same team); pending = slice(0,2)/slice(2,4)
           const pdfBuildTeams = (players) => {
