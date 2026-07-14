@@ -1269,10 +1269,11 @@ window.selectLadderType = (type) => {
           (((pfm[b.id]||0)-(pam[b.id]||0)) - ((pfm[a.id]||0)-(pam[a.id]||0))) // 3. Diff
         );
       ranked.forEach((p, i) => {
-        p._rank   = i + 1;
-        p._points = pm[p.id]  || 0;
-        p._wins   = wm[p.id]  || 0;
-        p._losses = lm[p.id]  || 0;
+        p._rank    = i + 1;
+        p._points  = pm[p.id]  || 0;
+        p._wins    = wm[p.id]  || 0;
+        p._losses  = lm[p.id]  || 0;
+        p._matches = (wm[p.id] || 0) + (lm[p.id] || 0);
         p._ptsFor = pfm[p.id] || 0;
         p._diff   = (pfm[p.id] || 0) - (pam[p.id] || 0);
       });
@@ -1462,6 +1463,7 @@ window.selectLadderType = (type) => {
         <td style="text-align:center;font-size:13px;font-weight:800;color:${p._diff > 0 ? '#24BC96' : p._diff < 0 ? '#F26024' : '#6b7a99'};">${p._diff > 0 ? '+' : ''}${p._diff}</td>
         <td style="text-align:center;font-size:13px;font-weight:700;color:#24BC96;">${p._wins}</td>
         <td style="text-align:center;font-size:13px;font-weight:700;color:#F26024;">${p._losses}</td>
+        <td style="text-align:center;font-size:13px;font-weight:700;color:#6b7a99;">${p._matches}</td>
         <td style="width:160px;">${trendHTML}</td>
       </tr>`;
     }).join('');
@@ -1476,6 +1478,7 @@ window.selectLadderType = (type) => {
             <th style="text-align:center;width:70px;">Diff</th>
             <th style="text-align:center;width:60px;">Wins</th>
             <th style="text-align:center;width:60px;">Losses</th>
+            <th style="text-align:center;width:70px;">Matches</th>
             <th style="text-align:center;width:160px;">Trend</th>
           </tr>
         </thead>
