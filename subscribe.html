@@ -257,11 +257,6 @@
     return /^[a-zA-Z0-9][a-zA-Z0-9._\-]{0,62}@[a-zA-Z0-9][a-zA-Z0-9.\-]{0,62}\.[a-zA-Z]{2,10}$/.test(e);
   };
 
-  const generateToken = () =>
-    Math.random().toString(36).substring(2) +
-    Date.now().toString(36) +
-    Math.random().toString(36).substring(2);
-
   const showFieldError = (id, errId, msg) => {
     document.getElementById(id).classList.add('error');
     const errEl = document.getElementById(errId);
@@ -320,11 +315,14 @@
     btn.textContent = 'Processing...';
 
     try {
-      const duplicate = await api(
-        `subscribers?first_name=eq.${encodeURIComponent(first)}&last_name=eq.${encodeURIComponent(last)}&email=eq.${encodeURIComponent(email)}&select=id,status&limit=1`
-      );
-      if (duplicate && duplicate.length) {
-        const status = duplicate[0].status;
+      const { data: result, error: rpcError } = await supabase.rpc('subscribe_signup', {
+        p_first: first, p_last: last, p_email: email,
+        p_phone: phone || null, p_gender: gender || null, p_skill: skill || null,
+      });
+      if (rpcError) throw new Error(rpcError.message);
+
+      if (result && result.already) {
+        const status = result.status;
         if (status === 'active') {
           showFieldError('s-email', 'err-email', 'You are already subscribed! Check your inbox for updates.');
         } else if (status === 'pending') {
@@ -337,17 +335,9 @@
         return;
       }
 
-      const confirmToken = generateToken();
-      const unsubToken   = generateToken();
+      const confirmToken = result.confirm_token;
       const baseUrl = window.location.origin + window.location.pathname.replace('subscribe.html', '');
       const confirmUrl = `${baseUrl}confirm.html?t=${confirmToken}`;
-
-      await api('subscribers', 'POST', {
-        first_name: first, last_name: last, email,
-        phone: phone || null, gender: gender || null,
-        skill_level: skill || null, status: 'pending',
-        confirm_token: confirmToken, unsubscribe_token: unsubToken,
-      });
 
       try {
         await emailjs.send(CFG.EMAILJS.SERVICE, CFG.EMAILJS.TEMPLATES.CONFIRM, {

@@ -113,17 +113,26 @@
     }
 
     try {
-      await api(
-        `subscribers?confirm_token=eq.${encodeURIComponent(token)}`,
-        'PATCH',
-        { status: 'active', confirm_token: null },
+      const { data: ok, error: rpcError } = await supabase.rpc(
+        'confirm_subscriber',
+        { p_token: token },
       );
-      setState(
-        '🎉',
-        'success',
-        "You're Subscribed!",
-        "Your email has been confirmed. Welcome to the Ferocia Sports community! You'll now receive updates about new ladders, tournaments, and events.",
-      );
+      if (rpcError) throw new Error(rpcError.message);
+      if (ok) {
+        setState(
+          '🎉',
+          'success',
+          "You're Subscribed!",
+          "Your email has been confirmed. Welcome to the Ferocia Sports community! You'll now receive updates about new ladders, tournaments, and events.",
+        );
+      } else {
+        setState(
+          '✅',
+          'success',
+          'Already Confirmed',
+          "This link has already been used, or your subscription is already active. You're all set!",
+        );
+      }
     } catch (err) {
       setState('❌', 'error', 'Something Went Wrong', 'Please try again or contact us at contact@ferociasports.com');
     }

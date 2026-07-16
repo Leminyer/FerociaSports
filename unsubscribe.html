@@ -117,11 +117,12 @@
     btn.disabled = true;
     btn.textContent = 'Processing...';
     try {
-      await api(
-        `subscribers?unsubscribe_token=eq.${encodeURIComponent(token)}`,
-        'PATCH',
-        { status: 'unsubscribed' },
+      const { data: ok, error: rpcError } = await supabase.rpc(
+        'unsubscribe_subscriber',
+        { p_token: token },
       );
+      if (rpcError) throw new Error(rpcError.message);
+      if (!ok) throw new Error('This unsubscribe link is invalid or has expired.');
       document.getElementById('title').textContent = "You've Been Unsubscribed";
       document.getElementById('msg').textContent =
         "You have been successfully removed from our mailing list. We're sorry to see you go! If you change your mind, you can always subscribe again at ferociasports.com";
