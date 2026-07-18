@@ -606,12 +606,12 @@ window.selectLadderType = (type) => {
     let matchStats = {}, ladderPlayers = [], pendingAll = [];
     try {
       const [matches, lp, pending] = await Promise.all([
-        api('matches?select=ladder_id,player_id,score_for,session_date,points_earned,players(first_name,last_name)&order=session_date.desc').catch(() => []),
+        api('matches?select=id,ladder_id,player_id,score_for,session_date,points_earned,court_group,game_number,players(first_name,last_name)&order=session_date.desc').catch(() => []),
         api('ladder_players?select=ladder_id,player_id').catch(() => []),
         api('matches?score_for=is.null&default_no_show=is.false&select=ladder_id').catch(() => []),
       ]);
       // Per-ladder stats
-      matches.forEach(m => {
+      dedupeMatches(matches).forEach(m => {
         if (!matchStats[m.ladder_id]) matchStats[m.ladder_id] = { games: 0, sessions: new Set(), pts: {}, names: {} };
         const s = matchStats[m.ladder_id];
         s.games++;
@@ -1245,42 +1245,48 @@ window.selectLadderType = (type) => {
     }
     try {
       if (!allPlayers.length) allPlayers = await api('players?select=*&order=id');
-      const matches = await api(`matches?select=*&ladder_id=eq.${currentLadder.id}`);
-      const pm   = {}; // points
-      const wm   = {}; // wins
-      const lm   = {}; // losses
-      const pfm  = {}; // pts for
-      const pam  = {}; // pts against
-      ladderPlayers.forEach((p) => { pm[p.id] = 0; wm[p.id] = 0; lm[p.id] = 0; pfm[p.id] = 0; pam[p.id] = 0; });
-      matches.forEach((m) => {
-        if (pm[m.player_id] === undefined) return;
-        pm[m.player_id] += m.points_earned || 0;
-        if (m.default_no_show || m.score_for === null) return;
-        pfm[m.player_id] += m.score_for || 0;
-        pam[m.player_id] += m.score_against || 0;
-        if (m.points_earned === 4) wm[m.player_id]++;
-        else if (m.points_earned !== undefined && m.points_earned < 4) lm[m.player_id]++;
+
+      // ── Shared RPCs — same source of truth the public players.html uses ──
+      const { data: standingsRows, error: stErr } =
+        await supabase.rpc('get_ladder_standings', { p_ladder_id: currentLadder.id });
+      if (stErr) throw new Error(stErr.message);
+      const { data: sessionsRows, error: sessErr } =
+        await supabase.rpc('get_ladder_sessions', { p_ladder_id: currentLadder.id });
+      if (sessErr) throw new Error(sessErr.message);
+
+      // Map RPC standings rows onto the shape renderLadder()/renderMomentumWatch() expect.
+      const ranked = (standingsRows || []).map((r) => ({
+        id: r.player_id, first_name: r.first_name, last_name: r.last_name, gender: r.gender,
+        _rank: r.rank, _points: Number(r.points) || 0, _wins: r.wins, _losses: r.losses,
+        _matches: r.matches_played, _ptsFor: r.pts_for, _diff: r.diff,
+      }));
+
+      // Flatten the sessions RPC (already deduped, court/game/team-paired) into a
+      // matches-like array — same shape renderMomentumWatch() and the stat cards
+      // below already know how to read, so neither had to change.
+      const matches = [];
+      (sessionsRows || []).forEach((s) => {
+        (s.games || []).forEach((g) => {
+          [...(g.team_a || []), ...(g.team_b || [])].forEach((row) => {
+            matches.push({
+              session_date: s.session_date, court_group: s.court_group, game_number: g.game_number,
+              player_id: row.player_id, points_earned: row.points_earned,
+            });
+          });
+        });
+        (s.no_shows || []).forEach((row) => {
+          matches.push({
+            session_date: s.session_date, court_group: s.court_group, game_number: null,
+            player_id: row.player_id, points_earned: row.points_earned,
+          });
+        });
       });
-      const ranked = [...ladderPlayers]
-        .filter((p) => p.ladder_status === 'active')
-        .sort((a, b) =>
-          ((pm[b.id] || 0) - (pm[a.id] || 0)) ||           // 1. Total points
-          ((wm[b.id] || 0) - (wm[a.id] || 0)) ||           // 2. Wins
-          (((pfm[b.id]||0)-(pam[b.id]||0)) - ((pfm[a.id]||0)-(pam[a.id]||0))) // 3. Diff
-        );
-      ranked.forEach((p, i) => {
-        p._rank    = i + 1;
-        p._points  = pm[p.id]  || 0;
-        p._wins    = wm[p.id]  || 0;
-        p._losses  = lm[p.id]  || 0;
-        p._matches = (wm[p.id] || 0) + (lm[p.id] || 0);
-        p._ptsFor = pfm[p.id] || 0;
-        p._diff   = (pfm[p.id] || 0) - (pam[p.id] || 0);
-      });
+
       allPlayers._ranked = ranked;
       const sessions = [...new Set(matches.map((m) => m.session_date))];
       const uniqueGames = new Set(
-        matches.map((m) => `${m.session_date}__${m.court_group}__${m.game_number}`),
+        matches.filter((m) => m.game_number !== null)
+          .map((m) => `${m.session_date}__${m.court_group}__${m.game_number}`),
       ).size;
       const leader = ranked[0] ? `${ranked[0].first_name} ${ranked[0].last_name}` : '-';
       // Show ladder title
@@ -1752,6 +1758,23 @@ window.selectLadderType = (type) => {
     }
   };
 
+  // ─── SHARED: dedupe raw match rows ───────────────────────
+  // Defensive fix for legacy duplicate rows in `matches` (the same player+
+  // game+court+date inserted more than once — e.g. from a double-click on
+  // "Save Roster" before the double-submit guard below existed). Keeps only
+  // the row with the highest id per player+game+court+date. Every place that
+  // aggregates matches for standings, rosters, or reports should read
+  // through this so a duplicate row can never inflate points/wins/games in
+  // one place while looking correct in another.
+  const dedupeMatches = (matches) => {
+    const deduped = {};
+    matches.forEach((m) => {
+      const key = `${m.session_date}__${m.court_group}__${m.game_number}__${m.player_id}`;
+      if (!deduped[key] || m.id > deduped[key].id) deduped[key] = m;
+    });
+    return Object.values(deduped);
+  };
+
   const loadSessions = async () => {
     if (!currentLadder) {
       document.getElementById('sessions-list').innerHTML =
@@ -1764,122 +1787,67 @@ window.selectLadderType = (type) => {
     if (titleEl) { titleEl.textContent = currentLadder.name; titleEl.style.display = 'block'; }
 
     try {
-      const matches = await api(
-        `matches?select=*,players(first_name,last_name)&ladder_id=eq.${currentLadder.id}&order=session_date.desc,court_group,game_number,id`,
-      );
-      if (!matches.length) {
+      // ── Shared RPC — same source of truth the public players.html uses ──
+      // Already deduped and team-paired server-side, so no local buildTeams() is needed here.
+      const { data: courtsData, error: sessErr } =
+        await supabase.rpc('get_ladder_sessions', { p_ladder_id: currentLadder.id });
+      if (sessErr) throw new Error(sessErr.message);
+      const courts = courtsData || [];
+      if (!courts.length) {
         document.getElementById('sessions-list').innerHTML =
           '<div class="empty">No sessions recorded yet.</div>';
         return;
       }
 
-      // Deduplicate matches — keep only the latest row per player+game+court+date
-      const deduped = {};
-      matches.forEach((m) => {
-        const dedupeKey = `${m.session_date}__${m.court_group}__${m.game_number}__${m.player_id}`;
-        if (!deduped[dedupeKey] || m.id > deduped[dedupeKey].id) {
-          deduped[dedupeKey] = m;
-        }
-      });
-      const dedupedMatches = Object.values(deduped);
-
-      // Group by court (date__time__court_group)
-      const grouped = {};
-      dedupedMatches.forEach((m) => {
-        const time = m.session_time || '00:00';
-        const key = `${m.session_date}__${time}__${m.court_group}`;
-        if (!grouped[key]) grouped[key] = { date: m.session_date, time, group: m.court_group, games: {}, noShow: [] };
-        if (m.default_no_show) {
-          grouped[key].noShow.push(m);
-        } else {
-          if (!grouped[key].games[m.game_number]) grouped[key].games[m.game_number] = [];
-          grouped[key].games[m.game_number].push(m);
-        }
-      });
-
-      // Group by date → time → courts
+      // Group by date → time → courts (each court already carries deduped, paired games)
       const byDate = {};
-      Object.values(grouped).forEach((s) => {
-        if (!byDate[s.date]) byDate[s.date] = {};
-        if (!byDate[s.date][s.time]) byDate[s.date][s.time] = [];
-        byDate[s.date][s.time].push(s);
+      courts.forEach((s) => {
+        const time = s.session_time || '00:00';
+        if (!byDate[s.session_date]) byDate[s.session_date] = {};
+        if (!byDate[s.session_date][time]) byDate[s.session_date][time] = [];
+        byDate[s.session_date][time].push(s);
       });
 
       const sortedDates = Object.keys(byDate).sort((a, b) => b.localeCompare(a));
 
-      // Helper: group 4 match rows into 2 teams by score_for value
-      const buildTeams = (players) => {
-        // Always exclude no-show players from team splitting
-        const activePlayers = players.filter(p => !p.default_no_show);
-        const allPending = activePlayers.every(p => p.score_for === null);
-        if (allPending) {
-          // No scores yet — split by roster order: first 2 = Team A, last 2 = Team B
-          return [activePlayers.slice(0, 2), activePlayers.slice(2)];
-        }
-        const teamMap = {};
-        activePlayers.forEach((p) => {
-          const key = p.score_for !== null ? String(p.score_for) : 'pending';
-          if (!teamMap[key]) teamMap[key] = [];
-          teamMap[key].push(p);
-        });
-        const keys = Object.keys(teamMap);
-        // Sort: higher score first = team A (winner)
-        const sorted = keys.sort((a, b) => {
-          const na = parseFloat(a), nb = parseFloat(b);
-          if (isNaN(na) || isNaN(nb)) return 0;
-          return nb - na;
-        });
-        return [teamMap[sorted[0]] || [], teamMap[sorted[1]] || []];
-      };
-
-      // Helper: compute per-date session summary
-      const computeSummary = (courts, allMatches) => {
-        const dateMatches = allMatches.filter(m =>
-          courts.some(c => c.date === m.session_date && c.group === m.court_group)
-        );
-        // Total games
-        const gameKeys = new Set(dateMatches.map(m => `${m.session_date}__${m.court_group}__${m.game_number}`));
-        const totalGames = gameKeys.size;
-        const totalCourts = courts.length;
-        // MVP — player with most points_earned this session
+      // Helper: compute per-date session summary from already-paired games
+      const computeSummary = (dateCourts) => {
+        const allGames = dateCourts.flatMap((c) => (c.games || []).map((g) => ({ ...g, court: c.court_group })));
+        const totalGames = allGames.length;
+        const totalCourts = dateCourts.length;
+        // MVP — player with most points_earned this date
         const ptsByPlayer = {};
         const nameByPlayer = {};
-        dateMatches.forEach(m => {
-          if (m.score_for !== null && !m.default_no_show) {
-            ptsByPlayer[m.player_id] = (ptsByPlayer[m.player_id] || 0) + (m.points_earned || 0);
-            if (m.players) nameByPlayer[m.player_id] = `${m.players.first_name} ${m.players.last_name}`;
-          }
+        allGames.forEach((g) => {
+          [...(g.team_a || []), ...(g.team_b || [])].forEach((row) => {
+            if (row.score_for !== null) {
+              ptsByPlayer[row.player_id] = (ptsByPlayer[row.player_id] || 0) + (row.points_earned || 0);
+              nameByPlayer[row.player_id] = `${row.first_name} ${row.last_name}`;
+            }
+          });
         });
-        const mvpId = Object.keys(ptsByPlayer).sort((a,b) => ptsByPlayer[b] - ptsByPlayer[a])[0];
+        const mvpId = Object.keys(ptsByPlayer).sort((a, b) => ptsByPlayer[b] - ptsByPlayer[a])[0];
         const mvpName = mvpId ? (nameByPlayer[mvpId] || 'Unknown') : '—';
         const mvpPts  = mvpId ? ptsByPlayer[mvpId] : 0;
-        // Closest match — smallest score diff
-        const scoredGames = [];
-        gameKeys.forEach(key => {
-          const gMatches = dateMatches.filter(m =>
-            `${m.session_date}__${m.court_group}__${m.game_number}` === key && m.score_for !== null
-          );
-          if (gMatches.length >= 2) {
-            const scores = [...new Set(gMatches.map(m => m.score_for))].sort((a,b) => b-a);
-            if (scores.length === 2) {
-              const diff = scores[0] - scores[1];
-              const parts = key.split('__');
-              scoredGames.push({ diff, score: `${scores[0]}–${scores[1]}`, court: parts[1], game: parts[2] });
-            }
-          }
-        });
-        scoredGames.sort((a,b) => a.diff - b.diff);
-        const closest  = scoredGames[0]  || null;
-        const biggest  = scoredGames[scoredGames.length - 1] || null;
+        // Closest / biggest — games with both teams scored
+        const scoredGames = allGames
+          .filter((g) => g.team_a?.[0]?.score_for != null && g.team_b?.[0]?.score_for != null)
+          .map((g) => {
+            const scores = [g.team_a[0].score_for, g.team_b[0].score_for].sort((a, b) => b - a);
+            return { diff: scores[0] - scores[1], score: `${scores[0]}–${scores[1]}`, court: g.court, game: g.game_number };
+          });
+        scoredGames.sort((a, b) => a.diff - b.diff);
+        const closest = scoredGames[0] || null;
+        const biggest = scoredGames[scoredGames.length - 1] || null;
         // Court highlight — court with smallest avg score diff (most competitive)
         const courtDiffs = {};
         const courtCounts = {};
-        scoredGames.forEach(g => {
+        scoredGames.forEach((g) => {
           courtDiffs[g.court]  = (courtDiffs[g.court]  || 0) + g.diff;
           courtCounts[g.court] = (courtCounts[g.court] || 0) + 1;
         });
-        const bestCourt = Object.keys(courtDiffs).sort((a,b) =>
-          (courtDiffs[a]/courtCounts[a]) - (courtDiffs[b]/courtCounts[b])
+        const bestCourt = Object.keys(courtDiffs).sort((a, b) =>
+          (courtDiffs[a] / courtCounts[a]) - (courtDiffs[b] / courtCounts[b]),
         )[0];
         return { totalGames, totalCourts, mvpName, mvpPts, closest, biggest, bestCourt };
       };
@@ -1908,17 +1876,14 @@ window.selectLadderType = (type) => {
         const dateLabel = `${weekday} Session — ${dateFormatted}`;
 
         // Per-date stats across all time slots
-        const allDateMatches = allCourts.flatMap(c => Object.values(c.games).flat());
+        const allDateRows = allCourts.flatMap((c) => (c.games || []).flatMap((g) => [...(g.team_a || []), ...(g.team_b || [])]));
         const courtCount    = allCourts.length;
-        const totalGames    = new Set(allDateMatches.map(m => `${m.court_group}__${m.game_number}`)).size;
-        const uniquePlayers = new Set(allDateMatches.map(m => m.player_id)).size;
-        const subCount      = allDateMatches.filter(m => m.is_sub).length;
-        const pendingGames  = allCourts.reduce((total, s) =>
-          total + Object.keys(s.games).filter(gnum =>
-            s.games[gnum].some(m => !m.default_no_show && m.score_for === null)
-          ).length, 0);
+        const totalGames    = allCourts.reduce((n, c) => n + (c.games || []).length, 0);
+        const uniquePlayers = new Set(allDateRows.map((r) => r.player_id)).size;
+        const subCount      = allDateRows.filter((r) => r.is_sub).length;
+        const pendingGames  = allCourts.reduce((n, c) => n + (c.games || []).filter((g) => g.status === 'pending').length, 0);
 
-        const sum = computeSummary(allCourts, matches);
+        const sum = computeSummary(allCourts);
 
         html += `<div class="session-date-group" id="${groupId}">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
@@ -1991,52 +1956,53 @@ window.selectLadderType = (type) => {
 
           // Court blocks inside this time slot
           timeCourts.forEach((s) => {
-          const courtGames   = Object.values(s.games).flat();
-          const courtPending = courtGames.some(m => !m.default_no_show && m.score_for === null);
-          // Include no-show row IDs so deleting a session removes them too
-          const allCourtRows    = [...courtGames, ...(s.noShow || [])];
-          const sessionMatchIds = allCourtRows.map(m => m.id).join(',');
+          const courtGames   = s.games || [];
+          const courtPending = courtGames.some((g) => g.status === 'pending');
+          // Include no-show row ids so deleting/editing a session covers them too
+          const allCourtMatchIds = [
+            ...courtGames.flatMap((g) => [...(g.team_a || []), ...(g.team_b || [])].map((r) => r.match_id)),
+            ...(s.no_shows || []).map((r) => r.match_id),
+          ];
+          const sessionMatchIds = allCourtMatchIds.join(',');
 
           // Build no-show banner HTML for court level display
-          const noShowBannerHtml = s.noShow && s.noShow.length ? s.noShow.map(ns => {
-            const name = ns.players ? `${esc(ns.players.first_name)} ${esc(ns.players.last_name)}` : 'Unknown';
+          const noShowBannerHtml = (s.no_shows || []).map((ns) => {
+            const name = `${esc(ns.first_name)} ${esc(ns.last_name)}`;
             const pts  = ns.points_earned;
             const isPenalty = pts < 0;
             return `<div style="display:flex;align-items:center;gap:8px;margin-top:8px;padding:7px 12px;background:var(--orange-light);border:1px solid rgba(242,96,36,0.2);border-radius:8px;flex-wrap:wrap;">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
               <span style="font-size:12px;font-weight:800;color:var(--orange);">No-show: ${name}</span>
               <span style="font-size:11px;font-weight:700;color:var(--orange);">${pts} pts</span>
-              <button onclick="toggleNoShowPenalty(${ns.id}, ${pts})"
+              <button onclick="toggleNoShowPenalty(${ns.match_id}, ${pts})"
                 style="margin-left:auto;padding:3px 10px;border:1px solid rgba(242,96,36,0.3);border-radius:99px;background:white;color:var(--orange);font-family:'Montserrat',sans-serif;font-size:10px;font-weight:700;cursor:pointer;">
                 Change to ${isPenalty ? '0 pts (excused)' : '-4 pts (penalty)'}
               </button>
             </div>`;
-          }).join('') : '';
+          }).join('');
 
           html += `<div class="court-block">
             <div class="court-block-hdr">
-              <span class="court-block-label">Court ${s.group}${courtPending ? ' <span style="font-size:9px;font-weight:800;color:var(--orange);background:var(--orange-light);padding:1px 6px;border-radius:99px;text-transform:uppercase;margin-left:6px;">Pending</span>' : ''}</span>
+              <span class="court-block-label">Court ${s.court_group}${courtPending ? ' <span style="font-size:9px;font-weight:800;color:var(--orange);background:var(--orange-light);padding:1px 6px;border-radius:99px;text-transform:uppercase;margin-left:6px;">Pending</span>' : ''}</span>
               <div style="display:flex;gap:6px;align-items:center;">
-                <button class="sess-edit-btn" data-action="editSession" data-matchids="${sessionMatchIds}" data-date="${esc(s.date)}" data-court="${s.group}" data-time="${esc(s.time||'')}" title="Edit session">${editSVG}</button>
-                <button class="sess-edit-btn" data-action="deleteSession" data-matchids="${sessionMatchIds}" data-date="${esc(s.date)}" data-court="${s.group}" data-time="${esc(s.time||'')}" title="Delete session" style="border-color:rgba(229,57,53,0.3);"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#e53935" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
+                <button class="sess-edit-btn" data-action="editSession" data-matchids="${sessionMatchIds}" data-date="${esc(s.session_date)}" data-court="${s.court_group}" data-time="${esc(s.session_time || '')}" title="Edit session">${editSVG}</button>
+                <button class="sess-edit-btn" data-action="deleteSession" data-matchids="${sessionMatchIds}" data-date="${esc(s.session_date)}" data-court="${s.court_group}" data-time="${esc(s.session_time || '')}" title="Delete session" style="border-color:rgba(229,57,53,0.3);"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#e53935" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
               </div>
             </div>
             ${noShowBannerHtml}`;
 
-          // Game rows — team-based layout
-          Object.entries(s.games).forEach(([gnum, players]) => {
-            const gameIds = players.map(p => p.id).join(',');
-            const [teamA, teamB] = buildTeams(players);
-            const isPending = players.some(p => p.score_for === null && !p.default_no_show);
+          // Game rows — teams already paired by the RPC
+          courtGames.forEach((g) => {
+            const gameIds = [...(g.team_a || []), ...(g.team_b || [])].map((r) => r.match_id).join(',');
 
             const renderTeam = (team, isWinner) => {
               if (!team || !team.length) return '';
               const p0 = team[0];
-              const score = p0.default_no_show ? '-1' : p0.score_for !== null ? String(p0.score_for) : '—';
-              const regularPts = team.filter(p => !p.is_sub).map(p => p.points_earned || 0);
+              const score = p0.score_for !== null ? String(p0.score_for) : '—';
+              const regularPts = team.filter((p) => !p.is_sub).map((p) => p.points_earned || 0);
               const teamPts    = regularPts.length ? Math.max(...regularPts) : (p0.points_earned || 0);
-              const pts        = p0.default_no_show ? '-1 pt' : p0.score_for !== null ? `+${teamPts} pts` : 'pending';
-              const isPend = p0.score_for === null && !p0.default_no_show;
+              const pts        = p0.score_for !== null ? `+${teamPts} pts` : 'pending';
+              const isPend = p0.score_for === null;
 
               let blockClass = 'sess-team-block ';
               let scoreClass = 'sess-score-num ';
@@ -2058,8 +2024,8 @@ window.selectLadderType = (type) => {
                 nameClass  += ' lose';
               }
 
-              const names = team.map(p => {
-                const name = p.players ? `${esc(p.players.first_name)} ${esc(p.players.last_name)}` : 'Unknown';
+              const names = team.map((p) => {
+                const name = `${esc(p.first_name)} ${esc(p.last_name)}`;
                 const sub  = p.is_sub ? '<span class="sub-pill-blue">SUB</span>' : '';
                 return name + sub;
               }).join('<br>');
@@ -2074,19 +2040,19 @@ window.selectLadderType = (type) => {
             };
 
             // Determine winner (higher score_for)
-            const scoreA = teamA[0] ? teamA[0].score_for : null;
-            const scoreB = teamB[0] ? teamB[0].score_for : null;
+            const scoreA = g.team_a?.[0] ? g.team_a[0].score_for : null;
+            const scoreB = g.team_b?.[0] ? g.team_b[0].score_for : null;
             const aWins  = scoreA !== null && scoreB !== null && scoreA > scoreB;
             const bWins  = scoreA !== null && scoreB !== null && scoreB > scoreA;
 
             html += `<div class="sess-game-row">
-              <span class="sess-game-label">Game ${gnum}</span>
+              <span class="sess-game-label">Game ${g.game_number}</span>
               <div class="sess-game-body">
-                ${renderTeam(teamA, aWins)}
+                ${renderTeam(g.team_a, aWins)}
                 <div class="sess-vs"><div class="sess-vs-line"></div><span>VS</span><div class="sess-vs-line"></div></div>
-                ${renderTeam(teamB, bWins)}
+                ${renderTeam(g.team_b, bWins)}
               </div>
-              <button class="sess-edit-btn" data-action="editGame" data-gameids="${gameIds}" data-gnum="${gnum}" data-date="${esc(s.date)}" data-court="${s.group}" title="Edit game">${editSVG}</button>
+              <button class="sess-edit-btn" data-action="editGame" data-gameids="${gameIds}" data-gnum="${g.game_number}" data-date="${esc(s.session_date)}" data-court="${s.court_group}" title="Edit game">${editSVG}</button>
             </div>`;
           });
 
@@ -2923,6 +2889,17 @@ window.selectLadderType = (type) => {
   };
 
   const submitSession = async () => {
+    // Guard against double-submit (rapid double-click / double-tap). The
+    // "does a session already exist" check and the insert below are two
+    // separate awaited steps, so without this guard two near-simultaneous
+    // clicks could both pass the check before either had inserted —
+    // creating duplicate match rows. Disabling synchronously here, before
+    // any await, closes that race: a disabled <button> does not dispatch a
+    // second click event at all.
+    const saveBtn = document.getElementById('save-session-btn');
+    if (saveBtn && saveBtn.disabled) return;
+    if (saveBtn) saveBtn.disabled = true;
+    try {
     if (!currentLadder) {
       toast('Please select a ladder first.', true);
       return;
@@ -3114,6 +3091,9 @@ window.selectLadderType = (type) => {
     } catch (e) {
       toast(`Error: ${e.message}`, true);
     }
+    } finally {
+      if (saveBtn) saveBtn.disabled = false;
+    }
   };
 
   /* ─── PRINT ROSTER ─────────────────────────────────────── */
@@ -3127,24 +3107,37 @@ window.selectLadderType = (type) => {
     btn.textContent = '⏳ Generating...';
 
     try {
-      // Fetch all matches for this date + ladder, including player names
-      const matches = await api(
-        `matches?select=*,players(first_name,last_name)&ladder_id=eq.${ladderId}&session_date=eq.${date}&order=session_time,court_group,game_number,id`
-      );
-      if (!matches.length) { toast('No sessions found for this date.', true); return; }
+      // ── Shared RPC — same source of truth as the Sessions tab and players.html ──
+      const { data: allSessions, error: sessErr } =
+        await supabase.rpc('get_ladder_sessions', { p_ladder_id: ladderId });
+      if (sessErr) throw new Error(sessErr.message);
+      const dateSessions = (allSessions || []).filter((s) => s.session_date === date);
+      if (!dateSessions.length) { toast('No sessions found for this date.', true); return; }
 
-      // Group by time → court
+      // Group by time → court, flattening the RPC's already-deduped, paired
+      // teams back into per-game row arrays — the exact shape the PDF-drawing
+      // code below expects, so that layout code didn't need to change.
       const byTime = {};
-      matches.forEach((m) => {
-        const t = m.session_time || '00:00';
+      dateSessions.forEach((s) => {
+        const t = s.session_time || '00:00';
         if (!byTime[t]) byTime[t] = {};
-        if (!byTime[t][m.court_group]) byTime[t][m.court_group] = { games: {}, noShow: [] };
-        if (m.default_no_show) {
-          byTime[t][m.court_group].noShow.push(m);
-        } else {
-          if (!byTime[t][m.court_group].games[m.game_number]) byTime[t][m.court_group].games[m.game_number] = [];
-          byTime[t][m.court_group].games[m.game_number].push(m);
-        }
+        const courtEntry = { games: {}, noShow: [] };
+        (s.games || []).forEach((g) => {
+          courtEntry.games[g.game_number] = [...(g.team_a || []), ...(g.team_b || [])].map((r) => ({
+            id: r.match_id, player_id: r.player_id, score_for: r.score_for, score_against: r.score_against,
+            points_earned: r.points_earned, is_sub: r.is_sub, default_no_show: false,
+            court_group: s.court_group, game_number: g.game_number, session_time: s.session_time,
+            players: { first_name: r.first_name, last_name: r.last_name },
+          }));
+        });
+        (s.no_shows || []).forEach((ns) => {
+          courtEntry.noShow.push({
+            id: ns.match_id, player_id: ns.player_id, points_earned: ns.points_earned,
+            default_no_show: true, court_group: s.court_group, session_time: s.session_time,
+            players: { first_name: ns.first_name, last_name: ns.last_name },
+          });
+        });
+        byTime[t][s.court_group] = courtEntry;
       });
       const sortedPdfTimes = Object.keys(byTime).sort();
 
@@ -4334,6 +4327,29 @@ window.selectLadderType = (type) => {
     document.getElementById('ppm-status-pill').className = isActive ? 'ppm-active' : 'ppm-inactive';
     document.getElementById('ppm-status-pill').innerHTML = isActive ? '🟢 Active' : '⚪ Inactive';
     document.getElementById('ppm-footer-info').textContent = `Player ID #${p.id}${p.date_joined ? ' · Joined ' + fmtDate(p.date_joined) : ''}`;
+
+    // ── Copy Player DNA (portal) link ─────────────────────────────────────
+    const plBtn = document.getElementById('ppm-portal-link');
+    if (plBtn) {
+      if (p.portal_token) {
+        const base = window.location.origin + window.location.pathname.replace(/admin\.html$/, '');
+        const portalUrl = `${base}portal/player-dna.html?t=${p.portal_token}`;
+        plBtn.style.display = 'inline-flex';
+        plBtn.onclick = () => {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(portalUrl).then(
+              () => toast('Player DNA link copied!'),
+              () => toast(portalUrl),
+            );
+          } else {
+            toast(portalUrl);
+          }
+        };
+      } else {
+        plBtn.style.display = 'none';
+        plBtn.onclick = null;
+      }
+    }
 
     // ── Fetch all data fresh ──────────────────────────────────────────────
     const rpc = async (fn, args) => {
