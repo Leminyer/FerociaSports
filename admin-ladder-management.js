@@ -239,22 +239,22 @@
 
     // Rotating Partner tabs
     if (tab === 'players') {
-      showPage('ladder', document.getElementById('sb-standings'));
+      window.showPage('ladder', document.getElementById('sb-standings'));
       await window.loadLadder();
     } else if (tab === 'sessions') {
-      showPage('sessions', document.getElementById('sb-sessions'));
+      window.showPage('sessions', document.getElementById('sb-sessions'));
     } else if (tab === 'standings') {
-      showPage('ladder', document.getElementById('sb-standings'));
+      window.showPage('ladder', document.getElementById('sb-standings'));
       await window.loadLadder();
     // FTC tabs
     } else if (tab === 'ftc-standings') {
-      showPage('ftc-standings', document.getElementById('sb-ftc-standings'));
+      window.showPage('ftc-standings', document.getElementById('sb-ftc-standings'));
     } else if (tab === 'ftc-teams') {
-      showPage('ftc-teams', document.getElementById('sb-ftc-teams'));
+      window.showPage('ftc-teams', document.getElementById('sb-ftc-teams'));
     } else if (tab === 'ftc-schedule') {
-      showPage('ftc-schedule', document.getElementById('sb-ftc-schedule'));
+      window.showPage('ftc-schedule', document.getElementById('sb-ftc-schedule'));
     } else if (tab === 'ftc-playoffs') {
-      showPage('ftc-playoffs', document.getElementById('sb-ftc-playoffs'));
+      window.showPage('ftc-playoffs', document.getElementById('sb-ftc-playoffs'));
     }
   };
 

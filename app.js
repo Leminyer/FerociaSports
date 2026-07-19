@@ -1151,6 +1151,9 @@ window.selectLadderType = (type) => {
   window.fmtDate      = fmtDate;
   window.confirmModal = confirmModal;
   window.toast        = toast;
+  // showPage is called directly (not via CLICK_HANDLERS) from
+  // admin-ladder-selector.js and admin-ladder-management.js
+  window.showPage     = showPage;
 
   // Track auth state so tournament.js can wait on it too
   window.app.authReady = new Promise((resolve) => {

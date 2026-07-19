@@ -58,9 +58,9 @@
     updateLadderBanner();
     await loadLadderPlayers();
     if (AdminState.currentLadder?.ladder_type === 'ftc') {
-      showPage('ftc-standings', document.getElementById('sb-ftc-standings'));
+      window.showPage('ftc-standings', document.getElementById('sb-ftc-standings'));
     } else {
-      showPage('ladder', document.getElementById('sb-standings'));
+      window.showPage('ladder', document.getElementById('sb-standings'));
     }
   };
 
