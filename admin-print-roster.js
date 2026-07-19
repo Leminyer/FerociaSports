@@ -41,11 +41,15 @@
         if (!byTime[t]) byTime[t] = {};
         const courtEntry = { games: {}, noShow: [] };
         (s.games || []).forEach((g) => {
-          courtEntry.games[g.game_number] = [...(g.team_a || []), ...(g.team_b || [])].map((r) => ({
+          courtEntry.games[g.game_number] = [
+            ...(g.team_a || []).map((r) => ({ ...r, _rpcTeam: 'a' })),
+            ...(g.team_b || []).map((r) => ({ ...r, _rpcTeam: 'b' })),
+          ].map((r) => ({
             id: r.match_id, player_id: r.player_id, score_for: r.score_for, score_against: r.score_against,
             points_earned: r.points_earned, is_sub: r.is_sub, default_no_show: false,
             court_group: s.court_group, game_number: g.game_number, session_time: s.session_time,
             players: { first_name: r.first_name, last_name: r.last_name },
+            _rpcTeam: r._rpcTeam,
           }));
         });
         (s.no_shows || []).forEach((ns) => {
@@ -424,16 +428,14 @@
           // Split into teams using same logic as sessions page:
           // group by score_for value (same score = same team); pending = slice(0,2)/slice(2,4)
           const pdfBuildTeams = (players) => {
-            const allPending = players.every(p => p.score_for === null);
-            if (allPending) return [players.slice(0, 2), players.slice(2)];
-            const teamMap = {};
-            players.forEach(p => {
-              const k = p.score_for !== null ? String(p.score_for) : 'pending';
-              if (!teamMap[k]) teamMap[k] = [];
-              teamMap[k].push(p);
-            });
-            const sorted = Object.keys(teamMap).sort((a,b) => parseFloat(b) - parseFloat(a));
-            return [teamMap[sorted[0]]||[], teamMap[sorted[1]]||[]];
+            // Trust the pairing get_ladder_sessions() already computed (team_a/
+            // team_b, tagged via _rpcTeam when the rows were flattened above) —
+            // don't re-derive it here by guessing from score_for, since that
+            // heuristic can't tell two different sessions' rows apart the way
+            // the RPC (which knows session_time) can.
+            const teamA = players.filter((p) => p._rpcTeam === 'a');
+            const teamB = players.filter((p) => p._rpcTeam === 'b');
+            return [teamA, teamB];
           };
           const [teamAPlayers, teamBPlayers] = pdfBuildTeams(gamePlayers);
           const teamANames = teamAPlayers.map((m) => m.players ? `${m.players.first_name} ${m.players.last_name}` : '?');
@@ -512,9 +514,8 @@
           if (game4InDB) {
             // Render with actual saved players
             const g4Players = court.games[4].filter((m) => !m.default_no_show);
-            const half = Math.ceil(g4Players.length / 2);
-            const tA = g4Players.slice(0, half).map((m) => m.players ? `${m.players.first_name} ${m.players.last_name}` : '?');
-            const tB = g4Players.slice(half).map((m) => m.players ? `${m.players.first_name} ${m.players.last_name}` : '?');
+            const tA = g4Players.filter((m) => m._rpcTeam === 'a').map((m) => m.players ? `${m.players.first_name} ${m.players.last_name}` : '?');
+            const tB = g4Players.filter((m) => m._rpcTeam === 'b').map((m) => m.players ? `${m.players.first_name} ${m.players.last_name}` : '?');
             const BOX_H = tA.length * LINE_H + VS_H + tB.length * LINE_H;
 
             doc.setFont('helvetica', 'bold');
