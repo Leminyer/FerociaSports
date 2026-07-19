@@ -903,11 +903,199 @@ window.selectLadderType = (type) => {
   /* ─── PROMOTIONS ───────────────────────────────────────── */
   /* Extracted to admin-promotions.js. */
 
-  /* ─── EVENT DELEGATION ─────────────────────────────────── */
-
   /* ─── FTC LADDER ─────────────────────────────────────────  */
   /* Extracted to admin-ftc-standings.js, admin-ftc-playoffs-schedule.js,
      and admin-ftc-teams.js. */
+
+  /* ─── EVENT DELEGATION ─────────────────────────────────── */
+  // Recovered from a misplaced extraction — this general, app-wide click/
+  // change/input delegation must live in app.js (it references bare
+  // identifiers like showPage/goHome/deleteEvent that only exist in this
+  // file's closure), not in any single admin-*.js feature module.
+
+  // Click handler — looks up the action handler for any [data-action] click.
+  // Merges into the shared registry (admin-state.js) so extracted admin-*.js
+  // modules can add their own entries to the same object.
+  Object.assign(window.CLICK_HANDLERS, {
+    // Navigation
+    showPage: (btn) => showPage(btn.dataset.page, btn),
+    goHome: () => goHome(),
+    sbGoHome: () => goHome(),
+    sbShowLadder: () => sbShowLadder(),
+    sbShowTournament: () => sbShowTournament(),
+    sbToggleMore: () => sbToggleMore(),
+    // Court / session entry / Sessions — all now registered by admin-sessions.js
+    // Ladders / Ladder players modal — all now registered by admin-ladder-management.js
+    // Players — openEdit/openPlayerProfile/closeModal now registered by admin-players.js
+    // openPlayerHistory/closePlayerHistory now registered by admin-player-status-history.js
+    // Modals
+    // closeEditLadderModal now registered by admin-ladder-management.js
+    closeEditGameModal: () =>
+      document.getElementById('edit-game-modal').classList.remove('open'),
+    closeNotifyModal: () => document.getElementById('notify-modal').classList.remove('open'),
+    closePromoModal: () => {
+      const modal = document.getElementById('promo-modal');
+      if (modal) { modal.style.display = 'none'; document.body.style.overflow = ''; }
+    },
+    closeEditSessionModal: () =>
+      document.getElementById('edit-session-modal').classList.remove('open'),
+    // Notify / promo
+    // openNotifyPlayers/openSendPromo now registered by admin-email-notifications.js / admin-promotions.js
+    sendPendingReminder: async () => {
+      try {
+        const pending = await api(
+          'subscribers?status=eq.pending&select=first_name,last_name,email,confirm_token'
+        );
+        if (!pending.length) {
+          toast('No pending subscribers to remind.', true);
+          return;
+        }
+
+        // Confirm with admin before sending
+        const confirmed = await confirmModal({
+          title: 'Send Confirmation Reminders',
+          message: `Send a confirmation email reminder to ${pending.length} pending subscriber${pending.length !== 1 ? 's' : ''}? Each will receive a link to confirm their subscription.`,
+          okLabel: 'Send Reminders',
+        });
+        if (!confirmed) return;
+
+        const baseUrl = window.location.origin + window.location.pathname.replace('admin.html', '');
+        emailjs.init({ publicKey: CFG.EMAILJS.PUBLIC_KEY });
+
+        let sent = 0;
+        const failed = [];
+
+        for (const sub of pending) {
+          const confirmUrl = sub.confirm_token
+            ? `${baseUrl}confirm.html?t=${sub.confirm_token}`
+            : `${baseUrl}confirm.html`;
+
+          const ok = await window.sendOneEmail(CFG.EMAILJS.SERVICE, CFG.EMAILJS.TEMPLATES.CONFIRM, {
+            player_name:  `${sub.first_name} ${sub.last_name}`,
+            player_email: sub.email,
+            subject:      '⏰ Reminder: Please confirm your Ferocia Sports subscription',
+            confirm_url:  confirmUrl,
+          });
+
+          if (ok) sent++;
+          else failed.push(sub.email);
+
+          if (sent + failed.length < pending.length) {
+            await sleep(CFG.EMAIL_THROTTLE_MS);
+          }
+        }
+
+        if (!failed.length) {
+          toast(`✅ Confirmation reminder sent to ${sent} subscriber${sent !== 1 ? 's' : ''}!`);
+        } else {
+          toast(`Sent ${sent} reminders. ${failed.length} failed: ${failed.join(', ')}`, true);
+        }
+        // Refresh page data
+        await window.loadSubscribers();
+      } catch(e) {
+        toast(`Error: ${e.message}`, true);
+      }
+    },
+    // generateQR now registered by admin-promotions.js
+    // Share — copyShareLink/switchShareTab/showShareQR now registered by admin-share.js
+    // Auth
+    signOut: async () => {
+      const ok = await confirmModal({
+        title: 'Sign out?',
+        message: 'You will need to sign in again to access the admin area.',
+        okLabel: 'Sign out',
+      });
+      if (ok) window.auth.signOut();
+    },
+    // Tournament notify — closeTournamentNotifyModal now registered by admin-tournament-notify.js
+    // Orders management — markFulfilled now registered by admin-orders.js
+    // Events management
+    deleteEvent: (btn) => deleteEvent(btn),
+    openEditEventModal: (btn) => openEditEventModal(btn),
+    closeEditEventModal: () => closeEditEventModal(),
+    // printRoster now registered by admin-print-roster.js
+    // printStandings now registered by admin-ladder-standings.js
+    // toggleSessionGroup now registered by admin-sessions.js
+  });
+
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    const handler = window.CLICK_HANDLERS[btn.dataset.action];
+    if (handler) handler(btn);
+  });
+
+  // Change handler — for selects / radios that need a custom action
+  document.addEventListener('change', (e) => {
+    const el = e.target;
+    if (el.dataset.action === 'lpChangeStatus') {
+      window.lpChangeStatus(el);
+      return;
+    }
+    if (el.name === 'noshow-penalty') {
+      AdminState.noShowPenalty = parseInt(el.value, 10);
+      return;
+    }
+    if (el.id === 'notify-type') {
+      window.setNotifyTemplate(el.value);
+      return;
+    }
+    if (el.id === 'gender-filter') {
+      window.renderLadder();
+      return;
+    }
+    if (el.id === 'edit-status') {
+      // Toggle the inactivation-reason textarea when admin changes status in Edit modal
+      window.updateReasonVisibility();
+      // Hide any stale required-field error when user navigates back to active
+      const errEl = document.getElementById('edit-reason-error');
+      if (errEl) errEl.style.display = 'none';
+      return;
+    }
+  });
+
+  // Input handler — search + auto-calc previews
+  document.addEventListener('input', (e) => {
+    const el = e.target;
+    if (el.id === 'lp-search') {
+      window.lpApplyFilters();
+      return;
+    }
+    if (el.id === 'player-search-entry') {
+      window.searchPlayersEntry();
+      return;
+    }
+    // Edit-game modal: recompute points when scores change
+    const rid = el.dataset.egrid;
+    if (rid) {
+      const sf = document.getElementById(`eg-sf-${rid}`);
+      const sa = document.getElementById(`eg-sa-${rid}`);
+      const pts = document.getElementById(`eg-pts-${rid}`);
+      if (sf && sa && pts && sf.value !== '' && sa.value !== '') {
+        pts.value = window.calcPoints(parseInt(sf.value, 10), parseInt(sa.value, 10));
+      }
+    }
+    // When any score input changes, update save button label dynamically
+    if (el.classList.contains('score-input')) {
+      const anyScore = document.querySelectorAll('.score-input');
+      const hasAnyScore = [...anyScore].some((inp) => inp.value !== '');
+      const btn = document.getElementById('save-session-btn');
+      const hint = document.getElementById('save-session-hint');
+      if (btn) btn.textContent = hasAnyScore ? 'Save Session' : 'Save Roster';
+      if (hint) hint.style.display = hasAnyScore ? 'none' : '';
+    }
+    // Extra game / game-4 score inputs
+    const egame = el.dataset.egame;
+    if (egame) {
+      window.autoCalcExtraGame(parseInt(egame, 10));
+    }
+    // Round-robin auto-calc preview
+    const ascore = el.dataset.autoscore;
+    if (ascore) {
+      window.autoCalcGame(parseInt(ascore, 10));
+    }
+  });
+
 
   /* ─── BOOT ─────────────────────────────────────────────── */
 
