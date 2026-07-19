@@ -1154,6 +1154,9 @@ window.selectLadderType = (type) => {
   // showPage is called directly (not via CLICK_HANDLERS) from
   // admin-ladder-selector.js and admin-ladder-management.js
   window.showPage     = showPage;
+  // fmtTime12 is called directly from admin-sessions.js,
+  // admin-ftc-playoffs-schedule.js, and admin-print-roster.js
+  window.fmtTime12    = fmtTime12;
 
   // Track auth state so tournament.js can wait on it too
   window.app.authReady = new Promise((resolve) => {

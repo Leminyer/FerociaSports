@@ -1037,7 +1037,7 @@
             const court2 = courts.length >= 2 ? (courts[c2idx] || courts[c2idx % courts.length] || '—') : null;
             const courtDisplay = court2 ? `${court1} – ${court2}` : court1;
             const time   = document.getElementById('ftc-sch-time')?.value || '';
-            const timeDisplay = time ? fmtTime12(time) : '—';
+            const timeDisplay = time ? window.fmtTime12(time) : '—';
 
             return `<div style="display:grid;grid-template-columns:minmax(180px,1fr) 85px 110px 160px 110px;gap:16px;padding:10px 16px;border-bottom:0.5px solid #f4f5f8;align-items:center;">
               <div style="display:flex;align-items:center;gap:8px;">
@@ -1440,7 +1440,7 @@
             const subMatches    = matchesBySchedule[s.id] || [];
             const courtParts    = s.court ? s.court.split(',').map(c => c.trim()) : [];
             const courtDisplay  = courtParts.length >= 2 ? `${courtParts[0]} – ${courtParts[1]}` : (courtParts[0] || '—');
-            const timeDisplay   = s.match_time ? fmtTime12(s.match_time) : '—';
+            const timeDisplay   = s.match_time ? window.fmtTime12(s.match_time) : '—';
             const rowStatus     = s.status === 'completed' ? 'ftc-status-completed' : 'ftc-status-scheduled';
             const regularMatches = subMatches.filter(m => !m.is_tiebreaker);
             const completedCount = regularMatches.filter(m => m.status === 'completed').length;

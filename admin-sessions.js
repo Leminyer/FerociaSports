@@ -234,7 +234,7 @@
           html += `<div style="margin-bottom:10px;">
             <div style="display:flex;align-items:center;gap:8px;padding:6px 12px;background:#f4f6fc;border-radius:6px;margin-bottom:6px;border-left:3px solid #174CCC;">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-              <span style="font-size:11px;font-weight:800;color:#174CCC;">${fmtTime12(time)}</span>
+              <span style="font-size:11px;font-weight:800;color:#174CCC;">${window.fmtTime12(time)}</span>
             </div>`;
 
           // Court blocks inside this time slot
@@ -420,7 +420,7 @@
       if (existing.length) {
         const d = fmtDate(newDate, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
         toast(
-          `A session already exists for Court ${newCourt} on ${d} at ${fmtTime12(newTime)}. Please choose a different date, time, or court.`,
+          `A session already exists for Court ${newCourt} on ${d} at ${window.fmtTime12(newTime)}. Please choose a different date, time, or court.`,
           true,
         );
         return;
@@ -1212,7 +1212,7 @@
     if (existing.length) {
       const existingDate = fmtDate(date, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
       toast(
-        `A session for Court ${courtNum} on ${existingDate} at ${fmtTime12(sessionTm)} already exists. Please choose a different date, time, or court.`,
+        `A session for Court ${courtNum} on ${existingDate} at ${window.fmtTime12(sessionTm)} already exists. Please choose a different date, time, or court.`,
         true,
       );
       return;

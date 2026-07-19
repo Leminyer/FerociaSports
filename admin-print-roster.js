@@ -168,7 +168,7 @@
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(8.5);
         doc.setTextColor(...WHITE);
-        doc.text(`Court ${courtNum} · ${fmtTime12(time)}`, startX + COL_W / 2, startY + 5, { align: 'center' });
+        doc.text(`Court ${courtNum} · ${window.fmtTime12(time)}`, startX + COL_W / 2, startY + 5, { align: 'center' });
 
         // Player rows
         let ry = startY + COURT_HDR_H;
@@ -327,7 +327,7 @@
         doc.setFont('helvetica', 'normal');
         doc.text(`Date: ${dateLabel}`, ML, 17);
         doc.setFont('helvetica', 'bold');
-        doc.text(`Court: ${courtNum}  ·  ${fmtTime12(time)}`, PW - MR, 17, { align: 'right' });
+        doc.text(`Court: ${courtNum}  ·  ${window.fmtTime12(time)}`, PW - MR, 17, { align: 'right' });
 
         y = 30; // after header
 
