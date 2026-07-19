@@ -578,10 +578,11 @@
 
   // Input handler — search + auto-calc previews
   // ── Ladder Participants gender filter ─────────────────────────────────
-  let _lpGenderFilter = 'all'; // 'all' | 'male' | 'female'
+  // AdminState.lpGenderFilter — shared with admin-ladder-management.js,
+  // since the same "lp-modal" is used for regular ladders and FTC rosters.
 
   window.lpGenderFilter = (gender) => {
-    _lpGenderFilter = gender;
+    AdminState.lpGenderFilter = gender;
     // Update pill styles
     ['all','male','female'].forEach(g => {
       const btn = document.getElementById(`lp-filter-${g}`);
@@ -598,7 +599,7 @@
     const q = (document.getElementById('lp-search')?.value || '').toLowerCase();
     document.querySelectorAll('#lp-enrolled .lp-player-row-new').forEach((row) => {
       const nameMatch   = row.dataset.name?.includes(q) ?? true;
-      const genderMatch = _lpGenderFilter === 'all' || row.dataset.gender === _lpGenderFilter;
+      const genderMatch = AdminState.lpGenderFilter === 'all' || row.dataset.gender === AdminState.lpGenderFilter;
       row.style.display = (nameMatch && genderMatch) ? '' : 'none';
     });
   };

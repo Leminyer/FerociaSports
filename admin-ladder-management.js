@@ -409,7 +409,7 @@
     if (modal) { modal.style.display = 'flex'; document.body.style.overflow = 'hidden'; }
     const searchEl = document.getElementById('lp-search');
     // Reset gender filter to 'all' on open
-    _lpGenderFilter = 'all';
+    AdminState.lpGenderFilter = 'all';
     ['all','male','female'].forEach(g => {
       const btn = document.getElementById(`lp-filter-${g}`);
       if (!btn) return;

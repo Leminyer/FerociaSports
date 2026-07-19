@@ -52,6 +52,10 @@ window.AdminState = {
     schedule: [], // ftcSchedule — used across FTC Standings/Schedule Generation
     matches: [],  // ftcMatches — used across FTC Standings/Playoffs/Schedule Generation
   },
+  lpGenderFilter: 'all', // Ladder Players modal's gender filter — the SAME modal
+                         // is opened by both admin-ladder-management.js (regular
+                         // ladders) and admin-ftc-teams.js (FTC roster), so this
+                         // can't be a private variable in either file.
 };
 
 window.CLICK_HANDLERS   = window.CLICK_HANDLERS   || {};
