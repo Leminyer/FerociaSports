@@ -323,8 +323,6 @@
   let ladderData        = null;
   let allMatches        = [];
   let ladderPlayers     = [];
-  let standingsData     = [];  // raw get_ladder_standings() rows
-  let sessionsRpcData   = [];  // raw get_ladder_sessions() rows
   let currentGenderFilter = 'all';
 
   // Tab navigation
@@ -361,19 +359,20 @@
 
   // ── EXACT same as old players.html ─────────────────────────────────────
   const calcPlayerPoints = () => {
-    // Sourced from the shared get_ladder_standings() RPC — same numbers the
-    // admin's Standings tab shows, dedup and all.
     const pm  = {}; // points
     const wm  = {}; // wins
     const lm  = {}; // losses
     const pfm = {}; // pts for
     const pam = {}; // pts against
-    standingsData.forEach((r) => {
-      pm[r.player_id]  = Number(r.points) || 0;
-      wm[r.player_id]  = r.wins;
-      lm[r.player_id]  = r.losses;
-      pfm[r.player_id] = r.pts_for;
-      pam[r.player_id] = r.pts_against;
+    ladderPlayers.forEach((p) => { pm[p.id] = 0; wm[p.id] = 0; lm[p.id] = 0; pfm[p.id] = 0; pam[p.id] = 0; });
+    allMatches.forEach((m) => {
+      if (pm[m.player_id] === undefined) return;
+      pm[m.player_id] += m.points_earned || 0;
+      if (m.default_no_show || m.score_for === null) return;
+      pfm[m.player_id] += m.score_for || 0;
+      pam[m.player_id] += m.score_against || 0;
+      if (m.points_earned === 4) wm[m.player_id]++;
+      else if (m.points_earned !== undefined && m.points_earned < 4) lm[m.player_id]++;
     });
     return { pm, wm, lm, pfm, pam };
   };
@@ -601,38 +600,47 @@
 
   // ── Sessions — exact same logic as old players.html ───────────────────
   // (same grouping, filtering completed only, same name lookup from ladderPlayers)
-  // ── Sessions — sourced from the shared get_ladder_sessions() RPC ──────
-  // Dedup and team-pairing already happened in SQL; this just renders.
-  // Pending courts are shown (with a badge), same as the admin — a court is
-  // never hidden just because one game in it doesn't have a score yet.
-  const computeSummary = (dateCourts) => {
-    const allGames = dateCourts.flatMap(c => (c.games || []).map(g => ({ ...g, court: c.court_group })));
-    const totalGames = allGames.length;
-    const totalCourts = dateCourts.length;
-    const ptsByPlayer = {}, nameByPlayer = {};
-    allGames.forEach(g => {
-      [...(g.team_a || []), ...(g.team_b || [])].forEach(row => {
-        if (row.score_for !== null) {
-          ptsByPlayer[row.player_id] = (ptsByPlayer[row.player_id] || 0) + (row.points_earned || 0);
-          nameByPlayer[row.player_id] = `${row.first_name} ${row.last_name}`;
-        }
-      });
+  const buildTeams = (players) => {
+    const allPending = players.every(p => p.score_for === null && !p.default_no_show);
+    if (allPending) return [players.slice(0, 2), players.slice(2)];
+    const teamMap = {};
+    players.forEach(p => {
+      const key = p.default_no_show ? `ns_${p.player_id}` : p.score_for !== null ? String(p.score_for) : 'pending';
+      if (!teamMap[key]) teamMap[key] = [];
+      teamMap[key].push(p);
     });
-    const mvpId   = Object.keys(ptsByPlayer).sort((a,b) => ptsByPlayer[b] - ptsByPlayer[a])[0];
-    const mvpName = mvpId ? (nameByPlayer[mvpId] || 'Unknown') : '—';
+    const sorted = Object.keys(teamMap).sort((a,b) => { const na=parseFloat(a),nb=parseFloat(b); return isNaN(na)||isNaN(nb)?0:nb-na; });
+    return [teamMap[sorted[0]]||[], teamMap[sorted[1]]||[]];
+  };
+
+  const computeSummary = (courts) => {
+    const dateMatches = courts.flatMap(c => Object.values(c.games).flat());
+    const gameKeys    = new Set(dateMatches.map(m => `${m.session_date}__${m.court_group}__${m.game_number}`));
+    const ptsByPlayer = {}, nameByPlayer = {};
+    dateMatches.forEach(m => {
+      if (m.score_for !== null && !m.default_no_show) {
+        ptsByPlayer[m.player_id] = (ptsByPlayer[m.player_id]||0) + (m.points_earned||0);
+        const lp = ladderPlayers.find(x => x.id === m.player_id);
+        if (lp) nameByPlayer[m.player_id] = `${lp.first_name} ${lp.last_name}`;
+      }
+    });
+    const mvpId   = Object.keys(ptsByPlayer).sort((a,b)=>ptsByPlayer[b]-ptsByPlayer[a])[0];
+    const mvpName = mvpId ? (nameByPlayer[mvpId]||'Unknown') : '—';
     const mvpPts  = mvpId ? ptsByPlayer[mvpId] : 0;
-    const scoredGames = allGames
-      .filter(g => g.team_a?.[0]?.score_for != null && g.team_b?.[0]?.score_for != null)
-      .map(g => {
-        const scores = [g.team_a[0].score_for, g.team_b[0].score_for].sort((a,b) => b - a);
-        return { diff: scores[0] - scores[1], score: `${scores[0]}–${scores[1]}`, court: g.court, game: g.game_number };
-      });
-    scoredGames.sort((a,b) => a.diff - b.diff);
-    const closest = scoredGames[0] || null, biggest = scoredGames[scoredGames.length - 1] || null;
-    const courtDiffs = {}, courtCounts = {};
-    scoredGames.forEach(g => { courtDiffs[g.court] = (courtDiffs[g.court] || 0) + g.diff; courtCounts[g.court] = (courtCounts[g.court] || 0) + 1; });
-    const bestCourt = Object.keys(courtDiffs).sort((a,b) => (courtDiffs[a]/courtCounts[a]) - (courtDiffs[b]/courtCounts[b]))[0];
-    return { totalGames, totalCourts, mvpName, mvpPts, closest, biggest, bestCourt };
+    const scoredGames = [];
+    gameKeys.forEach(key => {
+      const gm = dateMatches.filter(m => `${m.session_date}__${m.court_group}__${m.game_number}`===key && m.score_for!==null);
+      if (gm.length >= 2) {
+        const scores = [...new Set(gm.map(m=>m.score_for))].sort((a,b)=>b-a);
+        if (scores.length===2) { const p=key.split('__'); scoredGames.push({diff:scores[0]-scores[1],score:`${scores[0]}–${scores[1]}`,court:p[1],game:p[2]}); }
+      }
+    });
+    scoredGames.sort((a,b)=>a.diff-b.diff);
+    const closest=scoredGames[0]||null, biggest=scoredGames[scoredGames.length-1]||null;
+    const courtDiffs={},courtCounts={};
+    scoredGames.forEach(g=>{courtDiffs[g.court]=(courtDiffs[g.court]||0)+g.diff;courtCounts[g.court]=(courtCounts[g.court]||0)+1;});
+    const bestCourt=Object.keys(courtDiffs).sort((a,b)=>(courtDiffs[a]/courtCounts[a])-(courtDiffs[b]/courtCounts[b]))[0];
+    return {totalGames:gameKeys.size,totalCourts:courts.length,mvpName,mvpPts,closest,biggest,bestCourt};
   };
 
   const renderSessions = () => {
@@ -642,18 +650,40 @@
     const subSm=`<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#6b7a99" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`;
     const gameSm=`<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#6b7a99" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="5"/><path d="M8.56 13.9l-1.56 6.1 5-3 5 3-1.56-6.1"/></svg>`;
 
-    if (!sessionsRpcData.length) {
+    if (!allMatches.length) {
       document.getElementById('sessions-content').innerHTML = '<div class="empty">No sessions recorded yet.</div>';
       return;
     }
 
-    // Group by date → time → courts (courts already carry deduped, paired games)
+    // Group by date__time__court (same as admin sessions)
+    const grouped = {};
+    allMatches.forEach(m => {
+      const time = m.session_time || '00:00';
+      const key = `${m.session_date}__${time}__${m.court_group}`;
+      if (!grouped[key]) grouped[key] = { date:m.session_date, time, group:m.court_group, games:{}, noShow:[] };
+      if (m.default_no_show) {
+        grouped[key].noShow.push(m);
+      } else {
+        if (!grouped[key].games[m.game_number]) grouped[key].games[m.game_number] = [];
+        grouped[key].games[m.game_number].push(m);
+      }
+    });
+
+    // Filter completed only
+    const completed = Object.values(grouped).filter(s =>
+      Object.values(s.games).flat().every(m => m.score_for !== null)
+    );
+    if (!completed.length) {
+      document.getElementById('sessions-content').innerHTML = '<div class="empty">No completed sessions yet.</div>';
+      return;
+    }
+
+    // Group by date → time → courts
     const byDate = {};
-    sessionsRpcData.forEach(s => {
-      const time = s.session_time || '00:00';
-      if (!byDate[s.session_date]) byDate[s.session_date] = {};
-      if (!byDate[s.session_date][time]) byDate[s.session_date][time] = [];
-      byDate[s.session_date][time].push(s);
+    completed.forEach(s => {
+      if (!byDate[s.date]) byDate[s.date] = {};
+      if (!byDate[s.date][s.time]) byDate[s.date][s.time] = [];
+      byDate[s.date][s.time].push(s);
     });
     const sortedDates = Object.keys(byDate).sort((a,b) => b.localeCompare(a));
 
@@ -667,12 +697,12 @@
       const weekday   = d.toLocaleDateString('en-US',{weekday:'long'});
       const dateFmt   = d.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
       const dateLabel = `${weekday} Session — ${dateFmt}`;
-      const allRows        = allCourts.flatMap(c => (c.games||[]).flatMap(g => [...(g.team_a||[]), ...(g.team_b||[])]));
-      const courtCount     = allCourts.length;
-      const totalGames     = allCourts.reduce((n,c) => n + (c.games||[]).length, 0);
-      const uniquePlayers  = new Set(allRows.map(r => r.player_id)).size;
-      const subCount       = allRows.filter(r => r.is_sub).length;
-      const sum            = computeSummary(allCourts);
+      const allDM     = allCourts.flatMap(c=>Object.values(c.games).flat());
+      const courtCount    = allCourts.length;
+      const totalGames    = new Set(allDM.map(m=>`${m.court_group}__${m.game_number}`)).size;
+      const uniquePlayers = new Set(allDM.map(m=>m.player_id)).size;
+      const subCount      = allDM.filter(m=>m.is_sub).length;
+      const sum           = computeSummary(allCourts);
 
       html += `<div class="session-date-group" id="${groupId}">
         <div style="margin-bottom:10px;">
@@ -700,50 +730,51 @@
             <div class="sess-sum-card sc-blue"><div class="sess-sum-label">Court Highlight</div><div class="sess-sum-val-text">${sum.bestCourt?`Court ${sum.bestCourt}`:'—'}</div><div class="sess-sum-ctx scc-blue">Most competitive</div></div>
           </div>
           ${Object.keys(timeSlots).sort().map(time => {
-            const timeCourts = timeSlots[time].sort((a,b)=>a.court_group-b.court_group);
+            const timeCourts = timeSlots[time].sort((a,b)=>a.group-b.group);
             const timeBlockHTML = timeCourts.map(s => {
-            const noShowBannerHtml = (s.no_shows||[]).map(ns => {
-              const nsName = `${esc(ns.first_name)} ${esc(ns.last_name)}`;
+            const noShowBannerHtml = s.noShow && s.noShow.length ? s.noShow.map(ns => {
+              const nsName = ns.players ? `${esc(ns.players.first_name)} ${esc(ns.players.last_name)}` : 'Unknown';
               return `<div style="display:flex;align-items:center;gap:8px;margin-top:8px;padding:7px 12px;background:var(--orange-light);border:1px solid rgba(242,96,36,0.2);border-radius:8px;">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
                 <span style="font-size:12px;font-weight:800;color:var(--orange);">No-show: ${nsName}</span>
                 <span style="font-size:11px;font-weight:700;color:var(--orange);">${ns.points_earned} pts</span>
               </div>`;
-            }).join('');
-            const gamesHTML = (s.games||[]).map(g => {
+            }).join('') : '';
+            const gamesHTML = Object.entries(s.games).sort((a,b)=>a[0]-b[0]).map(([gnum,players])=>{
+              const [teamA,teamB] = buildTeams(players);
+              const scoreA = teamA[0]?teamA[0].score_for:null, scoreB=teamB[0]?teamB[0].score_for:null;
+              const aWins = scoreA!==null&&scoreB!==null&&scoreA>scoreB;
+              const bWins = scoreA!==null&&scoreB!==null&&scoreB>scoreA;
               const renderTeam = (team,isWinner) => {
                 if (!team||!team.length) return '';
                 const p0=team[0];
-                const score=p0.score_for!==null?String(p0.score_for):'—';
-                const pts=p0.score_for!==null?`+${p0.points_earned} pts`:'pending';
-                const isPend=p0.score_for===null;
+                const score=p0.default_no_show?'-1':p0.score_for!==null?String(p0.score_for):'—';
+                const pts=p0.default_no_show?'-1 pt':p0.score_for!==null?`+${p0.points_earned} pts`:'pending';
+                const isPend=p0.score_for===null&&!p0.default_no_show;
                 let bc='sess-team-block ',sc='sess-score-num ',pc='sess-score-pts ',nc='sess-team-names';
                 if(isPend){bc+='sess-team-pending';sc+='sess-score-pending';pc+='sess-pts-pending';nc+=' pending';}
                 else if(isWinner){bc+='sess-team-win';sc+='sess-score-win';pc+='sess-pts-win';}
                 else{bc+='sess-team-lose';sc+='sess-score-lose';pc+='sess-pts-lose';nc+=' lose';}
                 const names=team.map(p=>{
-                  const nm = `${esc(p.first_name)} ${esc(p.last_name)}`;
+                  const lp=ladderPlayers.find(x=>x.id===p.player_id);
+                  const nm=lp?`${esc(lp.first_name)} ${esc(lp.last_name)}`:'Unknown';
                   return nm+(p.is_sub?'<span class="sub-pill-blue">SUB</span>':'');
                 }).join('<br>');
                 return `<div class="${bc}"><div class="${nc}">${names}</div><div class="sess-team-score"><span class="${sc}">${score}</span><span class="${pc}">${pts}</span></div></div>`;
               };
-              const scoreA = g.team_a?.[0] ? g.team_a[0].score_for : null;
-              const scoreB = g.team_b?.[0] ? g.team_b[0].score_for : null;
-              const aWins = scoreA!==null&&scoreB!==null&&scoreA>scoreB;
-              const bWins = scoreA!==null&&scoreB!==null&&scoreB>scoreA;
               return `<div class="sess-game-row">
-                <span class="sess-game-label">Game ${g.game_number}</span>
+                <span class="sess-game-label">Game ${gnum}</span>
                 <div class="sess-game-body">
-                  ${renderTeam(g.team_a,aWins)}
+                  ${renderTeam(teamA,aWins)}
                   <div class="sess-vs"><div class="sess-vs-line"></div><span>VS</span><div class="sess-vs-line"></div></div>
-                  ${renderTeam(g.team_b,bWins)}
+                  ${renderTeam(teamB,bWins)}
                 </div>
               </div>`;
             }).join('');
-            const courtPending = (s.games||[]).some(g => g.status === 'pending');
+            const courtPending = Object.values(s.games).flat().some(m=>!m.default_no_show&&m.score_for===null);
             return `<div class="court-block">
               <div class="court-block-hdr">
-                <span class="court-block-label">Court ${s.court_group}${courtPending?` <span style="font-size:9px;font-weight:800;color:var(--orange);background:var(--orange-light);padding:1px 6px;border-radius:99px;margin-left:6px;">Pending</span>`:''}</span>
+                <span class="court-block-label">Court ${s.group}${courtPending?` <span style="font-size:9px;font-weight:800;color:var(--orange);background:var(--orange-light);padding:1px 6px;border-radius:99px;margin-left:6px;">Pending</span>`:''}</span>
               </div>
               ${noShowBannerHtml}
               ${gamesHTML}
@@ -811,43 +842,18 @@
         return;
       }
 
-      // ── Shared RPCs — same source of truth the admin module uses ──────────
-      const [players, standingsRes, sessionsRes] = await Promise.all([
+      // EXACT same parallel fetch as old players.html
+      const [players, matches] = await Promise.all([
         api(`public_players?id=in.(${playerIds.join(',')})&select=*&order=first_name`),
-        supabase.rpc('get_ladder_standings', { p_ladder_id: ladderId }),
-        supabase.rpc('get_ladder_sessions', { p_ladder_id: ladderId }),
+        api(`matches?ladder_id=eq.${ladderId}&select=*`),
       ]);
-      if (standingsRes.error) throw new Error(standingsRes.error.message);
-      if (sessionsRes.error) throw new Error(sessionsRes.error.message);
-      standingsData   = standingsRes.data || [];
-      sessionsRpcData = sessionsRes.data || [];
-
-      // Flatten the sessions RPC (already deduped, court/game/team-paired) into
-      // a matches-like array — same shape renderMomentumWatch()/renderStandings()
-      // already know how to read, so neither had to change.
-      allMatches = [];
-      sessionsRpcData.forEach((s) => {
-        (s.games || []).forEach((g) => {
-          [...(g.team_a || []), ...(g.team_b || [])].forEach((row) => {
-            allMatches.push({
-              session_date: s.session_date, court_group: s.court_group, game_number: g.game_number,
-              player_id: row.player_id, points_earned: row.points_earned, is_sub: row.is_sub,
-            });
-          });
-        });
-        (s.no_shows || []).forEach((row) => {
-          allMatches.push({
-            session_date: s.session_date, court_group: s.court_group, game_number: null,
-            player_id: row.player_id, points_earned: row.points_earned, is_sub: false,
-          });
-        });
-      });
 
       // EXACT same mapping as old players.html
       ladderPlayers = players.map((p) => {
         const row = enrolled.find((r) => r.player_id === p.id);
         return { ...p, ladder_status: row?.status || 'active' };
       });
+      allMatches = matches;
 
       if (ladderData.ladder_type === 'ftc') {
         // Switch to FTC view — hide RP tabs, show FTC tabs
