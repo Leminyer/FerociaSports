@@ -109,6 +109,55 @@
     document.getElementById('tournament-notify-modal').classList.remove('open');
   };
 
+  // Sends the subject/message currently in the form to the admin only, so
+  // they can preview exactly how it'll look before notifying real players.
+  const sendTestTournamentNotifyEmail = async () => {
+    if (window.AdminState.emailInFlight) { toast('Please wait for the current send to finish.', true); return; }
+
+    const modal = document.getElementById('tournament-notify-modal');
+    const { _tournamentId, _tournamentName } = modal;
+    if (!_tournamentId) { toast('No tournament selected.', true); return; }
+
+    const subject = document.getElementById('t-notify-subject').value.trim();
+    const message = document.getElementById('t-notify-message').value.trim();
+    if (!subject || !message) {
+      toast('Please fill in subject and message before sending a test.', true);
+      return;
+    }
+
+    const baseTourneyUrl =
+      window.location.origin + window.location.pathname.replace('admin.html', '') + 'tournament-results.html';
+    const resultsUrl = `${baseTourneyUrl}?t=${btoa(String(_tournamentId))}`;
+    const testMsg = message.replace('{{player_name}}', 'Ferocia Admin');
+
+    const testBtn = document.getElementById('t-notify-test-btn');
+    const origHTML = testBtn.innerHTML;
+    testBtn.disabled = true;
+    testBtn.innerHTML = 'Sending test...';
+
+    try {
+      emailjs.init({ publicKey: CFG.EMAILJS.PUBLIC_KEY });
+      const ok = await window.sendOneEmail(CFG.EMAILJS.SERVICE, CFG.EMAILJS.TEMPLATES.LADDER_NOTIFY, {
+        player_name: 'Ferocia Admin',
+        player_email: CFG.ADMIN_EMAIL,
+        email_title: _tournamentName || 'Tournament',
+        subject: `[TEST] ${subject}`,
+        message: testMsg,
+        leaderboard_url: resultsUrl,
+      });
+      if (ok) {
+        toast(`✅ Test email sent to ${CFG.ADMIN_EMAIL}`);
+      } else {
+        toast('Test email failed. Check your EmailJS config.', true);
+      }
+    } catch (err) {
+      toast(`Error: ${err.message}`, true);
+    } finally {
+      testBtn.disabled = false;
+      testBtn.innerHTML = origHTML;
+    }
+  };
+
   const sendTournamentNotify = async (e) => {
     e.preventDefault();
     const modal = document.getElementById('tournament-notify-modal');
@@ -192,5 +241,6 @@
   window.openTournamentNotifyModal = openTournamentNotifyModal; // for window.app, built in app.js's BOOT
   Object.assign(window.CLICK_HANDLERS, {
     closeTournamentNotifyModal: () => closeTournamentNotifyModal(),
+    sendTestTournamentNotifyEmail: () => sendTestTournamentNotifyEmail(),
   });
 })();

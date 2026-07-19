@@ -151,6 +151,50 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     document.getElementById('notify-modal').classList.add('open');
   };
 
+  // Sends the subject/message currently in the form to the admin only, so
+  // they can preview exactly how it'll look before notifying real players.
+  const sendTestNotifyEmail = async () => {
+    if (AdminState.emailInFlight) { toast('Please wait for the current send to finish.', true); return; }
+
+    const subject = document.getElementById('notify-subject').value.trim();
+    const message = document.getElementById('notify-message').value.trim();
+    if (!subject || !message) {
+      toast('Please fill in subject and message before sending a test.', true);
+      return;
+    }
+
+    const encoded = AdminState.currentLadder ? btoa(String(AdminState.currentLadder.id)) : '';
+    const baseUrl = window.location.origin + window.location.pathname.replace('admin.html', '') + 'players.html';
+    const leaderboardUrl = encoded ? `${baseUrl}?l=${encoded}` : baseUrl;
+
+    const testBtn = document.getElementById('notify-test-btn');
+    const origHTML = testBtn.innerHTML;
+    testBtn.disabled = true;
+    testBtn.innerHTML = 'Sending test...';
+
+    try {
+      emailjs.init({ publicKey: CFG.EMAILJS.PUBLIC_KEY });
+      const ok = await window.sendOneEmail(CFG.EMAILJS.SERVICE, CFG.EMAILJS.TEMPLATES.LADDER_NOTIFY, {
+        player_name: 'Ferocia Admin',
+        player_email: CFG.ADMIN_EMAIL,
+        email_title: 'Pickleball Ladder',
+        subject: `[TEST] ${subject}`,
+        message,
+        leaderboard_url: leaderboardUrl,
+      });
+      if (ok) {
+        toast(`✅ Test email sent to ${CFG.ADMIN_EMAIL}`);
+      } else {
+        toast('Test email failed. Check your EmailJS config.', true);
+      }
+    } catch (err) {
+      toast(`Error: ${err.message}`, true);
+    } finally {
+      testBtn.disabled = false;
+      testBtn.innerHTML = origHTML;
+    }
+  };
+
   const sendNotifications = async (e) => {
     e.preventDefault();
     if (!AdminState.currentLadder) return;
@@ -242,5 +286,6 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
   window.setNotifyTemplate = setNotifyTemplate; // called from app.js's generic input listener
   Object.assign(window.CLICK_HANDLERS, {
     openNotifyPlayers: () => openNotifyPlayers(),
+    sendTestNotifyEmail: () => sendTestNotifyEmail(),
   });
 })();
