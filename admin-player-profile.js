@@ -187,6 +187,7 @@
     const avColors = ['#174CCC', '#F26024', '#24BC96', '#9a6e00', '#7B2FBE', '#C04A0E'];
     const avColor  = avColors[p.id % avColors.length];
     const isActive = p.status === 'active';
+    const streakColor = d.streakType === 'W' ? '#24BC96' : '#F26024';
 
     document.getElementById('pp-crumb-name').textContent = `${p.first_name} ${p.last_name}`;
 
@@ -198,7 +199,14 @@
           <div>
             <span class="${isActive ? 'ppm-active' : 'ppm-inactive'}">${isActive ? '● Active' : '○ Inactive'}</span>
             <div class="pp-name">${esc(p.first_name)} ${esc(p.last_name)}</div>
-            ${p.current_rank ? `<div class="pp-rank">${ppSVG(ICONS.trophy, '#7B2FBE')} FEROCIA Rank <span style="font-family:'Bebas Neue',sans-serif;font-size:15px;">#${p.current_rank}</span></div>` : ''}
+            ${p.current_rank ? `
+              <div class="pp-rank">
+                <span class="pp-rank-icon">${ppSVG(ICONS.trophy, '#7B2FBE', 22)}</span>
+                <div>
+                  <div class="pp-rank-lbl">FEROCIA Rank</div>
+                  <div class="pp-rank-num">#${p.current_rank}</div>
+                </div>
+              </div>` : ''}
             <div class="pp-meta-row">
               ${p.gender ? `<span class="pp-meta">${ppSVG(ICONS.gender)} ${esc(p.gender)}</span>` : ''}
               ${p.date_joined ? `<span class="pp-meta">${ppSVG(ICONS.calendar)} Joined ${fmtDate(p.date_joined)}</span>` : ''}
@@ -207,14 +215,8 @@
             </div>
           </div>
         </div>
-        <div class="pp-actions" style="flex-direction:column;align-items:flex-end;gap:12px;">
-          <div style="display:flex;gap:8px;">
-            <div class="pp-search-wrap">
-              ${ppSVG(ICONS.search, '#b0bbd6', 13)}
-              <span style="position:absolute;left:11px;top:50%;transform:translateY(-50%);"></span>
-              <input type="text" id="pp-search-input" class="pp-search-input" placeholder="Search players...">
-              <div id="pp-search-results" class="pp-search-results"></div>
-            </div>
+        <div class="pp-actions-col">
+          <div class="pp-actions">
             <button class="pp-btn pp-btn-outline" data-action="ppPrevPlayer">${ppSVG(ICONS.arrowL, '#174CCC', 12)} Previous Player</button>
             <button class="pp-btn pp-btn-outline" data-action="ppSendMessage">${ppSVG(ICONS.mail, '#174CCC', 12)} Send Message</button>
             <div style="position:relative;">
@@ -226,11 +228,23 @@
               </div>
             </div>
           </div>
-          <div class="pp-stats-mini">
-            <div class="pp-stat-mini"><div class="pp-stat-mini-val">${d.totalPlayed}</div><div class="pp-stat-mini-lbl">MATCHES PLAYED</div></div>
-            <div class="pp-stat-mini"><div class="pp-stat-mini-val" style="color:#24BC96;">${d.winPct}%</div><div class="pp-stat-mini-lbl">WIN RATE</div></div>
-            <div class="pp-stat-mini"><div class="pp-stat-mini-val">${d.totalWins}W - ${d.totalLosses}L</div><div class="pp-stat-mini-lbl">OVERALL RECORD</div></div>
-            <div class="pp-stat-mini"><div class="pp-stat-mini-val" style="color:${d.streakType === 'W' ? '#24BC96' : '#F26024'};">${d.streak}</div><div class="pp-stat-mini-lbl">CURRENT STREAK ${d.streakType === 'W' ? 'WINS' : 'LOSSES'}</div></div>
+          <div class="pp-stats-box">
+            <div class="pp-stat-mini">
+              <div class="pp-stat-mini-icon" style="background:#e8f0ff;">${ppSVG(ICONS.flag, '#174CCC', 16)}</div>
+              <div><div class="pp-stat-mini-val">${d.totalPlayed}</div><div class="pp-stat-mini-lbl">Matches Played</div></div>
+            </div>
+            <div class="pp-stat-mini">
+              <div class="pp-stat-mini-icon" style="background:rgba(36,188,150,0.12);">${ppSVG('<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>', '#24BC96', 16)}</div>
+              <div><div class="pp-stat-mini-val" style="color:#24BC96;">${d.winPct}%</div><div class="pp-stat-mini-lbl">Win Rate</div></div>
+            </div>
+            <div class="pp-stat-mini">
+              <div class="pp-stat-mini-icon" style="background:rgba(246,166,35,0.15);">${ppSVG(ICONS.trophy, '#9a6200', 16)}</div>
+              <div><div class="pp-stat-mini-val">${d.totalWins}W - ${d.totalLosses}L</div><div class="pp-stat-mini-lbl">Overall Record</div></div>
+            </div>
+            <div class="pp-stat-mini">
+              <div class="pp-stat-mini-icon" style="background:${d.streakType === 'W' ? 'rgba(36,188,150,0.12)' : 'rgba(242,96,36,0.12)'};">${ppSVG('<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>', streakColor, 16)}</div>
+              <div><div class="pp-stat-mini-val" style="color:${streakColor};">${d.streak}</div><div class="pp-stat-mini-lbl">Current Streak ${d.streakType === 'W' ? 'Wins' : 'Losses'}</div></div>
+            </div>
           </div>
         </div>
       </div>`;
@@ -501,7 +515,6 @@
 
     renderHeader(d);
     renderOverview(d);
-    ppWireSearch();
   };
 
   // ── Previous Player — steps back through the roster, sorted by name ────
@@ -557,6 +570,9 @@
     }
     window.showPage('ladder', document.getElementById('sb-standings'));
   };
+
+  // Search box is static HTML in the page shell — wire it once, here.
+  ppWireSearch();
 
   // ── Expose / register with the shared infrastructure ───────────────────
   window.loadPlayerProfilePage = loadPlayerProfilePage;
