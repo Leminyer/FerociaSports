@@ -96,7 +96,7 @@
     ] = await Promise.all([
       api(`matches?player_id=eq.${id}&select=*&order=session_date.desc`).catch(() => []),
       api(`ladder_players?player_id=eq.${id}&select=*`).catch(() => []),
-      api('ladders?select=id,name,status').catch(() => []),
+      api('ladders?select=id,name,status,location').catch(() => []),
       rpc('get_player_tournament_teams',     { p_player_id: id }),
       rpc('get_player_tournaments',           { p_player_id: id }),
       rpc('get_player_tournament_categories', { p_player_id: id }),
@@ -306,23 +306,21 @@
     }
     const maxWr = Math.max(40, ...weeks.map((w) => w.wr || 0));
     const axisMax = Math.ceil(maxWr / 20) * 20; // round up to the next 20% tick
-    const chartW = 260, chartH = 90, padX = 30, padY = 8;
+    const chartW = 230, chartH = 90, padY = 8;
     const validPts = weeks.map((w, i) => ({ i, wr: w.wr })).filter((w) => w.wr !== null);
-    const xStep = (chartW - padX) / Math.max(1, weeks.length - 1);
+    const xStep = chartW / Math.max(1, weeks.length - 1);
     const yFor = (wr) => chartH - padY - (wr / axisMax) * (chartH - padY * 2);
-    const points = validPts.map((w) => `${padX + w.i * xStep},${yFor(w.wr)}`).join(' ');
-    const ticks = [0, axisMax / 2, axisMax];
-    const axisSVG = ticks.map((t) =>
-      `<text x="${padX - 8}" y="${yFor(t) + 3}" font-size="8" fill="#b0bbd6" text-anchor="end" font-family="Montserrat,sans-serif">${t}%</text>
-       <line x1="${padX}" y1="${yFor(t)}" x2="${chartW}" y2="${yFor(t)}" stroke="#f0f2f8" stroke-width="1"/>`,
-    ).join('');
+    const points = validPts.map((w) => `${w.i * xStep},${yFor(w.wr)}`).join(' ');
+    const ticks = [axisMax, axisMax / 2, 0];
+    const gridSVG = ticks.map((t) => `<line x1="0" y1="${yFor(t)}" x2="${chartW}" y2="${yFor(t)}" stroke="#f0f2f8" stroke-width="1"/>`).join('');
     const trendSVG = validPts.length >= 2
       ? `<svg width="100%" height="${chartH}" viewBox="0 0 ${chartW} ${chartH}" preserveAspectRatio="none" style="overflow:visible;">
-           ${axisSVG}
+           ${gridSVG}
            <polyline points="${points}" fill="none" stroke="#174CCC" stroke-width="2"/>
-           ${validPts.map((w) => `<circle cx="${padX + w.i * xStep}" cy="${yFor(w.wr)}" r="2.5" fill="#174CCC"/>`).join('')}
+           ${validPts.map((w) => `<circle cx="${w.i * xStep}" cy="${yFor(w.wr)}" r="2.5" fill="#174CCC"/>`).join('')}
          </svg>`
       : '<div class="pp-empty">Not enough recent matches for a trend yet.</div>';
+    const yAxisLabelsHTML = ticks.map((t) => `<span>${t}%</span>`).join('');
     const weekLabelsHTML = weeks.map((w) => `<span>${w.label}</span>`).join('');
 
     // Next Activity — estimated from the active ladder's most recent session + 7 days
@@ -337,21 +335,27 @@
           ? new Date(`1970-01-01T${lastSession.session_time}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
           : '';
         nextActivityHTML = `
-          <div style="display:flex;align-items:flex-start;gap:12px;">
-            <div style="text-align:center;background:#e8f0ff;border-radius:8px;padding:6px 10px;flex-shrink:0;">
-              <div style="font-size:9px;font-weight:800;color:#174CCC;text-transform:uppercase;">${est.toLocaleDateString('en-US', { month: 'short' })}</div>
-              <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:#174CCC;line-height:1;">${est.getDate()}</div>
-            </div>
-            <div>
-              <div style="display:flex;align-items:center;gap:6px;">
-                ${ppSVG(ICONS.trophy, '#F26024', 13)}
-                <span style="font-size:13px;font-weight:800;color:#0d1f4a;">${esc(d.activeLadder.name)}</span>
+          <div style="background:rgba(36,188,150,0.06);border:0.5px solid rgba(36,188,150,0.2);border-radius:12px;padding:16px;">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+              ${ppSVG(ICONS.trophy, '#24BC96', 20)}
+              <div>
+                <div style="font-size:13px;font-weight:800;color:#0d1f4a;">${esc(d.activeLadder.name)}</div>
+                <div style="font-size:11px;font-weight:700;color:#6b7a99;">Round ${sessionCount + 1}</div>
               </div>
-              <div style="font-size:11px;font-weight:700;color:#6b7a99;margin-top:2px;">Round ${sessionCount + 1}</div>
-              ${estTime ? `<div style="font-size:11px;font-weight:600;color:#6b7a99;margin-top:2px;">${estTime}</div>` : ''}
             </div>
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+              <div style="text-align:center;background:#e8f0ff;border-radius:8px;padding:4px 9px;flex-shrink:0;">
+                <div style="font-size:8px;font-weight:800;color:#174CCC;text-transform:uppercase;">${est.toLocaleDateString('en-US', { month: 'short' })}</div>
+                <div style="font-family:'Bebas Neue',sans-serif;font-size:16px;color:#174CCC;line-height:1;">${est.getDate()}</div>
+              </div>
+              ${estTime ? `<span style="font-size:12px;font-weight:700;color:#0d1f4a;">${estTime}</span>` : ''}
+            </div>
+            ${d.activeLadder.location ? `
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                ${ppSVG(ICONS.pin, '#24BC96', 14)}
+                <span style="font-size:12px;font-weight:700;color:#0d1f4a;">${esc(d.activeLadder.location)}</span>
+              </div>` : ''}
           </div>
-          <div style="font-size:9px;font-weight:700;color:#b0bbd6;margin-top:10px;">Estimated from the weekly schedule — exact court/partner assignments happen the day of.</div>
           <button class="pp-btn pp-btn-outline" style="width:100%;justify-content:center;margin-top:12px;" data-action="ppViewLadder" data-ladderid="${d.activeLadder.id}">View Ladder</button>`;
       }
     }
@@ -397,7 +401,7 @@
       <div class="pp-grid">
         <div class="pp-card">
           <div class="pp-card-hdr">
-            <span class="pp-card-title" style="display:flex;align-items:center;gap:6px;">${ppSVG(ICONS.flag, '#6b7a99', 13)} PERFORMANCE SNAPSHOT</span>
+            <span class="pp-card-title" style="display:flex;align-items:center;gap:6px;">PERFORMANCE SNAPSHOT ${ppSVG('<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>', '#b0bbd6', 13)}</span>
             <select id="pp-snap-period" style="font-size:11px;font-weight:700;color:#6b7a99;border:0.5px solid #e0e7f5;border-radius:99px;padding:4px 10px;background:#f8f9ff;font-family:'Montserrat',sans-serif;">
               <option value="30d">Last 30 Days</option>
               <option value="all">All Time</option>
@@ -407,13 +411,18 @@
         </div>
 
         <div class="pp-card">
-          <div class="pp-card-hdr"><span class="pp-card-title" style="display:flex;align-items:center;gap:6px;">${ppSVG(ICONS.skill, '#6b7a99', 13)} CURRENT FORM</span></div>
+          <div class="pp-card-hdr"><span class="pp-card-title" style="display:flex;align-items:center;gap:6px;">CURRENT FORM ${ppSVG('<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>', '#b0bbd6', 13)}</span></div>
           <div class="pp-card-body">
             <div class="pp-form-row">${formDotsHTML}</div>
             ${streakBannerHTML}
             <div style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;margin-bottom:6px;">Win Rate Trend</div>
-            ${trendSVG}
-            <div style="display:flex;justify-content:space-between;font-size:9px;font-weight:600;color:#b0bbd6;margin-top:4px;">${weekLabelsHTML}</div>
+            <div style="display:flex;gap:6px;">
+              <div style="display:flex;flex-direction:column;justify-content:space-between;font-size:8px;font-weight:700;color:#b0bbd6;height:${90}px;flex-shrink:0;">${yAxisLabelsHTML}</div>
+              <div style="flex:1;min-width:0;">
+                ${trendSVG}
+                <div style="display:flex;justify-content:space-between;font-size:9px;font-weight:600;color:#b0bbd6;margin-top:4px;">${weekLabelsHTML}</div>
+              </div>
+            </div>
           </div>
         </div>
 
