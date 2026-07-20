@@ -304,13 +304,21 @@
       const wr = inWeek.length ? Math.round((inWeek.filter((m) => m.score_for > m.score_against).length / inWeek.length) * 100) : null;
       weeks.push({ label: end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), wr });
     }
-    const chartW = 260, chartH = 70, padX = 6, padY = 8;
+    const maxWr = Math.max(40, ...weeks.map((w) => w.wr || 0));
+    const axisMax = Math.ceil(maxWr / 20) * 20; // round up to the next 20% tick
+    const chartW = 260, chartH = 90, padX = 30, padY = 8;
     const validPts = weeks.map((w, i) => ({ i, wr: w.wr })).filter((w) => w.wr !== null);
-    const xStep = (chartW - padX * 2) / Math.max(1, weeks.length - 1);
-    const yFor = (wr) => chartH - padY - (wr / 100) * (chartH - padY * 2);
+    const xStep = (chartW - padX) / Math.max(1, weeks.length - 1);
+    const yFor = (wr) => chartH - padY - (wr / axisMax) * (chartH - padY * 2);
     const points = validPts.map((w) => `${padX + w.i * xStep},${yFor(w.wr)}`).join(' ');
+    const ticks = [0, axisMax / 2, axisMax];
+    const axisSVG = ticks.map((t) =>
+      `<text x="${padX - 8}" y="${yFor(t) + 3}" font-size="8" fill="#b0bbd6" text-anchor="end" font-family="Montserrat,sans-serif">${t}%</text>
+       <line x1="${padX}" y1="${yFor(t)}" x2="${chartW}" y2="${yFor(t)}" stroke="#f0f2f8" stroke-width="1"/>`,
+    ).join('');
     const trendSVG = validPts.length >= 2
       ? `<svg width="100%" height="${chartH}" viewBox="0 0 ${chartW} ${chartH}" preserveAspectRatio="none" style="overflow:visible;">
+           ${axisSVG}
            <polyline points="${points}" fill="none" stroke="#174CCC" stroke-width="2"/>
            ${validPts.map((w) => `<circle cx="${padX + w.i * xStep}" cy="${yFor(w.wr)}" r="2.5" fill="#174CCC"/>`).join('')}
          </svg>`
@@ -322,24 +330,29 @@
     if (d.activeLadder) {
       const lastSession = d.allMatches.find((m) => m.ladder_id === d.activeLadder.id);
       if (lastSession) {
+        const sessionCount = new Set(d.allMatches.filter((m) => m.ladder_id === d.activeLadder.id).map((m) => m.session_date)).size;
         const est = new Date(lastSession.session_date + 'T00:00:00');
         est.setDate(est.getDate() + 7);
         const estTime = lastSession.session_time
           ? new Date(`1970-01-01T${lastSession.session_time}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
           : '';
         nextActivityHTML = `
-          <div style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;margin-bottom:8px;">Estimated — based on weekly schedule</div>
-          <div style="display:flex;align-items:center;gap:12px;">
+          <div style="display:flex;align-items:flex-start;gap:12px;">
             <div style="text-align:center;background:#e8f0ff;border-radius:8px;padding:6px 10px;flex-shrink:0;">
               <div style="font-size:9px;font-weight:800;color:#174CCC;text-transform:uppercase;">${est.toLocaleDateString('en-US', { month: 'short' })}</div>
               <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:#174CCC;line-height:1;">${est.getDate()}</div>
             </div>
             <div>
-              <div style="font-size:13px;font-weight:800;color:#0d1f4a;">${esc(d.activeLadder.name)}</div>
-              ${estTime ? `<div style="font-size:11px;font-weight:600;color:#6b7a99;">${estTime}</div>` : ''}
+              <div style="display:flex;align-items:center;gap:6px;">
+                ${ppSVG(ICONS.trophy, '#F26024', 13)}
+                <span style="font-size:13px;font-weight:800;color:#0d1f4a;">${esc(d.activeLadder.name)}</span>
+              </div>
+              <div style="font-size:11px;font-weight:700;color:#6b7a99;margin-top:2px;">Round ${sessionCount + 1}</div>
+              ${estTime ? `<div style="font-size:11px;font-weight:600;color:#6b7a99;margin-top:2px;">${estTime}</div>` : ''}
             </div>
           </div>
-          <button class="pp-btn pp-btn-outline" style="width:100%;justify-content:center;margin-top:14px;" data-action="ppViewLadder" data-ladderid="${d.activeLadder.id}">View Ladder</button>`;
+          <div style="font-size:9px;font-weight:700;color:#b0bbd6;margin-top:10px;">Estimated from the weekly schedule — exact court/partner assignments happen the day of.</div>
+          <button class="pp-btn pp-btn-outline" style="width:100%;justify-content:center;margin-top:12px;" data-action="ppViewLadder" data-ladderid="${d.activeLadder.id}">View Ladder</button>`;
       }
     }
 
@@ -382,10 +395,10 @@
 
     el.innerHTML = `
       <div class="pp-grid">
-        <div class="pp-card" style="grid-column:1 / -1;">
+        <div class="pp-card">
           <div class="pp-card-hdr">
-            <span class="pp-card-title">PERFORMANCE SNAPSHOT</span>
-            <select id="pp-snap-period" style="font-size:11px;font-weight:700;color:#174CCC;border:0.5px solid #c5d6f5;border-radius:99px;padding:4px 10px;background:white;font-family:'Montserrat',sans-serif;">
+            <span class="pp-card-title" style="display:flex;align-items:center;gap:6px;">${ppSVG(ICONS.flag, '#6b7a99', 13)} PERFORMANCE SNAPSHOT</span>
+            <select id="pp-snap-period" style="font-size:11px;font-weight:700;color:#6b7a99;border:0.5px solid #e0e7f5;border-radius:99px;padding:4px 10px;background:#f8f9ff;font-family:'Montserrat',sans-serif;">
               <option value="30d">Last 30 Days</option>
               <option value="all">All Time</option>
             </select>
@@ -394,7 +407,7 @@
         </div>
 
         <div class="pp-card">
-          <div class="pp-card-hdr"><span class="pp-card-title">CURRENT FORM</span></div>
+          <div class="pp-card-hdr"><span class="pp-card-title" style="display:flex;align-items:center;gap:6px;">${ppSVG(ICONS.skill, '#6b7a99', 13)} CURRENT FORM</span></div>
           <div class="pp-card-body">
             <div class="pp-form-row">${formDotsHTML}</div>
             ${streakBannerHTML}
