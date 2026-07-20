@@ -269,7 +269,9 @@
 
     const streakBannerHTML = d.streak > 0
       ? `<div class="pp-streak-banner ${d.streakType === 'W' ? 'pp-streak-good' : ''}">
-          <span style="font-size:16px;">${d.streakType === 'W' ? '🔥' : '❄️'}</span>
+          <span style="flex-shrink:0;">${d.streakType === 'W'
+            ? ppSVG('<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>', '#24BC96', 18)
+            : ppSVG('<path d="M12 2v20M4.93 4.93l14.14 14.14M19.07 4.93 4.93 19.07M2 12h20M6 6l4 4M18 6l-4 4M6 18l4-4M18 18l-4-4"/>', '#F26024', 18)}</span>
           <div>
             <div style="font-size:12px;font-weight:800;color:${d.streakType === 'W' ? '#085041' : '#F26024'};">${d.streak} Consecutive ${d.streakType === 'W' ? 'Win' : 'Loss'}${d.streak !== 1 ? 'es' : ''}</div>
             <div style="font-size:10px;font-weight:600;color:#6b7a99;">${d.streakType === 'W' ? 'On fire!' : 'Keep pushing!'}</div>
@@ -366,7 +368,7 @@
 
     el.innerHTML = `
       <div class="pp-grid">
-        <div class="pp-card" style="grid-column:span 2;">
+        <div class="pp-card" style="grid-column:1 / -1;">
           <div class="pp-card-hdr">
             <span class="pp-card-title">PERFORMANCE SNAPSHOT</span>
             <select id="pp-snap-period" style="font-size:11px;font-weight:700;color:#174CCC;border:0.5px solid #c5d6f5;border-radius:99px;padding:4px 10px;background:white;font-family:'Montserrat',sans-serif;">
@@ -401,19 +403,21 @@
           </div>
         </div>
 
-        <div class="pp-card">
-          <div class="pp-card-hdr"><span class="pp-card-title">CAREER STATISTICS</span></div>
-          <div class="pp-card-body">
-            ${careerHTML}
-            <div style="margin-top:12px;"><a class="pp-link" data-action="ppShowTab" data-pptab="competition">View Full Statistics →</a></div>
+        <div style="grid-column:1 / -1;display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          <div class="pp-card">
+            <div class="pp-card-hdr"><span class="pp-card-title">CAREER STATISTICS</span></div>
+            <div class="pp-card-body">
+              ${careerHTML}
+              <div style="margin-top:12px;"><a class="pp-link" data-action="ppShowTab" data-pptab="competition">View Full Statistics →</a></div>
+            </div>
           </div>
-        </div>
 
-        <div class="pp-card">
-          <div class="pp-card-hdr"><span class="pp-card-title">QUICK INFO</span></div>
-          <div class="pp-card-body">
-            ${quickInfoHTML}
-            <div style="margin-top:12px;"><a class="pp-link" data-action="ppEditPlayer">View Full Profile →</a></div>
+          <div class="pp-card">
+            <div class="pp-card-hdr"><span class="pp-card-title">QUICK INFO</span></div>
+            <div class="pp-card-body">
+              ${quickInfoHTML}
+              <div style="margin-top:12px;"><a class="pp-link" data-action="ppEditPlayer">View Full Profile →</a></div>
+            </div>
           </div>
         </div>
       </div>`;
