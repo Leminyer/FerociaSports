@@ -147,6 +147,29 @@ window.selectLadderType = (type) => {
     document.getElementById('drawer-backdrop')?.classList.remove('open');
   };
 
+  // Shows who's signed in (name + role) in the top bar, sourced from the
+  // admins table (keyed by Supabase Auth user id) — not hardcoded, so it
+  // keeps working correctly once there's more than one admin account.
+  const loadAdminIdentity = async (session) => {
+    const el = document.getElementById('admin-identity');
+    if (!el || !session?.user?.id) return;
+    try {
+      const rows = await api(`admins?user_id=eq.${session.user.id}&select=full_name,role`);
+      const admin = rows[0];
+      const name  = admin?.full_name || session.user.email || 'Admin';
+      const role  = admin?.role || 'Admin';
+      const initials = name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || 'A';
+      el.innerHTML = `
+        <div style="width:32px;height:32px;border-radius:50%;background:#174CCC;color:white;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;font-family:'Montserrat',sans-serif;flex-shrink:0;">${esc(initials)}</div>
+        <div style="line-height:1.25;">
+          <div style="font-size:12px;font-weight:700;color:white;">${esc(name)}</div>
+          <div style="font-size:10px;font-weight:600;color:rgba(255,255,255,0.55);">${esc(role)}</div>
+        </div>`;
+    } catch (e) {
+      console.warn('[admin identity] load failed:', e.message);
+    }
+  };
+
   const loadDashboard = async () => {
     const liveBadge = document.getElementById('dash-live-badge');
     if (liveBadge) liveBadge.style.display = 'inline-block';
@@ -1165,10 +1188,13 @@ window.selectLadderType = (type) => {
 
   // Wait for auth before loading any data. requireAuth() shows the
   // login modal if not signed in; once signed in, our callback fires.
-  window.auth.requireAuth(() => {
+  window.auth.requireAuth((session) => {
     // Show the sign-out button now that we're authenticated
     const signOutBtn = document.getElementById('sign-out-btn');
     if (signOutBtn) signOutBtn.style.display = 'flex';
+
+    // Show who's signed in, top-right
+    loadAdminIdentity(session);
 
     // Kick off the data load — dashboard first since it's the home page
     loadDashboard();
