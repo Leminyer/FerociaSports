@@ -76,6 +76,9 @@
             <span style="font-size:10px;font-weight:600;color:#6b7a99;display:block;">${stats.wins}W · ${stats.played - stats.wins}L</span>
           </td>
           <td class="players-td" style="text-align:center;">${indHTML}</td>
+          <td class="players-td" style="text-align:center;">
+            <span style="font-size:10px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;padding:3px 10px;border-radius:99px;background:#f0f2f8;color:#6b7a99;">Free</span>
+          </td>
           <td class="players-td" style="text-align:center;">${d.statusHTML}</td>
           <td class="players-td" style="text-align:center;">
             <div style="display:flex;align-items:center;justify-content:center;gap:6px;">
@@ -87,7 +90,7 @@
           </td>
         </tr>
         <tr id="${expandId}" class="player-expand-row" style="display:none;">
-          <td colspan="6">
+          <td colspan="7">
             <div class="player-expand-panel">
               <div class="player-expand-field">
                 <div class="player-expand-label">Email</div>
@@ -137,7 +140,8 @@
             <th class="players-th sortable-th" data-sort="name" style="cursor:pointer;">Player ${sortArrow('name')}</th>
             <th class="players-th sortable-th" data-sort="played" style="text-align:center;cursor:pointer;">Games Played ${sortArrow('played')}</th>
             <th class="players-th sortable-th" data-sort="wr" style="text-align:center;cursor:pointer;">Win Rate ${sortArrow('wr')}</th>
-            <th class="players-th sortable-th" data-sort="ind" style="text-align:center;cursor:pointer;">Indicator ${sortArrow('ind')}</th>
+            <th class="players-th sortable-th" data-sort="ind" style="text-align:center;cursor:pointer;">Player Tags ${sortArrow('ind')}</th>
+            <th class="players-th" style="text-align:center;">Membership</th>
             <th class="players-th sortable-th" data-sort="status" style="text-align:center;cursor:pointer;">Status ${sortArrow('status')}</th>
             <th class="players-th" style="text-align:center;width:44px;"></th>
           </tr>
@@ -273,17 +277,23 @@
       // Stat cards
       const total   = players.length;
       const active  = players.filter(p => p.status === 'active').length;
-      const inactive= players.filter(p => p.status === 'inactive').length;
-      const male    = players.filter(p => p.gender === 'Male').length;
-      const female  = players.filter(p => p.gender === 'Female').length;
+      const inLadderCount     = players.filter(p => inLadder.has(p.id)).length;
+      const inTournamentCount = players.filter(p => inTournament.has(p.id)).length;
+      const now = new Date();
+      const newThisMonth = players.filter(p => {
+        if (!p.date_joined) return false;
+        const d = new Date(p.date_joined + 'T00:00:00');
+        return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+      }).length;
       const setEl   = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
       setEl('players-total',    total);
       setEl('players-active',   active);
-      setEl('players-inactive', inactive);
-      setEl('players-male',     male);
-      setEl('players-female',   female);
-      setEl('players-male-pct',   total ? `${Math.round(male/total*100)}% of roster` : '');
-      setEl('players-female-pct', total ? `${Math.round(female/total*100)}% of roster` : '');
+      setEl('players-inactive', inLadderCount);
+      setEl('players-male',     inTournamentCount);
+      setEl('players-female',   newThisMonth);
+      setEl('players-ladder-pct',     total ? `${Math.round(inLadderCount/total*100)}% of roster` : '');
+      setEl('players-male-pct',       total ? `${Math.round(inTournamentCount/total*100)}% of roster` : '');
+      setEl('players-female-pct',     now.toLocaleDateString('en-US', { month: 'long' }));
       setEl('players-count',    `${total} player${total !== 1 ? 's' : ''}`);
 
       if (!players.length) {

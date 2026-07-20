@@ -1405,22 +1405,22 @@
         <div class="stat-ctx ctx-blue">All registered</div>
       </div>
       <div class="stat stat-green">
-        <div class="stat-label">Active</div>
+        <div class="stat-label">Active Players</div>
         <div class="stat-value" id="players-active">—</div>
         <div class="stat-ctx ctx-green">Currently active</div>
       </div>
       <div class="stat stat-orange">
-        <div class="stat-label">Inactive</div>
+        <div class="stat-label">Players In Ladder</div>
         <div class="stat-value" id="players-inactive">—</div>
-        <div class="stat-ctx" style="color:#6b7a99;">Not participating</div>
+        <div class="stat-ctx" style="color:#6b7a99;" id="players-ladder-pct">In an active ladder</div>
       </div>
       <div class="stat stat-blue">
-        <div class="stat-label">Male</div>
+        <div class="stat-label">Players In Tournament</div>
         <div class="stat-value" id="players-male">—</div>
         <div class="stat-ctx ctx-blue" id="players-male-pct"></div>
       </div>
       <div class="stat stat-orange">
-        <div class="stat-label">Female</div>
+        <div class="stat-label">New This Month</div>
         <div class="stat-value" id="players-female">—</div>
         <div class="stat-ctx ctx-orange" id="players-female-pct"></div>
       </div>
@@ -2560,11 +2560,11 @@
             A player named <span id="p-dup-name" style="font-style:italic;margin:0 3px;"></span> may already exist. Please verify before creating.
           </div>
 
-          <!-- SECTION: Basic Info -->
+          <!-- SECTION: Identity -->
           <div style="margin-bottom:24px;">
             <div class="ap-section-title">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
-              Basic Info
+              Identity
             </div>
             <div class="ap-grid">
               <div class="ap-group">
@@ -2585,6 +2585,34 @@
                   </select>
                 </div>
               </div>
+            </div>
+          </div>
+
+          <!-- SECTION: Contact -->
+          <div style="margin-bottom:24px;">
+            <div class="ap-section-title">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+              Contact
+            </div>
+            <div class="ap-grid">
+              <div class="ap-group">
+                <label class="ap-label">Email</label>
+                <input type="email" id="p-email" class="ap-input" placeholder="email@example.com" oninput="apUpdatePreview()">
+              </div>
+              <div class="ap-group">
+                <label class="ap-label">Phone</label>
+                <input type="text" id="p-phone" class="ap-input" placeholder="+1 (561) 555-0100" oninput="apUpdatePreview()">
+              </div>
+            </div>
+          </div>
+
+          <!-- SECTION: Competition -->
+          <div style="margin-bottom:24px;">
+            <div class="ap-section-title">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4a2 2 0 0 1-2-2V5h4"/><path d="M18 9h2a2 2 0 0 0 2-2V5h-4"/><path d="M12 17v4"/><path d="M8 21h8"/><path d="M6 9a6 6 0 0 0 12 0V3H6v6z"/></svg>
+              Competition
+            </div>
+            <div class="ap-grid">
               <div class="ap-group">
                 <label class="ap-label">Skill Level</label>
                 <div class="ap-select-wrap">
@@ -2599,29 +2627,11 @@
             </div>
           </div>
 
-          <!-- SECTION: Contact Info -->
-          <div style="margin-bottom:24px;">
-            <div class="ap-section-title">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-              Contact Info
-            </div>
-            <div class="ap-grid">
-              <div class="ap-group">
-                <label class="ap-label">Email</label>
-                <input type="email" id="p-email" class="ap-input" placeholder="email@example.com" oninput="apUpdatePreview()">
-              </div>
-              <div class="ap-group">
-                <label class="ap-label">Phone</label>
-                <input type="text" id="p-phone" class="ap-input" placeholder="+1 (561) 555-0100" oninput="apUpdatePreview()">
-              </div>
-            </div>
-          </div>
-
-          <!-- SECTION: Player Status -->
+          <!-- SECTION: Status -->
           <div style="margin-bottom:8px;">
             <div class="ap-section-title">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-              Player Status
+              Status
             </div>
             <div class="ap-grid">
               <div class="ap-group">
@@ -2635,7 +2645,7 @@
               </div>
               <div class="ap-group">
                 <label class="ap-label">Date Joined</label>
-                <input type="date" id="p-joined" class="ap-input" oninput="apUpdatePreview()">
+                <input type="date" id="p-joined" class="ap-input" readonly style="background:#f4f5f8;color:#6b7a99;cursor:not-allowed;">
               </div>
             </div>
           </div>
@@ -4088,24 +4098,24 @@
   </div>
 </div>
 
-<script src="admin-state.js?v=20260734"></script>
-<script src="admin-ladder-selector.js?v=20260734"></script>
-<script src="admin-orders.js?v=20260734"></script>
-<script src="admin-email-utils.js?v=20260734"></script>
-<script src="admin-share.js?v=20260734"></script>
-<script src="admin-tournament-notify.js?v=20260734"></script>
-<script src="admin-player-status-history.js?v=20260734"></script>
-<script src="admin-email-notifications.js?v=20260734"></script>
-<script src="admin-ladder-standings.js?v=20260734"></script>
-<script src="admin-sessions.js?v=20260734"></script>
-<script src="admin-print-roster.js?v=20260734"></script>
-<script src="admin-ladder-management.js?v=20260734"></script>
-<script src="admin-promotions.js?v=20260734"></script>
-<script src="admin-players.js?v=20260734"></script>
-<script src="admin-ftc-standings.js?v=20260734"></script>
-<script src="admin-ftc-playoffs-schedule.js?v=20260734"></script>
-<script src="admin-ftc-teams.js?v=20260734"></script>
-<script src="app.js?v=20260734"></script>
+<script src="admin-state.js?v=20260735"></script>
+<script src="admin-ladder-selector.js?v=20260735"></script>
+<script src="admin-orders.js?v=20260735"></script>
+<script src="admin-email-utils.js?v=20260735"></script>
+<script src="admin-share.js?v=20260735"></script>
+<script src="admin-tournament-notify.js?v=20260735"></script>
+<script src="admin-player-status-history.js?v=20260735"></script>
+<script src="admin-email-notifications.js?v=20260735"></script>
+<script src="admin-ladder-standings.js?v=20260735"></script>
+<script src="admin-sessions.js?v=20260735"></script>
+<script src="admin-print-roster.js?v=20260735"></script>
+<script src="admin-ladder-management.js?v=20260735"></script>
+<script src="admin-promotions.js?v=20260735"></script>
+<script src="admin-players.js?v=20260735"></script>
+<script src="admin-ftc-standings.js?v=20260735"></script>
+<script src="admin-ftc-playoffs-schedule.js?v=20260735"></script>
+<script src="admin-ftc-teams.js?v=20260735"></script>
+<script src="app.js?v=20260735"></script>
 <script src="tournament.js?v=20260526"></script>
 <script>
   // ── Sidebar toggle — persisted in localStorage ──────────────────────
