@@ -501,6 +501,7 @@ window.selectLadderType = (type) => {
       window.loadSessions();
     }
     if (name === 'players') window.loadPlayers();
+    if (name === 'player-profile') window.loadPlayerProfilePage(btn);
     if (name === 'entry') window.initEntry();
     if (name === 'ladders') window.loadLaddersPage();
     if (name === 'ftc-standings') window.loadFtcStandings();

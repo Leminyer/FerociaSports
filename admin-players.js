@@ -82,7 +82,7 @@
           <td class="players-td" style="text-align:center;">${d.statusHTML}</td>
           <td class="players-td" style="text-align:center;">
             <div style="display:flex;align-items:center;justify-content:center;gap:6px;">
-              <button class="ppm-profile-btn" data-action="openPlayerProfile" data-pid="${p.id}" title="View profile">
+              <button class="ppm-profile-btn" data-action="showPage" data-page="player-profile" data-pid="${p.id}" title="View profile">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
               </button>
               <button class="sess-edit-btn" data-action="openEdit" data-pid="${p.id}" title="Edit player">${editSVG}</button>
@@ -2024,10 +2024,13 @@
   window.initAddPlayer          = initAddPlayer;           // called from the page router
   window.loadMatchHub           = loadMatchHub;            // called from the page router
   window.updateReasonVisibility = updateReasonVisibility;  // called from app.js's generic input listener
+  window.openEdit                = openEdit;               // called directly from admin-player-profile.js's "More" menu
 
   Object.assign(window.CLICK_HANDLERS, {
     openEdit:           (btn) => openEdit(parseInt(btn.dataset.pid, 10)),
-    openPlayerProfile:  (btn) => openPlayerProfile(parseInt(btn.dataset.pid, 10)),
+    // openPlayerProfile now registered by admin-player-profile.js (opens the
+    // new full-page profile instead of this file's old modal). The modal
+    // function above is left defined but unused for now.
     closeModal:         () => closeModal(),
   });
 })();

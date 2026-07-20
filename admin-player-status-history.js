@@ -70,6 +70,7 @@
     document.getElementById('player-history-modal').classList.remove('open');
 
   // ── Register with the shared infrastructure ───────────────────────────
+  window.openPlayerHistory = openPlayerHistory; // called directly from admin-player-profile.js's "More" menu
   Object.assign(window.CLICK_HANDLERS, {
     openPlayerHistory: () => openPlayerHistory(),
     closePlayerHistory: () => closePlayerHistory(),
