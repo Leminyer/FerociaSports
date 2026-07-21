@@ -221,10 +221,13 @@
             <button class="pp-btn pp-btn-outline" data-action="ppSendMessage">${ppSVG(ICONS.mail, '#174CCC', 12)} Send Message</button>
             <div style="position:relative;">
               <button class="pp-btn pp-btn-outline" data-action="ppToggleMore">More ${ppSVG(ICONS.dots, '#174CCC', 12)}</button>
-              <div id="pp-more-menu" style="display:none;position:absolute;top:calc(100% + 6px);right:0;background:white;border:0.5px solid #e0e7f5;border-radius:10px;box-shadow:0 8px 24px rgba(8,15,46,.12);min-width:190px;z-index:60;overflow:hidden;">
+              <div id="pp-more-menu" style="display:none;position:absolute;top:calc(100% + 6px);right:0;background:white;border:0.5px solid #e0e7f5;border-radius:10px;box-shadow:0 8px 24px rgba(8,15,46,.12);min-width:210px;z-index:60;overflow:hidden;">
                 <button data-action="ppEditPlayer" style="width:100%;text-align:left;padding:10px 14px;font-size:12px;font-weight:700;color:#0d1f4a;background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:8px;font-family:'Montserrat',sans-serif;">${ppSVG(ICONS.edit, '#6b7a99')} Edit Player</button>
                 <button data-action="ppViewHistory" style="width:100%;text-align:left;padding:10px 14px;font-size:12px;font-weight:700;color:#0d1f4a;background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:8px;font-family:'Montserrat',sans-serif;">${ppSVG(ICONS.history, '#6b7a99')} Status History</button>
                 ${p.portal_token ? `<button data-action="ppCopyDnaLink" style="width:100%;text-align:left;padding:10px 14px;font-size:12px;font-weight:700;color:#0d1f4a;background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:8px;font-family:'Montserrat',sans-serif;border-top:0.5px solid #f4f5f8;">${ppSVG(ICONS.link, '#6b7a99')} Copy Player DNA Link</button>` : ''}
+                ${(p.email && !p.email_verified) ? `<button data-action="ppResendEmailVerification" style="width:100%;text-align:left;padding:10px 14px;font-size:12px;font-weight:700;color:#0d1f4a;background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:8px;font-family:'Montserrat',sans-serif;border-top:0.5px solid #f4f5f8;">${ppSVG(ICONS.mail, '#6b7a99')} Resend Email Verification</button>` : ''}
+                ${(p.phone && !p.phone_verified) ? `<button data-action="ppResendSmsVerification" style="width:100%;text-align:left;padding:10px 14px;font-size:12px;font-weight:700;color:#0d1f4a;background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:8px;font-family:'Montserrat',sans-serif;${(p.email && !p.email_verified) ? '' : 'border-top:0.5px solid #f4f5f8;'}">${ppSVG(ICONS.phone, '#6b7a99')} Resend SMS Verification</button>` : ''}
+                <button data-action="ppResetPlayerDna" style="width:100%;text-align:left;padding:10px 14px;font-size:12px;font-weight:700;color:#F26024;background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:8px;font-family:'Montserrat',sans-serif;border-top:0.5px solid #f4f5f8;">${ppSVG('<polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>', '#F26024')} Reset Player DNA</button>
               </div>
             </div>
           </div>
@@ -582,6 +585,36 @@
     }
   };
   const ppSendMessage = () => toast('Messaging is coming soon.');
+
+  // Honest placeholders — there's no real email/SMS verification system
+  // yet (email_verified/phone_verified are just columns for now), so these
+  // can't actually send or track a verification. Once that system exists,
+  // wire the real send here instead of this toast.
+  const ppResendEmailVerification = () => toast('Email verification isn\'t built yet — this will send a real verification email once that system exists.', true);
+  const ppResendSmsVerification   = () => toast('SMS verification isn\'t built yet — this will send a real verification text once that system exists.', true);
+
+  // Regenerates the player's Player DNA portal link (a new random token),
+  // which immediately invalidates any previously-shared link. Confirmed
+  // first since that's a real, slightly destructive side effect.
+  const ppResetPlayerDna = async () => {
+    if (!_ppCurrent) return;
+    const ok = await window.confirmModal({
+      title: 'Reset Player DNA link?',
+      message: 'This generates a new Player DNA link for this player. Any link they (or you) already shared stops working immediately.',
+      okLabel: 'Reset Link',
+    });
+    if (!ok) return;
+    try {
+      const newToken = (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
+      await api(`players?id=eq.${_ppCurrent.p.id}`, 'PATCH', { portal_token: newToken });
+      _ppCurrent.p.portal_token = newToken;
+      toast('Player DNA link reset — the old link no longer works.');
+      renderHeader(_ppCurrent); // re-render so "Copy Player DNA Link" reflects the new token
+    } catch (err) {
+      toast(`Error: ${err.message}`, true);
+    }
+  };
+
   const ppViewLadder = (btn) => {
     const ladderId = parseInt(btn.dataset.ladderid, 10);
     const found = (AdminState.allLadders || []).find((l) => l.id === ladderId);
@@ -607,6 +640,9 @@
     ppEditPlayer:   () => ppEditPlayer(),
     ppViewHistory:  () => ppViewHistory(),
     ppCopyDnaLink:  () => ppCopyDnaLink(),
+    ppResendEmailVerification: () => ppResendEmailVerification(),
+    ppResendSmsVerification:   () => ppResendSmsVerification(),
+    ppResetPlayerDna:          () => ppResetPlayerDna(),
     ppSendMessage:  () => ppSendMessage(),
     ppViewLadder:   (btn) => ppViewLadder(btn),
     // Route "openPlayerProfile" (used across the admin — Players table,
