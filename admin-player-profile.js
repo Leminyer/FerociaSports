@@ -988,17 +988,27 @@
     } catch (e) { return []; }
   };
 
+  const TASK_COLORS = {
+    verify_phone:      '#174CCC',
+    verify_email:      '#24BC96',
+    missing_waiver:    '#F26024',
+    emergency_contact: '#7B2FBE',
+  };
+
   const renderTasksList = (tasks) => tasks.length
-    ? tasks.map((t) => `
+    ? tasks.map((t) => {
+        const c = TASK_COLORS[t.task_type] || '#6b7a99';
+        return `
         <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:0.5px solid #f4f5f8;">
-          <span style="width:32px;height:32px;border-radius:8px;background:#fde8d8;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${ppSVG(TASK_ICONS[t.task_type] || ICONS.flag, 'var(--orange)', 15)}</span>
+          <span style="width:32px;height:32px;border-radius:8px;background:${c}22;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${ppSVG(TASK_ICONS[t.task_type] || ICONS.flag, c, 15)}</span>
           <div style="flex:1;">
             <div style="font-size:13px;font-weight:700;color:var(--text);">${esc(t.label)}</div>
             <div style="font-size:11px;font-weight:600;color:var(--text-muted);">${esc(t.subtitle)}</div>
           </div>
           <button type="button" data-action="ppCompleteTask" data-task="${t.task_type}" title="Mark as done"
             style="width:22px;height:22px;border-radius:6px;border:1.5px solid #c5d6f5;background:white;cursor:pointer;flex-shrink:0;"></button>
-        </div>`).join('')
+        </div>`;
+      }).join('')
     : '<div class="pp-empty">No outstanding tasks — all caught up!</div>';
 
   const ppCompleteTask = async (btn) => {
@@ -1147,7 +1157,10 @@
         </div>
       </div>
       <div class="pp-2col pp-section-gap" style="align-items:start;">
-        ${notesCardHTML(d.p.id)}
+        <div style="display:flex;flex-direction:column;gap:24px;">
+          ${notesCardHTML(d.p.id)}
+          ${comingSoonRow('Private Attachments')}
+        </div>
         <div style="display:flex;flex-direction:column;gap:24px;">
           <div class="pp-perf-card">
             <div class="pp-perf-title">Administrative Flags</div>
@@ -1158,12 +1171,14 @@
             ${relCard}
           </div>
           <div class="pp-perf-card" id="pp-tags-card-body">${renderTagsCard(d.p.tags)}</div>
+          <div class="pp-perf-card">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+              <span class="pp-perf-title" style="margin-bottom:0;">Admin Tasks</span>
+            </div>
+            <div id="pp-tasks-list"><div class="loading" style="padding:16px;">Loading tasks...</div></div>
+            <div style="margin-top:10px;"><a class="pp-link" data-action="ppShowTab" data-pptab="history">View all tasks →</a></div>
+          </div>
         </div>
-      </div>
-      ${comingSoonRow('Private Attachments')}
-      <div class="pp-perf-card pp-section-gap">
-        <div class="pp-perf-title">Admin Tasks</div>
-        <div id="pp-tasks-list"><div class="loading" style="padding:16px;">Loading tasks...</div></div>
       </div>
     `;
 
