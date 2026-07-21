@@ -791,6 +791,87 @@
   // not recomputed here in JS — so any future module can call the same
   // RPC and get identical numbers). Internal Notes, Player Tags, Private
   // Attachments, Admin Tasks, and the Audit Trail are later phases.
+  // ── Internal Notes ───────────────────────────────────────────────────
+  const NOTE_TYPE_LABELS = {
+    general: 'General', positive: 'Positive', warning: 'Warning',
+    incident: 'Incident', suspension: 'Suspension', followup: 'Follow-up',
+  };
+  let _ppNoteFormOpen = false;
+
+  const fetchPlayerNotes = async (playerId) => {
+    try {
+      const { data, error } = await supabase.rpc('get_player_admin_notes', { p_player_id: playerId });
+      if (error) { console.warn('[notes] fetch failed:', error.message); return []; }
+      return data || [];
+    } catch (e) { return []; }
+  };
+
+  const renderNotesList = (notes) => notes.length
+    ? notes.map((n) => `
+        <div class="pp-note-row">
+          <span class="pp-note-badge pp-note-${n.note_type}">${NOTE_TYPE_LABELS[n.note_type] || n.note_type}</span>
+          <span class="pp-note-meta">${fmtShort(n.created_at?.slice(0, 10))} · ${esc(n.admin_name)}</span>
+          <div class="pp-note-content">${esc(n.content)}</div>
+        </div>`).join('')
+    : '<div class="pp-empty">No internal notes yet.</div>';
+
+  const ppToggleNoteForm = () => {
+    _ppNoteFormOpen = !_ppNoteFormOpen;
+    const el = document.getElementById('pp-note-form-wrap');
+    if (el) el.style.display = _ppNoteFormOpen ? 'block' : 'none';
+  };
+
+  const ppSaveNote = async () => {
+    if (!_ppCurrent) return;
+    const type = document.getElementById('pp-note-type').value;
+    const content = document.getElementById('pp-note-content').value.trim();
+    if (!content) { toast('Please write a note before saving.', true); return; }
+    if (!AdminState.currentAdminId) { toast('Could not identify the current admin — try refreshing the page.', true); return; }
+
+    try {
+      await api('player_admin_notes', 'POST', {
+        player_id: _ppCurrent.p.id,
+        admin_id: AdminState.currentAdminId,
+        note_type: type,
+        content,
+      });
+      toast('Note added.');
+      document.getElementById('pp-note-content').value = '';
+      _ppNoteFormOpen = false;
+      const notesEl = document.getElementById('pp-notes-list');
+      if (notesEl) {
+        notesEl.innerHTML = '<div class="loading" style="padding:16px;">Loading...</div>';
+        const notes = await fetchPlayerNotes(_ppCurrent.p.id);
+        notesEl.innerHTML = renderNotesList(notes);
+      }
+      document.getElementById('pp-note-form-wrap').style.display = 'none';
+    } catch (e) {
+      toast(`Error: ${e.message}`, true);
+    }
+  };
+
+  const notesCardHTML = (playerId) => `
+    <div class="pp-perf-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <span class="pp-perf-title" style="margin-bottom:0;">Internal Notes</span>
+        <button type="button" data-action="ppToggleNoteForm" style="display:flex;align-items:center;gap:5px;padding:6px 14px;border:1px solid var(--blue);border-radius:99px;background:white;color:var(--blue);font-size:11px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Add Note
+        </button>
+      </div>
+      <div id="pp-note-form-wrap" class="pp-note-form" style="display:none;">
+        <select id="pp-note-type" style="width:100%;padding:8px 10px;border:1px solid #e0e7f5;border-radius:8px;font-family:'Inter',sans-serif;font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px;">
+          ${Object.entries(NOTE_TYPE_LABELS).map(([val, lbl]) => `<option value="${val}">${lbl}</option>`).join('')}
+        </select>
+        <textarea id="pp-note-content" placeholder="Write the note..." style="width:100%;min-height:70px;padding:10px;border:1px solid #e0e7f5;border-radius:8px;font-family:'Inter',sans-serif;font-size:12px;font-weight:500;color:var(--text);resize:vertical;margin-bottom:8px;"></textarea>
+        <div style="display:flex;justify-content:flex-end;gap:8px;">
+          <button type="button" data-action="ppToggleNoteForm" style="padding:7px 14px;border:1px solid #e0e7f5;border-radius:99px;background:white;color:var(--text-muted);font-size:11px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">Cancel</button>
+          <button type="button" data-action="ppSaveNote" style="padding:7px 16px;border:none;border-radius:99px;background:var(--blue);color:white;font-size:11px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">Save Note</button>
+        </div>
+      </div>
+      <div id="pp-notes-list"><div class="loading" style="padding:16px;">Loading notes...</div></div>
+    </div>`;
+
   const flagPill = (label, isOn, subtitle) => `
     <div style="display:flex;align-items:center;gap:10px;background:white;border:1px solid var(--divider-color);border-radius:12px;padding:14px 16px;">
       ${ppSVG(isOn ? '<circle cx="12" cy="12" r="10"/><polyline points="9 12 11 14 15 10"/>' : '<circle cx="12" cy="12" r="10"/><line x1="9" y1="9" x2="15" y2="15"/><line x1="15" y1="9" x2="9" y2="15"/>', isOn ? 'var(--teal)' : '#c5d0e8', 18)}
@@ -855,7 +936,7 @@
         </div>
       </div>
       <div class="pp-2col pp-section-gap" style="align-items:start;">
-        ${comingSoonRow('Internal Notes')}
+        ${notesCardHTML(d.p.id)}
         <div>
           <div class="pp-perf-title">Administrative Flags</div>
           ${flagsHTML}
@@ -871,6 +952,12 @@
       </div>
       ${comingSoonRow('Admin Tasks')}
     `;
+
+    const notesEl = document.getElementById('pp-notes-list');
+    if (notesEl) {
+      const notes = await fetchPlayerNotes(d.p.id);
+      if (_ppCurrent && _ppCurrent.p.id === playerIdAtStart) notesEl.innerHTML = renderNotesList(notes);
+    }
   };
 
   const renderSoon = (tabId, label) => {
@@ -1102,6 +1189,8 @@
     ppResetPlayerDna:          () => ppResetPlayerDna(),
     ppSendMessage:  () => ppSendMessage(),
     ppCloseEmailModal: () => ppCloseEmailModal(),
+    ppToggleNoteForm: () => ppToggleNoteForm(),
+    ppSaveNote: () => ppSaveNote(),
     ppViewLadder:   (btn) => ppViewLadder(btn),
     // Route "openPlayerProfile" (used across the admin — Players table,
     // Match Hub, etc.) to this page instead of the old modal.

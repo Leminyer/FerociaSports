@@ -152,7 +152,9 @@ window.selectLadderType = (type) => {
   // keeps working correctly once there's more than one admin account.
   const loadAdminIdentity = async (session) => {
     const el = document.getElementById('admin-identity');
-    if (!el || !session?.user?.id) return;
+    if (!session?.user?.id) return;
+    window.AdminState.currentAdminId = session.user.id; // exposed for any module that needs to attribute an action to "who did this" (e.g. Internal Notes)
+    if (!el) return;
     try {
       const rows = await api(`admins?user_id=eq.${session.user.id}&select=full_name,role`);
       const admin = rows[0];
