@@ -142,7 +142,7 @@
     });
 
     // Opponent names for recent matches (same technique as the old modal)
-    const recent8 = ladderMatches.slice(0, 8);
+    const recent8 = ladderMatches.slice(0, 4); // "Recent Activity" shows the latest 4
     let opponentMap = {};
     if (recent8.length) {
       try {
