@@ -864,6 +864,12 @@
   const ppLogLateCancellation = async () => {
     if (!_ppCurrent) return;
     if (!AdminState.currentAdminId) { toast('Could not identify the current admin — try refreshing the page.', true); return; }
+    const ok = await window.confirmModal({
+      title: 'Log late cancellation?',
+      message: `This will mark today as a late cancellation for ${_ppCurrent.p.first_name} ${_ppCurrent.p.last_name}. This action cannot be undone — are you sure?`,
+      okLabel: 'Log Cancellation',
+    });
+    if (!ok) return;
     try {
       await api('player_late_cancellations', 'POST', {
         player_id: _ppCurrent.p.id,
