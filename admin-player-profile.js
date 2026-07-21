@@ -507,12 +507,12 @@
       || '<span class="pp-perf-val-empty">No matches yet</span>';
 
     // Win Rate progress ring (simple SVG circle, stroke-dashoffset trick)
-    const ringR = 26, ringC = 2 * Math.PI * ringR;
+    const ringR = 30, ringC = 2 * Math.PI * ringR;
     const ringOffset = ringC - (d.winPct / 100) * ringC;
     const winRateRingSVG = `
-      <svg width="64" height="64" viewBox="0 0 64 64" style="transform:rotate(-90deg);">
-        <circle cx="32" cy="32" r="${ringR}" fill="none" stroke="#f0f2f8" stroke-width="7"/>
-        <circle cx="32" cy="32" r="${ringR}" fill="none" stroke="var(--teal)" stroke-width="7"
+      <svg width="76" height="76" viewBox="0 0 76 76" style="transform:rotate(-90deg);">
+        <circle cx="38" cy="38" r="${ringR}" fill="none" stroke="#f0f2f8" stroke-width="8"/>
+        <circle cx="38" cy="38" r="${ringR}" fill="none" stroke="var(--teal)" stroke-width="8"
           stroke-dasharray="${ringC}" stroke-dashoffset="${ringOffset}" stroke-linecap="round"/>
       </svg>`;
 
@@ -527,30 +527,30 @@
           <div class="pp-kpi-lbl">Current Form</div>
           <div style="display:flex;gap:8px;margin-bottom:12px;">${formDots5}</div>
           <div style="display:flex;align-items:center;justify-content:space-between;">
-            <span class="pp-kpi-sub" style="margin-top:0;">Win Streak</span>
+            <span class="pp-kpi-sub" style="margin-top:0;">${d.streakType === 'L' ? 'Loss Streak' : 'Win Streak'}</span>
             <span class="pp-kpi-sub" style="margin-top:0;font-weight:800;color:${d.streakType === 'W' ? 'var(--teal)' : 'var(--orange)'};">${d.streak > 0 ? `${d.streak} ${d.streakType === 'W' ? 'Wins' : 'Losses'}` : '—'}</span>
           </div>
         </div>
-        <div class="pp-kpi-card" style="display:flex;align-items:center;gap:14px;">
-          <div style="position:relative;width:64px;height:64px;flex-shrink:0;">
-            ${winRateRingSVG}
-            <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;color:var(--text);">${d.winPct}%</div>
-          </div>
+        <div class="pp-kpi-card" style="display:flex;align-items:center;justify-content:space-between;gap:14px;">
           <div>
-            <div class="pp-kpi-lbl" style="margin-bottom:2px;">Win Rate</div>
-            <div class="pp-kpi-sub" style="margin-top:0;">Career Win Percentage</div>
+            <div class="pp-kpi-lbl">Win Rate</div>
+            <div class="pp-kpi-val" style="color:var(--text);">${d.winPct}%</div>
+            <div class="pp-kpi-sub">Career Win Percentage</div>
           </div>
+          <div style="width:76px;height:76px;flex-shrink:0;">${winRateRingSVG}</div>
         </div>
         <div class="pp-kpi-card">
           <div class="pp-kpi-lbl">Career Record</div>
-          <div style="display:flex;align-items:baseline;gap:10px;margin:4px 0;">
-            <span style="font-size:28px;font-weight:800;color:var(--teal);">${d.totalWins}</span>
-            <span style="font-size:20px;font-weight:700;color:#c5d0e8;">–</span>
-            <span style="font-size:28px;font-weight:800;color:var(--orange);">${d.totalLosses}</span>
-          </div>
-          <div style="display:flex;gap:10px;">
-            <span style="font-size:11px;font-weight:700;color:var(--teal);flex:1;">Wins</span>
-            <span style="font-size:11px;font-weight:700;color:var(--orange);flex:1;">Losses</span>
+          <div style="display:flex;align-items:flex-end;gap:10px;margin-top:4px;">
+            <div style="text-align:center;">
+              <div style="font-size:28px;font-weight:800;color:var(--teal);line-height:1;">${d.totalWins}</div>
+              <div style="font-size:11px;font-weight:700;color:var(--teal);margin-top:6px;">Wins</div>
+            </div>
+            <div style="font-size:20px;font-weight:700;color:#c5d0e8;padding-bottom:22px;">–</div>
+            <div style="text-align:center;">
+              <div style="font-size:28px;font-weight:800;color:var(--orange);line-height:1;">${d.totalLosses}</div>
+              <div style="font-size:11px;font-weight:700;color:var(--orange);margin-top:6px;">Losses</div>
+            </div>
           </div>
         </div>
       </div>`;
@@ -567,7 +567,7 @@
        </div>`;
     const perfOverviewHTML = `
       <div class="pp-perf-card">
-        ${perfTitleRow('Performance Overview', ICONS.flag, '#174CCC')}
+        ${perfTitleRow('Performance Overview', '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>', '#174CCC')}
         ${perfRow('Total Matches', d.totalPlayed)}
         ${perfRow('Wins', d.totalWins)}
         ${perfRow('Losses', d.totalLosses)}
@@ -616,7 +616,7 @@
     const avgFinish = ex.positionHistory.length ? (ex.positionHistory.reduce((s, r) => s + r.position, 0) / ex.positionHistory.length).toFixed(1) : null;
     const ladderHTML = `
       <div class="pp-perf-card">
-        ${perfTitleRow('Ladder Performance', ICONS.ladder, '#24BC96')}
+        ${perfTitleRow('Ladder Performance', '<line x1="6" y1="2" x2="6" y2="22"/><line x1="18" y1="2" x2="18" y2="22"/><line x1="6" y1="7" x2="18" y2="7"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="6" y1="17" x2="18" y2="17"/>', '#24BC96')}
         ${perfRow('Ladders Played', d.myLadders.length)}
         ${perfRow('Current Ladder', d.activeLadder ? esc(d.activeLadder.name) : 'None')}
         ${perfRow('Current Position', ex.myStandingRow ? `#${ex.myStandingRow.position} of ${ex.standingsRows.length}` : null)}
