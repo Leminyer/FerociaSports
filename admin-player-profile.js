@@ -501,6 +501,11 @@
     // don't overwrite that player's tab with this stale data.
     if (!_ppCurrent || _ppCurrent.p.id !== playerIdAtStart) return;
 
+    const scorePair = (scoreFor, scoreAgainst) => {
+      const forWon = scoreFor > scoreAgainst;
+      return `<span style="color:${forWon ? 'var(--teal)' : 'var(--orange)'};">${scoreFor}</span>–<span style="color:${forWon ? 'var(--orange)' : 'var(--teal)'};">${scoreAgainst}</span>`;
+    };
+
     // ── Section 1: KPI cards ──────────────────────────────────────────
     const last5 = d.orderedResults.slice(0, 5).slice().reverse();
     const formDots5 = last5.map((r) => `<div class="pp-form-dot-lg ${r === 'W' ? 'pp-form-w-lg' : 'pp-form-l-lg'}">${r}</div>`).join('')
@@ -559,7 +564,7 @@
     const seasonMatches = d.activeLadder ? d.ladderMatches.filter((m) => m.ladder_id === d.activeLadder.id) : [];
     const seasonWins = seasonMatches.filter((m) => m.score_for > m.score_against).length;
     const seasonRecord = d.activeLadder ? `${seasonWins}W – ${seasonMatches.length - seasonWins}L` : null;
-    const perfRow = (lbl, val) => `<div class="pp-perf-row"><span class="pp-perf-lbl">${lbl}</span><span class="${val === null ? 'pp-perf-val-empty' : 'pp-perf-val'}">${val === null ? 'Not enough historical data yet' : val}</span></div>`;
+    const perfRow = (lbl, val, color) => `<div class="pp-perf-row"><span class="pp-perf-lbl">${lbl}</span><span class="${val === null ? 'pp-perf-val-empty' : 'pp-perf-val'}" style="${color && val !== null ? `color:${color};` : ''}">${val === null ? 'Not enough historical data yet' : val}</span></div>`;
     const perfTitleRow = (title, iconPath, iconColor) =>
       `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
          <span class="pp-perf-title" style="margin-bottom:0;">${title}</span>
@@ -569,14 +574,14 @@
       <div class="pp-perf-card">
         ${perfTitleRow('Performance Overview', '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>', '#174CCC')}
         ${perfRow('Total Matches', d.totalPlayed)}
-        ${perfRow('Wins', d.totalWins)}
-        ${perfRow('Losses', d.totalLosses)}
+        ${perfRow('Wins', d.totalWins, 'var(--teal)')}
+        ${perfRow('Losses', d.totalLosses, 'var(--orange)')}
         ${perfRow('Win Percentage', `${d.winPct}%`)}
-        ${perfRow('Current Win Streak', d.streakType === 'W' ? d.streak : 0)}
+        ${perfRow('Current Win Streak', d.streakType === 'W' ? d.streak : 0, d.streakType === 'W' ? 'var(--teal)' : null)}
         ${perfRow('Best Win Streak', d.bestWinStreak)}
         ${perfRow('Average Tournament Finish', null)}
         ${perfRow('Average Ladder Finish', null)}
-        ${perfRow('Current Season Record', seasonRecord)}
+        ${seasonRecord ? `<div class="pp-perf-row"><span class="pp-perf-lbl">Current Season Record</span><span class="pp-perf-val">${scorePair(seasonWins, seasonMatches.length - seasonWins)}</span></div>` : perfRow('Current Season Record', null)}
       </div>`;
 
     // ── Section 3: Tournament Performance ─────────────────────────────
@@ -598,13 +603,13 @@
       <div class="pp-perf-card">
         ${perfTitleRow('Tournament Performance', ICONS.trophy, '#F26024')}
         ${perfRow('Tournaments Played', d.myTournaments.length)}
-        ${perfRow('Championships', championships)}
+        ${perfRow('Championships', championships, championships > 0 ? '#9a6200' : null)}
         ${perfRow('Runner-Up', runnerUps)}
-        ${perfRow('Third Place Finishes', thirdPlaceWins)}
+        ${perfRow('Third Place Finishes', thirdPlaceWins, thirdPlaceWins > 0 ? '#9a3412' : null)}
         ${perfRow('Quarterfinal Appearances', quarters.length)}
         ${perfRow('Semifinal Appearances', semis.length)}
-        ${perfRow('Best Finish', bestFinishLabel)}
-        ${perfRow('Current Tournament', currentTournament ? esc(currentTournament.name) : 'None')}
+        ${perfRow('Best Finish', bestFinishLabel, bestFinishLabel === 'Champion' ? 'var(--teal)' : null)}
+        ${perfRow('Current Tournament', currentTournament ? esc(currentTournament.name) : 'None', currentTournament ? 'var(--blue)' : null)}
         ${perfRow('Tournament Win Rate', d.myBracketMatches.length ? `${tournWinRate}%` : null)}
       </div>`;
 
@@ -618,11 +623,11 @@
       <div class="pp-perf-card">
         ${perfTitleRow('Ladder Performance', '<line x1="6" y1="2" x2="6" y2="22"/><line x1="18" y1="2" x2="18" y2="22"/><line x1="6" y1="7" x2="18" y2="7"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="6" y1="17" x2="18" y2="17"/>', '#24BC96')}
         ${perfRow('Ladders Played', d.myLadders.length)}
-        ${perfRow('Current Ladder', d.activeLadder ? esc(d.activeLadder.name) : 'None')}
+        ${perfRow('Current Ladder', d.activeLadder ? esc(d.activeLadder.name) : 'None', d.activeLadder ? 'var(--blue)' : null)}
         ${perfRow('Current Position', ex.myStandingRow ? `#${ex.myStandingRow.position} of ${ex.standingsRows.length}` : null)}
-        ${perfRow('Highest Position Ever', highestPosition ? `#${highestPosition}` : null)}
+        ${perfRow('Highest Position Ever', highestPosition ? `#${highestPosition}` : null, highestPosition === 1 ? 'var(--teal)' : null)}
         ${perfRow('Average Finish', avgFinish ? `#${avgFinish}` : null)}
-        ${perfRow('Attendance Rate', attendanceRate !== null ? `${attendanceRate}%` : null)}
+        ${perfRow('Attendance Rate', attendanceRate !== null ? `${attendanceRate}%` : null, attendanceRate >= 90 ? 'var(--teal)' : null)}
         ${perfRow('Promotion History', null)}
         ${perfRow('Largest Position Gain', null)}
       </div>`;
@@ -633,15 +638,11 @@
     }
 
     // ── Section 5: Recent Matches (ladder + tournament, mixed) ────────
-    const tournMatchesForFeed = d.myBracketMatches.slice(0, 5).map((bm) => ({
-      isTourn: true, date: bm.scheduled_date || bm.match_date || null,
-      won: won(bm), comp: 'Tournament', label: bm.round_name || 'Match',
-    }));
     const recentMixed = [
       ...d.recent8.map((m) => ({
         isTourn: false, date: m.session_date, won: m.score_for > m.score_against,
         comp: d.myLadders.find((l) => l.id === m.ladder_id)?.name || 'Ladder',
-        opp: d.opponentMap[m.id] || 'Opponent', score: `${m.score_for}–${m.score_against}`,
+        opp: d.opponentMap[m.id] || 'Opponent', scoreHTML: scorePair(m.score_for, m.score_against),
       })),
     ].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0)).slice(0, 8);
     const recentMatchesHTML = recentMixed.length ? recentMixed.map((m) => `
@@ -652,19 +653,63 @@
           <div class="pp-match-comp">${esc(m.comp)}</div>
         </div>
         <div>
-          <div class="pp-match-score" style="color:${m.won ? 'var(--teal)' : 'var(--orange)'};">${m.score || ''}</div>
+          <div class="pp-match-score">${m.scoreHTML}</div>
           <div class="pp-match-date">${fmtShort(m.date)}</div>
         </div>
       </div>`).join('') : '<div class="pp-empty">No recent matches yet.</div>';
 
     // ── Section 6: Competition Timeline ───────────────────────────────
-    const timelineRows = d.recent8.slice(0, 10).map((m) => {
-      const ladderName = d.myLadders.find((l) => l.id === m.ladder_id)?.name || '—';
-      const result = m.score_for > m.score_against ? 'Win' : 'Loss';
-      return `<tr><td>${fmtShort(m.session_date)}</td><td>${esc(ladderName)}</td><td>—</td><td>${result}</td><td>${m.score_for}–${m.score_against}</td></tr>`;
-    }).join('');
+    // Ladder rows show simple Win/Loss (a per-ladder-season "final finish"
+    // like the mockup's "Champion"/"Runner-Up" would need each ladder's
+    // final standings computed individually — not built yet). Tournament
+    // rows use the same real round_name values (Final/Semifinals/QF/3rd
+    // Place) to show an accurate Champion/Runner-Up/Semifinal/Quarterfinal
+    // badge, since that data already exists per match.
+    const resultBadge = (label, kind) => {
+      const styles = {
+        champion:  'background:rgba(36,188,150,0.12);color:#085041;border-color:rgba(36,188,150,0.3);',
+        runnerup:  'background:#f4f5f8;color:var(--text-muted);border-color:#e0e7f5;',
+        semi:      'background:rgba(23,76,204,0.08);color:var(--blue);border-color:rgba(23,76,204,0.25);',
+        win:       'background:rgba(36,188,150,0.12);color:#085041;border-color:rgba(36,188,150,0.3);',
+        loss:      'background:rgba(242,96,36,0.1);color:var(--orange);border-color:rgba(242,96,36,0.25);',
+      };
+      return `<span style="display:inline-block;padding:3px 12px;border-radius:99px;font-size:11px;font-weight:700;border:1px solid;${styles[kind]}">${label}</span>`;
+    };
+    const tournTimelineRows = d.myBracketMatches.filter((bm) => bm.round_name).map((bm) => {
+      const isWon = won(bm);
+      let label, kind, finish;
+      const roundLower = rn(bm);
+      if (roundLower === 'final') { label = isWon ? 'Champion' : 'Runner-Up'; kind = isWon ? 'champion' : 'runnerup'; finish = isWon ? '1st 🏆' : '2nd 🥈'; }
+      else if (roundLower === '3rd place') { label = isWon ? '3rd Place' : 'Semifinal'; kind = isWon ? 'champion' : 'semi'; finish = isWon ? '3rd 🥉' : 'Top 4'; }
+      else if (roundLower === 'semifinals') { label = 'Semifinal'; kind = 'semi'; finish = 'Top 4'; }
+      else if (roundLower === 'qf') { label = 'Quarterfinal'; kind = 'semi'; finish = 'Top 8'; }
+      else { label = isWon ? 'Win' : 'Loss'; kind = isWon ? 'win' : 'loss'; finish = '—'; }
+      return {
+        date: bm.scheduled_date || bm.match_date || null,
+        comp: d.myTournaments.find((t) => t.id === bm.tournament_id)?.name || 'Tournament',
+        division: '—', label, kind, finish,
+      };
+    });
+    const ladderTimelineRows = d.recent8.map((m) => ({
+      date: m.session_date,
+      comp: d.myLadders.find((l) => l.id === m.ladder_id)?.name || 'Ladder',
+      division: '—',
+      label: m.score_for > m.score_against ? 'Win' : 'Loss',
+      kind: m.score_for > m.score_against ? 'win' : 'loss',
+      finish: '—',
+    }));
+    const timelineEntries = [...tournTimelineRows, ...ladderTimelineRows]
+      .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0)).slice(0, 10);
+    const timelineRows = timelineEntries.map((t) => `
+      <tr>
+        <td>${fmtShort(t.date)}</td>
+        <td>${esc(t.comp)}</td>
+        <td>${t.division}</td>
+        <td>${resultBadge(t.label, t.kind)}</td>
+        <td>${t.finish}</td>
+      </tr>`).join('');
     const timelineHTML = timelineRows
-      ? `<table class="pp-timeline-table"><thead><tr><th>Date</th><th>Competition</th><th>Division</th><th>Result</th><th>Score</th></tr></thead><tbody>${timelineRows}</tbody></table>`
+      ? `<table class="pp-timeline-table"><thead><tr><th>Date</th><th>Competition</th><th>Division</th><th>Result</th><th>Finish</th></tr></thead><tbody>${timelineRows}</tbody></table>`
       : '<div class="pp-empty">No competition history yet.</div>';
 
     // ── Section 7: Achievements ────────────────────────────────────────
@@ -708,8 +753,22 @@
     el.innerHTML = `
       ${kpiHTML}
       <div class="pp-3col pp-section-gap">${perfOverviewHTML}${tournHTML}${ladderHTML}</div>
-      <div class="pp-perf-card pp-section-gap"><div class="pp-perf-title">Recent Matches</div>${recentMatchesHTML}</div>
-      <div class="pp-perf-card pp-section-gap"><div class="pp-perf-title">Competition Timeline</div>${timelineHTML}</div>
+      <div style="display:grid;grid-template-columns:1fr 1.6fr;gap:24px;align-items:stretch;" class="pp-section-gap">
+        <div class="pp-perf-card">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <span class="pp-perf-title" style="margin-bottom:0;">Recent Matches</span>
+            <a class="pp-link" data-action="ppShowTab" data-pptab="history">View All →</a>
+          </div>
+          ${recentMatchesHTML}
+        </div>
+        <div class="pp-perf-card">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <span class="pp-perf-title" style="margin-bottom:0;">Competition Timeline</span>
+            <a class="pp-link" data-action="ppShowTab" data-pptab="history">View All →</a>
+          </div>
+          ${timelineHTML}
+        </div>
+      </div>
       <div class="pp-perf-card pp-section-gap"><div class="pp-perf-title">Achievements</div>${achievementsHTML}</div>
       ${insightsHTML}
       <div style="margin-top:24px;">${rankChartHTML}</div>
