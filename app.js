@@ -600,7 +600,8 @@ window.selectLadderType = (type) => {
     const el = document.getElementById('events-list');
     if (!el) return;
     try {
-      const events = await api('events?select=*&order=event_date.asc');
+      const today = new Date().toISOString().split('T')[0];
+      const events = await api(`events?event_date=gte.${today}&select=*&order=event_date.asc`);
       // Update count badge
       const badge = document.getElementById('events-count-badge');
       if (badge) badge.textContent = events.length || '';
@@ -625,9 +626,6 @@ window.selectLadderType = (type) => {
         const d      = new Date(ev.event_date + 'T00:00:00');
         const day    = d.getDate();
         const mon    = months[d.getMonth()];
-        const isPast = d < new Date(new Date().toDateString());
-        const pillClass = isPast ? 'ev-pill-past' : 'ev-pill-upcoming';
-        const pillLabel = isPast ? 'Past' : 'Upcoming';
 
         const flyerHTML = ev.flyer_url
           ? `<img src="${esc(ev.flyer_url)}" class="ev-card-flyer" alt="${esc(ev.title)} flyer">`
@@ -651,7 +649,6 @@ window.selectLadderType = (type) => {
             </div>
             ${ev.description ? `<div class="ev-card-desc">${esc(ev.description)}</div>` : ''}
             <div class="ev-card-actions">
-              <span class="ev-status-pill ${pillClass}">${pillLabel}</span>
               ${linkBtn}
               <button class="sess-edit-btn" data-action="openEditEventModal"
                 data-evid="${ev.id}"
