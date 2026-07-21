@@ -469,6 +469,225 @@
   };
 
   // ── "Coming Soon" placeholder for tabs the design team hasn't shipped yet ──
+  // ── Competition tab ──────────────────────────────────────────────────
+  // Lazily fetches the extra data Competition needs beyond what Overview
+  // already has (current ladder standings position + position history).
+  const fetchCompetitionExtras = async (d) => {
+    const extras = { standingsRows: [], myStandingRow: null, positionHistory: [] };
+    if (d.activeLadder) {
+      try {
+        const { data } = await supabase.rpc('get_ladder_standings', { p_ladder_id: d.activeLadder.id });
+        extras.standingsRows = (data || []).slice().sort((a, b) => (b.points || 0) - (a.points || 0));
+        const idx = extras.standingsRows.findIndex((r) => r.player_id === d.p.id);
+        if (idx >= 0) extras.myStandingRow = { ...extras.standingsRows[idx], position: idx + 1 };
+      } catch (e) { /* best-effort */ }
+      try {
+        extras.positionHistory = await api(
+          `ladder_position_snapshots?player_id=eq.${d.p.id}&ladder_id=eq.${d.activeLadder.id}&select=*&order=session_date.asc`,
+        );
+      } catch (e) { /* best-effort */ }
+    }
+    return extras;
+  };
+
+  const renderCompetition = async (d) => {
+    const el = document.getElementById('pp-tab-competition');
+    if (!el || el.dataset.rendered) return;
+    el.dataset.rendered = '1';
+    el.innerHTML = '<div class="loading" style="padding:40px;">Loading competition data...</div>';
+    const playerIdAtStart = d.p.id;
+    const ex = await fetchCompetitionExtras(d);
+    // If the admin navigated to a different player while this was loading,
+    // don't overwrite that player's tab with this stale data.
+    if (!_ppCurrent || _ppCurrent.p.id !== playerIdAtStart) return;
+
+    // ── Section 1: KPI cards ──────────────────────────────────────────
+    const last5 = d.orderedResults.slice(0, 5).slice().reverse();
+    const formDots5 = last5.map((r) => `<div class="pp-form-dot ${r === 'W' ? 'pp-form-w' : 'pp-form-l'}" style="width:22px;height:22px;">${r}</div>`).join('')
+      || '<span class="pp-perf-val-empty">No matches yet</span>';
+
+    const kpiHTML = `
+      <div class="pp-kpi-row pp-section-gap">
+        <div class="pp-kpi-card">
+          <div class="pp-kpi-lbl">FEROCIA Ranking</div>
+          <div class="pp-kpi-val" style="color:#c5d0e8;">—</div>
+          <div class="pp-kpi-sub">Ranking system coming soon</div>
+        </div>
+        <div class="pp-kpi-card">
+          <div class="pp-kpi-lbl">Current Form</div>
+          <div style="display:flex;gap:4px;margin-bottom:8px;">${formDots5}</div>
+          <div class="pp-kpi-sub">${d.streak > 0 ? `Current ${d.streakType === 'W' ? 'Win' : 'Loss'} Streak: ${d.streak}` : 'No active streak'}</div>
+        </div>
+        <div class="pp-kpi-card">
+          <div class="pp-kpi-lbl">Win Rate</div>
+          <div class="pp-kpi-val" style="color:var(--teal);">${d.winPct}%</div>
+          <div class="pp-kpi-sub">Career Win Percentage</div>
+        </div>
+        <div class="pp-kpi-card">
+          <div class="pp-kpi-lbl">Career Record</div>
+          <div class="pp-kpi-val">${d.totalWins}W – ${d.totalLosses}L</div>
+          <div class="pp-kpi-sub">${d.totalPlayed} Matches Played</div>
+        </div>
+      </div>`;
+
+    // ── Section 2: Performance Overview ───────────────────────────────
+    const seasonMatches = d.activeLadder ? d.ladderMatches.filter((m) => m.ladder_id === d.activeLadder.id) : [];
+    const seasonWins = seasonMatches.filter((m) => m.score_for > m.score_against).length;
+    const seasonRecord = d.activeLadder ? `${seasonWins}W – ${seasonMatches.length - seasonWins}L` : null;
+    const perfRow = (lbl, val) => `<div class="pp-perf-row"><span class="pp-perf-lbl">${lbl}</span><span class="${val === null ? 'pp-perf-val-empty' : 'pp-perf-val'}">${val === null ? 'Not enough historical data yet' : val}</span></div>`;
+    const perfOverviewHTML = `
+      <div class="pp-perf-card">
+        <div class="pp-perf-title">Performance Overview</div>
+        ${perfRow('Total Matches', d.totalPlayed)}
+        ${perfRow('Wins', d.totalWins)}
+        ${perfRow('Losses', d.totalLosses)}
+        ${perfRow('Win Percentage', `${d.winPct}%`)}
+        ${perfRow('Current Win Streak', d.streakType === 'W' ? d.streak : 0)}
+        ${perfRow('Best Win Streak', d.bestWinStreak)}
+        ${perfRow('Average Tournament Finish', null)}
+        ${perfRow('Average Ladder Finish', null)}
+        ${perfRow('Current Season Record', seasonRecord)}
+      </div>`;
+
+    // ── Section 3: Tournament Performance ─────────────────────────────
+    // Real round_name values used across the app: R32, R16, QF, Semifinals,
+    // "3rd Place", Final (confirmed against tournament-results.html).
+    const rn = (bm) => (bm.round_name || '').toLowerCase();
+    const won = (bm) => d.myTeamIds.includes(bm.winner_id);
+    const finals     = d.myBracketMatches.filter((bm) => rn(bm) === 'final');
+    const thirdPlace = d.myBracketMatches.filter((bm) => rn(bm) === '3rd place');
+    const semis      = d.myBracketMatches.filter((bm) => rn(bm) === 'semifinals');
+    const quarters   = d.myBracketMatches.filter((bm) => rn(bm) === 'qf');
+    const championships = finals.filter(won).length;
+    const runnerUps     = finals.filter((bm) => !won(bm)).length;
+    const thirdPlaceWins = thirdPlace.filter(won).length;
+    const tournWinRate  = d.myBracketMatches.length ? Math.round((d.myBracketMatches.filter(won).length / d.myBracketMatches.length) * 100) : 0;
+    const currentTournament = d.myTournaments.find((t) => t.status === 'active' || t.status === 'in_progress') || null;
+    const bestFinishLabel = championships > 0 ? 'Champion' : runnerUps > 0 ? 'Runner-Up' : thirdPlaceWins > 0 ? '3rd Place' : semis.length ? 'Semifinalist' : quarters.length ? 'Quarterfinalist' : d.myTournaments.length ? 'Participant' : null;
+    const tournHTML = `
+      <div class="pp-perf-card">
+        <div class="pp-perf-title">Tournament Performance</div>
+        ${perfRow('Tournaments Played', d.myTournaments.length)}
+        ${perfRow('Championships', championships)}
+        ${perfRow('Runner-Up', runnerUps)}
+        ${perfRow('Third Place Finishes', thirdPlaceWins)}
+        ${perfRow('Quarterfinal Appearances', quarters.length)}
+        ${perfRow('Semifinal Appearances', semis.length)}
+        ${perfRow('Best Finish', bestFinishLabel)}
+        ${perfRow('Current Tournament', currentTournament ? esc(currentTournament.name) : 'None')}
+        ${perfRow('Tournament Win Rate', d.myBracketMatches.length ? `${tournWinRate}%` : null)}
+      </div>`;
+
+    // ── Section 4: Ladder Performance ─────────────────────────────────
+    const attendedDates = new Set(d.allMatches.filter((m) => d.activeLadder && m.ladder_id === d.activeLadder.id && !m.default_no_show).map((m) => m.session_date));
+    const allLadderDates = new Set(d.allMatches.filter((m) => d.activeLadder && m.ladder_id === d.activeLadder.id).map((m) => m.session_date));
+    const attendanceRate = allLadderDates.size ? Math.round((attendedDates.size / allLadderDates.size) * 100) : null;
+    const highestPosition = ex.positionHistory.length ? Math.min(...ex.positionHistory.map((r) => r.position)) : null;
+    const avgFinish = ex.positionHistory.length ? (ex.positionHistory.reduce((s, r) => s + r.position, 0) / ex.positionHistory.length).toFixed(1) : null;
+    const ladderHTML = `
+      <div class="pp-perf-card">
+        <div class="pp-perf-title">Ladder Performance</div>
+        ${perfRow('Ladders Played', d.myLadders.length)}
+        ${perfRow('Current Ladder', d.activeLadder ? esc(d.activeLadder.name) : 'None')}
+        ${perfRow('Current Position', ex.myStandingRow ? `#${ex.myStandingRow.position} of ${ex.standingsRows.length}` : null)}
+        ${perfRow('Highest Position Ever', highestPosition ? `#${highestPosition}` : null)}
+        ${perfRow('Average Finish', avgFinish ? `#${avgFinish}` : null)}
+        ${perfRow('Attendance Rate', attendanceRate !== null ? `${attendanceRate}%` : null)}
+        ${perfRow('Promotion History', null)}
+        ${perfRow('Largest Position Gain', null)}
+      </div>`;
+    if (!ex.positionHistory.length) {
+      // Being upfront in the UI too, not just to the founder — position
+      // tracking only started recently, so most players won't have any
+      // history yet.
+    }
+
+    // ── Section 5: Recent Matches (ladder + tournament, mixed) ────────
+    const tournMatchesForFeed = d.myBracketMatches.slice(0, 5).map((bm) => ({
+      isTourn: true, date: bm.scheduled_date || bm.match_date || null,
+      won: won(bm), comp: 'Tournament', label: bm.round_name || 'Match',
+    }));
+    const recentMixed = [
+      ...d.recent8.map((m) => ({
+        isTourn: false, date: m.session_date, won: m.score_for > m.score_against,
+        comp: d.myLadders.find((l) => l.id === m.ladder_id)?.name || 'Ladder',
+        opp: d.opponentMap[m.id] || 'Opponent', score: `${m.score_for}–${m.score_against}`,
+      })),
+    ].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0)).slice(0, 8);
+    const recentMatchesHTML = recentMixed.length ? recentMixed.map((m) => `
+      <div class="pp-match-row">
+        <div class="${m.won ? 'ppm-pill-w' : 'ppm-pill-l'}" style="width:26px;height:26px;">${m.won ? 'W' : 'L'}</div>
+        <div class="pp-match-info">
+          <div class="pp-match-opp">vs ${esc(m.opp || 'Opponent')}</div>
+          <div class="pp-match-comp">${esc(m.comp)}</div>
+        </div>
+        <div>
+          <div class="pp-match-score" style="color:${m.won ? 'var(--teal)' : 'var(--orange)'};">${m.score || ''}</div>
+          <div class="pp-match-date">${fmtShort(m.date)}</div>
+        </div>
+      </div>`).join('') : '<div class="pp-empty">No recent matches yet.</div>';
+
+    // ── Section 6: Competition Timeline ───────────────────────────────
+    const timelineRows = d.recent8.slice(0, 10).map((m) => {
+      const ladderName = d.myLadders.find((l) => l.id === m.ladder_id)?.name || '—';
+      const result = m.score_for > m.score_against ? 'Win' : 'Loss';
+      return `<tr><td>${fmtShort(m.session_date)}</td><td>${esc(ladderName)}</td><td>—</td><td>${result}</td><td>${m.score_for}–${m.score_against}</td></tr>`;
+    }).join('');
+    const timelineHTML = timelineRows
+      ? `<table class="pp-timeline-table"><thead><tr><th>Date</th><th>Competition</th><th>Division</th><th>Result</th><th>Score</th></tr></thead><tbody>${timelineRows}</tbody></table>`
+      : '<div class="pp-empty">No competition history yet.</div>';
+
+    // ── Section 7: Achievements ────────────────────────────────────────
+    const achievements = [];
+    if (championships > 0) achievements.push({ icon: '🏆', label: `Tournament Champion${championships > 1 ? ` (${championships})` : ''}` });
+    if (d.bestWinStreak >= 5) achievements.push({ icon: '🔥', label: `${d.bestWinStreak} Match Win Streak` });
+    if (d.totalPlayed >= 100) achievements.push({ icon: '🎯', label: '100 Career Matches' });
+    if (d.totalPlayed >= 25 && d.totalPlayed < 100) achievements.push({ icon: '🚀', label: 'Rising Player' });
+    if (d.winPct >= 60 && d.totalPlayed >= 10) achievements.push({ icon: '💪', label: 'Consistent Competitor' });
+    if (ex.myStandingRow && ex.myStandingRow.position === 1) achievements.push({ icon: '🥇', label: 'Ladder Champion' });
+    if (runnerUps > 0) achievements.push({ icon: '🥈', label: 'Tournament Finalist' });
+    const achievementsHTML = achievements.length
+      ? `<div class="pp-badge-grid">${achievements.map((a) => `<div class="pp-badge-card"><span style="font-size:18px;">${a.icon}</span>${esc(a.label)}</div>`).join('')}</div>`
+      : '<div class="pp-empty">No achievements unlocked yet.</div>';
+
+    // ── Section 8: Competition Insights (auto-generated, real data only) ──
+    const insights = [];
+    if (d.ladderPlayed >= 5 && d.myBracketMatches.length >= 5) {
+      const ladderWr = Math.round((d.ladderWins / d.ladderPlayed) * 100);
+      if (Math.abs(ladderWr - tournWinRate) >= 10) {
+        insights.push(`Performs better in ${ladderWr > tournWinRate ? 'Ladders' : 'Tournaments'} than in ${ladderWr > tournWinRate ? 'Tournaments' : 'Ladders'} (${Math.max(ladderWr, tournWinRate)}% vs ${Math.min(ladderWr, tournWinRate)}%).`);
+      }
+    }
+    if (d.streak >= 3) {
+      insights.push(d.streakType === 'W' ? `In excellent form — ${d.streak} wins in a row.` : `Currently on a ${d.streak}-match losing streak.`);
+    }
+    if (!insights.length) insights.push('Not enough data yet for personalized insights — check back after a few more matches.');
+    const insightsHTML = `
+      <div class="pp-insight-card">
+        <div class="pp-perf-title">Competition Insights</div>
+        ${insights.map((i) => `<div class="pp-insight-item">💡 ${i}</div>`).join('')}
+      </div>`;
+
+    // ── Section 9: Ranking Progression — no rank history yet ──────────
+    const rankChartHTML = `
+      <div class="pp-perf-card">
+        <div class="pp-perf-title">Ranking Progression</div>
+        <div class="pp-empty">No ranking history yet — this will populate once the ranking system is built.</div>
+      </div>`;
+
+    el.innerHTML = `
+      ${kpiHTML}
+      <div class="pp-2col pp-section-gap">${perfOverviewHTML}${tournHTML}</div>
+      <div class="pp-2col pp-section-gap">${ladderHTML}
+        <div class="pp-perf-card"><div class="pp-perf-title">Recent Matches</div>${recentMatchesHTML}</div>
+      </div>
+      <div class="pp-perf-card pp-section-gap"><div class="pp-perf-title">Competition Timeline</div>${timelineHTML}</div>
+      <div class="pp-perf-card pp-section-gap"><div class="pp-perf-title">Achievements</div>${achievementsHTML}</div>
+      ${insightsHTML}
+      <div style="margin-top:24px;">${rankChartHTML}</div>
+    `;
+  };
+
   const renderSoon = (tabId, label) => {
     const el = document.getElementById(`pp-tab-${tabId}`);
     if (!el || el.dataset.rendered) return;
@@ -487,7 +706,8 @@
     document.querySelectorAll('.pp-tab-content').forEach((c) => { c.style.display = 'none'; });
     const target = document.getElementById(`pp-tab-${tab}`);
     if (target) target.style.display = '';
-    const labels = { competition: 'Competition', dna: 'DNA', reliability: 'Reliability', membership: 'Membership', history: 'History', adminnotes: 'Admin Notes' };
+    if (tab === 'competition') { if (_ppCurrent) renderCompetition(_ppCurrent); return; }
+    const labels = { dna: 'DNA', reliability: 'Reliability', membership: 'Membership', history: 'History', adminnotes: 'Admin Notes' };
     if (labels[tab]) renderSoon(tab, labels[tab]);
   };
 

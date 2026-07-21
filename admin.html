@@ -892,6 +892,38 @@
   .pp-soon-icon{width:56px;height:56px;border-radius:50%;background:#e8f0ff;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;}
   .pp-soon-title{font-size:16px;font-weight:800;color:var(--text);margin-bottom:6px;}
   .pp-soon-text{font-size:12px;font-weight:600;color:var(--text-muted);max-width:340px;margin:0 auto;}
+
+  /* ── Competition tab ──────────────────────────────────────────── */
+  .pp-section-gap{margin-bottom:32px;}
+  .pp-kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:24px;}
+  .pp-kpi-card{background:white;border:1px solid var(--divider-color);border-radius:16px;padding:20px;box-shadow:var(--shadow-medium);}
+  .pp-kpi-lbl{font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px;}
+  .pp-kpi-val{font-size:28px;font-weight:800;color:var(--text);line-height:1;font-family:'Inter',sans-serif;}
+  .pp-kpi-sub{font-size:11px;font-weight:600;color:var(--text-muted);margin-top:6px;}
+  .pp-kpi-trend{font-size:11px;font-weight:700;color:var(--teal);margin-top:4px;}
+  .pp-perf-card{background:white;border:1px solid var(--divider-color);border-radius:16px;padding:24px;box-shadow:var(--shadow-medium);}
+  .pp-perf-title{font-size:15px;font-weight:700;color:var(--text);margin-bottom:16px;}
+  .pp-perf-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:0.5px solid #f4f5f8;}
+  .pp-perf-row:last-child{border-bottom:none;}
+  .pp-perf-lbl{font-size:13px;font-weight:600;color:var(--text-muted);}
+  .pp-perf-val{font-size:13px;font-weight:700;color:var(--text);text-align:right;}
+  .pp-perf-val-empty{font-size:12px;font-weight:600;color:#c5d0e8;font-style:italic;}
+  .pp-2col{display:grid;grid-template-columns:1fr 1fr;gap:24px;}
+  @media (max-width:900px){ .pp-2col{grid-template-columns:1fr;} .pp-kpi-row{grid-template-columns:1fr 1fr;} }
+  .pp-match-row{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:0.5px solid #f4f5f8;}
+  .pp-match-row:last-child{border-bottom:none;}
+  .pp-match-info{flex:1;min-width:0;}
+  .pp-match-opp{font-size:13px;font-weight:700;color:var(--text);}
+  .pp-match-comp{font-size:11px;font-weight:600;color:var(--text-muted);margin-top:2px;}
+  .pp-match-score{font-size:14px;font-weight:800;text-align:right;flex-shrink:0;}
+  .pp-match-date{font-size:10px;font-weight:600;color:var(--text-muted);text-align:right;flex-shrink:0;width:60px;}
+  .pp-timeline-table{width:100%;border-collapse:collapse;}
+  .pp-timeline-table th{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text-muted);text-align:left;padding:8px 10px;border-bottom:1px solid var(--divider-color);}
+  .pp-timeline-table td{font-size:12px;font-weight:600;color:var(--text);padding:10px;border-bottom:0.5px solid #f4f5f8;}
+  .pp-badge-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;}
+  .pp-badge-card{display:flex;align-items:center;gap:10px;background:white;border:1px solid var(--divider-color);border-radius:12px;padding:12px 16px;font-size:12px;font-weight:700;color:var(--text);}
+  .pp-insight-card{background:var(--primary-light);border:1px solid rgba(23,76,204,0.15);border-radius:16px;padding:24px;}
+  .pp-insight-item{display:flex;align-items:flex-start;gap:10px;font-size:13px;font-weight:600;color:var(--text);padding:8px 0;}
   .pp-search-wrap{position:relative;width:260px;}
   .pp-search-input{width:100%;padding:8px 12px 8px 32px;border:0.5px solid #e0e7f5;border-radius:99px;font-size:12px;font-family:'Inter',sans-serif;outline:none;}
   .pp-search-input:focus{border-color:var(--blue);}
@@ -4130,25 +4162,25 @@
   </div>
 </div>
 
-<script src="admin-state.js?v=20260750"></script>
-<script src="admin-ladder-selector.js?v=20260750"></script>
-<script src="admin-orders.js?v=20260750"></script>
-<script src="admin-email-utils.js?v=20260750"></script>
-<script src="admin-share.js?v=20260750"></script>
-<script src="admin-tournament-notify.js?v=20260750"></script>
-<script src="admin-player-status-history.js?v=20260750"></script>
-<script src="admin-player-profile.js?v=20260750"></script>
-<script src="admin-email-notifications.js?v=20260750"></script>
-<script src="admin-ladder-standings.js?v=20260750"></script>
-<script src="admin-sessions.js?v=20260750"></script>
-<script src="admin-print-roster.js?v=20260750"></script>
-<script src="admin-ladder-management.js?v=20260750"></script>
-<script src="admin-promotions.js?v=20260750"></script>
-<script src="admin-players.js?v=20260750"></script>
-<script src="admin-ftc-standings.js?v=20260750"></script>
-<script src="admin-ftc-playoffs-schedule.js?v=20260750"></script>
-<script src="admin-ftc-teams.js?v=20260750"></script>
-<script src="app.js?v=20260750"></script>
+<script src="admin-state.js?v=20260752"></script>
+<script src="admin-ladder-selector.js?v=20260752"></script>
+<script src="admin-orders.js?v=20260752"></script>
+<script src="admin-email-utils.js?v=20260752"></script>
+<script src="admin-share.js?v=20260752"></script>
+<script src="admin-tournament-notify.js?v=20260752"></script>
+<script src="admin-player-status-history.js?v=20260752"></script>
+<script src="admin-player-profile.js?v=20260752"></script>
+<script src="admin-email-notifications.js?v=20260752"></script>
+<script src="admin-ladder-standings.js?v=20260752"></script>
+<script src="admin-sessions.js?v=20260752"></script>
+<script src="admin-print-roster.js?v=20260752"></script>
+<script src="admin-ladder-management.js?v=20260752"></script>
+<script src="admin-promotions.js?v=20260752"></script>
+<script src="admin-players.js?v=20260752"></script>
+<script src="admin-ftc-standings.js?v=20260752"></script>
+<script src="admin-ftc-playoffs-schedule.js?v=20260752"></script>
+<script src="admin-ftc-teams.js?v=20260752"></script>
+<script src="app.js?v=20260752"></script>
 <script src="tournament.js?v=20260526"></script>
 <script>
   // ── Sidebar toggle — persisted in localStorage ──────────────────────

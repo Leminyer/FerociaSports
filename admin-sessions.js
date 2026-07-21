@@ -1171,6 +1171,26 @@
     AdminState.extraGames = AdminState.extraGames.filter((g) => g !== gameNum);
   };
 
+  // Best-effort — records where every player in this ladder stood right
+  // after this session, so the Player Profile page's Competition tab can
+  // eventually show real "position over time" data. A failure here must
+  // never block or roll back the actual session save (already committed).
+  const snapshotLadderPositions = async (ladderId, sessionDate) => {
+    try {
+      const { data, error } = await supabase.rpc('get_ladder_standings', { p_ladder_id: ladderId });
+      if (error || !data || !data.length) return;
+      const sorted = [...data].sort((a, b) => (b.points || 0) - (a.points || 0));
+      const rows = sorted.map((row, idx) => ({
+        ladder_id: ladderId, player_id: row.player_id, session_date: sessionDate,
+        position: idx + 1, points: row.points, wins: row.wins, losses: row.losses,
+      }));
+      await supabase.from('ladder_position_snapshots')
+        .upsert(rows, { onConflict: 'ladder_id,player_id,session_date' });
+    } catch (e) {
+      console.warn('[position snapshot] failed:', e.message);
+    }
+  };
+
   const submitSession = async () => {
     // Guard against double-submit (rapid double-click / double-tap). The
     // "does a session already exist" check and the insert below are two
@@ -1367,6 +1387,7 @@
       await api('matches', 'POST', rows);
       if (anyScoreEntered) {
         toast(`Session saved! ${rows.length} entries recorded.`);
+        snapshotLadderPositions(AdminState.currentLadder.id, date);
       } else {
         toast(`Roster saved for Court ${courtNum}. Add scores later in the Sessions tab.`);
       }
