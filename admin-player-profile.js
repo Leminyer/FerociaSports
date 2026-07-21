@@ -859,6 +859,104 @@
     }
   };
 
+  // Logs a late cancellation for today and refreshes the Admin tab so the
+  // Reliability Summary count updates right away.
+  const ppLogLateCancellation = async () => {
+    if (!_ppCurrent) return;
+    if (!AdminState.currentAdminId) { toast('Could not identify the current admin — try refreshing the page.', true); return; }
+    try {
+      await api('player_late_cancellations', 'POST', {
+        player_id: _ppCurrent.p.id,
+        ladder_id: _ppCurrent.activeLadder?.id || null,
+        admin_id: AdminState.currentAdminId,
+      });
+      toast('Late cancellation logged.');
+      document.getElementById('pp-tab-adminnotes').removeAttribute('data-rendered');
+      renderAdmin(_ppCurrent);
+    } catch (e) {
+      toast(`Error: ${e.message}`, true);
+    }
+  };
+
+  // ── Player Tags ──────────────────────────────────────────────────────
+  // Fixed catalog — administrators pick from this list, they can't create
+  // custom tags (matches the spec). Colors are per-category, not per-tag.
+  const TAG_CATALOG = {
+    Community:   { color: '#7B2FBE', tags: ['Volunteer', 'Community Leader', 'Ambassador'] },
+    Coaching:    { color: 'var(--blue)', tags: ['Coach', 'Instructor', 'Junior Parent'] },
+    Business:    { color: '#9a6200', tags: ['VIP', 'Sponsor', 'Partner'] },
+    Competition: { color: 'var(--teal)', tags: ['Tournament Director', 'Referee', 'Mentor'] },
+  };
+  const tagColor = (tag) => {
+    for (const cat of Object.values(TAG_CATALOG)) if (cat.tags.includes(tag)) return cat.color;
+    return 'var(--text-muted)';
+  };
+  let _ppTagPickerOpen = false;
+
+  const renderTagsCard = (tags) => {
+    const pills = (tags || []).map((t) => {
+      const c = tagColor(t);
+      return `<span style="display:inline-flex;align-items:center;gap:6px;background:${c}22;color:${c};border-radius:99px;padding:5px 12px;font-size:11px;font-weight:700;">
+        ${esc(t)}
+        <button type="button" data-action="ppRemoveTag" data-tag="${esc(t)}" style="background:none;border:none;color:${c};cursor:pointer;font-weight:800;padding:0;line-height:1;font-size:13px;">×</button>
+      </span>`;
+    }).join('');
+    return `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div class="pp-perf-title" style="margin-bottom:0;">Player Tags</div>
+        <button type="button" data-action="ppToggleTagPicker" style="width:26px;height:26px;border-radius:50%;border:1px solid var(--blue);background:white;color:var(--blue);cursor:pointer;font-size:13px;font-weight:800;line-height:1;">+</button>
+      </div>
+      <div id="pp-tag-picker" style="display:none;background:#f8f9ff;border:1px solid var(--divider-color);border-radius:10px;padding:12px;margin-bottom:12px;">
+        ${Object.entries(TAG_CATALOG).map(([cat, info]) => `
+          <div style="margin-bottom:8px;">
+            <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--text-muted);margin-bottom:5px;">${cat}</div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;">
+              ${info.tags.map((t) => (tags || []).includes(t) ? '' : `<button type="button" data-action="ppAddTag" data-tag="${esc(t)}" style="background:white;border:1px solid ${info.color};color:${info.color};border-radius:99px;padding:4px 10px;font-size:10px;font-weight:700;cursor:pointer;">+ ${esc(t)}</button>`).join('')}
+            </div>
+          </div>`).join('')}
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;">
+        ${pills || '<div class="pp-empty">No tags assigned yet.</div>'}
+      </div>`;
+  };
+
+  const ppToggleTagPicker = () => {
+    _ppTagPickerOpen = !_ppTagPickerOpen;
+    const el = document.getElementById('pp-tag-picker');
+    if (el) el.style.display = _ppTagPickerOpen ? 'block' : 'none';
+  };
+
+  const _ppRefreshTagsCard = async () => {
+    const el = document.getElementById('pp-tags-card-body');
+    if (!el || !_ppCurrent) return;
+    el.innerHTML = renderTagsCard(_ppCurrent.p.tags);
+  };
+
+  const ppAddTag = async (btn) => {
+    if (!_ppCurrent) return;
+    const tag = btn.dataset.tag;
+    const current = _ppCurrent.p.tags || [];
+    if (current.includes(tag)) return;
+    const updated = [...current, tag];
+    try {
+      await api(`players?id=eq.${_ppCurrent.p.id}`, 'PATCH', { tags: updated });
+      _ppCurrent.p.tags = updated;
+      _ppTagPickerOpen = false;
+      _ppRefreshTagsCard();
+    } catch (e) { toast(`Error: ${e.message}`, true); }
+  };
+
+  const ppRemoveTag = async (btn) => {
+    if (!_ppCurrent) return;
+    const tag = btn.dataset.tag;
+    const updated = (_ppCurrent.p.tags || []).filter((t) => t !== tag);
+    try {
+      await api(`players?id=eq.${_ppCurrent.p.id}`, 'PATCH', { tags: updated });
+      _ppCurrent.p.tags = updated;
+      _ppRefreshTagsCard();
+    } catch (e) { toast(`Error: ${e.message}`, true); }
+  };
+
   const notesCardHTML = (playerId) => `
     <div class="pp-perf-card">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
@@ -913,7 +1011,6 @@
         ${flagPill('Waiver Signed', !!p.waiver_signed)}
         ${flagPill('Active Membership', p.status === 'active')}
         ${flagPill('Emergency Contact', !!p.emergency_contact_on_file)}
-        ${flagPill('Background Check', p.background_check_status === 'passed', p.background_check_status === 'not_required' ? 'Not Required' : p.background_check_status === 'pending' ? 'Pending' : undefined)}
       </div>`;
 
     // Each metric gets its own visual treatment instead of a repeated
@@ -948,16 +1045,20 @@
     const badgeViz = (label, color) => `
       <div style="margin-top:6px;">${ppSVG('<path d="M12 2l2.4 5.3 5.6.6-4.2 3.9 1.2 5.7L12 14.7 6.9 17.5l1.2-5.7-4.2-3.9 5.6-.6z"/>', color, 34)}</div>`;
 
-    const relStat = (label, valHTML, vizHTML, color) => `
-      <div style="background:white;border:1px solid var(--divider-color);border-radius:12px;padding:16px 10px;text-align:center;display:flex;flex-direction:column;align-items:center;">
+    const relStat = (label, valHTML, vizHTML, color, extraBtn) => `
+      <div style="background:white;border:1px solid var(--divider-color);border-radius:12px;padding:16px 10px;text-align:center;display:flex;flex-direction:column;align-items:center;position:relative;">
+        ${extraBtn || ''}
         <div style="font-size:22px;font-weight:800;color:${color || 'var(--text)'};line-height:1;">${valHTML}</div>
         <div style="font-size:10px;font-weight:700;color:var(--text-muted);margin-top:6px;">${label}</div>
         ${vizHTML}
       </div>`;
+    const logCancellationBtn = `
+      <button type="button" data-action="ppLogLateCancellation" title="Log a late cancellation for today"
+        style="position:absolute;top:6px;right:6px;width:18px;height:18px;border-radius:50%;border:none;background:#f0f2f8;color:var(--text-muted);font-size:11px;font-weight:800;cursor:pointer;line-height:1;">+</button>`;
     const relCard = rel ? `
       <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;">
         ${relStat('Attendance', rel.attendance_pct !== null ? `${rel.attendance_pct}%` : '—', ringViz(rel.attendance_pct || 0, 'var(--teal)'), 'var(--teal)')}
-        ${relStat('Late Cancellations', rel.late_cancellations, dotsViz(rel.late_cancellations, 'var(--orange)'), null)}
+        ${relStat('Late Cancellations', rel.late_cancellations, dotsViz(rel.late_cancellations, 'var(--orange)'), null, logCancellationBtn)}
         ${relStat('No Shows', rel.no_shows, gaugeViz(rel.no_shows, 5, rel.no_shows > 0 ? 'var(--orange)' : '#c5d0e8'), rel.no_shows > 0 ? 'var(--orange)' : 'var(--text)')}
         ${relStat('Games Confirmed', rel.games_confirmed, barsViz(rel.games_confirmed, 'var(--blue)'), 'var(--blue)')}
         ${relStat(`<span style="white-space:nowrap;">Overall Reliability</span>`, rel.overall_label, badgeViz(rel.overall_label, rel.overall_label === 'Excellent' ? 'var(--teal)' : rel.overall_label === 'Needs Improvement' ? 'var(--orange)' : 'var(--text-muted)'), rel.overall_label === 'Excellent' ? 'var(--teal)' : rel.overall_label === 'Needs Improvement' ? 'var(--orange)' : 'var(--text)')}
@@ -996,7 +1097,7 @@
             <div class="pp-perf-title">Reliability Summary</div>
             ${relCard}
           </div>
-          ${comingSoonRow('Player Tags')}
+          <div class="pp-perf-card" id="pp-tags-card-body">${renderTagsCard(d.p.tags)}</div>
         </div>
       </div>
       ${comingSoonRow('Private Attachments')}
@@ -1241,6 +1342,10 @@
     ppCloseEmailModal: () => ppCloseEmailModal(),
     ppToggleNoteForm: () => ppToggleNoteForm(),
     ppSaveNote: () => ppSaveNote(),
+    ppLogLateCancellation: () => ppLogLateCancellation(),
+    ppToggleTagPicker: () => ppToggleTagPicker(),
+    ppAddTag: (btn) => ppAddTag(btn),
+    ppRemoveTag: (btn) => ppRemoveTag(btn),
     ppViewLadder:   (btn) => ppViewLadder(btn),
     // Route "openPlayerProfile" (used across the admin — Players table,
     // Match Hub, etc.) to this page instead of the old modal.
