@@ -897,7 +897,10 @@
   .pp-section-gap{margin-bottom:32px;}
   .pp-kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:24px;}
   .pp-kpi-card{background:white;border:1px solid var(--divider-color);border-radius:16px;padding:20px;box-shadow:var(--shadow-medium);}
-  .pp-kpi-lbl{font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px;}
+  .pp-kpi-lbl{font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+  .pp-form-dot-lg{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:white;flex-shrink:0;}
+  .pp-form-w-lg{background:var(--teal);}
+  .pp-form-l-lg{background:#c2410c;}
   .pp-kpi-val{font-size:28px;font-weight:800;color:var(--text);line-height:1;font-family:'Inter',sans-serif;}
   .pp-kpi-sub{font-size:11px;font-weight:600;color:var(--text-muted);margin-top:6px;}
   .pp-kpi-trend{font-size:11px;font-weight:700;color:var(--teal);margin-top:4px;}
@@ -909,7 +912,9 @@
   .pp-perf-val{font-size:13px;font-weight:700;color:var(--text);text-align:right;}
   .pp-perf-val-empty{font-size:12px;font-weight:600;color:#c5d0e8;font-style:italic;}
   .pp-2col{display:grid;grid-template-columns:1fr 1fr;gap:24px;}
-  @media (max-width:900px){ .pp-2col{grid-template-columns:1fr;} .pp-kpi-row{grid-template-columns:1fr 1fr;} }
+  .pp-3col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:24px;align-items:stretch;}
+  .pp-3col .pp-perf-card{display:flex;flex-direction:column;}
+  @media (max-width:900px){ .pp-2col{grid-template-columns:1fr;} .pp-3col{grid-template-columns:1fr;} .pp-kpi-row{grid-template-columns:1fr 1fr;} }
   .pp-match-row{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:0.5px solid #f4f5f8;}
   .pp-match-row:last-child{border-bottom:none;}
   .pp-match-info{flex:1;min-width:0;}
@@ -4162,25 +4167,25 @@
   </div>
 </div>
 
-<script src="admin-state.js?v=20260752"></script>
-<script src="admin-ladder-selector.js?v=20260752"></script>
-<script src="admin-orders.js?v=20260752"></script>
-<script src="admin-email-utils.js?v=20260752"></script>
-<script src="admin-share.js?v=20260752"></script>
-<script src="admin-tournament-notify.js?v=20260752"></script>
-<script src="admin-player-status-history.js?v=20260752"></script>
-<script src="admin-player-profile.js?v=20260752"></script>
-<script src="admin-email-notifications.js?v=20260752"></script>
-<script src="admin-ladder-standings.js?v=20260752"></script>
-<script src="admin-sessions.js?v=20260752"></script>
-<script src="admin-print-roster.js?v=20260752"></script>
-<script src="admin-ladder-management.js?v=20260752"></script>
-<script src="admin-promotions.js?v=20260752"></script>
-<script src="admin-players.js?v=20260752"></script>
-<script src="admin-ftc-standings.js?v=20260752"></script>
-<script src="admin-ftc-playoffs-schedule.js?v=20260752"></script>
-<script src="admin-ftc-teams.js?v=20260752"></script>
-<script src="app.js?v=20260752"></script>
+<script src="admin-state.js?v=20260753"></script>
+<script src="admin-ladder-selector.js?v=20260753"></script>
+<script src="admin-orders.js?v=20260753"></script>
+<script src="admin-email-utils.js?v=20260753"></script>
+<script src="admin-share.js?v=20260753"></script>
+<script src="admin-tournament-notify.js?v=20260753"></script>
+<script src="admin-player-status-history.js?v=20260753"></script>
+<script src="admin-player-profile.js?v=20260753"></script>
+<script src="admin-email-notifications.js?v=20260753"></script>
+<script src="admin-ladder-standings.js?v=20260753"></script>
+<script src="admin-sessions.js?v=20260753"></script>
+<script src="admin-print-roster.js?v=20260753"></script>
+<script src="admin-ladder-management.js?v=20260753"></script>
+<script src="admin-promotions.js?v=20260753"></script>
+<script src="admin-players.js?v=20260753"></script>
+<script src="admin-ftc-standings.js?v=20260753"></script>
+<script src="admin-ftc-playoffs-schedule.js?v=20260753"></script>
+<script src="admin-ftc-teams.js?v=20260753"></script>
+<script src="app.js?v=20260753"></script>
 <script src="tournament.js?v=20260526"></script>
 <script>
   // ── Sidebar toggle — persisted in localStorage ──────────────────────

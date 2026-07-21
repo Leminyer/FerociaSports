@@ -503,30 +503,55 @@
 
     // ── Section 1: KPI cards ──────────────────────────────────────────
     const last5 = d.orderedResults.slice(0, 5).slice().reverse();
-    const formDots5 = last5.map((r) => `<div class="pp-form-dot ${r === 'W' ? 'pp-form-w' : 'pp-form-l'}" style="width:22px;height:22px;">${r}</div>`).join('')
+    const formDots5 = last5.map((r) => `<div class="pp-form-dot-lg ${r === 'W' ? 'pp-form-w-lg' : 'pp-form-l-lg'}">${r}</div>`).join('')
       || '<span class="pp-perf-val-empty">No matches yet</span>';
+
+    // Win Rate progress ring (simple SVG circle, stroke-dashoffset trick)
+    const ringR = 26, ringC = 2 * Math.PI * ringR;
+    const ringOffset = ringC - (d.winPct / 100) * ringC;
+    const winRateRingSVG = `
+      <svg width="64" height="64" viewBox="0 0 64 64" style="transform:rotate(-90deg);">
+        <circle cx="32" cy="32" r="${ringR}" fill="none" stroke="#f0f2f8" stroke-width="7"/>
+        <circle cx="32" cy="32" r="${ringR}" fill="none" stroke="var(--teal)" stroke-width="7"
+          stroke-dasharray="${ringC}" stroke-dashoffset="${ringOffset}" stroke-linecap="round"/>
+      </svg>`;
 
     const kpiHTML = `
       <div class="pp-kpi-row pp-section-gap">
         <div class="pp-kpi-card">
-          <div class="pp-kpi-lbl">FEROCIA Ranking</div>
+          <div class="pp-kpi-lbl">${ppSVG(ICONS.trophy, '#c5d0e8', 15)} FEROCIA Ranking</div>
           <div class="pp-kpi-val" style="color:#c5d0e8;">—</div>
           <div class="pp-kpi-sub">Ranking system coming soon</div>
         </div>
         <div class="pp-kpi-card">
           <div class="pp-kpi-lbl">Current Form</div>
-          <div style="display:flex;gap:4px;margin-bottom:8px;">${formDots5}</div>
-          <div class="pp-kpi-sub">${d.streak > 0 ? `Current ${d.streakType === 'W' ? 'Win' : 'Loss'} Streak: ${d.streak}` : 'No active streak'}</div>
+          <div style="display:flex;gap:8px;margin-bottom:12px;">${formDots5}</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <span class="pp-kpi-sub" style="margin-top:0;">Win Streak</span>
+            <span class="pp-kpi-sub" style="margin-top:0;font-weight:800;color:${d.streakType === 'W' ? 'var(--teal)' : 'var(--orange)'};">${d.streak > 0 ? `${d.streak} ${d.streakType === 'W' ? 'Wins' : 'Losses'}` : '—'}</span>
+          </div>
         </div>
-        <div class="pp-kpi-card">
-          <div class="pp-kpi-lbl">Win Rate</div>
-          <div class="pp-kpi-val" style="color:var(--teal);">${d.winPct}%</div>
-          <div class="pp-kpi-sub">Career Win Percentage</div>
+        <div class="pp-kpi-card" style="display:flex;align-items:center;gap:14px;">
+          <div style="position:relative;width:64px;height:64px;flex-shrink:0;">
+            ${winRateRingSVG}
+            <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;color:var(--text);">${d.winPct}%</div>
+          </div>
+          <div>
+            <div class="pp-kpi-lbl" style="margin-bottom:2px;">Win Rate</div>
+            <div class="pp-kpi-sub" style="margin-top:0;">Career Win Percentage</div>
+          </div>
         </div>
         <div class="pp-kpi-card">
           <div class="pp-kpi-lbl">Career Record</div>
-          <div class="pp-kpi-val">${d.totalWins}W – ${d.totalLosses}L</div>
-          <div class="pp-kpi-sub">${d.totalPlayed} Matches Played</div>
+          <div style="display:flex;align-items:baseline;gap:10px;margin:4px 0;">
+            <span style="font-size:28px;font-weight:800;color:var(--teal);">${d.totalWins}</span>
+            <span style="font-size:20px;font-weight:700;color:#c5d0e8;">–</span>
+            <span style="font-size:28px;font-weight:800;color:var(--orange);">${d.totalLosses}</span>
+          </div>
+          <div style="display:flex;gap:10px;">
+            <span style="font-size:11px;font-weight:700;color:var(--teal);flex:1;">Wins</span>
+            <span style="font-size:11px;font-weight:700;color:var(--orange);flex:1;">Losses</span>
+          </div>
         </div>
       </div>`;
 
@@ -535,9 +560,14 @@
     const seasonWins = seasonMatches.filter((m) => m.score_for > m.score_against).length;
     const seasonRecord = d.activeLadder ? `${seasonWins}W – ${seasonMatches.length - seasonWins}L` : null;
     const perfRow = (lbl, val) => `<div class="pp-perf-row"><span class="pp-perf-lbl">${lbl}</span><span class="${val === null ? 'pp-perf-val-empty' : 'pp-perf-val'}">${val === null ? 'Not enough historical data yet' : val}</span></div>`;
+    const perfTitleRow = (title, iconPath, iconColor) =>
+      `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+         <span class="pp-perf-title" style="margin-bottom:0;">${title}</span>
+         <span style="width:32px;height:32px;border-radius:9px;background:${iconColor}22;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${ppSVG(iconPath, iconColor, 16)}</span>
+       </div>`;
     const perfOverviewHTML = `
       <div class="pp-perf-card">
-        <div class="pp-perf-title">Performance Overview</div>
+        ${perfTitleRow('Performance Overview', ICONS.flag, '#174CCC')}
         ${perfRow('Total Matches', d.totalPlayed)}
         ${perfRow('Wins', d.totalWins)}
         ${perfRow('Losses', d.totalLosses)}
@@ -566,7 +596,7 @@
     const bestFinishLabel = championships > 0 ? 'Champion' : runnerUps > 0 ? 'Runner-Up' : thirdPlaceWins > 0 ? '3rd Place' : semis.length ? 'Semifinalist' : quarters.length ? 'Quarterfinalist' : d.myTournaments.length ? 'Participant' : null;
     const tournHTML = `
       <div class="pp-perf-card">
-        <div class="pp-perf-title">Tournament Performance</div>
+        ${perfTitleRow('Tournament Performance', ICONS.trophy, '#F26024')}
         ${perfRow('Tournaments Played', d.myTournaments.length)}
         ${perfRow('Championships', championships)}
         ${perfRow('Runner-Up', runnerUps)}
@@ -586,7 +616,7 @@
     const avgFinish = ex.positionHistory.length ? (ex.positionHistory.reduce((s, r) => s + r.position, 0) / ex.positionHistory.length).toFixed(1) : null;
     const ladderHTML = `
       <div class="pp-perf-card">
-        <div class="pp-perf-title">Ladder Performance</div>
+        ${perfTitleRow('Ladder Performance', ICONS.ladder, '#24BC96')}
         ${perfRow('Ladders Played', d.myLadders.length)}
         ${perfRow('Current Ladder', d.activeLadder ? esc(d.activeLadder.name) : 'None')}
         ${perfRow('Current Position', ex.myStandingRow ? `#${ex.myStandingRow.position} of ${ex.standingsRows.length}` : null)}
@@ -677,10 +707,8 @@
 
     el.innerHTML = `
       ${kpiHTML}
-      <div class="pp-2col pp-section-gap">${perfOverviewHTML}${tournHTML}</div>
-      <div class="pp-2col pp-section-gap">${ladderHTML}
-        <div class="pp-perf-card"><div class="pp-perf-title">Recent Matches</div>${recentMatchesHTML}</div>
-      </div>
+      <div class="pp-3col pp-section-gap">${perfOverviewHTML}${tournHTML}${ladderHTML}</div>
+      <div class="pp-perf-card pp-section-gap"><div class="pp-perf-title">Recent Matches</div>${recentMatchesHTML}</div>
       <div class="pp-perf-card pp-section-gap"><div class="pp-perf-title">Competition Timeline</div>${timelineHTML}</div>
       <div class="pp-perf-card pp-section-gap"><div class="pp-perf-title">Achievements</div>${achievementsHTML}</div>
       ${insightsHTML}
