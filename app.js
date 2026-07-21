@@ -93,6 +93,7 @@ window.selectLadderType = (type) => {
       'ftc-playoffs':     ['sb-ftc-playoffs','bn-ladder'],
       'tournament-view': ['sb-tournament', 'bn-tournament'],
       'players':      ['sb-players',     'bn-players'],
+      'player-profile': ['sb-players',   'bn-players'],
       'add-player':   ['sb-add-player',  null],
       'ladders':      ['sb-ladders',     null],
       't-tournaments':['sb-t-tournaments', null],

@@ -896,9 +896,9 @@
   const renderTagsCard = (tags) => {
     const pills = (tags || []).map((t) => {
       const c = tagColor(t);
-      return `<span style="display:inline-flex;align-items:center;gap:6px;background:${c}22;color:${c};border-radius:99px;padding:5px 12px;font-size:11px;font-weight:700;">
+      return `<span style="display:inline-flex;align-items:center;gap:8px;background:${c}22;color:${c};border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;">
         ${esc(t)}
-        <button type="button" data-action="ppRemoveTag" data-tag="${esc(t)}" style="background:none;border:none;color:${c};cursor:pointer;font-weight:800;padding:0;line-height:1;font-size:13px;">×</button>
+        <button type="button" data-action="ppRemoveTag" data-tag="${esc(t)}" style="background:none;border:none;color:${c};cursor:pointer;font-weight:800;padding:0;line-height:1;font-size:15px;">×</button>
       </span>`;
     }).join('');
     return `
