@@ -883,9 +883,9 @@
   // custom tags (matches the spec). Colors are per-category, not per-tag.
   const TAG_CATALOG = {
     Community:   { color: '#7B2FBE', tags: ['Volunteer', 'Community Leader', 'Ambassador'] },
-    Coaching:    { color: 'var(--blue)', tags: ['Coach', 'Instructor', 'Junior Parent'] },
+    Coaching:    { color: '#174CCC', tags: ['Coach', 'Instructor', 'Junior Parent'] },
     Business:    { color: '#9a6200', tags: ['VIP', 'Sponsor', 'Partner'] },
-    Competition: { color: 'var(--teal)', tags: ['Tournament Director', 'Referee', 'Mentor'] },
+    Competition: { color: '#24BC96', tags: ['Tournament Director', 'Referee', 'Mentor'] },
   };
   const tagColor = (tag) => {
     for (const cat of Object.values(TAG_CATALOG)) if (cat.tags.includes(tag)) return cat.color;
