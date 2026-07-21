@@ -818,60 +818,27 @@
   .mom-text   { font-size:12px; font-weight:700; color:var(--text); }
   .mom-sub    { font-size:11px; font-weight:600; color:var(--text-muted); }
   .mom-divider{ width:1px; height:28px; background:#e0e7f5; flex-shrink:0; }
-  /* ── PLAYER PROFILE MODAL ───────────────────────────────── */
-  #player-profile-modal{z-index:400;}
-  .ppm-shell{background:white;border-radius:16px;width:84vw;max-width:980px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 80px rgba(8,15,46,.3);}
-  .ppm-top{background:#f8f9ff;border-bottom:0.5px solid #e0e7f5;padding:22px 28px 20px;flex-shrink:0;position:relative;}
-  .ppm-close{position:absolute;top:14px;right:14px;width:30px;height:30px;border-radius:8px;border:0.5px solid #e0e7f5;background:white;color:#e53935;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;}
-  .ppm-close:hover{background:#fef2f2;border-color:#fca5a5;}
-  .ppm-eyebrow{font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--blue);margin-bottom:12px;}
-  .ppm-hdr{display:flex;align-items:center;gap:18px;}
-  .ppm-av{width:64px;height:64px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;color:white;border:3px solid white;flex-shrink:0;box-shadow:0 2px 8px rgba(23,76,204,0.15);}
-  .ppm-name{font-size:24px;font-weight:800;color:var(--text);line-height:1.1;margin-bottom:5px;}
+  /* ── PLAYER PROFILE (shared classes still used by the Player Profile
+     page — admin-player-profile.js — and by the Players table's
+     "view profile" button). The old modal's own classes were removed
+     along with its dead code. ── */
   .ppm-active{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;color:#085041;background:rgba(36,188,150,0.12);padding:3px 10px;border-radius:99px;border:1px solid rgba(36,188,150,0.3);}
   .ppm-inactive{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;color:#b0bbd6;background:rgba(176,187,214,0.15);padding:3px 10px;border-radius:99px;border:1px solid rgba(176,187,214,0.3);}
-  .ppm-qs{display:flex;align-items:center;gap:16px;margin-top:10px;flex-wrap:wrap;}
-  .ppm-q{font-size:11px;font-weight:600;color:var(--text-muted);display:flex;align-items:center;gap:4px;}
-  .ppm-q b{color:var(--text);}
-  .ppm-body{flex:1;overflow-y:auto;padding:20px 24px;background:var(--bg);}
-  .ppm-sec{background:white;border:0.5px solid #e0e7f5;border-radius:12px;box-shadow:0 1px 4px rgba(23,76,204,0.05);margin-bottom:16px;}
-  .ppm-sec-hdr{display:flex;align-items:center;gap:8px;padding:11px 16px;border-bottom:0.5px solid #e0e7f5;background:#f8f9ff;border-radius:12px 12px 0 0;}
-  .ppm-sec-title{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--text);}
-  .ppm-sec-body{padding:16px;}
   .ppm-snap-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;}
   .ppm-snap-card{text-align:center;padding:14px 8px;border-radius:10px;background:white;border:0.5px solid #e0e7f5;}
   .ppm-snap-val{font-size:24px;font-weight:800;color:var(--text);line-height:1;}
   .ppm-snap-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);margin-top:4px;}
-  .ppm-streak-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);margin-bottom:8px;}
-  .ppm-streak-box{display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:10px;margin-bottom:16px;}
-  .ppm-streak-win{background:rgba(36,188,150,0.07);border:0.5px solid rgba(36,188,150,0.25);}
-  .ppm-streak-loss{background:rgba(242,96,36,0.06);border:0.5px solid rgba(242,96,36,0.2);}
   .ppm-pill-w{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:99px;font-size:11px;font-weight:800;background:rgba(36,188,150,0.15);color:#085041;}
   .ppm-pill-l{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:99px;font-size:11px;font-weight:800;background:rgba(242,96,36,0.12);color:var(--orange);}
-  .ppm-itabs{display:flex;border-bottom:1.5px solid #e0e7f5;padding:0 16px;background:white;}
-  .ppm-itab{padding:10px 14px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;color:var(--text-muted);border-bottom:2px solid transparent;margin-bottom:-1.5px;background:none;border-top:none;border-left:none;border-right:none;font-family:'Inter',sans-serif;cursor:pointer;}
-  .ppm-itab.ppm-on{color:var(--blue);border-bottom-color:var(--blue);}
-  .ppm-hist-row{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:0.5px solid #f4f5f8;}
-  .ppm-hist-row:last-child{border-bottom:none;}
-  .ppm-hist-name{font-size:13px;font-weight:700;color:var(--text);}
-  .ppm-hist-sub{font-size:10px;font-weight:600;color:var(--text-muted);margin-top:2px;}
-  .ppm-hbadge{font-size:10px;font-weight:700;padding:4px 12px;border-radius:99px;}
-  .ppm-hb-gold{background:rgba(246,166,35,0.12);color:#9a6200;}
-  .ppm-hb-blue{background:#e8f0ff;color:var(--blue);}
-  .ppm-hb-gray{background:var(--bg);color:var(--text-muted);}
   .ppm-career-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
   .ppm-career-card{background:white;border-radius:10px;border:0.5px solid #e0e7f5;padding:10px 14px;text-align:center;}
   .ppm-career-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);margin-bottom:4px;}
   .ppm-career-val{font-size:18px;font-weight:800;color:var(--text);line-height:1.1;}
-  .ppm-career-sub{font-size:11px;font-weight:600;color:var(--text-muted);margin-top:4px;}
-  .ppm-bdg{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:99px;font-size:11px;font-weight:700;border:0.5px solid #e0e7f5;margin:4px;}
   .ppm-tl-item{display:flex;gap:14px;padding:10px 0;border-bottom:0.5px solid #f4f5f8;align-items:flex-start;}
   .ppm-tl-item:last-child{border-bottom:none;}
   .ppm-tl-date{font-size:10px;font-weight:700;color:var(--text-muted);width:48px;flex-shrink:0;padding-top:2px;}
-  .ppm-tl-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;margin-top:4px;}
   .ppm-tl-text{font-size:12px;font-weight:600;color:var(--text);line-height:1.5;}
   .ppm-tl-ctx{font-size:10px;font-weight:600;color:var(--text-muted);}
-  .ppm-footer{padding:12px 24px;border-top:0.5px solid #e0e7f5;display:flex;align-items:center;justify-content:space-between;background:white;flex-shrink:0;}
 
   /* ── Player Profile (full page) ─────────────────────────────────── */
   .pp-page-box{background:white;border-radius:16px;border:0.5px solid #e0e7f5;box-shadow:0 1px 4px rgba(23,76,204,0.05);padding:24px 28px 32px;}
@@ -4144,30 +4111,7 @@
   </div>
 </div>
 
-<!-- ── PLAYER PROFILE MODAL ───────────────────────────────── -->
-<div class="modal-bg" id="player-profile-modal">
-  <div class="ppm-shell">
-    <div class="ppm-top">
-      <button class="ppm-close" onclick="closePlayerProfile()">✕</button>
-      <div class="ppm-eyebrow">Player Performance Profile</div>
-      <div class="ppm-hdr">
-        <div class="ppm-av" id="ppm-av"></div>
-        <div>
-          <div class="ppm-name" id="ppm-name">—</div>
-          <span id="ppm-status-pill"></span>
-          <div class="ppm-qs" id="ppm-qs"></div>
-        </div>
-      </div>
-    </div>
-    <div class="ppm-body" id="ppm-body">
-      <div class="loading">Loading player profile...</div>
-    </div>
-    <div class="ppm-footer">
-      <span id="ppm-footer-info" style="font-size:11px;font-weight:600;color:var(--text-muted);"></span>
-      <button id="ppm-portal-link" type="button" style="display:none;align-items:center;gap:7px;font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#fff;background:var(--orange);border:none;border-radius:99px;padding:8px 15px;cursor:pointer;font-family:'Inter',sans-serif;box-shadow:0 2px 8px rgba(242,96,36,0.25);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 15l6-6"/><path d="M11 6l1-1a4 4 0 015.66 5.66l-1 1"/><path d="M13 18l-1 1a4 4 0 01-5.66-5.66l1-1"/></svg>Copy Player DNA Link</button>
-    </div>
-  </div>
-</div>
+<!-- player-profile-modal removed — superseded by the Player Profile page (admin-player-profile.js) -->
 
 <!-- Success banner -->
 <div id="success-banner" style="display:none;position:fixed;top:24px;left:50%;transform:translateX(-50%);z-index:10001;width:90%;max-width:500px;box-shadow:0 8px 32px rgba(8,15,46,0.2);">
@@ -4189,25 +4133,25 @@
   </div>
 </div>
 
-<script src="admin-state.js?v=20260748"></script>
-<script src="admin-ladder-selector.js?v=20260748"></script>
-<script src="admin-orders.js?v=20260748"></script>
-<script src="admin-email-utils.js?v=20260748"></script>
-<script src="admin-share.js?v=20260748"></script>
-<script src="admin-tournament-notify.js?v=20260748"></script>
-<script src="admin-player-status-history.js?v=20260748"></script>
-<script src="admin-player-profile.js?v=20260748"></script>
-<script src="admin-email-notifications.js?v=20260748"></script>
-<script src="admin-ladder-standings.js?v=20260748"></script>
-<script src="admin-sessions.js?v=20260748"></script>
-<script src="admin-print-roster.js?v=20260748"></script>
-<script src="admin-ladder-management.js?v=20260748"></script>
-<script src="admin-promotions.js?v=20260748"></script>
-<script src="admin-players.js?v=20260748"></script>
-<script src="admin-ftc-standings.js?v=20260748"></script>
-<script src="admin-ftc-playoffs-schedule.js?v=20260748"></script>
-<script src="admin-ftc-teams.js?v=20260748"></script>
-<script src="app.js?v=20260748"></script>
+<script src="admin-state.js?v=20260749"></script>
+<script src="admin-ladder-selector.js?v=20260749"></script>
+<script src="admin-orders.js?v=20260749"></script>
+<script src="admin-email-utils.js?v=20260749"></script>
+<script src="admin-share.js?v=20260749"></script>
+<script src="admin-tournament-notify.js?v=20260749"></script>
+<script src="admin-player-status-history.js?v=20260749"></script>
+<script src="admin-player-profile.js?v=20260749"></script>
+<script src="admin-email-notifications.js?v=20260749"></script>
+<script src="admin-ladder-standings.js?v=20260749"></script>
+<script src="admin-sessions.js?v=20260749"></script>
+<script src="admin-print-roster.js?v=20260749"></script>
+<script src="admin-ladder-management.js?v=20260749"></script>
+<script src="admin-promotions.js?v=20260749"></script>
+<script src="admin-players.js?v=20260749"></script>
+<script src="admin-ftc-standings.js?v=20260749"></script>
+<script src="admin-ftc-playoffs-schedule.js?v=20260749"></script>
+<script src="admin-ftc-teams.js?v=20260749"></script>
+<script src="app.js?v=20260749"></script>
 <script src="tournament.js?v=20260526"></script>
 <script>
   // ── Sidebar toggle — persisted in localStorage ──────────────────────

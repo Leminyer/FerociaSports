@@ -242,7 +242,7 @@
             </div>
             <div class="pp-stat-mini">
               <div class="pp-stat-mini-icon" style="background:rgba(246,166,35,0.15);">${ppSVG(ICONS.trophy, '#9a6200', 16)}</div>
-              <div><div class="pp-stat-mini-val">${d.totalWins}W - ${d.totalLosses}L</div><div class="pp-stat-mini-lbl">Overall Record</div></div>
+              <div><div class="pp-stat-mini-val" style="font-size:16px;white-space:nowrap;">${d.totalWins}W - ${d.totalLosses}L</div><div class="pp-stat-mini-lbl">Overall Record</div></div>
             </div>
             <div class="pp-stat-mini">
               <div class="pp-stat-mini-icon" style="background:${d.streakType === 'W' ? 'rgba(36,188,150,0.12)' : 'rgba(242,96,36,0.12)'};">${ppSVG('<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>', streakColor, 16)}</div>
