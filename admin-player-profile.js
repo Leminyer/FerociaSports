@@ -916,23 +916,51 @@
         ${flagPill('Background Check', p.background_check_status === 'passed', p.background_check_status === 'not_required' ? 'Not Required' : p.background_check_status === 'pending' ? 'Pending' : undefined)}
       </div>`;
 
-    const sparkline = (color) => `
-      <svg width="100%" height="24" viewBox="0 0 80 24" preserveAspectRatio="none" style="margin-top:8px;">
-        <polyline points="0,18 12,14 24,16 36,8 48,11 60,4 72,7 80,2" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    // Each metric gets its own visual treatment instead of a repeated
+    // sparkline — a percentage suits a progress ring, small counts suit
+    // dots/a gauge, a volume metric suits a mini bar-stack, and the
+    // overall rating suits a badge icon rather than any chart at all.
+    const ringViz = (pct, color) => {
+      const r = 20, c = 2 * Math.PI * r;
+      const offset = c - (Math.min(pct, 100) / 100) * c;
+      return `<svg width="48" height="48" viewBox="0 0 48 48" style="transform:rotate(-90deg);margin-top:8px;">
+        <circle cx="24" cy="24" r="${r}" fill="none" stroke="#f0f2f8" stroke-width="5"/>
+        <circle cx="24" cy="24" r="${r}" fill="none" stroke="${color}" stroke-width="5" stroke-dasharray="${c}" stroke-dashoffset="${offset}" stroke-linecap="round"/>
       </svg>`;
-    const relStat = (label, val, color) => `
-      <div style="background:white;border:1px solid var(--divider-color);border-radius:12px;padding:16px 10px;text-align:center;">
-        <div style="font-size:22px;font-weight:800;color:${color || 'var(--text)'};line-height:1;">${val}</div>
+    };
+    const dotsViz = (count, color) => {
+      const shown = Math.min(count, 5);
+      const dots = Array.from({ length: 5 }, (_, i) =>
+        `<span style="width:8px;height:8px;border-radius:50%;background:${i < shown ? color : '#e5e7eb'};display:inline-block;"></span>`).join('');
+      return `<div style="display:flex;gap:4px;justify-content:center;margin-top:12px;">${dots}</div>`;
+    };
+    const gaugeViz = (count, max, color) => {
+      const pct = Math.min((count / max) * 100, 100);
+      return `<div style="width:100%;height:6px;background:#f0f2f8;border-radius:99px;margin-top:12px;overflow:hidden;">
+        <div style="width:${pct}%;height:100%;background:${color};border-radius:99px;"></div>
+      </div>`;
+    };
+    const barsViz = (count, color) => {
+      const heights = [40, 65, 50, 85, 60].map((h) => count > 0 ? h : 15);
+      const bars = heights.map((h) => `<div style="width:6px;height:${h}%;background:${color};border-radius:2px;"></div>`).join('');
+      return `<div style="display:flex;align-items:flex-end;gap:4px;height:24px;margin-top:10px;justify-content:center;">${bars}</div>`;
+    };
+    const badgeViz = (label, color) => `
+      <div style="margin-top:6px;">${ppSVG('<path d="M12 2l2.4 5.3 5.6.6-4.2 3.9 1.2 5.7L12 14.7 6.9 17.5l1.2-5.7-4.2-3.9 5.6-.6z"/>', color, 34)}</div>`;
+
+    const relStat = (label, valHTML, vizHTML, color) => `
+      <div style="background:white;border:1px solid var(--divider-color);border-radius:12px;padding:16px 10px;text-align:center;display:flex;flex-direction:column;align-items:center;">
+        <div style="font-size:22px;font-weight:800;color:${color || 'var(--text)'};line-height:1;">${valHTML}</div>
         <div style="font-size:10px;font-weight:700;color:var(--text-muted);margin-top:6px;">${label}</div>
-        ${sparkline(color || '#c5d0e8')}
+        ${vizHTML}
       </div>`;
     const relCard = rel ? `
       <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;">
-        ${relStat('Attendance', rel.attendance_pct !== null ? `${rel.attendance_pct}%` : '—', 'var(--teal)')}
-        ${relStat('Late Cancellations', rel.late_cancellations, 'var(--orange)')}
-        ${relStat('No Shows', rel.no_shows, rel.no_shows > 0 ? 'var(--orange)' : 'var(--text)')}
-        ${relStat('Games Confirmed', rel.games_confirmed, 'var(--blue)')}
-        ${relStat(`<span style="white-space:nowrap;">Overall Reliability</span>`, rel.overall_label, rel.overall_label === 'Excellent' ? 'var(--teal)' : rel.overall_label === 'Needs Improvement' ? 'var(--orange)' : 'var(--text)')}
+        ${relStat('Attendance', rel.attendance_pct !== null ? `${rel.attendance_pct}%` : '—', ringViz(rel.attendance_pct || 0, 'var(--teal)'), 'var(--teal)')}
+        ${relStat('Late Cancellations', rel.late_cancellations, dotsViz(rel.late_cancellations, 'var(--orange)'), null)}
+        ${relStat('No Shows', rel.no_shows, gaugeViz(rel.no_shows, 5, rel.no_shows > 0 ? 'var(--orange)' : '#c5d0e8'), rel.no_shows > 0 ? 'var(--orange)' : 'var(--text)')}
+        ${relStat('Games Confirmed', rel.games_confirmed, barsViz(rel.games_confirmed, 'var(--blue)'), 'var(--blue)')}
+        ${relStat(`<span style="white-space:nowrap;">Overall Reliability</span>`, rel.overall_label, badgeViz(rel.overall_label, rel.overall_label === 'Excellent' ? 'var(--teal)' : rel.overall_label === 'Needs Improvement' ? 'var(--orange)' : 'var(--text-muted)'), rel.overall_label === 'Excellent' ? 'var(--teal)' : rel.overall_label === 'Needs Improvement' ? 'var(--orange)' : 'var(--text)')}
       </div>
       <div style="margin-top:10px;"><a class="pp-link" data-action="ppShowTab" data-pptab="reliability">View full reliability details →</a></div>`
       : '<div class="pp-empty">Reliability data unavailable.</div>';
@@ -968,12 +996,10 @@
             <div class="pp-perf-title">Reliability Summary</div>
             ${relCard}
           </div>
+          ${comingSoonRow('Player Tags')}
         </div>
       </div>
-      <div class="pp-2col pp-section-gap" style="align-items:start;">
-        ${comingSoonRow('Player Tags')}
-        ${comingSoonRow('Private Attachments')}
-      </div>
+      ${comingSoonRow('Private Attachments')}
       ${comingSoonRow('Admin Tasks')}
     `;
 
