@@ -806,10 +806,19 @@
     } catch (e) { return []; }
   };
 
+  const NOTE_TYPE_ICONS = {
+    general:    '<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>',
+    positive:   '<path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/><path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/>',
+    warning:    '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
+    incident:   '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>',
+    suspension: '<circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>',
+    followup:   '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+  };
+
   const renderNotesList = (notes) => notes.length
     ? notes.map((n) => `
-        <div class="pp-note-row">
-          <span class="pp-note-badge pp-note-${n.note_type}">${NOTE_TYPE_LABELS[n.note_type] || n.note_type}</span>
+        <div class="pp-note-row pp-note-accent-${n.note_type}">
+          <span class="pp-note-badge pp-note-${n.note_type}">${ppSVG(NOTE_TYPE_ICONS[n.note_type] || NOTE_TYPE_ICONS.general, 'white', 11)} ${NOTE_TYPE_LABELS[n.note_type] || n.note_type}</span>
           <span class="pp-note-meta">${fmtShort(n.created_at?.slice(0, 10))} · ${esc(n.admin_name)}</span>
           <div class="pp-note-content">${esc(n.content)}</div>
         </div>`).join('')
@@ -870,6 +879,7 @@
         </div>
       </div>
       <div id="pp-notes-list"><div class="loading" style="padding:16px;">Loading notes...</div></div>
+      <div style="margin-top:10px;"><a class="pp-link" data-action="ppShowTab" data-pptab="history">View all notes →</a></div>
     </div>`;
 
   const flagPill = (label, isOn, subtitle) => `
@@ -906,14 +916,26 @@
         ${flagPill('Background Check', p.background_check_status === 'passed', p.background_check_status === 'not_required' ? 'Not Required' : p.background_check_status === 'pending' ? 'Pending' : undefined)}
       </div>`;
 
+    const sparkline = (color) => `
+      <svg width="100%" height="24" viewBox="0 0 80 24" preserveAspectRatio="none" style="margin-top:8px;">
+        <polyline points="0,18 12,14 24,16 36,8 48,11 60,4 72,7 80,2" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>`;
+    const relStat = (label, val, color) => `
+      <div style="background:white;border:1px solid var(--divider-color);border-radius:12px;padding:16px 10px;text-align:center;">
+        <div style="font-size:22px;font-weight:800;color:${color || 'var(--text)'};line-height:1;">${val}</div>
+        <div style="font-size:10px;font-weight:700;color:var(--text-muted);margin-top:6px;">${label}</div>
+        ${sparkline(color || '#c5d0e8')}
+      </div>`;
     const relCard = rel ? `
-      <div class="pp-kpi-row" style="grid-template-columns:repeat(5,1fr);">
-        <div class="pp-kpi-card"><div class="pp-kpi-lbl">Attendance</div><div class="pp-kpi-val">${rel.attendance_pct !== null ? `${rel.attendance_pct}%` : '—'}</div></div>
-        <div class="pp-kpi-card"><div class="pp-kpi-lbl">Late Cancellations</div><div class="pp-kpi-val">${rel.late_cancellations}</div></div>
-        <div class="pp-kpi-card"><div class="pp-kpi-lbl">No Shows</div><div class="pp-kpi-val" style="color:${rel.no_shows > 0 ? 'var(--orange)' : 'var(--text)'};">${rel.no_shows}</div></div>
-        <div class="pp-kpi-card"><div class="pp-kpi-lbl">Games Confirmed</div><div class="pp-kpi-val">${rel.games_confirmed}</div></div>
-        <div class="pp-kpi-card"><div class="pp-kpi-lbl">Overall Reliability</div><div class="pp-kpi-val" style="color:${rel.overall_label === 'Excellent' ? 'var(--teal)' : rel.overall_label === 'Needs Improvement' ? 'var(--orange)' : 'var(--text)'};font-size:16px;">${rel.overall_label}</div></div>
-      </div>` : '<div class="pp-empty">Reliability data unavailable.</div>';
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;">
+        ${relStat('Attendance', rel.attendance_pct !== null ? `${rel.attendance_pct}%` : '—', 'var(--teal)')}
+        ${relStat('Late Cancellations', rel.late_cancellations, 'var(--orange)')}
+        ${relStat('No Shows', rel.no_shows, rel.no_shows > 0 ? 'var(--orange)' : 'var(--text)')}
+        ${relStat('Games Confirmed', rel.games_confirmed, 'var(--blue)')}
+        ${relStat(`<span style="white-space:nowrap;">Overall Reliability</span>`, rel.overall_label, rel.overall_label === 'Excellent' ? 'var(--teal)' : rel.overall_label === 'Needs Improvement' ? 'var(--orange)' : 'var(--text)')}
+      </div>
+      <div style="margin-top:10px;"><a class="pp-link" data-action="ppShowTab" data-pptab="reliability">View full reliability details →</a></div>`
+      : '<div class="pp-empty">Reliability data unavailable.</div>';
 
     const comingSoonRow = (title) => `
       <div class="pp-perf-card" style="opacity:0.6;">
@@ -937,14 +959,16 @@
       </div>
       <div class="pp-2col pp-section-gap" style="align-items:start;">
         ${notesCardHTML(d.p.id)}
-        <div>
-          <div class="pp-perf-title">Administrative Flags</div>
-          ${flagsHTML}
+        <div style="display:flex;flex-direction:column;gap:24px;">
+          <div class="pp-perf-card">
+            <div class="pp-perf-title">Administrative Flags</div>
+            ${flagsHTML}
+          </div>
+          <div class="pp-perf-card">
+            <div class="pp-perf-title">Reliability Summary</div>
+            ${relCard}
+          </div>
         </div>
-      </div>
-      <div class="pp-section-gap">
-        <div class="pp-perf-title">Reliability Summary</div>
-        ${relCard}
       </div>
       <div class="pp-2col pp-section-gap" style="align-items:start;">
         ${comingSoonRow('Player Tags')}

@@ -1423,8 +1423,17 @@
   };
 
   const openEdit = async (id) => {
-    const p = AdminState.allPlayers.find((x) => x.id === id);
-    if (!p) return;
+    let p = AdminState.allPlayers.find((x) => x.id === id);
+    if (!p) {
+      // Not in the cached list yet (e.g. opened from a page that didn't
+      // load the full Players array first) — fetch it directly instead
+      // of silently doing nothing.
+      try {
+        const rows = await api(`players?id=eq.${id}&select=*`);
+        p = rows[0];
+      } catch (e) { /* fall through to the toast below */ }
+    }
+    if (!p) { toast('Could not load this player — try refreshing the page.', true); return; }
     document.getElementById('edit-id').value = p.id;
     document.getElementById('edit-original-status').value = p.status || 'active';
     document.getElementById('edit-first').value = p.first_name;
