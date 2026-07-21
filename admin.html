@@ -85,7 +85,7 @@
     transition:background .15s,color .15s;
     border:none;background:none;width:100%;text-align:left;
     font-family:'Inter',sans-serif;white-space:nowrap;
-    border-left:3px solid transparent;
+    border-left:3px solid transparent;outline:none;
   }
   /* Nav items — open state */
   body.sidebar-open .sb-item{padding:9px 16px;justify-content:flex-start;}
@@ -857,7 +857,7 @@
   .pp-meta{font-size:11px;font-weight:600;color:var(--text-muted);display:flex;align-items:center;gap:5px;}
   .pp-actions-col{display:flex;flex-direction:column;align-items:flex-end;gap:14px;flex-shrink:0;}
   .pp-actions{display:flex;align-items:center;gap:8px;flex-shrink:0;height:34px;}
-  .pp-btn{display:inline-flex;align-items:center;gap:6px;padding:0 16px;height:34px;border-radius:99px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;white-space:nowrap;box-sizing:border-box;}
+  .pp-btn{display:inline-flex;align-items:center;gap:6px;padding:0 16px;height:34px;border-radius:99px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;white-space:nowrap;box-sizing:border-box;outline:none;}
   .pp-btn-outline{background:white;border:0.5px solid #c5d6f5;color:var(--blue);}
   .pp-btn-outline:hover{background:#f4f7ff;}
   .pp-stats-box{display:flex;background:white;border:0.5px solid #e0e7f5;border-radius:12px;width:100%;}
@@ -866,7 +866,7 @@
   .pp-stat-mini-val{font-size:22px;font-weight:800;color:var(--text);font-family:'Inter',sans-serif;line-height:1;}
   .pp-stat-mini-lbl{font-size:9px;font-weight:700;color:var(--text-muted);margin-top:2px;white-space:nowrap;letter-spacing:.3px;text-transform:uppercase;}
   .pp-tabs{display:flex;gap:4px;border-bottom:1.5px solid #e0e7f5;margin-bottom:20px;overflow-x:auto;overflow-y:hidden;white-space:nowrap;}
-  .pp-tab{padding:10px 16px;font-size:12px;font-weight:700;color:var(--text-muted);border-bottom:3px solid transparent;margin-bottom:-1.5px;background:none;border-top:none;border-left:none;border-right:none;font-family:'Inter',sans-serif;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap;}
+  .pp-tab{padding:10px 16px;font-size:12px;font-weight:700;color:var(--text-muted);border-bottom:3px solid transparent;margin-bottom:-1.5px;background:none;border-top:none;border-left:none;border-right:none;font-family:'Inter',sans-serif;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap;outline:none;}
   .pp-tab.pp-tab-on{color:var(--blue);border-bottom-color:var(--blue);}
   .pp-tab-soon{font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;color:#b0bbd6;background:var(--bg);padding:1px 6px;border-radius:99px;}
   .pp-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;align-items:stretch;}
@@ -958,7 +958,7 @@
   .pp-search-row:hover{background:#f4f7ff;}
   @media (max-width: 1100px){ .pp-grid{grid-template-columns:1fr 1fr;} }
   @media (max-width: 720px){ .pp-grid{grid-template-columns:1fr;} }
-  .ppm-profile-btn{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:6px;border:0.5px solid #e0e7f5;background:white;color:var(--blue);cursor:pointer;transition:all .15s;}
+  .ppm-profile-btn{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:6px;border:0.5px solid #e0e7f5;background:white;color:var(--blue);cursor:pointer;transition:all .15s;outline:none;}
   .ppm-profile-btn:hover{background:#e8f0ff;border-color:#c5d6f5;}
   /* ── BULK IMPORT ─────────────────────────────────────────── */
   .import-section{background:white;border:0.5px solid #e0e7f5;border-radius:12px;padding:18px 20px;margin-bottom:24px;max-width:1100px;}
@@ -4229,25 +4229,25 @@
   </div>
 </div>
 
-<script src="admin-state.js?v=20260764"></script>
-<script src="admin-ladder-selector.js?v=20260764"></script>
-<script src="admin-orders.js?v=20260764"></script>
-<script src="admin-email-utils.js?v=20260764"></script>
-<script src="admin-share.js?v=20260764"></script>
-<script src="admin-tournament-notify.js?v=20260764"></script>
-<script src="admin-player-status-history.js?v=20260764"></script>
-<script src="admin-player-profile.js?v=20260764"></script>
-<script src="admin-email-notifications.js?v=20260764"></script>
-<script src="admin-ladder-standings.js?v=20260764"></script>
-<script src="admin-sessions.js?v=20260764"></script>
-<script src="admin-print-roster.js?v=20260764"></script>
-<script src="admin-ladder-management.js?v=20260764"></script>
-<script src="admin-promotions.js?v=20260764"></script>
-<script src="admin-players.js?v=20260764"></script>
-<script src="admin-ftc-standings.js?v=20260764"></script>
-<script src="admin-ftc-playoffs-schedule.js?v=20260764"></script>
-<script src="admin-ftc-teams.js?v=20260764"></script>
-<script src="app.js?v=20260764"></script>
+<script src="admin-state.js?v=20260765"></script>
+<script src="admin-ladder-selector.js?v=20260765"></script>
+<script src="admin-orders.js?v=20260765"></script>
+<script src="admin-email-utils.js?v=20260765"></script>
+<script src="admin-share.js?v=20260765"></script>
+<script src="admin-tournament-notify.js?v=20260765"></script>
+<script src="admin-player-status-history.js?v=20260765"></script>
+<script src="admin-player-profile.js?v=20260765"></script>
+<script src="admin-email-notifications.js?v=20260765"></script>
+<script src="admin-ladder-standings.js?v=20260765"></script>
+<script src="admin-sessions.js?v=20260765"></script>
+<script src="admin-print-roster.js?v=20260765"></script>
+<script src="admin-ladder-management.js?v=20260765"></script>
+<script src="admin-promotions.js?v=20260765"></script>
+<script src="admin-players.js?v=20260765"></script>
+<script src="admin-ftc-standings.js?v=20260765"></script>
+<script src="admin-ftc-playoffs-schedule.js?v=20260765"></script>
+<script src="admin-ftc-teams.js?v=20260765"></script>
+<script src="app.js?v=20260765"></script>
 <script src="tournament.js?v=20260526"></script>
 <script>
   // ── Sidebar toggle — persisted in localStorage ──────────────────────
