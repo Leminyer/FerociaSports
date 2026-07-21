@@ -284,14 +284,21 @@
       `<div class="pp-form-dot ${r === 'W' ? 'pp-form-w' : 'pp-form-l'}">${r}</div>`,
     ).join('') || '<div class="pp-empty">No matches yet.</div>';
 
-    const streakBannerHTML = d.streak > 0
-      ? `<div class="pp-streak-banner ${d.streakType === 'W' ? 'pp-streak-good' : ''}">
-          <span style="flex-shrink:0;">${d.streakType === 'W'
+    // Per the founder's decision: show whichever streak matches the
+    // player's OVERALL performance direction — best win streak if they
+    // have more wins than losses overall, longest loss streak otherwise.
+    // (Not the raw "current streak" — a strong player on a brief rough
+    // patch would otherwise show a loss banner despite being ahead overall.)
+    const bannerIsWin = d.totalWins >= d.totalLosses;
+    const bannerStreak = bannerIsWin ? d.bestWinStreak : d.longestLossStreak;
+    const streakBannerHTML = bannerStreak > 0
+      ? `<div class="pp-streak-banner ${bannerIsWin ? 'pp-streak-good' : ''}">
+          <span style="flex-shrink:0;">${bannerIsWin
             ? ppSVG('<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>', 'var(--teal)', 18)
             : ppSVG('<path d="M12 2v20M4.93 4.93l14.14 14.14M19.07 4.93 4.93 19.07M2 12h20M6 6l4 4M18 6l-4 4M6 18l4-4M18 18l-4-4"/>', 'var(--orange)', 18)}</span>
           <div>
-            <div style="font-size:12px;font-weight:800;color:${d.streakType === 'W' ? '#085041' : 'var(--orange)'};">${d.streak} Consecutive ${d.streakType === 'W' ? 'Win' : 'Loss'}${d.streak !== 1 ? 'es' : ''}</div>
-            <div style="font-size:10px;font-weight:600;color:var(--text-muted);">${d.streakType === 'W' ? 'On fire!' : 'Keep pushing!'}</div>
+            <div style="font-size:12px;font-weight:800;color:${bannerIsWin ? '#085041' : 'var(--orange)'};">${bannerStreak} Consecutive ${bannerIsWin ? 'Win' : 'Loss'}${bannerStreak !== 1 ? 'es' : ''}</div>
+            <div style="font-size:10px;font-weight:600;color:var(--text-muted);">${bannerIsWin ? 'Best streak this career' : 'Longest rough patch this career'}</div>
           </div>
         </div>` : '';
 
