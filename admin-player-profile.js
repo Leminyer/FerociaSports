@@ -737,10 +737,11 @@
       insights.push(d.streakType === 'W' ? `In excellent form — ${d.streak} wins in a row.` : `Currently on a ${d.streak}-match losing streak.`);
     }
     if (!insights.length) insights.push('Not enough data yet for personalized insights — check back after a few more matches.');
+    const checkIcon = ppSVG('<circle cx="12" cy="12" r="10"/><polyline points="9 12 11 14 15 10"/>', 'var(--teal)', 15);
     const insightsHTML = `
       <div class="pp-insight-card">
-        <div class="pp-perf-title">Competition Insights</div>
-        ${insights.map((i) => `<div class="pp-insight-item">💡 ${i}</div>`).join('')}
+        <div class="pp-perf-title" style="display:flex;align-items:center;gap:8px;">✨ Competition Insights</div>
+        ${insights.map((i) => `<div class="pp-insight-item">${checkIcon} ${i}</div>`).join('')}
       </div>`;
 
     // ── Section 9: Ranking Progression — no rank history yet ──────────
@@ -769,8 +770,10 @@
           ${timelineHTML}
         </div>
       </div>
-      <div class="pp-perf-card pp-section-gap"><div class="pp-perf-title">Achievements</div>${achievementsHTML}</div>
-      ${insightsHTML}
+      <div class="pp-2col pp-section-gap" style="align-items:stretch;">
+        <div class="pp-perf-card"><div class="pp-perf-title">Achievements</div>${achievementsHTML}</div>
+        ${insightsHTML}
+      </div>
       <div style="margin-top:24px;">${rankChartHTML}</div>
     `;
   };
