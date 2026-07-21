@@ -368,10 +368,13 @@
           return `<div class="ppm-tl-item">
             <div class="${won ? 'ppm-pill-w' : 'ppm-pill-l'}" style="width:22px;height:22px;font-size:9px;">${won ? 'W' : 'L'}</div>
             <div style="flex:1;">
-              <div class="ppm-tl-text">${won ? 'Won' : 'Lost'} vs ${esc(oppName)} <span style="font-weight:800;color:${won ? '#24BC96' : '#F26024'};">${m.score_for}–${m.score_against}</span></div>
+              <div class="ppm-tl-text">${won ? 'Won' : 'Lost'} vs ${esc(oppName)}</div>
               <div class="ppm-tl-ctx">Ladder match</div>
             </div>
-            <div class="ppm-tl-date">${fmtShort(m.session_date)}</div>
+            <div style="text-align:right;flex-shrink:0;">
+              <div style="font-size:13px;font-weight:800;color:${won ? '#24BC96' : '#F26024'};">${m.score_for}–${m.score_against}</div>
+              <div class="ppm-tl-date" style="margin-top:2px;">${fmtShort(m.session_date)}</div>
+            </div>
           </div>`;
         }).join('')
       : '<div class="pp-empty">No recent activity yet.</div>';
@@ -434,26 +437,24 @@
         <div class="pp-card">
           <div class="pp-card-hdr"><span class="pp-card-title">RECENT ACTIVITY</span></div>
           <div class="pp-card-body">
-            ${recentActivityHTML}
+            <div style="flex:1;">${recentActivityHTML}</div>
             <div style="margin-top:10px;"><a class="pp-link" data-action="ppShowTab" data-pptab="history">View All Activity →</a></div>
           </div>
         </div>
 
-        <div style="grid-column:1 / -1;display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-          <div class="pp-card">
-            <div class="pp-card-hdr"><span class="pp-card-title">CAREER STATISTICS</span></div>
-            <div class="pp-card-body">
-              ${careerHTML}
-              <div style="margin-top:12px;"><a class="pp-link" data-action="ppShowTab" data-pptab="competition">View Full Statistics →</a></div>
-            </div>
+        <div class="pp-card">
+          <div class="pp-card-hdr"><span class="pp-card-title">CAREER STATISTICS</span></div>
+          <div class="pp-card-body">
+            <div style="flex:1;">${careerHTML}</div>
+            <div style="margin-top:12px;"><a class="pp-link" data-action="ppShowTab" data-pptab="competition">View Full Statistics →</a></div>
           </div>
+        </div>
 
-          <div class="pp-card">
-            <div class="pp-card-hdr"><span class="pp-card-title">QUICK INFO</span></div>
-            <div class="pp-card-body">
-              ${quickInfoHTML}
-              <div style="margin-top:12px;"><a class="pp-link" data-action="ppEditPlayer">View Full Profile →</a></div>
-            </div>
+        <div class="pp-card">
+          <div class="pp-card-hdr"><span class="pp-card-title">QUICK INFO</span></div>
+          <div class="pp-card-body">
+            <div style="flex:1;">${quickInfoHTML}</div>
+            <div style="margin-top:12px;"><a class="pp-link" data-action="ppEditPlayer">View Full Profile →</a></div>
           </div>
         </div>
       </div>`;

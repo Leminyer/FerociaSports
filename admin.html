@@ -868,7 +868,7 @@
   .ppm-hb-blue{background:#e8f0ff;color:#174CCC;}
   .ppm-hb-gray{background:#f0f2f8;color:#6b7a99;}
   .ppm-career-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
-  .ppm-career-card{background:#f8f9ff;border-radius:10px;border:0.5px solid #e0e7f5;padding:16px;text-align:center;}
+  .ppm-career-card{background:white;border-radius:10px;border:0.5px solid #e0e7f5;padding:16px;text-align:center;}
   .ppm-career-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#6b7a99;margin-bottom:8px;}
   .ppm-career-val{font-size:20px;font-weight:800;color:#0d1f4a;line-height:1.1;}
   .ppm-career-sub{font-size:11px;font-weight:600;color:#6b7a99;margin-top:4px;}
@@ -913,11 +913,11 @@
   .pp-tab{padding:10px 16px;font-size:12px;font-weight:700;color:#6b7a99;border-bottom:2.5px solid transparent;margin-bottom:-1.5px;background:none;border-top:none;border-left:none;border-right:none;font-family:'Montserrat',sans-serif;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap;}
   .pp-tab.pp-tab-on{color:#174CCC;border-bottom-color:#174CCC;}
   .pp-tab-soon{font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;color:#b0bbd6;background:#f0f2f8;padding:1px 6px;border-radius:99px;}
-  .pp-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;align-items:start;}
-  .pp-card{background:white;border:0.5px solid #e0e7f5;border-radius:12px;box-shadow:0 1px 4px rgba(23,76,204,0.05);}
+  .pp-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;align-items:stretch;}
+  .pp-card{background:white;border:0.5px solid #e0e7f5;border-radius:12px;box-shadow:0 1px 4px rgba(23,76,204,0.05);display:flex;flex-direction:column;}
+  .pp-card-body{display:flex;flex-direction:column;flex:1;padding:16px;}
   .pp-card-hdr{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;}
   .pp-card-title{font-size:11px;font-weight:800;color:#0d1f4a;}
-  .pp-card-body{padding:16px;}
   .pp-form-row{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px;}
   .pp-form-dot{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;flex-shrink:0;}
   .pp-form-w{background:rgba(36,188,150,0.15);color:#085041;}
@@ -925,12 +925,11 @@
   .pp-streak-banner{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:10px;background:rgba(242,96,36,0.06);border:0.5px solid rgba(242,96,36,0.2);margin-bottom:12px;}
   .pp-streak-banner.pp-streak-good{background:rgba(36,188,150,0.07);border-color:rgba(36,188,150,0.25);}
   .pp-empty{font-size:12px;font-weight:600;color:#6b7a99;padding:8px 0;}
-  .pp-quick-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:0.5px solid #f4f5f8;gap:10px;}
-  .pp-quick-row:last-child{border-bottom:none;}
+  .pp-quick-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;gap:10px;}
   .pp-quick-lbl{font-size:11px;font-weight:600;color:#6b7a99;display:flex;align-items:center;gap:6px;flex-shrink:0;}
-  .pp-quick-val{font-size:12px;font-weight:700;color:#0d1f4a;text-align:right;}
-  .pp-pill-verified{font-size:9px;font-weight:800;text-transform:uppercase;padding:2px 8px;border-radius:99px;background:rgba(36,188,150,0.12);color:#085041;}
-  .pp-pill-unverified{font-size:9px;font-weight:800;text-transform:uppercase;padding:2px 8px;border-radius:99px;background:#f4f5f8;color:#6b7a99;}
+  .pp-quick-val{font-size:12px;font-weight:700;color:#0d1f4a;text-align:left;}
+  .pp-pill-verified{font-size:9px;font-weight:800;text-transform:uppercase;padding:2px 8px;border-radius:99px;background:rgba(36,188,150,0.15);color:#085041;}
+  .pp-pill-unverified{font-size:9px;font-weight:800;text-transform:uppercase;padding:2px 8px;border-radius:99px;background:rgba(242,96,36,0.15);color:#9a3412;}
   .pp-link{font-size:11px;font-weight:700;color:#174CCC;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:4px;}
   .pp-link:hover{text-decoration:underline;}
   .pp-soon-card{background:white;border:0.5px dashed #c5d6f5;border-radius:14px;padding:60px 24px;text-align:center;}
@@ -1531,13 +1530,13 @@
       </div>
 
       <div class="pp-tabs" id="pp-tabs">
-        <button class="pp-tab pp-tab-on" data-pptab="overview"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg> Overview</button>
-        <button class="pp-tab" data-pptab="competition"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4a2 2 0 0 1-2-2V5h4"/><path d="M18 9h2a2 2 0 0 0 2-2V5h-4"/><path d="M12 17v4"/><path d="M8 21h8"/><path d="M6 9a6 6 0 0 0 12 0V3H6v6z"/></svg> Competition <span class="pp-tab-soon">Soon</span></button>
-        <button class="pp-tab" data-pptab="dna"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4c4 3 12 3 16 0M4 20c4-3 12-3 16 0M4 4c4 8 12 8 16 0M4 20c4-8 12-8 16 0"/></svg> DNA <span class="pp-tab-soon">Soon</span></button>
-        <button class="pp-tab" data-pptab="reliability"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg> Reliability <span class="pp-tab-soon">Soon</span></button>
-        <button class="pp-tab" data-pptab="membership"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg> Membership <span class="pp-tab-soon">Soon</span></button>
-        <button class="pp-tab" data-pptab="history"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> History <span class="pp-tab-soon">Soon</span></button>
-        <button class="pp-tab" data-pptab="adminnotes"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg> Admin Notes <span class="pp-tab-soon">Soon</span></button>
+        <button class="pp-tab pp-tab-on" data-action="ppShowTab" data-pptab="overview"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg> Overview</button>
+        <button class="pp-tab" data-action="ppShowTab" data-pptab="competition"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4a2 2 0 0 1-2-2V5h4"/><path d="M18 9h2a2 2 0 0 0 2-2V5h-4"/><path d="M12 17v4"/><path d="M8 21h8"/><path d="M6 9a6 6 0 0 0 12 0V3H6v6z"/></svg> Competition <span class="pp-tab-soon">Soon</span></button>
+        <button class="pp-tab" data-action="ppShowTab" data-pptab="dna"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4c4 3 12 3 16 0M4 20c4-3 12-3 16 0M4 4c4 8 12 8 16 0M4 20c4-8 12-8 16 0"/></svg> DNA <span class="pp-tab-soon">Soon</span></button>
+        <button class="pp-tab" data-action="ppShowTab" data-pptab="reliability"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg> Reliability <span class="pp-tab-soon">Soon</span></button>
+        <button class="pp-tab" data-action="ppShowTab" data-pptab="membership"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg> Membership <span class="pp-tab-soon">Soon</span></button>
+        <button class="pp-tab" data-action="ppShowTab" data-pptab="history"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> History <span class="pp-tab-soon">Soon</span></button>
+        <button class="pp-tab" data-action="ppShowTab" data-pptab="adminnotes"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg> Admin Notes <span class="pp-tab-soon">Soon</span></button>
       </div>
 
       <div id="pp-tab-overview" class="pp-tab-content"></div>
@@ -4198,25 +4197,25 @@
   </div>
 </div>
 
-<script src="admin-state.js?v=20260742"></script>
-<script src="admin-ladder-selector.js?v=20260742"></script>
-<script src="admin-orders.js?v=20260742"></script>
-<script src="admin-email-utils.js?v=20260742"></script>
-<script src="admin-share.js?v=20260742"></script>
-<script src="admin-tournament-notify.js?v=20260742"></script>
-<script src="admin-player-status-history.js?v=20260742"></script>
-<script src="admin-player-profile.js?v=20260742"></script>
-<script src="admin-email-notifications.js?v=20260742"></script>
-<script src="admin-ladder-standings.js?v=20260742"></script>
-<script src="admin-sessions.js?v=20260742"></script>
-<script src="admin-print-roster.js?v=20260742"></script>
-<script src="admin-ladder-management.js?v=20260742"></script>
-<script src="admin-promotions.js?v=20260742"></script>
-<script src="admin-players.js?v=20260742"></script>
-<script src="admin-ftc-standings.js?v=20260742"></script>
-<script src="admin-ftc-playoffs-schedule.js?v=20260742"></script>
-<script src="admin-ftc-teams.js?v=20260742"></script>
-<script src="app.js?v=20260742"></script>
+<script src="admin-state.js?v=20260743"></script>
+<script src="admin-ladder-selector.js?v=20260743"></script>
+<script src="admin-orders.js?v=20260743"></script>
+<script src="admin-email-utils.js?v=20260743"></script>
+<script src="admin-share.js?v=20260743"></script>
+<script src="admin-tournament-notify.js?v=20260743"></script>
+<script src="admin-player-status-history.js?v=20260743"></script>
+<script src="admin-player-profile.js?v=20260743"></script>
+<script src="admin-email-notifications.js?v=20260743"></script>
+<script src="admin-ladder-standings.js?v=20260743"></script>
+<script src="admin-sessions.js?v=20260743"></script>
+<script src="admin-print-roster.js?v=20260743"></script>
+<script src="admin-ladder-management.js?v=20260743"></script>
+<script src="admin-promotions.js?v=20260743"></script>
+<script src="admin-players.js?v=20260743"></script>
+<script src="admin-ftc-standings.js?v=20260743"></script>
+<script src="admin-ftc-playoffs-schedule.js?v=20260743"></script>
+<script src="admin-ftc-teams.js?v=20260743"></script>
+<script src="app.js?v=20260743"></script>
 <script src="tournament.js?v=20260526"></script>
 <script>
   // ── Sidebar toggle — persisted in localStorage ──────────────────────
