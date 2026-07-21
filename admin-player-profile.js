@@ -963,6 +963,60 @@
     } catch (e) { toast(`Error: ${e.message}`, true); }
   };
 
+  // ── Admin Tasks ──────────────────────────────────────────────────────
+  // Each task type maps to exactly one real field — "completing" a task
+  // just sets that field, so the task naturally stops appearing (no
+  // separate task-completion state to track).
+  const TASK_FIELD_MAP = {
+    verify_phone:       { field: 'phone_verified', value: true },
+    verify_email:       { field: 'email_verified', value: true },
+    missing_waiver:     { field: 'waiver_signed', value: true },
+    emergency_contact:  { field: 'emergency_contact_on_file', value: true },
+  };
+  const TASK_ICONS = {
+    verify_phone:      '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>',
+    verify_email:      '<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>',
+    missing_waiver:     '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>',
+    emergency_contact:  '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+  };
+
+  const fetchPlayerTasks = async (playerId) => {
+    try {
+      const { data, error } = await supabase.rpc('get_player_admin_tasks', { p_player_id: playerId });
+      if (error) { console.warn('[tasks] fetch failed:', error.message); return []; }
+      return data || [];
+    } catch (e) { return []; }
+  };
+
+  const renderTasksList = (tasks) => tasks.length
+    ? tasks.map((t) => `
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:0.5px solid #f4f5f8;">
+          <span style="width:32px;height:32px;border-radius:8px;background:#fde8d8;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${ppSVG(TASK_ICONS[t.task_type] || ICONS.flag, 'var(--orange)', 15)}</span>
+          <div style="flex:1;">
+            <div style="font-size:13px;font-weight:700;color:var(--text);">${esc(t.label)}</div>
+            <div style="font-size:11px;font-weight:600;color:var(--text-muted);">${esc(t.subtitle)}</div>
+          </div>
+          <button type="button" data-action="ppCompleteTask" data-task="${t.task_type}" title="Mark as done"
+            style="width:22px;height:22px;border-radius:6px;border:1.5px solid #c5d6f5;background:white;cursor:pointer;flex-shrink:0;"></button>
+        </div>`).join('')
+    : '<div class="pp-empty">No outstanding tasks — all caught up!</div>';
+
+  const ppCompleteTask = async (btn) => {
+    if (!_ppCurrent) return;
+    const type = btn.dataset.task;
+    const mapping = TASK_FIELD_MAP[type];
+    if (!mapping) return;
+    try {
+      await api(`players?id=eq.${_ppCurrent.p.id}`, 'PATCH', { [mapping.field]: mapping.value });
+      _ppCurrent.p[mapping.field] = mapping.value;
+      toast('Task marked complete.');
+      document.getElementById('pp-tab-adminnotes').removeAttribute('data-rendered');
+      renderAdmin(_ppCurrent);
+    } catch (e) {
+      toast(`Error: ${e.message}`, true);
+    }
+  };
+
   const notesCardHTML = (playerId) => `
     <div class="pp-perf-card">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
@@ -1107,13 +1161,22 @@
         </div>
       </div>
       ${comingSoonRow('Private Attachments')}
-      ${comingSoonRow('Admin Tasks')}
+      <div class="pp-perf-card pp-section-gap">
+        <div class="pp-perf-title">Admin Tasks</div>
+        <div id="pp-tasks-list"><div class="loading" style="padding:16px;">Loading tasks...</div></div>
+      </div>
     `;
 
     const notesEl = document.getElementById('pp-notes-list');
     if (notesEl) {
       const notes = await fetchPlayerNotes(d.p.id);
       if (_ppCurrent && _ppCurrent.p.id === playerIdAtStart) notesEl.innerHTML = renderNotesList(notes);
+    }
+
+    const tasksEl = document.getElementById('pp-tasks-list');
+    if (tasksEl) {
+      const tasks = await fetchPlayerTasks(d.p.id);
+      if (_ppCurrent && _ppCurrent.p.id === playerIdAtStart) tasksEl.innerHTML = renderTasksList(tasks);
     }
   };
 
@@ -1352,6 +1415,7 @@
     ppToggleTagPicker: () => ppToggleTagPicker(),
     ppAddTag: (btn) => ppAddTag(btn),
     ppRemoveTag: (btn) => ppRemoveTag(btn),
+    ppCompleteTask: (btn) => ppCompleteTask(btn),
     ppViewLadder:   (btn) => ppViewLadder(btn),
     // Route "openPlayerProfile" (used across the admin — Players table,
     // Match Hub, etc.) to this page instead of the old modal.
