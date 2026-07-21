@@ -785,6 +785,94 @@
     `;
   };
 
+  // ── Admin tab ────────────────────────────────────────────────────────
+  // Phase 1: Quick Actions, Administrative Flags, Reliability Summary
+  // (Reliability is computed by get_player_reliability() in the database —
+  // not recomputed here in JS — so any future module can call the same
+  // RPC and get identical numbers). Internal Notes, Player Tags, Private
+  // Attachments, Admin Tasks, and the Audit Trail are later phases.
+  const flagPill = (label, isOn, subtitle) => `
+    <div style="display:flex;align-items:center;gap:10px;background:white;border:1px solid var(--divider-color);border-radius:12px;padding:14px 16px;">
+      ${ppSVG(isOn ? '<circle cx="12" cy="12" r="10"/><polyline points="9 12 11 14 15 10"/>' : '<circle cx="12" cy="12" r="10"/><line x1="9" y1="9" x2="15" y2="15"/><line x1="15" y1="9" x2="9" y2="15"/>', isOn ? 'var(--teal)' : '#c5d0e8', 18)}
+      <div>
+        <div style="font-size:12px;font-weight:700;color:var(--text);">${label}</div>
+        ${subtitle ? `<div style="font-size:10px;font-weight:600;color:var(--text-muted);">${subtitle}</div>` : ''}
+      </div>
+    </div>`;
+
+  const renderAdmin = async (d) => {
+    const el = document.getElementById('pp-tab-adminnotes');
+    if (!el || el.dataset.rendered) return;
+    el.dataset.rendered = '1';
+    el.innerHTML = '<div class="loading" style="padding:40px;">Loading admin data...</div>';
+    const playerIdAtStart = d.p.id;
+
+    let rel = null;
+    try {
+      const { data } = await supabase.rpc('get_player_reliability', { p_player_id: d.p.id });
+      rel = data?.[0] || null;
+    } catch (e) { console.warn('[reliability] failed:', e.message); }
+    if (!_ppCurrent || _ppCurrent.p.id !== playerIdAtStart) return;
+
+    const p = d.p;
+    const flagsHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+        ${flagPill('Email Verified', !!p.email_verified)}
+        ${flagPill('Phone Verified', !!p.phone_verified)}
+        ${flagPill('Waiver Signed', !!p.waiver_signed)}
+        ${flagPill('Active Membership', p.status === 'active')}
+        ${flagPill('Emergency Contact', !!p.emergency_contact_on_file)}
+        ${flagPill('Background Check', p.background_check_status === 'passed', p.background_check_status === 'not_required' ? 'Not Required' : p.background_check_status === 'pending' ? 'Pending' : undefined)}
+      </div>`;
+
+    const relCard = rel ? `
+      <div class="pp-kpi-row" style="grid-template-columns:repeat(5,1fr);">
+        <div class="pp-kpi-card"><div class="pp-kpi-lbl">Attendance</div><div class="pp-kpi-val">${rel.attendance_pct !== null ? `${rel.attendance_pct}%` : '—'}</div></div>
+        <div class="pp-kpi-card"><div class="pp-kpi-lbl">Late Cancellations</div><div class="pp-kpi-val">${rel.late_cancellations}</div></div>
+        <div class="pp-kpi-card"><div class="pp-kpi-lbl">No Shows</div><div class="pp-kpi-val" style="color:${rel.no_shows > 0 ? 'var(--orange)' : 'var(--text)'};">${rel.no_shows}</div></div>
+        <div class="pp-kpi-card"><div class="pp-kpi-lbl">Games Confirmed</div><div class="pp-kpi-val">${rel.games_confirmed}</div></div>
+        <div class="pp-kpi-card"><div class="pp-kpi-lbl">Overall Reliability</div><div class="pp-kpi-val" style="color:${rel.overall_label === 'Excellent' ? 'var(--teal)' : rel.overall_label === 'Needs Improvement' ? 'var(--orange)' : 'var(--text)'};font-size:16px;">${rel.overall_label}</div></div>
+      </div>` : '<div class="pp-empty">Reliability data unavailable.</div>';
+
+    const comingSoonRow = (title) => `
+      <div class="pp-perf-card" style="opacity:0.6;">
+        <div class="pp-perf-title" style="display:flex;align-items:center;gap:8px;">${title} <span class="pp-tab-soon">Soon</span></div>
+        <div class="pp-empty">Coming in the next phase.</div>
+      </div>`;
+
+    el.innerHTML = `
+      <div class="pp-section-gap">
+        <div class="pp-perf-title">Quick Actions</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          <button data-action="ppEditPlayer" style="display:flex;align-items:center;gap:12px;background:white;border:1px solid var(--divider-color);border-radius:14px;padding:16px 18px;cursor:pointer;text-align:left;font-family:'Inter',sans-serif;">
+            <span style="width:40px;height:40px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;flex-shrink:0;">${ppSVG(ICONS.edit, 'white', 18)}</span>
+            <div><div style="font-size:13px;font-weight:700;color:var(--text);">Edit Player</div><div style="font-size:11px;font-weight:600;color:var(--text-muted);">Edit player information and profile details</div></div>
+          </button>
+          <button data-action="ppSendMessage" style="display:flex;align-items:center;gap:12px;background:white;border:1px solid var(--divider-color);border-radius:14px;padding:16px 18px;cursor:pointer;text-align:left;font-family:'Inter',sans-serif;">
+            <span style="width:40px;height:40px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;flex-shrink:0;">${ppSVG(ICONS.mail, 'white', 18)}</span>
+            <div><div style="font-size:13px;font-weight:700;color:var(--text);">Send Email</div><div style="font-size:11px;font-weight:600;color:var(--text-muted);">Send an email directly to this player</div></div>
+          </button>
+        </div>
+      </div>
+      <div class="pp-2col pp-section-gap" style="align-items:start;">
+        ${comingSoonRow('Internal Notes')}
+        <div>
+          <div class="pp-perf-title">Administrative Flags</div>
+          ${flagsHTML}
+        </div>
+      </div>
+      <div class="pp-section-gap">
+        <div class="pp-perf-title">Reliability Summary</div>
+        ${relCard}
+      </div>
+      <div class="pp-2col pp-section-gap" style="align-items:start;">
+        ${comingSoonRow('Player Tags')}
+        ${comingSoonRow('Private Attachments')}
+      </div>
+      ${comingSoonRow('Admin Tasks')}
+    `;
+  };
+
   const renderSoon = (tabId, label) => {
     const el = document.getElementById(`pp-tab-${tabId}`);
     if (!el || el.dataset.rendered) return;
@@ -804,7 +892,8 @@
     const target = document.getElementById(`pp-tab-${tab}`);
     if (target) target.style.display = '';
     if (tab === 'competition') { if (_ppCurrent) renderCompetition(_ppCurrent); return; }
-    const labels = { dna: 'DNA', reliability: 'Reliability', membership: 'Membership', history: 'History', adminnotes: 'Admin Notes' };
+    if (tab === 'adminnotes') { if (_ppCurrent) renderAdmin(_ppCurrent); return; }
+    const labels = { dna: 'DNA', reliability: 'Reliability', membership: 'Membership', history: 'History' };
     if (labels[tab]) renderSoon(tab, labels[tab]);
   };
 
@@ -901,7 +990,58 @@
       toast(url);
     }
   };
-  const ppSendMessage = () => toast('Messaging is coming soon.');
+  // Opens a simple subject+message modal and sends a single email to the
+  // current player — same underlying send mechanism as Notify Players
+  // (sendOneEmail), just scoped to one recipient instead of a ladder roster.
+  const ppSendMessage = () => {
+    if (!_ppCurrent?.p?.email) { toast('This player has no email on file.', true); return; }
+    document.getElementById('pp-email-recipient').textContent =
+      `To: ${_ppCurrent.p.first_name} ${_ppCurrent.p.last_name} (${_ppCurrent.p.email})`;
+    document.getElementById('pp-email-subject').value = '';
+    document.getElementById('pp-email-message').value = '';
+    document.getElementById('pp-email-modal').classList.add('open');
+  };
+
+  const ppCloseEmailModal = () => {
+    document.getElementById('pp-email-modal').classList.remove('open');
+  };
+
+  const ppSendEmailSubmit = async (e) => {
+    e.preventDefault();
+    if (!_ppCurrent?.p?.email) return;
+    const subject = document.getElementById('pp-email-subject').value.trim();
+    const message = document.getElementById('pp-email-message').value.trim();
+    if (!subject || !message) { toast('Please fill in subject and message.', true); return; }
+
+    const p = _ppCurrent.p;
+    const sendBtn = document.getElementById('pp-email-send-btn');
+    const origHTML = sendBtn.innerHTML;
+    sendBtn.disabled = true;
+    sendBtn.innerHTML = 'Sending...';
+
+    try {
+      emailjs.init({ publicKey: CFG.EMAILJS.PUBLIC_KEY });
+      const ok = await window.sendOneEmail(CFG.EMAILJS.SERVICE, CFG.EMAILJS.TEMPLATES.LADDER_NOTIFY, {
+        player_name: `${p.first_name} ${p.last_name}`,
+        player_email: p.email,
+        email_title: 'Ferocia Sports Center',
+        subject, message,
+        leaderboard_url: window.location.origin + window.location.pathname.replace('admin.html', '') + 'players.html',
+      });
+      if (ok) {
+        toast(`Email sent to ${p.first_name} ${p.last_name}!`);
+        ppCloseEmailModal();
+      } else {
+        toast('Email failed to send. Check your EmailJS config.', true);
+      }
+    } catch (err) {
+      toast(`Error: ${err.message}`, true);
+    } finally {
+      sendBtn.disabled = false;
+      sendBtn.innerHTML = origHTML;
+    }
+  };
+  document.getElementById('pp-email-form')?.addEventListener('submit', ppSendEmailSubmit);
 
   // Honest placeholders — there's no real email/SMS verification system
   // yet (email_verified/phone_verified are just columns for now), so these
@@ -961,6 +1101,7 @@
     ppResendSmsVerification:   () => ppResendSmsVerification(),
     ppResetPlayerDna:          () => ppResetPlayerDna(),
     ppSendMessage:  () => ppSendMessage(),
+    ppCloseEmailModal: () => ppCloseEmailModal(),
     ppViewLadder:   (btn) => ppViewLadder(btn),
     // Route "openPlayerProfile" (used across the admin — Players table,
     // Match Hub, etc.) to this page instead of the old modal.

@@ -1529,7 +1529,7 @@
         <button class="pp-tab" data-action="ppShowTab" data-pptab="reliability"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg> Reliability <span class="pp-tab-soon">Soon</span></button>
         <button class="pp-tab" data-action="ppShowTab" data-pptab="membership"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg> Membership <span class="pp-tab-soon">Soon</span></button>
         <button class="pp-tab" data-action="ppShowTab" data-pptab="history"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> History <span class="pp-tab-soon">Soon</span></button>
-        <button class="pp-tab" data-action="ppShowTab" data-pptab="adminnotes"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg> Admin Notes <span class="pp-tab-soon">Soon</span></button>
+        <button class="pp-tab" data-action="ppShowTab" data-pptab="adminnotes"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg> Admin</button>
       </div>
 
       <div id="pp-tab-overview" class="pp-tab-content"></div>
@@ -3707,6 +3707,48 @@
   </div>
 </div>
 
+<!-- Player Profile — Send Email Modal -->
+<div class="modal-bg" id="pp-email-modal">
+  <div class="modal" style="max-width:520px;border-radius:14px;padding:0;overflow:hidden;display:flex;flex-direction:column;">
+
+    <!-- HEADER -->
+    <div style="padding:20px 24px 0;display:flex;align-items:flex-start;justify-content:space-between;flex-shrink:0;">
+      <div>
+        <div style="font-family:'Inter',sans-serif;font-size:24px;color:var(--text);letter-spacing:1px;line-height:1;margin-bottom:3px;">Send Email</div>
+        <div style="font-size:11px;font-weight:600;color:var(--text-muted);" id="pp-email-recipient"></div>
+      </div>
+      <button type="button" data-action="ppCloseEmailModal"
+        style="width:30px;height:30px;border-radius:8px;border:0.5px solid #e0e7f5;background:white;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#e53935" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div style="border-top:0.5px solid #e0e7f5;margin:14px 24px 0;"></div>
+
+    <!-- BODY -->
+    <form id="pp-email-form" style="padding:16px 24px;display:flex;flex-direction:column;gap:14px;overflow-y:auto;">
+      <div>
+        <div style="font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;">Subject <span style="color:#e53935;">*</span></div>
+        <input type="text" id="pp-email-subject"
+          style="width:100%;padding:9px 12px;border:1px solid #e0e7f5;border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;color:var(--text);outline:none;">
+      </div>
+      <div>
+        <div style="font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;">Message <span style="color:#e53935;">*</span></div>
+        <textarea id="pp-email-message"
+          style="width:100%;min-height:180px;padding:12px;border:1px solid #e0e7f5;border-radius:10px;outline:none;font-family:'Inter',sans-serif;font-size:13px;font-weight:500;color:var(--text);line-height:1.7;resize:vertical;"></textarea>
+      </div>
+
+      <!-- FOOTER -->
+      <div style="display:flex;justify-content:flex-end;padding-top:4px;border-top:0.5px solid #e0e7f5;margin-top:2px;">
+        <button type="submit" id="pp-email-send-btn"
+          style="display:inline-flex;align-items:center;gap:7px;padding:10px 24px;border:none;border-radius:99px;background:linear-gradient(180deg,#2456d3,var(--blue));color:white;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          Send Email
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <!-- Tournament Notify Modal -->
 <div class="modal-bg" id="tournament-notify-modal">
   <div class="modal" style="max-width:560px;border-radius:14px;padding:0;overflow:hidden;display:flex;flex-direction:column;">
@@ -4167,25 +4209,25 @@
   </div>
 </div>
 
-<script src="admin-state.js?v=20260757"></script>
-<script src="admin-ladder-selector.js?v=20260757"></script>
-<script src="admin-orders.js?v=20260757"></script>
-<script src="admin-email-utils.js?v=20260757"></script>
-<script src="admin-share.js?v=20260757"></script>
-<script src="admin-tournament-notify.js?v=20260757"></script>
-<script src="admin-player-status-history.js?v=20260757"></script>
-<script src="admin-player-profile.js?v=20260757"></script>
-<script src="admin-email-notifications.js?v=20260757"></script>
-<script src="admin-ladder-standings.js?v=20260757"></script>
-<script src="admin-sessions.js?v=20260757"></script>
-<script src="admin-print-roster.js?v=20260757"></script>
-<script src="admin-ladder-management.js?v=20260757"></script>
-<script src="admin-promotions.js?v=20260757"></script>
-<script src="admin-players.js?v=20260757"></script>
-<script src="admin-ftc-standings.js?v=20260757"></script>
-<script src="admin-ftc-playoffs-schedule.js?v=20260757"></script>
-<script src="admin-ftc-teams.js?v=20260757"></script>
-<script src="app.js?v=20260757"></script>
+<script src="admin-state.js?v=20260759"></script>
+<script src="admin-ladder-selector.js?v=20260759"></script>
+<script src="admin-orders.js?v=20260759"></script>
+<script src="admin-email-utils.js?v=20260759"></script>
+<script src="admin-share.js?v=20260759"></script>
+<script src="admin-tournament-notify.js?v=20260759"></script>
+<script src="admin-player-status-history.js?v=20260759"></script>
+<script src="admin-player-profile.js?v=20260759"></script>
+<script src="admin-email-notifications.js?v=20260759"></script>
+<script src="admin-ladder-standings.js?v=20260759"></script>
+<script src="admin-sessions.js?v=20260759"></script>
+<script src="admin-print-roster.js?v=20260759"></script>
+<script src="admin-ladder-management.js?v=20260759"></script>
+<script src="admin-promotions.js?v=20260759"></script>
+<script src="admin-players.js?v=20260759"></script>
+<script src="admin-ftc-standings.js?v=20260759"></script>
+<script src="admin-ftc-playoffs-schedule.js?v=20260759"></script>
+<script src="admin-ftc-teams.js?v=20260759"></script>
+<script src="app.js?v=20260759"></script>
 <script src="tournament.js?v=20260526"></script>
 <script>
   // ── Sidebar toggle — persisted in localStorage ──────────────────────
