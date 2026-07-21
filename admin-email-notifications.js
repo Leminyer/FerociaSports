@@ -137,8 +137,8 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     // Section 1: Ladder context
     document.getElementById('notify-ladder-name').textContent = AdminState.currentLadder.name;
     document.getElementById('notify-context-pills').innerHTML = `
-      <span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;color:#174CCC;background:#e8f0ff;padding:2px 8px;border-radius:99px;">
-        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      <span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;color:var(--blue);background:#e8f0ff;padding:2px 8px;border-radius:99px;">
+        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
         ${totalPlayers} Player${totalPlayers !== 1 ? 's' : ''}
       </span>
       <span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;color:#085041;background:#d4f5ed;padding:2px 8px;border-radius:99px;">
@@ -259,7 +259,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
       sendBtn.style.background = 'linear-gradient(180deg,#2ab87a,#1d9e68)';
       sendBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Sent ${sent} emails!`;
     } else {
-      sendBtn.style.background = 'linear-gradient(180deg,#F26024,#d44e10)';
+      sendBtn.style.background = 'linear-gradient(180deg,var(--orange),#d44e10)';
       sendBtn.innerHTML = `⚠ Sent ${sent}, ${failedRecipients.length} failed`;
     }
 

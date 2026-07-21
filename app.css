@@ -72,11 +72,11 @@
 .game-row         { margin-bottom:8px; padding:12px 14px; background:var(--bg); border-radius:var(--radius-sm); font-size:13px; border-left:3px solid var(--lime); }
 
 /* ─── INPUTS / FORMS ──────────────────────────────────── */
-.input-full       { width:100%; padding:9px 12px; border:0.5px solid var(--border); border-radius:var(--radius-sm); font-family:'Montserrat',sans-serif; font-size:13px; outline:none; }
-.input-sm         { font-size:12px; padding:5px 10px; font-family:'Montserrat',sans-serif; font-weight:600; border:0.5px solid var(--border); border-radius:var(--radius-sm); }
-.search-input     { width:100%; padding:10px 14px; font-size:13px; border:0.5px solid var(--border); border-radius:var(--radius-sm); font-family:'Montserrat',sans-serif; }
-.score-input      { width:110px; text-align:center; font-family:'Bebas Neue',sans-serif; font-size:28px; font-weight:400; border:1px solid rgba(23,76,204,0.12); border-radius:14px; padding:10px 8px; transition:border-color .15s,box-shadow .15s; }
-.score-input:focus { border:1px solid #174CCC; box-shadow:0 0 0 4px rgba(23,76,204,0.08); outline:none; }
+.input-full       { width:100%; padding:9px 12px; border:0.5px solid var(--border); border-radius:var(--radius-sm); font-family:'Inter',sans-serif; font-size:13px; outline:none; }
+.input-sm         { font-size:12px; padding:5px 10px; font-family:'Inter',sans-serif; font-weight:600; border:0.5px solid var(--border); border-radius:var(--radius-sm); }
+.search-input     { width:100%; padding:10px 14px; font-size:13px; border:0.5px solid var(--border); border-radius:var(--radius-sm); font-family:'Inter',sans-serif; }
+.score-input      { width:110px; text-align:center; font-family:'Inter',sans-serif; font-size:28px; font-weight:400; border:1px solid rgba(23,76,204,0.12); border-radius:14px; padding:10px 8px; transition:border-color .15s,box-shadow .15s; }
+.score-input:focus { border:1px solid var(--blue); box-shadow:0 0 0 4px rgba(23,76,204,0.08); outline:none; }
 
 /* ─── PILLS / BADGES ──────────────────────────────────── */
 .pill             { display:inline-block; font-size:10px; font-weight:700; letter-spacing:.5px; text-transform:uppercase; padding:3px 9px; border-radius:99px; }
@@ -142,13 +142,13 @@
   background:rgba(242,96,36,0.4); transition:transform .2s,background .2s;
 }
 .void-toggle-wrap:hover .void-toggle-track { border-color:rgba(242,96,36,0.5); background:rgba(242,96,36,0.15); }
-.void-toggle-wrap input:checked ~ .void-toggle-track { background:rgba(242,96,36,0.2); border-color:#F26024; }
-.void-toggle-wrap input:checked ~ .void-toggle-track::after { transform:translateX(16px); background:#F26024; }
+.void-toggle-wrap input:checked ~ .void-toggle-track { background:rgba(242,96,36,0.2); border-color:var(--orange); }
+.void-toggle-wrap input:checked ~ .void-toggle-track::after { transform:translateX(16px); background:var(--orange); }
 .void-toggle-label { font-size:11px; font-weight:800; letter-spacing:.5px; text-transform:uppercase; color:rgba(242,96,36,0.6); }
-.void-toggle-wrap input:checked ~ .void-toggle-label { color:#F26024; }
+.void-toggle-wrap input:checked ~ .void-toggle-label { color:var(--orange); }
 /* Save Roster button */
 #save-session-btn {
-  background: linear-gradient(180deg,#2456d3 0%,#174CCC 100%) !important;
+  background: linear-gradient(180deg,#2456d3 0%,var(--blue) 100%) !important;
   transition: transform .15s, box-shadow .15s !important;
   text-transform: none !important;
   letter-spacing: 0 !important;
@@ -161,6 +161,6 @@
   opacity: 1 !important;
 }
 /* Game card header text override for light bg */
-.game-card-header .lime-tag { color:#174CCC; }
-.game-card-header .text-bold { color:#174CCC; }
-.game-card-header .row { color:#174CCC; }
+.game-card-header .lime-tag { color:var(--blue); }
+.game-card-header .text-bold { color:var(--blue); }
+.game-card-header .row { color:var(--blue); }

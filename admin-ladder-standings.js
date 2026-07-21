@@ -104,7 +104,7 @@
           <div class="stat-leader-pts">${leaderPts} PTS</div>
           <div class="stat-leader-week">↑ Season leader</div>
           <div class="stat-leader-streak">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#F26024" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
             Top of the ladder
           </div>
         </div>`;
@@ -175,7 +175,7 @@
     const medals = ['gold', 'silver', 'bronze'];
     const top    = players.slice(0, 3);
     const order  = top.length === 1 ? [0] : top.length === 2 ? [1, 0] : [1, 0, 2];
-    const icon   = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0d1f4a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4a2 2 0 0 1-2-2V5h4"/><path d="M18 9h2a2 2 0 0 0 2-2V5h-4"/><path d="M12 17v4"/><path d="M8 21h8"/><path d="M6 9a6 6 0 0 0 12 0V3H6v6z"/></svg>`;
+    const icon   = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4a2 2 0 0 1-2-2V5h4"/><path d="M18 9h2a2 2 0 0 0 2-2V5h-4"/><path d="M12 17v4"/><path d="M8 21h8"/><path d="M6 9a6 6 0 0 0 12 0V3H6v6z"/></svg>`;
     return `
       <div class="podium-half">
         <div class="podium-eyebrow">${icon} Top ${label}</div>
@@ -231,9 +231,9 @@
       // Simple trend: top 3 = up arrow, others neutral
       let trendHTML = '';
       if (i === 0) {
-        trendHTML = `<div class="trend-fire"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#F26024" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Season leader</div>`;
+        trendHTML = `<div class="trend-fire"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Season leader</div>`;
       } else if (p._points > 0) {
-        trendHTML = `<div class="trend-up"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#24BC96" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>${p._points} pts earned</div>`;
+        trendHTML = `<div class="trend-up"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>${p._points} pts earned</div>`;
       } else {
         trendHTML = `<div class="trend-neu">—</div>`;
       }
@@ -249,10 +249,10 @@
           </div>
         </td>
         <td style="text-align:right;padding-right:16px;"><span class="points-display">${p._points}</span><span style="font-size:11px;color:var(--text-muted);font-weight:600;margin-left:2px;">pts</span></td>
-        <td style="text-align:center;font-size:13px;font-weight:800;color:${p._diff > 0 ? '#24BC96' : p._diff < 0 ? '#F26024' : '#6b7a99'};">${p._diff > 0 ? '+' : ''}${p._diff}</td>
-        <td style="text-align:center;font-size:13px;font-weight:700;color:#24BC96;">${p._wins}</td>
-        <td style="text-align:center;font-size:13px;font-weight:700;color:#F26024;">${p._losses}</td>
-        <td style="text-align:center;font-size:13px;font-weight:700;color:#6b7a99;">${p._matches}</td>
+        <td style="text-align:center;font-size:13px;font-weight:800;color:${p._diff > 0 ? 'var(--teal)' : p._diff < 0 ? 'var(--orange)' : 'var(--text-muted)'};">${p._diff > 0 ? '+' : ''}${p._diff}</td>
+        <td style="text-align:center;font-size:13px;font-weight:700;color:var(--teal);">${p._wins}</td>
+        <td style="text-align:center;font-size:13px;font-weight:700;color:var(--orange);">${p._losses}</td>
+        <td style="text-align:center;font-size:13px;font-weight:700;color:var(--text-muted);">${p._matches}</td>
         <td style="width:160px;">${trendHTML}</td>
       </tr>`;
     }).join('');

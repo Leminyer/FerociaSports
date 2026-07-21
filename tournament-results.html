@@ -16,24 +16,16 @@
 <meta name="twitter:title"       content="Tournament Hub — Ferocia Sports Center">
 <meta name="twitter:description" content="Live tournament standings, bracket results and match scores for Ferocia Sports Center pickleball tournaments.">
 <meta name="twitter:image"       content="https://ferociasports.com/og-preview.png">
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="design-tokens.css">
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="db.js"></script>
 <script src="assets.js"></script>
 <style>
-  :root {
-    --blue:#174CCC; --blue-light:#9CE3FF; --blue-pale:#e8f0ff;
-    --teal:#24BC96; --teal-light:#d4f5ed;
-    --lime:#C6F221; --lime-dark:#7a9200;
-    --orange:#F26024; --orange-light:#fde8d8;
-    --white:#ffffff; --text:#0d1f4a; --muted:#6b7a99;
-    --border:#e0e7f5; --bg:#f0f2f8;
-    --gold:#FFD700; --silver:#C0C0C0; --bronze:#CD7F32;
-    --radius:12px; --radius-sm:8px;
-  }
+  /* Color/typography/radius tokens now come from design-tokens.css. */
   * { box-sizing:border-box; margin:0; padding:0; }
-  body { font-family:'Montserrat',sans-serif; background:var(--bg); color:var(--text); font-size:14px; }
+  body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--text); font-size:14px; }
 
   /* HEADER */
   header { background:#080f2e; padding:0 28px; display:flex; align-items:center; justify-content:space-between; height:68px; border-bottom:3px solid var(--lime); position:sticky; top:0; z-index:100; }
@@ -47,7 +39,7 @@
   main { max-width:1000px; margin:0 auto; padding:24px 28px 80px; }
 
   /* PAGE TITLE */
-  .page-title { font-family:'Bebas Neue',sans-serif; font-size:28px; color:#0d1f4a; letter-spacing:1px; line-height:1; margin-bottom:4px; }
+  .page-title { font-family:'Inter',sans-serif; font-size:28px; color:var(--text); letter-spacing:1px; line-height:1; margin-bottom:4px; }
   .page-sub   { font-size:12px; font-weight:600; color:var(--muted); margin-bottom:20px; }
 
   /* DIVISION TABS */
@@ -64,10 +56,10 @@
   /* STAT CARDS */
   .stats-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:16px; }
   .stat { background:white; border:0.5px solid var(--border); border-radius:10px; padding:16px 18px 14px; border-top:3px solid transparent; box-shadow:0 1px 4px rgba(23,76,204,0.06); display:flex; flex-direction:column; }
-  .stat.sb { border-top-color:#174CCC; } .stat.st { border-top-color:#24BC96; }
+  .stat.sb { border-top-color:var(--blue); } .stat.st { border-top-color:var(--teal); }
   .stat.sl { border-top-color:#C6F221; } .stat.sg { border-top-color:#FFD700; }
-  .stat-label { font-size:11px; font-weight:800; letter-spacing:.5px; text-transform:uppercase; color:#0d1f4a; margin-bottom:6px; }
-  .stat-value { font-family:'Bebas Neue',sans-serif; font-size:40px; color:#0d1f4a; line-height:1; margin-bottom:5px; }
+  .stat-label { font-size:11px; font-weight:800; letter-spacing:.5px; text-transform:uppercase; color:var(--text); margin-bottom:6px; }
+  .stat-value { font-family:'Inter',sans-serif; font-size:40px; color:var(--text); line-height:1; margin-bottom:5px; }
   .stat-ctx   { font-size:11px; font-weight:600; margin-top:auto; }
 
   /* MOMENTUM / INTEL STRIP */
@@ -76,7 +68,7 @@
   .mom-sep   { width:1px; height:32px; background:var(--border); flex-shrink:0; }
   .mom-item  { display:flex; align-items:center; gap:8px; }
   .mom-icon  { width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:13px; }
-  .mom-text  { font-size:12px; font-weight:700; color:#0d1f4a; }
+  .mom-text  { font-size:12px; font-weight:700; color:var(--text); }
   .mom-sub   { font-size:10px; font-weight:600; color:var(--muted); }
 
   /* CARD */
@@ -94,12 +86,12 @@
   /* PODIUM */
   .podium      { display:flex; justify-content:center; align-items:flex-end; gap:16px; }
   .podium-slot { display:flex; flex-direction:column; align-items:center; gap:5px; flex:1; max-width:160px; }
-  .pod-av      { width:52px; height:52px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:'Bebas Neue',sans-serif; font-size:17px; color:white; position:relative; }
+  .pod-av      { width:52px; height:52px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:'Inter',sans-serif; font-size:17px; color:white; position:relative; }
   .pod-av.gold   { width:62px; height:62px; font-size:19px; background:var(--gold); color:#7a5800; }
   .pod-av.silver { background:var(--silver); color:#444; }
   .pod-av.bronze { background:var(--bronze); color:#fff; }
   .pod-crown   { position:absolute; top:-14px; font-size:13px; }
-  .pod-name    { font-size:12px; font-weight:800; text-align:center; color:#0d1f4a; line-height:1.3; }
+  .pod-name    { font-size:12px; font-weight:800; text-align:center; color:var(--text); line-height:1.3; }
   .pod-players { font-size:10px; font-weight:600; color:var(--muted); text-align:center; line-height:1.4; max-width:130px; }
   .pod-bar  { width:100%; border-radius:7px 7px 0 0; }
   .bar-gold { background:rgba(255,215,0,0.1); border:1.5px solid rgba(255,215,0,0.3); border-bottom:none; height:64px; }
@@ -143,20 +135,20 @@
   .court-lbl   { font-size:11px; font-weight:800; color:var(--blue); letter-spacing:.5px; text-transform:uppercase; }
   .game-row    { padding:8px 14px; border-bottom:0.5px solid #f4f5f8; display:flex; align-items:center; gap:8px; }
   .game-row:last-child { border-bottom:none; }
-  .game-lbl    { font-size:11px; font-weight:800; color:#0d1f4a; min-width:52px; letter-spacing:.3px; }
+  .game-lbl    { font-size:11px; font-weight:800; color:var(--text); min-width:52px; letter-spacing:.3px; }
   .game-body   { flex:1; display:flex; align-items:center; gap:6px; }
   .team-block  { flex:1; display:flex; align-items:center; gap:8px; padding:8px 10px; border-radius:7px; }
   .team-win    { background:rgba(36,188,150,0.06); border:0.5px solid rgba(36,188,150,0.2); }
-  .team-lose   { background:#fafafa; border:0.5px solid #f0f2f8; opacity:0.78; }
+  .team-lose   { background:#fafafa; border:0.5px solid var(--bg); opacity:0.78; }
   .team-pend   { background:#fffbf0; border:0.5px solid #f0e0b0; }
-  .t-names     { flex:1; font-size:12px; font-weight:700; color:#0d1f4a; line-height:1.5; }
-  .t-names.lose { color:#6b7a99; font-weight:600; }
+  .t-names     { flex:1; font-size:12px; font-weight:700; color:var(--text); line-height:1.5; }
+  .t-names.lose { color:var(--text-muted); font-weight:600; }
   .t-names.pend { color:#9a7000; }
   .t-score     { text-align:right; flex-shrink:0; }
-  .s-num  { font-family:'Bebas Neue',sans-serif; font-size:24px; line-height:1; display:block; }
-  .s-win  { color:#24BC96; } .s-lose { color:#6b7a99; } .s-pend { color:#c8a000; }
+  .s-num  { font-family:'Inter',sans-serif; font-size:24px; line-height:1; display:block; }
+  .s-win  { color:var(--teal); } .s-lose { color:var(--text-muted); } .s-pend { color:#c8a000; }
   .s-pts  { font-size:10px; font-weight:700; display:block; margin-top:1px; }
-  .p-win  { color:#24BC96; } .p-lose { color:#6b7a99; } .p-pend { color:#c8a000; }
+  .p-win  { color:var(--teal); } .p-lose { color:var(--text-muted); } .p-pend { color:#c8a000; }
   .vs-col  { font-size:10px; font-weight:800; color:rgba(23,76,204,0.3); flex-shrink:0; display:flex; flex-direction:column; align-items:center; gap:2px; }
   .vs-line { width:1px; height:14px; background:rgba(23,76,204,0.15); }
 
@@ -372,7 +364,7 @@
       return '<div class="podium-slot">'
         +'<div class="pod-av '+avCls+'">'+(isChamp?'<span class="pod-crown">👑</span>':'')+esc(team.name)+'</div>'
         +(players?'<div class="pod-players">'+esc(players)+'</div>':'')
-        +'<div style="font-size:11px;font-weight:700;color:'+(isChamp?'#9a6e00':avCls==='silver'?'#6b7a99':'#9e6229')+';margin-bottom:4px;">'+lbl+'</div>'
+        +'<div style="font-size:11px;font-weight:700;color:'+(isChamp?'#9a6e00':avCls==='silver'?'var(--text-muted)':'#9e6229')+';margin-bottom:4px;">'+lbl+'</div>'
         +'<div class="pod-bar '+barCls+'"></div>'
         +'</div>';
     };
@@ -388,8 +380,8 @@
     const pend=m.status!=='completed'&&m.status!=='forfeited';
     const nA=tA?esc(tA.name):'TBD', nB=tB?esc(tB.name):'TBD';
     const pA=tA?getPlayerNames(tA):'', pB=tB?getPlayerNames(tB):'';
-    const tnA=nA+(pA?' <span style="font-size:10px;font-weight:500;color:#6b7a99;">'+esc(pA)+'</span>':'')+(ffA?' <span style="font-size:9px;color:var(--orange);font-weight:800;">(FF)</span>':'');
-    const tnB=nB+(pB?' <span style="font-size:10px;font-weight:500;color:#6b7a99;">'+esc(pB)+'</span>':'')+(ffB?' <span style="font-size:9px;color:var(--orange);font-weight:800;">(FF)</span>':'');
+    const tnA=nA+(pA?' <span style="font-size:10px;font-weight:500;color:var(--text-muted);">'+esc(pA)+'</span>':'')+(ffA?' <span style="font-size:9px;color:var(--orange);font-weight:800;">(FF)</span>':'');
+    const tnB=nB+(pB?' <span style="font-size:10px;font-weight:500;color:var(--text-muted);">'+esc(pB)+'</span>':'')+(ffB?' <span style="font-size:9px;color:var(--orange);font-weight:800;">(FF)</span>':'');
     const blkA=pend?'team-pend':aWon?'team-win':'team-lose';
     const blkB=pend?'team-pend':bWon?'team-win':'team-lose';
     const clA=pend?'pend':aWon?'':'lose', clB=pend?'pend':bWon?'':'lose';
@@ -475,12 +467,12 @@
     const leader=standings[0];
 
     const statsHtml='<div class="stats-grid">'
-      +'<div class="stat sb"><div class="stat-label">Teams</div><div class="stat-value">'+teams.length+'</div><div class="stat-ctx" style="color:#174CCC;">This division</div></div>'
-      +'<div class="stat st"><div class="stat-label">RR Matches</div><div class="stat-value">'+rrDone+'</div><div class="stat-ctx" style="color:#24BC96;">'+(rrTotal>0?rrDone+' of '+rrTotal+' played':'No matches yet')+'</div></div>'
+      +'<div class="stat sb"><div class="stat-label">Teams</div><div class="stat-value">'+teams.length+'</div><div class="stat-ctx" style="color:var(--blue);">This division</div></div>'
+      +'<div class="stat st"><div class="stat-label">RR Matches</div><div class="stat-value">'+rrDone+'</div><div class="stat-ctx" style="color:var(--teal);">'+(rrTotal>0?rrDone+' of '+rrTotal+' played':'No matches yet')+'</div></div>'
       +'<div class="stat sl"><div class="stat-label">Bracket</div><div class="stat-value">'+bDone+'</div><div class="stat-ctx" style="color:#7a9200;">'+(bTotal>0?bDone+' of '+bTotal+' played':'Not started')+'</div></div>'
       +'<div class="stat sg"><div class="stat-label">Leader</div>'
         +(leader&&leader.w>0
-          ?'<div class="stat-value" style="font-size:26px;line-height:1.1;">'+esc(leader.name)+'</div><div class="stat-ctx" style="color:#6b7a99;margin-bottom:2px;">'+esc(getPlayerNames(teams.find(t=>t.id===leader.id)||{})||'')+'</div><div class="stat-ctx" style="color:#9a6e00;">'+leader.w+'W '+leader.l+'L · '+(leader.pts_for-leader.pts_against>0?'+':'')+(leader.pts_for-leader.pts_against)+' diff</div>'
+          ?'<div class="stat-value" style="font-size:26px;line-height:1.1;">'+esc(leader.name)+'</div><div class="stat-ctx" style="color:var(--text-muted);margin-bottom:2px;">'+esc(getPlayerNames(teams.find(t=>t.id===leader.id)||{})||'')+'</div><div class="stat-ctx" style="color:#9a6e00;">'+leader.w+'W '+leader.l+'L · '+(leader.pts_for-leader.pts_against>0?'+':'')+(leader.pts_for-leader.pts_against)+' diff</div>'
           :'<div class="stat-value" style="font-size:26px;">—</div><div class="stat-ctx" style="color:#9a6e00;">No scores yet</div>')
       +'</div></div>';
 
@@ -500,7 +492,7 @@
     const momHtml='<div class="mom-wrap">'
       +'<div class="mom-label">Momentum Watch</div>'
       +'<div class="mom-sep"></div>'
-      +'<div class="mom-item"><div class="mom-icon" style="background:#fde8d8;">⚡</div><div><div class="mom-text">'+momItem1Text+'</div><div class="mom-sub">'+momItem1Sub+'</div></div></div>'
+      +'<div class="mom-item"><div class="mom-icon" style="background:var(--orange-light);">⚡</div><div><div class="mom-text">'+momItem1Text+'</div><div class="mom-sub">'+momItem1Sub+'</div></div></div>'
       +'<div class="mom-sep"></div>'
       +'<div class="mom-item"><div class="mom-icon" style="background:var(--teal-light);">📊</div><div><div class="mom-text">'+momItem2Text+'</div><div class="mom-sub">'+momItem2Sub+'</div></div></div>'
       +'<div class="mom-sep"></div>'

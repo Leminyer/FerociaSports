@@ -24,7 +24,7 @@
   // ── Load and render teams page ──────────────────────────────────────────
   const loadFtcTeams = async () => {
     if (!AdminState.currentLadder) return;
-    // Set page title (Bebas Neue, same as RP ladder pages)
+    // Set page title (Inter, same as RP ladder pages)
     const teamsTitleEl = document.getElementById('ftc-teams-title');
     if (teamsTitleEl) {
       teamsTitleEl.textContent = AdminState.currentLadder.name || '';
@@ -80,7 +80,7 @@
     if (!teams.length && !filterStr) {
       el.innerHTML = `<div class="ftc-empty">
         <div class="ftc-empty-icon">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.4;"><circle cx="12" cy="8" r="5"/><path d="M8.56 13.9l-1.56 6.1 5-3 5 3-1.56-6.1"/></svg>
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.4;"><circle cx="12" cy="8" r="5"/><path d="M8.56 13.9l-1.56 6.1 5-3 5 3-1.56-6.1"/></svg>
         </div>
         <div class="ftc-empty-title">Ready to build the competition?</div>
         <div class="ftc-empty-sub">Register the first team and start the season.<br>Teams will appear here once registered.</div>
@@ -139,7 +139,7 @@
       </div>`;
     }).join('');
 
-    el.innerHTML = `<div style="font-size:11px;font-weight:700;color:#6b7a99;margin-bottom:12px;">${teams.length} team${teams.length!==1?'s':''} registered</div>
+    el.innerHTML = `<div style="font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:12px;">${teams.length} team${teams.length!==1?'s':''} registered</div>
       <div class="ftc-teams-grid">${cards}</div>`;
   };
 
@@ -588,9 +588,9 @@
       const btn = document.getElementById(`lp-filter-${g}`);
       if (!btn) return;
       const active = g === gender;
-      btn.style.background   = active ? '#174CCC' : 'white';
-      btn.style.borderColor  = active ? '#174CCC' : '#e0e7f5';
-      btn.style.color        = active ? 'white'   : '#6b7a99';
+      btn.style.background   = active ? 'var(--blue)' : 'white';
+      btn.style.borderColor  = active ? 'var(--blue)' : '#e0e7f5';
+      btn.style.color        = active ? 'white'   : 'var(--text-muted)';
     });
     lpApplyFilters();
   };

@@ -86,7 +86,7 @@
       { label: 'Champion', done: false },
     ];
     el.innerHTML = steps.map((s, i) => {
-      const cls = s.done ? 'background:#e8f0ff;color:#174CCC;' : s.active ? 'background:#174CCC;color:white;' : 'background:#f0f2f8;color:#6b7a99;';
+      const cls = s.done ? 'background:#e8f0ff;color:var(--blue);' : s.active ? 'background:var(--blue);color:white;' : 'background:var(--bg);color:var(--text-muted);';
       const icon = s.done ? '✓ ' : `${i+1} `;
       const line = i < steps.length-1 ? '<div style="flex:1;height:1px;background:#e0e7f5;max-width:24px;"></div>' : '';
       return `<div style="display:flex;align-items:center;gap:8px;padding:7px 14px;border-radius:99px;font-size:11px;font-weight:700;${cls}">${icon}${s.label}</div>${line}`;
@@ -108,62 +108,62 @@
       if (teamStats[m.team_b_id]) { teamStats[m.team_b_id].pts += m.league_pts_b||0; teamStats[m.team_b_id].ptsFor += m.score_b||0; teamStats[m.team_b_id].ptsAgainst += m.score_a||0; if (!aW) teamStats[m.team_b_id].wins++; else teamStats[m.team_b_id].losses++; }
     });
     const ranked = Object.values(teamStats).sort((a,b) => (b.pts-a.pts)||(b.wins-a.wins)||((b.ptsFor-b.ptsAgainst)-(a.ptsFor-a.ptsAgainst)));
-    const rankBadgeStyle = ['background:linear-gradient(135deg,#f6d365,#fda085)','background:#C0C0C0;color:#444','background:#CD7F32','background:#174CCC'];
+    const rankBadgeStyle = ['background:linear-gradient(135deg,#f6d365,#fda085)','background:#C0C0C0;color:#444','background:#CD7F32','background:var(--blue)'];
 
     const rows = ranked.map((ts,i) => {
       const diff = ts.ptsFor - ts.ptsAgainst;
       const inTop = i < 4; // default top 4
       return `<tr>
-        <td style="padding:8px 8px 8px 16px;"><span style="width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:white;${rankBadgeStyle[i]||'background:#e0e7f5;color:#6b7a99;'}">${i+1}</span></td>
-        <td style="font-size:13px;font-weight:800;color:${inTop?'#0d1f4a':'#b0bbd6'};">${esc(ts.team.name)}</td>
-        <td style="text-align:center;font-weight:700;color:#174CCC;">${ts.pts}</td>
-        <td style="text-align:center;font-weight:700;color:#24BC96;">${ts.wins}</td>
-        <td style="text-align:center;font-weight:700;color:#F26024;">${ts.losses}</td>
-        <td style="text-align:center;font-weight:700;color:${diff>=0?'#24BC96':'#F26024'};">${diff>=0?'+':''}${diff}</td>
+        <td style="padding:8px 8px 8px 16px;"><span style="width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:white;${rankBadgeStyle[i]||'background:#e0e7f5;color:var(--text-muted);'}">${i+1}</span></td>
+        <td style="font-size:13px;font-weight:800;color:${inTop?'var(--text)':'#b0bbd6'};">${esc(ts.team.name)}</td>
+        <td style="text-align:center;font-weight:700;color:var(--blue);">${ts.pts}</td>
+        <td style="text-align:center;font-weight:700;color:var(--teal);">${ts.wins}</td>
+        <td style="text-align:center;font-weight:700;color:var(--orange);">${ts.losses}</td>
+        <td style="text-align:center;font-weight:700;color:${diff>=0?'var(--teal)':'var(--orange)'};">${diff>=0?'+':''}${diff}</td>
         <td style="text-align:center;" id="ftc-po-incl-${i}">
-          <span style="font-size:9px;font-weight:800;padding:2px 8px;border-radius:99px;${inTop?'background:rgba(36,188,150,0.12);color:#085041;':'background:#f0f2f8;color:#b0bbd6;'}">${inTop?'✓ In':'Out'}</span>
+          <span style="font-size:9px;font-weight:800;padding:2px 8px;border-radius:99px;${inTop?'background:rgba(36,188,150,0.12);color:#085041;':'background:var(--bg);color:#b0bbd6;'}">${inTop?'✓ In':'Out'}</span>
         </td>
       </tr>`;
     }).join('');
 
     el.innerHTML = `
       <div class="card" style="margin-bottom:14px;">
-        <div style="font-size:14px;font-weight:800;color:#0d1f4a;margin-bottom:4px;">Playoff Settings</div>
-        <div style="font-size:11px;font-weight:600;color:#6b7a99;margin-bottom:14px;">Configure bracket before generating.</div>
+        <div style="font-size:14px;font-weight:800;color:var(--text);margin-bottom:4px;">Playoff Settings</div>
+        <div style="font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:14px;">Configure bracket before generating.</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
           <div>
-            <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#6b7a99;margin-bottom:6px;">Teams advancing</div>
-            <select id="ftc-po-format" style="font-size:12px;font-weight:700;color:#0d1f4a;padding:8px 12px;border:0.5px solid #174CCC;border-radius:8px;background:white;width:100%;" onchange="ftcUpdatePlayoffFormat()">
+            <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);margin-bottom:6px;">Teams advancing</div>
+            <select id="ftc-po-format" style="font-size:12px;font-weight:700;color:var(--text);padding:8px 12px;border:0.5px solid var(--blue);border-radius:8px;background:white;width:100%;" onchange="ftcUpdatePlayoffFormat()">
               <option value="top4">Top 4 teams (Semi → Final)</option>
               <option value="top6">Top 6 teams (QF → Semi → Final)</option>
               <option value="top8">Top 8 teams (QF → Semi → Final)</option>
             </select>
           </div>
           <div>
-            <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#6b7a99;margin-bottom:6px;">Bracket format</div>
-            <select id="ftc-po-bracket-type" style="font-size:12px;font-weight:700;color:#0d1f4a;padding:8px 12px;border:0.5px solid #174CCC;border-radius:8px;background:white;width:100%;">
+            <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);margin-bottom:6px;">Bracket format</div>
+            <select id="ftc-po-bracket-type" style="font-size:12px;font-weight:700;color:var(--text);padding:8px 12px;border:0.5px solid var(--blue);border-radius:8px;background:white;width:100%;">
               <option value="single">Single elimination</option>
               <option value="double">Double elimination</option>
             </select>
           </div>
         </div>
-        <div style="background:#f0f4ff;border-radius:8px;padding:10px 14px;border-left:3px solid #174CCC;font-size:11px;font-weight:600;color:#174CCC;margin-bottom:14px;">
+        <div style="background:#f0f4ff;border-radius:8px;padding:10px 14px;border-left:3px solid var(--blue);font-size:11px;font-weight:600;color:var(--blue);margin-bottom:14px;">
           Seeding auto-calculated from standings (pts → wins → diff). Toggle teams in/out below.
         </div>
         <table style="width:100%;border-collapse:collapse;">
           <thead><tr style="background:#f8f9ff;border-bottom:0.5px solid #e0e7f5;">
-            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:8px 8px 8px 16px;width:40px;">#</th>
-            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:8px;">Team</th>
-            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:8px;text-align:center;">Pts</th>
-            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:8px;text-align:center;">W</th>
-            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:8px;text-align:center;">L</th>
-            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:8px;text-align:center;">Diff</th>
-            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:8px;text-align:center;width:80px;">Include</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);padding:8px 8px 8px 16px;width:40px;">#</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);padding:8px;">Team</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);padding:8px;text-align:center;">Pts</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);padding:8px;text-align:center;">W</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);padding:8px;text-align:center;">L</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);padding:8px;text-align:center;">Diff</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);padding:8px;text-align:center;width:80px;">Include</th>
           </tr></thead>
           <tbody id="ftc-po-seed-body">${rows}</tbody>
         </table>
         <div style="display:flex;justify-content:flex-end;margin-top:14px;">
-          <button onclick="ftcGeneratePlayoffBracket()" style="display:inline-flex;align-items:center;gap:6px;padding:8px 20px;border:none;border-radius:99px;background:#174CCC;color:white;font-family:'Montserrat',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">
+          <button onclick="ftcGeneratePlayoffBracket()" style="display:inline-flex;align-items:center;gap:6px;padding:8px 20px;border:none;border-radius:99px;background:var(--blue);color:white;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
             Generate Bracket
           </button>
@@ -180,9 +180,9 @@
       const cell = row.querySelector(`[id^="ftc-po-incl-"]`);
       if (!cell) return;
       const inTop = i < n;
-      cell.innerHTML = `<span style="font-size:9px;font-weight:800;padding:2px 8px;border-radius:99px;${inTop?'background:rgba(36,188,150,0.12);color:#085041;':'background:#f0f2f8;color:#b0bbd6;'}">${inTop?'✓ In':'Out'}</span>`;
+      cell.innerHTML = `<span style="font-size:9px;font-weight:800;padding:2px 8px;border-radius:99px;${inTop?'background:rgba(36,188,150,0.12);color:#085041;':'background:var(--bg);color:#b0bbd6;'}">${inTop?'✓ In':'Out'}</span>`;
       const teamNm = row.querySelector('td:nth-child(2)');
-      if (teamNm) teamNm.style.color = inTop ? '#0d1f4a' : '#b0bbd6';
+      if (teamNm) teamNm.style.color = inTop ? 'var(--text)' : '#b0bbd6';
     });
   };
 
@@ -302,29 +302,29 @@
       const hasBothTeams = sched.team_a_id && sched.team_b_id;
       const nmA = tName(sched.team_a_id) || (sched.seed_a ? `Winner SF${sched.seed_a>2?sched.seed_a-2:sched.seed_a}` : 'TBD');
       const nmB = tName(sched.team_b_id) || (sched.seed_b ? `Winner SF${sched.seed_b>2?sched.seed_b-2:sched.seed_b}` : 'TBD');
-      const winAStyle = done && winsA > winsB ? 'background:rgba(36,188,150,0.06);border-left:3px solid #24BC96;' : '';
-      const winBStyle = done && winsB > winsA ? 'background:rgba(36,188,150,0.06);border-left:3px solid #24BC96;' : '';
+      const winAStyle = done && winsA > winsB ? 'background:rgba(36,188,150,0.06);border-left:3px solid var(--teal);' : '';
+      const winBStyle = done && winsB > winsA ? 'background:rgba(36,188,150,0.06);border-left:3px solid var(--teal);' : '';
       const isFinal   = sched.playoff_round === 'final';
       const clickable = hasBothTeams;
       const onclick   = clickable ? `ftcOpenPlayoffScoresModal(${sched.id})` : '';
 
-      return `<div style="border:${isFinal?'1.5px solid #174CCC':'0.5px solid #e0e7f5'};border-radius:8px;overflow:hidden;${clickable?'cursor:pointer;':'opacity:.6;'}transition:box-shadow .15s;" ${clickable?`onclick="${onclick}" onmouseover="this.style.boxShadow='0 2px 12px rgba(23,76,204,0.12)'" onmouseout="this.style.boxShadow='none'"`:''}  >
-        ${isFinal?`<div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#174CCC;padding:4px 10px;background:#e8f0ff;text-align:center;display:flex;align-items:center;justify-content:center;gap:5px;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4a2 2 0 0 1-2-2V5h4"/><path d="M18 9h2a2 2 0 0 0 2-2V5h-4"/><path d="M12 17v4"/><path d="M8 21h8"/><path d="M6 9a6 6 0 0 0 12 0V3H6v6z"/></svg> Championship</div>`:''}
+      return `<div style="border:${isFinal?'1.5px solid var(--blue)':'0.5px solid #e0e7f5'};border-radius:8px;overflow:hidden;${clickable?'cursor:pointer;':'opacity:.6;'}transition:box-shadow .15s;" ${clickable?`onclick="${onclick}" onmouseover="this.style.boxShadow='0 2px 12px rgba(23,76,204,0.12)'" onmouseout="this.style.boxShadow='none'"`:''}  >
+        ${isFinal?`<div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--blue);padding:4px 10px;background:#e8f0ff;text-align:center;display:flex;align-items:center;justify-content:center;gap:5px;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4a2 2 0 0 1-2-2V5h4"/><path d="M18 9h2a2 2 0 0 0 2-2V5h-4"/><path d="M12 17v4"/><path d="M8 21h8"/><path d="M6 9a6 6 0 0 0 12 0V3H6v6z"/></svg> Championship</div>`:''}
         <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-bottom:0.5px solid #f4f5f8;background:white;${winAStyle}">
           <div style="display:flex;align-items:center;gap:5px;">
             <span style="font-size:9px;font-weight:800;color:#b0bbd6;width:14px;">${sched.seed_a||''}</span>
-            <span style="font-size:12px;font-weight:800;color:${sched.team_a_id?'#0d1f4a':'#b0bbd6'};">${nmA}</span>
+            <span style="font-size:12px;font-weight:800;color:${sched.team_a_id?'var(--text)':'#b0bbd6'};">${nmA}</span>
           </div>
-          <span style="font-size:13px;font-weight:800;color:${done&&winsA>winsB?'#24BC96':'#6b7a99'};">${hasBothTeams?winsA:'—'}</span>
+          <span style="font-size:13px;font-weight:800;color:${done&&winsA>winsB?'var(--teal)':'var(--text-muted)'};">${hasBothTeams?winsA:'—'}</span>
         </div>
         <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:${sched.team_b_id?'white':'#fafbff'};${winBStyle}">
           <div style="display:flex;align-items:center;gap:5px;">
             <span style="font-size:9px;font-weight:800;color:#b0bbd6;width:14px;">${sched.seed_b||''}</span>
-            <span style="font-size:12px;font-weight:800;color:${sched.team_b_id?'#0d1f4a':'#b0bbd6'};">${nmB}</span>
+            <span style="font-size:12px;font-weight:800;color:${sched.team_b_id?'var(--text)':'#b0bbd6'};">${nmB}</span>
           </div>
-          <span style="font-size:13px;font-weight:800;color:${done&&winsB>winsA?'#24BC96':'#6b7a99'};">${hasBothTeams?winsB:'—'}</span>
+          <span style="font-size:13px;font-weight:800;color:${done&&winsB>winsA?'var(--teal)':'var(--text-muted)'};">${hasBothTeams?winsB:'—'}</span>
         </div>
-        <div style="font-size:9px;font-weight:700;text-align:center;padding:3px;background:#f8f9ff;color:${done?'#24BC96':clickable?'#174CCC':'#b0bbd6'};">
+        <div style="font-size:9px;font-weight:700;text-align:center;padding:3px;background:#f8f9ff;color:${done?'var(--teal)':clickable?'var(--blue)':'#b0bbd6'};">
           ${done?'✓ Complete':clickable?'Click to enter scores':'Awaiting previous round'}
         </div>
       </div>`;
@@ -334,14 +334,14 @@
     const champTeamId = champion ? (ftcPlayoffMatches.filter(m=>m.schedule_id===champion.id&&m.status==='completed').reduce((acc,m)=>{ if(m.winner_team_id===champion.team_a_id)acc.a++; else acc.b++; return acc; },{a:0,b:0})) : null;
 
     let bracketHtml = `<div class="card" style="margin-bottom:14px;">
-      <div style="font-size:14px;font-weight:800;color:#0d1f4a;margin-bottom:4px;">Playoff Bracket — ${rounds.includes('quarterfinal')?(seededCount>=8?'Top 8':'Top 6'):'Top 4'}</div>
-      <div style="font-size:11px;font-weight:600;color:#6b7a99;margin-bottom:16px;">Click any matchup to enter or edit scores. Same 4-game format (MD, WD, MX1, MX2).</div>
+      <div style="font-size:14px;font-weight:800;color:var(--text);margin-bottom:4px;">Playoff Bracket — ${rounds.includes('quarterfinal')?(seededCount>=8?'Top 8':'Top 6'):'Top 4'}</div>
+      <div style="font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:16px;">Click any matchup to enter or edit scores. Same 4-game format (MD, WD, MX1, MX2).</div>
       <div style="display:flex;align-items:flex-start;gap:0;overflow-x:auto;padding-bottom:8px;">`;
 
     rounds.forEach((round, ri) => {
       const roundSchedules = ftcPlayoffSchedule.filter(s => s.playoff_round === round);
       bracketHtml += `<div style="min-width:180px;flex-shrink:0;">
-        <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#6b7a99;text-align:center;margin-bottom:10px;">${roundLabel[round]||round}</div>
+        <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);text-align:center;margin-bottom:10px;">${roundLabel[round]||round}</div>
         <div style="display:flex;flex-direction:column;gap:${round==='final'?'0':'20px'};">
           ${roundSchedules.map(s => renderMatchCard(s)).join('')}
         </div>
@@ -361,9 +361,9 @@
 
     bracketHtml += `<div style="display:flex;align-items:center;width:32px;flex-shrink:0;"><div style="height:1px;width:32px;background:#e0e7f5;"></div></div>
       <div style="min-width:120px;flex-shrink:0;text-align:center;padding-top:32px;">
-        <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#6b7a99;margin-bottom:10px;">Champion</div>
-        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="${champTeam?'#174CCC':'#b0bbd6'}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:6px;"><path d="M6 9H4a2 2 0 0 1-2-2V5h4"/><path d="M18 9h2a2 2 0 0 0 2-2V5h-4"/><path d="M12 17v4"/><path d="M8 21h8"/><path d="M6 9a6 6 0 0 0 12 0V3H6v6z"/></svg>
-        <div style="font-size:13px;font-weight:800;color:${champTeam?'#0d1f4a':'#b0bbd6'};">${champTeam?esc(champTeam.name):'TBD'}</div>
+        <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);margin-bottom:10px;">Champion</div>
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="${champTeam?'var(--blue)':'#b0bbd6'}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:6px;"><path d="M6 9H4a2 2 0 0 1-2-2V5h4"/><path d="M18 9h2a2 2 0 0 0 2-2V5h-4"/><path d="M12 17v4"/><path d="M8 21h8"/><path d="M6 9a6 6 0 0 0 12 0V3H6v6z"/></svg>
+        <div style="font-size:13px;font-weight:800;color:${champTeam?'var(--text)':'#b0bbd6'};">${champTeam?esc(champTeam.name):'TBD'}</div>
         <div style="font-size:9px;font-weight:600;color:#b0bbd6;margin-top:2px;">${champTeam?'Season Champion':'Awaiting Final'}</div>
       </div>`;
 
@@ -388,25 +388,25 @@
     const champPoSeed  = ftcPlayoffSchedule.find(s=>s.team_a_id===champTeam?.id||s.team_b_id===champTeam?.id);
     const seed = champPoSeed?.team_a_id===champTeam?.id ? champPoSeed.seed_a : champPoSeed?.seed_b;
     el.style.display='block';
-    el.innerHTML=`<div class="card" style="text-align:center;padding:32px;border:1.5px solid #174CCC;background:linear-gradient(180deg,#f0f4ff,white);">
+    el.innerHTML=`<div class="card" style="text-align:center;padding:32px;border:1.5px solid var(--blue);background:linear-gradient(180deg,#f0f4ff,white);">
       <div style="display:flex;justify-content:center;margin-bottom:12px;">
-        <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4a2 2 0 0 1-2-2V5h4"/><path d="M18 9h2a2 2 0 0 0 2-2V5h-4"/><path d="M12 17v4"/><path d="M8 21h8"/><path d="M6 9a6 6 0 0 0 12 0V3H6v6z"/></svg>
+        <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4a2 2 0 0 1-2-2V5h4"/><path d="M18 9h2a2 2 0 0 0 2-2V5h-4"/><path d="M12 17v4"/><path d="M8 21h8"/><path d="M6 9a6 6 0 0 0 12 0V3H6v6z"/></svg>
       </div>
-      <div style="font-family:'Bebas Neue',sans-serif;font-size:36px;letter-spacing:1px;color:#0d1f4a;margin-bottom:4px;">${esc(champTeam?.name||'Champion')}</div>
-      <div style="font-size:13px;font-weight:700;color:#174CCC;margin-bottom:2px;">${esc(AdminState.currentLadder?.name||'')} Champions</div>
-      <div style="font-size:11px;font-weight:600;color:#6b7a99;margin-bottom:20px;">Defeated ${esc(runnerUp?.name||'Runner-up')} ${champWins}–${runnerWins} in the Championship</div>
+      <div style="font-family:'Inter',sans-serif;font-size:36px;letter-spacing:1px;color:var(--text);margin-bottom:4px;">${esc(champTeam?.name||'Champion')}</div>
+      <div style="font-size:13px;font-weight:700;color:var(--blue);margin-bottom:2px;">${esc(AdminState.currentLadder?.name||'')} Champions</div>
+      <div style="font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:20px;">Defeated ${esc(runnerUp?.name||'Runner-up')} ${champWins}–${runnerWins} in the Championship</div>
       <div style="display:flex;justify-content:center;gap:16px;flex-wrap:wrap;">
         <div style="background:white;border:0.5px solid #e0e7f5;border-radius:10px;padding:12px 20px;min-width:90px;">
-          <div style="font-size:22px;font-weight:800;color:#174CCC;">${champWins}–${runnerWins}</div>
-          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#6b7a99;margin-top:3px;">Final Score</div>
+          <div style="font-size:22px;font-weight:800;color:var(--blue);">${champWins}–${runnerWins}</div>
+          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text-muted);margin-top:3px;">Final Score</div>
         </div>
         <div style="background:white;border:0.5px solid #e0e7f5;border-radius:10px;padding:12px 20px;min-width:90px;">
-          <div style="font-size:22px;font-weight:800;color:#24BC96;">${champPoWins}</div>
-          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#6b7a99;margin-top:3px;">Playoff Wins</div>
+          <div style="font-size:22px;font-weight:800;color:var(--teal);">${champPoWins}</div>
+          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text-muted);margin-top:3px;">Playoff Wins</div>
         </div>
         <div style="background:white;border:0.5px solid #e0e7f5;border-radius:10px;padding:12px 20px;min-width:90px;">
           <div style="font-size:22px;font-weight:800;color:#F6A623;">${seed?`#${seed}`:'—'}</div>
-          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#6b7a99;margin-top:3px;">Regular Season Seed</div>
+          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text-muted);margin-top:3px;">Regular Season Seed</div>
         </div>
       </div>
     </div>`;
@@ -458,7 +458,7 @@
     const typeOrder = ['mens','womens','mixed1','mixed2'];
     const typeLabels  = { mens:"Men's Doubles", womens:"Women's Doubles", mixed1:'Mixed #1', mixed2:'Mixed #2' };
     const typeBadgeBg = { mens:'#EEF2FF', womens:'#FFF0EC', mixed1:'#EDFAF6', mixed2:'#F3EEFF' };
-    const typeBadgeClr= { mens:'#174CCC', womens:'#E8501A', mixed1:'#0D9E73', mixed2:'#7B35D9' };
+    const typeBadgeClr= { mens:'var(--blue)', womens:'#E8501A', mixed1:'#0D9E73', mixed2:'#7B35D9' };
 
     const pName = (id) => {
       if (!id) return null;
@@ -472,11 +472,11 @@
       return `<div style="display:flex;flex-direction:column;align-items:center;">
         <div style="display:flex;align-items:center;border:1.5px solid #e0e7f5;border-radius:8px;overflow:hidden;background:white;">
           <input id="${inputId}" type="number" min="0" max="99" value="${val!==null&&val!==undefined?val:''}" placeholder="--"
-            style="width:48px;height:36px;border:none;outline:none;text-align:center;font-family:'Montserrat',sans-serif;font-size:18px;font-weight:700;color:#0d1f4a;background:transparent;padding:0;"
+            style="width:48px;height:36px;border:none;outline:none;text-align:center;font-family:'Inter',sans-serif;font-size:18px;font-weight:700;color:var(--text);background:transparent;padding:0;"
             oninput="ftcPsmScoreChange('${inputId}')">
           <div style="display:flex;flex-direction:column;border-left:1px solid #e0e7f5;">
-            <button onclick="ftcPsmIncrement('${inputId}',1)" style="width:20px;height:18px;border:none;background:white;cursor:pointer;font-size:9px;color:#6b7a99;display:flex;align-items:center;justify-content:center;border-bottom:1px solid #e0e7f5;">▲</button>
-            <button onclick="ftcPsmIncrement('${inputId}',-1)" style="width:20px;height:18px;border:none;background:white;cursor:pointer;font-size:9px;color:#6b7a99;display:flex;align-items:center;justify-content:center;">▼</button>
+            <button onclick="ftcPsmIncrement('${inputId}',1)" style="width:20px;height:18px;border:none;background:white;cursor:pointer;font-size:9px;color:var(--text-muted);display:flex;align-items:center;justify-content:center;border-bottom:1px solid #e0e7f5;">▲</button>
+            <button onclick="ftcPsmIncrement('${inputId}',-1)" style="width:20px;height:18px;border:none;background:white;cursor:pointer;font-size:9px;color:var(--text-muted);display:flex;align-items:center;justify-content:center;">▼</button>
           </div>
         </div>
       </div>`;
@@ -498,15 +498,15 @@
       return `<div style="display:grid;grid-template-columns:160px 1fr 220px 1fr 150px;align-items:center;padding:16px 16px;border-bottom:1px solid #e0e7f5;" data-match-id="${m?.id||''}" data-mt="${mt}">
         <!-- Match number + type badge -->
         <div style="display:flex;align-items:center;gap:10px;">
-          <span style="font-size:12px;font-weight:800;color:#6b7a99;min-width:16px;">${num}</span>
+          <span style="font-size:12px;font-weight:800;color:var(--text-muted);min-width:16px;">${num}</span>
           <span style="font-size:10px;font-weight:700;padding:4px 10px;border-radius:99px;background:${typeBadgeBg[mt]};color:${typeBadgeClr[mt]};text-transform:uppercase;letter-spacing:.3px;">${typeLabels[mt]}</span>
         </div>
         <!-- Team A players -->
         <div>
-          <div style="font-size:13px;font-weight:700;color:#0d1f4a;line-height:1.5;">${p1A||'TBD'}<br>${p2A||'TBD'}</div>
+          <div style="font-size:13px;font-weight:700;color:var(--text);line-height:1.5;">${p1A||'TBD'}<br>${p2A||'TBD'}</div>
           <div style="display:flex;align-items:center;gap:4px;margin-top:4px;">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#6b7a99" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-            <span style="font-size:10px;font-weight:600;color:#6b7a99;">${esc(tA?.name||'Team A')}</span>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            <span style="font-size:10px;font-weight:600;color:var(--text-muted);">${esc(tA?.name||'Team A')}</span>
           </div>
         </div>
         <!-- Score inputs + winner -->
@@ -518,32 +518,32 @@
           </div>
           ${winnerName
             ? `<div style="display:flex;align-items:center;gap:4px;">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#24BC96" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                <span style="font-size:11px;font-weight:600;color:#24BC96;">${esc(winnerName)} wins</span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                <span style="font-size:11px;font-weight:600;color:var(--teal);">${esc(winnerName)} wins</span>
                </div>`
             : `<div style="display:flex;align-items:center;gap:4px;opacity:.5;">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#6b7a99" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                <span style="font-size:10px;color:#6b7a99;">Not played yet</span>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <span style="font-size:10px;color:var(--text-muted);">Not played yet</span>
                </div>`}
         </div>
         <!-- Team B players -->
         <div>
-          <div style="font-size:13px;font-weight:700;color:#0d1f4a;line-height:1.5;">${p1B||'TBD'}<br>${p2B||'TBD'}</div>
+          <div style="font-size:13px;font-weight:700;color:var(--text);line-height:1.5;">${p1B||'TBD'}<br>${p2B||'TBD'}</div>
           <div style="display:flex;align-items:center;gap:4px;margin-top:4px;">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#6b7a99" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-            <span style="font-size:10px;font-weight:600;color:#6b7a99;">${esc(tB?.name||'Team B')}</span>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            <span style="font-size:10px;font-weight:600;color:var(--text-muted);">${esc(tB?.name||'Team B')}</span>
           </div>
         </div>
         <!-- Actions -->
         <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
           <button onclick="ftcPsmSaveScore('${m?.id||''}','${mt}',${sidNum})"
-            style="display:inline-flex;align-items:center;gap:5px;padding:8px 16px;border:none;border-radius:8px;background:#174CCC;color:white;font-family:'Montserrat',sans-serif;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">
+            style="display:inline-flex;align-items:center;gap:5px;padding:8px 16px;border:none;border-radius:8px;background:var(--blue);color:white;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
             Save Score
           </button>
           <button onclick="ftcPsmClearScore('${m?.id||''}','${mt}',${sidNum})"
-            style="display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border:none;background:transparent;color:#6b7a99;font-family:'Montserrat',sans-serif;font-size:11px;font-weight:600;cursor:pointer;">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#6b7a99" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+            style="display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border:none;background:transparent;color:var(--text-muted);font-family:'Inter',sans-serif;font-size:11px;font-weight:600;cursor:pointer;">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
             Clear
           </button>
         </div>
@@ -560,17 +560,17 @@
 
     const tieRow = `<div style="display:grid;grid-template-columns:160px 1fr 220px 1fr 150px;align-items:center;padding:16px 16px;background:${need22?'white':'#fafbff'};" data-mt="tiebreaker">
       <div style="display:flex;align-items:center;gap:10px;">
-        <span style="font-size:12px;font-weight:800;color:#6b7a99;min-width:16px;">5</span>
+        <span style="font-size:12px;font-weight:800;color:var(--text-muted);min-width:16px;">5</span>
         <div>
           <span style="font-size:9px;font-weight:800;padding:4px 10px;border-radius:99px;border:1px solid #7B35D9;color:#7B35D9;text-transform:uppercase;letter-spacing:.3px;display:inline-block;">Tie-Breaker</span>
           <div style="font-size:9px;font-weight:600;color:#9aa5b8;margin-top:2px;">(If Needed)</div>
         </div>
       </div>
       <div>
-        <div style="font-size:13px;font-weight:700;color:${need22?'#0d1f4a':'#b0bbd6'};line-height:1.5;">TBD<br>&nbsp;</div>
+        <div style="font-size:13px;font-weight:700;color:${need22?'var(--text)':'#b0bbd6'};line-height:1.5;">TBD<br>&nbsp;</div>
         <div style="display:flex;align-items:center;gap:4px;margin-top:4px;">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#6b7a99" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-          <span style="font-size:10px;font-weight:600;color:#6b7a99;">${esc(tA?.name||'Team A')}</span>
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <span style="font-size:10px;font-weight:600;color:var(--text-muted);">${esc(tA?.name||'Team A')}</span>
         </div>
       </div>
       <div style="display:flex;flex-direction:column;align-items:center;gap:5px;">
@@ -581,28 +581,28 @@
         </div>
         ${tbWinnerName
           ? `<div style="display:flex;align-items:center;gap:4px;">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#24BC96" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-              <span style="font-size:11px;font-weight:600;color:#24BC96;">${esc(tbWinnerName)} wins</span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              <span style="font-size:11px;font-weight:600;color:var(--teal);">${esc(tbWinnerName)} wins</span>
              </div>`
           : `<div style="display:flex;align-items:center;gap:4px;opacity:.5;">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#6b7a99" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-              <span style="font-size:10px;color:#6b7a99;">Not played yet</span>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              <span style="font-size:10px;color:var(--text-muted);">Not played yet</span>
              </div>`}
       </div>
       <div>
-        <div style="font-size:13px;font-weight:700;color:${need22?'#0d1f4a':'#b0bbd6'};line-height:1.5;">TBD<br>&nbsp;</div>
+        <div style="font-size:13px;font-weight:700;color:${need22?'var(--text)':'#b0bbd6'};line-height:1.5;">TBD<br>&nbsp;</div>
         <div style="display:flex;align-items:center;gap:4px;margin-top:4px;">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#6b7a99" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-          <span style="font-size:10px;font-weight:600;color:#6b7a99;">${esc(tB?.name||'Team B')}</span>
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <span style="font-size:10px;font-weight:600;color:var(--text-muted);">${esc(tB?.name||'Team B')}</span>
         </div>
       </div>
       <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
         <button onclick="${need22?`ftcPsmSaveTiebreaker(${sidNum},${sched.team_a_id},${sched.team_b_id})`:'void(0)'}"
-          style="display:inline-flex;align-items:center;gap:5px;padding:8px 16px;border:none;border-radius:8px;background:${need22?'#174CCC':'#e0e7f5'};color:${need22?'white':'#b0bbd6'};font-family:'Montserrat',sans-serif;font-size:12px;font-weight:700;cursor:${need22?'pointer':'not-allowed'};white-space:nowrap;">
+          style="display:inline-flex;align-items:center;gap:5px;padding:8px 16px;border:none;border-radius:8px;background:${need22?'var(--blue)':'#e0e7f5'};color:${need22?'white':'#b0bbd6'};font-family:'Inter',sans-serif;font-size:12px;font-weight:700;cursor:${need22?'pointer':'not-allowed'};white-space:nowrap;">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
           Save Score
         </button>
-        ${tbScored?`<button onclick="ftcPsmClearScore('${tbMatch.id}','tiebreaker',${sidNum})" style="display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border:none;background:transparent;color:#6b7a99;font-family:'Montserrat',sans-serif;font-size:11px;font-weight:600;cursor:pointer;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#6b7a99" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>Clear</button>`:''}
+        ${tbScored?`<button onclick="ftcPsmClearScore('${tbMatch.id}','tiebreaker',${sidNum})" style="display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border:none;background:transparent;color:var(--text-muted);font-family:'Inter',sans-serif;font-size:11px;font-weight:600;cursor:pointer;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>Clear</button>`:''}
       </div>
     </div>`;
 
@@ -841,8 +841,8 @@
 
   // ── Load schedule page ────────────────────────────────────────────────
   // Team color palette for shields
-  const FTC_TEAM_COLORS = ['#174CCC','#F26024','#24BC96','#9a6e00','#7B2FBE','#C04A0E','#085041','#B91C1C'];
-  const FTC_COURT_COLORS = ['#174CCC','#24BC96','#F26024','#9a6e00','#7B2FBE'];
+  const FTC_TEAM_COLORS = ['var(--blue)','var(--orange)','var(--teal)','#9a6e00','#7B2FBE','#C04A0E','#085041','#B91C1C'];
+  const FTC_COURT_COLORS = ['var(--blue)','var(--teal)','var(--orange)','#9a6e00','#7B2FBE'];
 
   const ftcTeamInitials = (name) => {
     if (!name) return '?';
@@ -883,14 +883,14 @@
         countEl.style.color = 'var(--orange)';
       } else {
         countEl.innerHTML = `${n} teams registered &nbsp;•&nbsp; ${n%2===0?'All teams play each week':'1 team gets a bye each week'} &nbsp;•&nbsp; Matches are automatically balanced`;
-        countEl.style.color = '#174CCC';
+        countEl.style.color = 'var(--blue)';
       }
     }
   };
 
   const loadFtcSchedule = async () => {
     if (!AdminState.currentLadder) return;
-    // Set page title (Bebas Neue, same as RP ladder pages)
+    // Set page title (Inter, same as RP ladder pages)
     const schTitleEl = document.getElementById('ftc-schedule-title');
     if (schTitleEl) {
       schTitleEl.textContent = AdminState.currentLadder.name || '';
@@ -982,8 +982,8 @@
     const tName = (t) => t ? esc(t.name || `Team ${AdminState.ftc.teams.indexOf(t)+1}`) : '—';
 
     let weeksHtml = `<div style="background:white;border:0.5px solid #e0e7f5;border-radius:12px;padding:20px 24px;box-shadow:0 1px 4px rgba(23,76,204,0.06);">
-      <div style="font-size:16px;font-weight:800;color:#0d1f4a;margin-bottom:4px;">Season Preview</div>
-      <div style="font-size:11px;font-weight:600;color:#6b7a99;margin-bottom:16px;">Review your season schedule. Click any week to see matchups.</div>`;
+      <div style="font-size:16px;font-weight:800;color:var(--text);margin-bottom:4px;">Season Preview</div>
+      <div style="font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:16px;">Review your season schedule. Click any week to see matchups.</div>`;
 
     rounds.forEach((round, i) => {
       const date    = ftcAddWeeks(firstMatchDate, i);
@@ -1000,22 +1000,22 @@
         <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;cursor:pointer;background:white;"
           onclick="ftcPrvToggleWeek(${round.week})">
           <div style="display:flex;align-items:center;gap:10px;">
-            <span style="width:22px;height:22px;border-radius:50%;background:#174CCC;color:white;font-size:10px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;">${round.week}</span>
+            <span style="width:22px;height:22px;border-radius:50%;background:var(--blue);color:white;font-size:10px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;">${round.week}</span>
             <div>
-              <div style="font-size:12px;font-weight:800;color:#0d1f4a;display:flex;align-items:center;gap:6px;">
+              <div style="font-size:12px;font-weight:800;color:var(--text);display:flex;align-items:center;gap:6px;">
                 Week ${round.week}
-                <span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:99px;background:#e8f0ff;color:#174CCC;">Scheduled</span>
-                ${byeText ? `<span style="font-size:9px;font-weight:700;color:#F26024;">BYE: ${byeText}</span>` : ''}
+                <span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:99px;background:#e8f0ff;color:var(--blue);">Scheduled</span>
+                ${byeText ? `<span style="font-size:9px;font-weight:700;color:var(--orange);">BYE: ${byeText}</span>` : ''}
               </div>
-              <div style="font-size:10px;font-weight:600;color:#6b7a99;margin-top:1px;">${dateStr} &nbsp;·&nbsp; ${matchups.length} matchup${matchups.length!==1?'s':''}</div>
+              <div style="font-size:10px;font-weight:600;color:var(--text-muted);margin-top:1px;">${dateStr} &nbsp;·&nbsp; ${matchups.length} matchup${matchups.length!==1?'s':''}</div>
             </div>
           </div>
           <div style="display:flex;align-items:center;gap:10px;">
-            <div style="display:flex;align-items:center;gap:5px;font-size:10px;font-weight:600;color:#24BC96;">
+            <div style="display:flex;align-items:center;gap:5px;font-size:10px;font-weight:600;color:var(--teal);">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
               Complete by ${completeByDate}
             </div>
-            <span id="ftc-prv-chevron-${round.week}" style="font-size:11px;color:#6b7a99;transition:transform .2s;display:inline-block;transform:${isFirst?'rotate(180deg)':'rotate(0deg)'};">▼</span>
+            <span id="ftc-prv-chevron-${round.week}" style="font-size:11px;color:var(--text-muted);transition:transform .2s;display:inline-block;transform:${isFirst?'rotate(180deg)':'rotate(0deg)'};">▼</span>
           </div>
         </div>
 
@@ -1023,11 +1023,11 @@
         <div id="ftc-prv-week-${round.week}" style="display:${isFirst?'block':'none'};">
           <!-- Table header -->
           <div style="display:grid;grid-template-columns:minmax(180px,1fr) 85px 110px 160px 110px;gap:16px;padding:6px 16px;background:#f8f9ff;border-top:0.5px solid #e0e7f5;border-bottom:0.5px solid #e0e7f5;">
-            <div style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;">Matchup</div>
-            <div style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;">Time</div>
-            <div style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;">Courts</div>
-            <div style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;">Matches</div>
-            <div style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;">Status</div>
+            <div style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);">Matchup</div>
+            <div style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);">Time</div>
+            <div style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);">Courts</div>
+            <div style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);">Matches</div>
+            <div style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);">Status</div>
           </div>
           <!-- Matchup rows -->
           ${matchups.map((m, mi) => {
@@ -1041,18 +1041,18 @@
 
             return `<div style="display:grid;grid-template-columns:minmax(180px,1fr) 85px 110px 160px 110px;gap:16px;padding:10px 16px;border-bottom:0.5px solid #f4f5f8;align-items:center;">
               <div style="display:flex;align-items:center;gap:8px;">
-                <span style="font-size:13px;font-weight:800;color:#0d1f4a;">${tName(m.teamA)}</span>
-                <span style="font-size:9px;font-weight:700;color:#b0bbd6;background:#f0f2f8;padding:2px 6px;border-radius:99px;">vs</span>
-                <span style="font-size:13px;font-weight:800;color:#0d1f4a;">${tName(m.teamB)}</span>
+                <span style="font-size:13px;font-weight:800;color:var(--text);">${tName(m.teamA)}</span>
+                <span style="font-size:9px;font-weight:700;color:#b0bbd6;background:var(--bg);padding:2px 6px;border-radius:99px;">vs</span>
+                <span style="font-size:13px;font-weight:800;color:var(--text);">${tName(m.teamB)}</span>
               </div>
-              <div style="font-size:11px;font-weight:600;color:#6b7a99;">${timeDisplay}</div>
-              <div style="font-size:11px;font-weight:600;color:#6b7a99;">${courtDisplay}</div>
+              <div style="font-size:11px;font-weight:600;color:var(--text-muted);">${timeDisplay}</div>
+              <div style="font-size:11px;font-weight:600;color:var(--text-muted);">${courtDisplay}</div>
               <div style="display:flex;align-items:center;gap:5px;">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6b7a99" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                <span style="font-size:11px;font-weight:700;color:#6b7a99;">4</span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                <span style="font-size:11px;font-weight:700;color:var(--text-muted);">4</span>
                 <span style="font-size:10px;font-weight:600;color:#b0bbd6;">MD, WD, MX1, MX2</span>
               </div>
-              <div><span style="font-size:9px;font-weight:700;padding:3px 8px;border-radius:99px;background:#e8f0ff;color:#174CCC;">Scheduled</span></div>
+              <div><span style="font-size:9px;font-weight:700;padding:3px 8px;border-radius:99px;background:#e8f0ff;color:var(--blue);">Scheduled</span></div>
             </div>`;
           }).join('')}
             </tbody>
@@ -1275,9 +1275,9 @@
 
   // Match type display labels
   const FTC_MATCH_LABELS = {
-    mens:   { label: "Men's Doubles",   abbr: 'MD',  color: '#174CCC', bg: '#e8f0ff' },
-    womens: { label: "Women's Doubles", abbr: 'WD',  color: '#F26024', bg: 'rgba(242,96,36,0.08)' },
-    mixed1: { label: 'Mixed #1',        abbr: 'MX1', color: '#24BC96', bg: 'rgba(36,188,150,0.08)' },
+    mens:   { label: "Men's Doubles",   abbr: 'MD',  color: 'var(--blue)', bg: '#e8f0ff' },
+    womens: { label: "Women's Doubles", abbr: 'WD',  color: 'var(--orange)', bg: 'rgba(242,96,36,0.08)' },
+    mixed1: { label: 'Mixed #1',        abbr: 'MX1', color: 'var(--teal)', bg: 'rgba(36,188,150,0.08)' },
     mixed2: { label: 'Mixed #2',        abbr: 'MX2', color: '#9a6e00', bg: 'rgba(154,110,0,0.08)'  },
   };
 
@@ -1289,8 +1289,8 @@
         <div style="margin-bottom:14px;">
           <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="#b0bbd6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
         </div>
-        <div style="font-size:14px;font-weight:800;color:#0d1f4a;margin-bottom:6px;">No schedule saved yet</div>
-        <div style="font-size:11px;font-weight:600;color:#6b7a99;line-height:1.6;">Adjust your settings above and click "Generate &amp; Save"<br>to create and save your season schedule.</div>
+        <div style="font-size:14px;font-weight:800;color:var(--text);margin-bottom:6px;">No schedule saved yet</div>
+        <div style="font-size:11px;font-weight:600;color:var(--text-muted);line-height:1.6;">Adjust your settings above and click "Generate &amp; Save"<br>to create and save your season schedule.</div>
       </div>`;
       return;
     }
@@ -1315,12 +1315,12 @@
     if (nonByeSchedule.length > 0 && totalMatchRows === 0) {
       const totalWeeks = Object.keys(byWeek).length;
       el.innerHTML = `<div class="card" style="padding:28px 24px;text-align:center;">
-        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;margin-bottom:12px;opacity:0.4;"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-        <div style="font-size:13px;font-weight:800;color:#0d1f4a;margin-bottom:6px;">Schedule ready — matches not yet created</div>
-        <div style="font-size:11px;font-weight:600;color:#6b7a99;margin-bottom:16px;line-height:1.6;">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;margin-bottom:12px;opacity:0.4;"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <div style="font-size:13px;font-weight:800;color:var(--text);margin-bottom:6px;">Schedule ready — matches not yet created</div>
+        <div style="font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:16px;line-height:1.6;">
           ${totalWeeks} week${totalWeeks!==1?'s':''} scheduled. Click below to create the individual match lineups.
         </div>
-        <button onclick="ftcGenerateMatchesForSchedule()" style="padding:9px 22px;border:none;border-radius:99px;background:linear-gradient(180deg,#2456d3,#174CCC);color:white;font-family:'Montserrat',sans-serif;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:7px;">
+        <button onclick="ftcGenerateMatchesForSchedule()" style="padding:9px 22px;border:none;border-radius:99px;background:linear-gradient(180deg,#2456d3,var(--blue));color:white;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:7px;">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
           Create Match Lineups
         </button>
@@ -1352,10 +1352,10 @@
 
     let html = `<div style="background:white;border:0.5px solid #e0e7f5;border-radius:12px;padding:20px 24px;box-shadow:0 1px 4px rgba(23,76,204,0.06);">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
-        <div style="font-size:16px;font-weight:800;color:#0d1f4a;">Season Schedule</div>
-        <div style="font-size:11px;font-weight:700;color:#6b7a99;">${totalWeeks} week${totalWeeks!==1?'s':''} · ${nonByeSchedule.length} matchups · ${completed} completed</div>
+        <div style="font-size:16px;font-weight:800;color:var(--text);">Season Schedule</div>
+        <div style="font-size:11px;font-weight:700;color:var(--text-muted);">${totalWeeks} week${totalWeeks!==1?'s':''} · ${nonByeSchedule.length} matchups · ${completed} completed</div>
       </div>
-      <div style="font-size:11px;font-weight:600;color:#6b7a99;margin-bottom:16px;">Review your season schedule. Click any week to see matchups.</div>`;
+      <div style="font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:16px;">Review your season schedule. Click any week to see matchups.</div>`;
 
     sortedWeekNums.forEach(weekNum => {
       const matchups    = byWeek[weekNum];
@@ -1373,17 +1373,17 @@
       const statusPill = allDone
         ? `<span class="ftc-status-pill ftc-status-completed">Complete</span>`
         : anyDone
-          ? `<span class="ftc-status-pill" style="background:rgba(242,96,36,0.1);color:#F26024;">In Progress</span>`
+          ? `<span class="ftc-status-pill" style="background:rgba(242,96,36,0.1);color:var(--orange);">In Progress</span>`
           : `<span class="ftc-status-pill ftc-status-scheduled">Scheduled</span>`;
 
-      const weekColor = allDone ? '#24BC96' : anyDone ? '#F26024' : '#174CCC';
+      const weekColor = allDone ? 'var(--teal)' : anyDone ? 'var(--orange)' : 'var(--blue)';
 
       // BYE in this week
       const byeRow = matchups.find(m => m.is_bye);
       const byeText = byeRow
         ? `<span style="display:inline-flex;align-items:center;gap:6px;margin-left:10px;padding:3px 10px 3px 5px;background:rgba(242,96,36,0.08);border-radius:99px;">
-            <span style="font-size:9px;font-weight:800;padding:2px 7px;border-radius:99px;background:#F26024;color:white;letter-spacing:.3px;">BYE / REST</span>
-            <span style="font-size:10px;font-weight:700;color:#F26024;">${teamName(byeRow.team_a_id)} sits out this week</span>
+            <span style="font-size:9px;font-weight:800;padding:2px 7px;border-radius:99px;background:var(--orange);color:white;letter-spacing:.3px;">BYE / REST</span>
+            <span style="font-size:10px;font-weight:700;color:var(--orange);">${teamName(byeRow.team_a_id)} sits out this week</span>
            </span>`
         : '';
 
@@ -1395,21 +1395,21 @@
           <div style="display:flex;align-items:center;gap:10px;">
             <span style="width:22px;height:22px;border-radius:50%;background:${weekColor};color:white;font-size:10px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;">${weekNum}</span>
             <div>
-              <div style="font-size:12px;font-weight:800;color:#0d1f4a;display:flex;align-items:center;gap:6px;">
+              <div style="font-size:12px;font-weight:800;color:var(--text);display:flex;align-items:center;gap:6px;">
                 Week ${weekNum} &nbsp;${statusPill}
               </div>
-              <div style="font-size:10px;font-weight:600;color:#6b7a99;margin-top:1px;">
+              <div style="font-size:10px;font-weight:600;color:var(--text-muted);margin-top:1px;">
                 ${firstDate ? ftcFmtDate(firstDate) : 'No date set'} &nbsp;·&nbsp; ${nonByeCount} matchup${nonByeCount!==1?'s':''}
               </div>
             </div>
           </div>
           ${byeText ? `<div style="position:absolute;left:50%;transform:translateX(-50%);pointer-events:none;display:flex;align-items:center;">${byeText}</div>` : ''}
           <div style="display:flex;align-items:center;gap:10px;">
-            <div style="display:flex;align-items:center;gap:5px;font-size:10px;font-weight:600;color:#24BC96;">
+            <div style="display:flex;align-items:center;gap:5px;font-size:10px;font-weight:600;color:var(--teal);">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
               Complete by ${completeByDate}
             </div>
-            <span id="ftc-wk-chev-${weekNum}" style="font-size:11px;color:#6b7a99;transition:transform .2s;display:inline-block;transform:${isOpen?'rotate(180deg)':'rotate(0deg)'};">▼</span>
+            <span id="ftc-wk-chev-${weekNum}" style="font-size:11px;color:var(--text-muted);transition:transform .2s;display:inline-block;transform:${isOpen?'rotate(180deg)':'rotate(0deg)'};">▼</span>
           </div>
         </div>
 
@@ -1427,11 +1427,11 @@
             </colgroup>
             <thead>
               <tr style="background:white;">
-                <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:7px 16px;text-align:left;">Matchup</th>
-                <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:7px 0;text-align:left;">Time</th>
-                <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:7px 0;text-align:left;">Courts</th>
-                <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:7px 0;text-align:left;">Matches</th>
-                <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:7px 0;text-align:left;">Status</th>
+                <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);padding:7px 16px;text-align:left;">Matchup</th>
+                <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);padding:7px 0;text-align:left;">Time</th>
+                <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);padding:7px 0;text-align:left;">Courts</th>
+                <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);padding:7px 0;text-align:left;">Matches</th>
+                <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);padding:7px 0;text-align:left;">Status</th>
                 <th style="padding:7px 16px;text-align:right;"></th>
               </tr>
             </thead>
@@ -1446,7 +1446,7 @@
             const completedCount = regularMatches.filter(m => m.status === 'completed').length;
             const matchCount     = regularMatches.length || 4;
             const matchProgress  = `${completedCount}/${matchCount}`;
-            const progressColor  = completedCount === matchCount ? '#24BC96' : completedCount > 0 ? '#F26024' : '#6b7a99';
+            const progressColor  = completedCount === matchCount ? 'var(--teal)' : completedCount > 0 ? 'var(--orange)' : 'var(--text-muted)';
             const expandId      = `ftc-match-expand-${s.id}`;
             const chevId        = `ftc-match-chev-${s.id}`;
 
@@ -1465,7 +1465,7 @@
               const renderMatchDetailRow = (m) => {
                 matchCounter++;
                 const gameNum = matchCounter;
-                const info    = FTC_MATCH_LABELS[m.match_type] || { label: m.match_type, color:'#6b7a99' };
+                const info    = FTC_MATCH_LABELS[m.match_type] || { label: m.match_type, color:'var(--text-muted)' };
                 const scored  = m.score_a !== null && m.score_b !== null;
                 const aWins   = scored && m.score_a > m.score_b;
                 const bWins   = scored && m.score_b > m.score_a;
@@ -1476,26 +1476,26 @@
                 // Fix 4: winner bg green, loser bg gray
                 const bgA     = 'transparent';
                 const bgB     = 'transparent';
-                const nameA   = (scored && bWins) ? '#b0bbd6' : '#0d1f4a';
-                const nameB   = (scored && aWins) ? '#b0bbd6' : '#0d1f4a';
-                const sclrA   = aWins ? '#24BC96' : '#b0bbd6';
-                const sclrB   = bWins ? '#24BC96' : '#b0bbd6';
+                const nameA   = (scored && bWins) ? '#b0bbd6' : 'var(--text)';
+                const nameB   = (scored && aWins) ? '#b0bbd6' : 'var(--text)';
+                const sclrA   = aWins ? 'var(--teal)' : '#b0bbd6';
+                const sclrB   = bWins ? 'var(--teal)' : '#b0bbd6';
 
                 return (
-                  '<tr style="border-bottom:0.5px solid #f0f2f8;background:#f8f9ff;">' +
+                  '<tr style="border-bottom:0.5px solid var(--bg);background:#f8f9ff;">' +
                   // Fix 3: number + label on same line
                   '<td style="padding:10px 0 10px 12px;vertical-align:middle;white-space:nowrap;">' +
                     '<div style="display:flex;align-items:baseline;gap:5px;">' +
-                      '<span style="font-size:11px;font-weight:800;color:#6b7a99;">' + gameNum + '</span>' +
+                      '<span style="font-size:11px;font-weight:800;color:var(--text-muted);">' + gameNum + '</span>' +
                       '<div>' +
-                        '<div style="font-size:11px;font-weight:700;color:#0d1f4a;">' + info.label + '</div>' +
+                        '<div style="font-size:11px;font-weight:700;color:var(--text);">' + info.label + '</div>' +
                         '<div style="font-size:9px;font-weight:700;color:#b0bbd6;">' + (info.abbr||'') + '</div>' +
                       '</div>' +
                     '</div>' +
                   '</td>' +
                   // Fix 6: Team A — no box, just players + sub button
                   '<td style="padding:10px 8px 10px 16px;vertical-align:middle;text-align:right;">' +
-                    '<div style="font-size:12px;font-weight:700;color:' + nameA + ';line-height:1.5;margin-bottom:5px;">' + pName(m.team_a_p1_id) + '<br>' + pName(m.team_a_p2_id) + (m.forfeit_team_id === m.team_a_id ? ' <span style="font-size:9px;font-weight:800;background:rgba(242,96,36,0.1);color:#F26024;padding:1px 5px;border-radius:4px;vertical-align:middle;">FF</span>' : '') + '</div>' +
+                    '<div style="font-size:12px;font-weight:700;color:' + nameA + ';line-height:1.5;margin-bottom:5px;">' + pName(m.team_a_p1_id) + '<br>' + pName(m.team_a_p2_id) + (m.forfeit_team_id === m.team_a_id ? ' <span style="font-size:9px;font-weight:800;background:rgba(242,96,36,0.1);color:var(--orange);padding:1px 5px;border-radius:4px;vertical-align:middle;">FF</span>' : '') + '</div>' +
                     '<div style="display:flex;justify-content:flex-end;"><button class="ftc-edit-mini" onclick="event.stopPropagation();ftcOpenMatchEditTeam(' + m.id + ',\'A\')" style="font-size:9px;padding:2px 8px;">Sub Team A</button></div>' +
                   '</td>' +
                   // Score center
@@ -1506,12 +1506,12 @@
                       '<div style="font-size:20px;font-weight:800;color:' + sclrB + ';">' + scoreB + '</div>' +
                     '</div>' +
                     (scored
-                      ? (ptsA ? '<div style="font-size:9px;color:#6b7a99;margin-top:2px;">' + ptsA + ' / ' + ptsB + '</div>' : '')
-                      : '<button class="ftc-edit-mini" onclick="event.stopPropagation();ftcOpenScoreModal(' + m.id + ')" style="margin-top:4px;border:1px solid #174CCC;color:#174CCC;background:white;font-size:10px;">Report Score</button>') +
+                      ? (ptsA ? '<div style="font-size:9px;color:var(--text-muted);margin-top:2px;">' + ptsA + ' / ' + ptsB + '</div>' : '')
+                      : '<button class="ftc-edit-mini" onclick="event.stopPropagation();ftcOpenScoreModal(' + m.id + ')" style="margin-top:4px;border:1px solid var(--blue);color:var(--blue);background:white;font-size:10px;">Report Score</button>') +
                   '</td>' +
                   // Fix 6: Team B — no box, just players + sub button
                   '<td style="padding:10px 8px;vertical-align:middle;">' +
-                    '<div style="font-size:12px;font-weight:700;color:' + nameB + ';line-height:1.5;margin-bottom:5px;">' + pName(m.team_b_p1_id) + '<br>' + pName(m.team_b_p2_id) + (m.forfeit_team_id === m.team_b_id ? ' <span style="font-size:9px;font-weight:800;background:rgba(242,96,36,0.1);color:#F26024;padding:1px 5px;border-radius:4px;vertical-align:middle;">FF</span>' : '') + '</div>' +
+                    '<div style="font-size:12px;font-weight:700;color:' + nameB + ';line-height:1.5;margin-bottom:5px;">' + pName(m.team_b_p1_id) + '<br>' + pName(m.team_b_p2_id) + (m.forfeit_team_id === m.team_b_id ? ' <span style="font-size:9px;font-weight:800;background:rgba(242,96,36,0.1);color:var(--orange);padding:1px 5px;border-radius:4px;vertical-align:middle;">FF</span>' : '') + '</div>' +
                     '<button class="ftc-edit-mini" onclick="event.stopPropagation();ftcOpenMatchEditTeam(' + m.id + ',\'B\')" style="font-size:9px;padding:2px 8px;">Sub Team B</button>' +
                   '</td>' +
                   // Status
@@ -1549,11 +1549,11 @@
                       '</div>' +
                     '</th>' +
                     // Fix 5: Remove (Home) and (Away)
-                    '<th style="font-size:9px;font-weight:800;color:#6b7a99;padding:8px 8px 8px 16px;text-align:right;text-transform:uppercase;letter-spacing:.4px;">Team ' + esc(teamAName) + '</th>' +
-                    '<th style="font-size:9px;font-weight:800;color:#6b7a99;padding:8px;text-align:center;text-transform:uppercase;letter-spacing:.4px;">Score</th>' +
-                    '<th style="font-size:9px;font-weight:800;color:#6b7a99;padding:8px;text-align:left;text-transform:uppercase;letter-spacing:.4px;">Team ' + esc(teamBName) + '</th>' +
-                    '<th style="font-size:9px;font-weight:800;color:#6b7a99;padding:8px;text-align:center;text-transform:uppercase;letter-spacing:.4px;">Status</th>' +
-                    '<th style="font-size:9px;font-weight:800;color:#6b7a99;padding:8px;text-align:center;text-transform:uppercase;letter-spacing:.4px;">Actions</th>' +
+                    '<th style="font-size:9px;font-weight:800;color:var(--text-muted);padding:8px 8px 8px 16px;text-align:right;text-transform:uppercase;letter-spacing:.4px;">Team ' + esc(teamAName) + '</th>' +
+                    '<th style="font-size:9px;font-weight:800;color:var(--text-muted);padding:8px;text-align:center;text-transform:uppercase;letter-spacing:.4px;">Score</th>' +
+                    '<th style="font-size:9px;font-weight:800;color:var(--text-muted);padding:8px;text-align:left;text-transform:uppercase;letter-spacing:.4px;">Team ' + esc(teamBName) + '</th>' +
+                    '<th style="font-size:9px;font-weight:800;color:var(--text-muted);padding:8px;text-align:center;text-transform:uppercase;letter-spacing:.4px;">Status</th>' +
+                    '<th style="font-size:9px;font-weight:800;color:var(--text-muted);padding:8px;text-align:center;text-transform:uppercase;letter-spacing:.4px;">Actions</th>' +
                   '</tr>' +
                   
                   '</thead>' +
@@ -1570,10 +1570,10 @@
               const tBn = AdminState.ftc.teams.find(t => t.id === (subMatches[0]?.team_b_id))?.name || 'Team B';
               if (!useTwoCourts) {
                 const ordered = typeOrder.map(t => subMatches.find(m => m.match_type === t)).filter(Boolean);
-                return renderCourtBlock(c1 || '—', '#174CCC', ordered, tAn, tBn);
+                return renderCourtBlock(c1 || '—', 'var(--blue)', ordered, tAn, tBn);
               }
-              return renderCourtBlock(c1, '#174CCC', c1Matches, tAn, tBn) +
-                     renderCourtBlock(c2, '#24BC96', c2Matches, tAn, tBn);
+              return renderCourtBlock(c1, 'var(--blue)', c1Matches, tAn, tBn) +
+                     renderCourtBlock(c2, 'var(--teal)', c2Matches, tAn, tBn);
             }
             // Season schedule — no tiebreaker (tiebreaker is playoff only)
             const regularSubMatches = subMatches.filter(m => !m.is_tiebreaker);
@@ -1588,16 +1588,16 @@
                 onclick="${subMatches.length?`ftcToggleMatchExpand('${s.id}')`:''}">
                 <td style="padding:11px 16px;vertical-align:middle;">
                   <div style="display:flex;align-items:center;gap:8px;">
-                    <span style="font-size:13px;font-weight:800;color:#0d1f4a;">${teamName(s.team_a_id)}</span>
-                    <span style="font-size:9px;font-weight:700;color:#b0bbd6;background:#f0f2f8;padding:2px 6px;border-radius:99px;">vs</span>
-                    <span style="font-size:13px;font-weight:800;color:#0d1f4a;">${teamName(s.team_b_id)}</span>
+                    <span style="font-size:13px;font-weight:800;color:var(--text);">${teamName(s.team_a_id)}</span>
+                    <span style="font-size:9px;font-weight:700;color:#b0bbd6;background:var(--bg);padding:2px 6px;border-radius:99px;">vs</span>
+                    <span style="font-size:13px;font-weight:800;color:var(--text);">${teamName(s.team_b_id)}</span>
                   </div>
                 </td>
-                <td style="font-size:11px;font-weight:600;color:#6b7a99;padding:11px 0;vertical-align:middle;">${timeDisplay}</td>
-                <td style="font-size:11px;font-weight:600;color:#6b7a99;padding:11px 0;vertical-align:middle;">${courtDisplay}</td>
+                <td style="font-size:11px;font-weight:600;color:var(--text-muted);padding:11px 0;vertical-align:middle;">${timeDisplay}</td>
+                <td style="font-size:11px;font-weight:600;color:var(--text-muted);padding:11px 0;vertical-align:middle;">${courtDisplay}</td>
                 <td style="padding:11px 0;vertical-align:middle;">
                   <div style="display:flex;align-items:center;gap:5px;">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6b7a99" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                     <span style="font-size:11px;font-weight:700;color:${progressColor};">${matchProgress}</span>
                     <span style="font-size:10px;font-weight:600;color:#b0bbd6;">MD, WD, MX1, MX2</span>
                   </div>
@@ -1606,7 +1606,7 @@
                   <span class="ftc-status-pill ${rowStatus}">${s.status}</span>
                 </td>
                 <td style="padding:11px 16px;text-align:right;vertical-align:middle;white-space:nowrap;">
-                  ${subMatches.length ? `<span id="${chevId}" style="font-size:10px;color:#6b7a99;display:inline-block;transform:rotate(0deg);transition:transform .15s;margin-right:6px;">▼</span>` : ''}
+                  ${subMatches.length ? `<span id="${chevId}" style="font-size:10px;color:var(--text-muted);display:inline-block;transform:rotate(0deg);transition:transform .15s;margin-right:6px;">▼</span>` : ''}
                   <button class="ftc-edit-mini" onclick="event.stopPropagation();ftcOpenOverrideModal(${s.id},'${s.match_date||''}','${s.match_time||''}','${esc(s.court||'')}')">
                     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                     Edit Matchup
@@ -1720,8 +1720,8 @@
     const nameB = document.getElementById('ftc-score-team-b-name')?.textContent || 'Team B';
     if (!isNaN(a) && !isNaN(b) && (a !== b)) {
       const winA = a > b;
-      if (boxA) boxA.style.border = winA ? '1.5px solid #24BC96' : '1.5px solid #e0e7f5';
-      if (boxB) boxB.style.border = !winA ? '1.5px solid #24BC96' : '1.5px solid #e0e7f5';
+      if (boxA) boxA.style.border = winA ? '1.5px solid var(--teal)' : '1.5px solid #e0e7f5';
+      if (boxB) boxB.style.border = !winA ? '1.5px solid var(--teal)' : '1.5px solid #e0e7f5';
       if (boxA) boxA.style.background = winA ? 'rgba(36,188,150,0.04)' : 'white';
       if (boxB) boxB.style.background = !winA ? 'rgba(36,188,150,0.04)' : 'white';
       const winner = winA ? nameA : nameB;
@@ -1737,8 +1737,8 @@
   };
 
   // Forfeit toggle handling
-  const FTC_FORFEIT_ACTIVE   = 'background:rgba(242,96,36,0.1);color:#F26024;border:0.5px solid #F26024;';
-  const FTC_FORFEIT_INACTIVE = 'background:#f0f2f8;color:#6b7a99;border:0.5px solid transparent;';
+  const FTC_FORFEIT_ACTIVE   = 'background:rgba(242,96,36,0.1);color:var(--orange);border:0.5px solid var(--orange);';
+  const FTC_FORFEIT_INACTIVE = 'background:var(--bg);color:var(--text-muted);border:0.5px solid transparent;';
   let ftcForfeitState = { a: false, b: false };
 
   window.ftcForfeit = (side) => {
@@ -1756,9 +1756,9 @@
     // Apply visual state — set each property individually to ensure override
     const applyForfeitStyle = (btn, active) => {
       if (!btn) return;
-      btn.style.background = active ? 'rgba(242,96,36,0.1)' : '#f0f2f8';
-      btn.style.color       = active ? '#F26024'             : '#6b7a99';
-      btn.style.border      = active ? '0.5px solid #F26024' : '0.5px solid transparent';
+      btn.style.background = active ? 'rgba(242,96,36,0.1)' : 'var(--bg)';
+      btn.style.color       = active ? 'var(--orange)'             : 'var(--text-muted)';
+      btn.style.border      = active ? '0.5px solid var(--orange)' : '0.5px solid transparent';
     };
     applyForfeitStyle(btnA, ftcForfeitState.a);
     applyForfeitStyle(btnB, ftcForfeitState.b);
@@ -1784,8 +1784,8 @@
     ftcForfeitState = { a: false, b: false };
     const btnA = document.getElementById('ftc-forfeit-a');
     const btnB = document.getElementById('ftc-forfeit-b');
-    if (btnA) { btnA.style.background='#f0f2f8'; btnA.style.color='#6b7a99'; btnA.style.border='0.5px solid transparent'; }
-    if (btnB) { btnB.style.background='#f0f2f8'; btnB.style.color='#6b7a99'; btnB.style.border='0.5px solid transparent'; }
+    if (btnA) { btnA.style.background='var(--bg)'; btnA.style.color='var(--text-muted)'; btnA.style.border='0.5px solid transparent'; }
+    if (btnB) { btnB.style.background='var(--bg)'; btnB.style.color='var(--text-muted)'; btnB.style.border='0.5px solid transparent'; }
     window._ftcScoreCallerContext = callerContext || 'schedule';
     const m = AdminState.ftc.matches.find(x => x.id === matchId);
     if (!m) return;
@@ -1936,8 +1936,8 @@
     const nameB = document.getElementById('ftc-tie-team-b')?.textContent || 'Team B';
     if (!isNaN(a) && !isNaN(b) && a !== b) {
       const winA = a > b;
-      if (boxA) { boxA.style.border = winA ? '1.5px solid #24BC96' : '1.5px solid #e0e7f5'; }
-      if (boxB) { boxB.style.border = !winA ? '1.5px solid #24BC96' : '1.5px solid #e0e7f5'; }
+      if (boxA) { boxA.style.border = winA ? '1.5px solid var(--teal)' : '1.5px solid #e0e7f5'; }
+      if (boxB) { boxB.style.border = !winA ? '1.5px solid var(--teal)' : '1.5px solid #e0e7f5'; }
       if (banner) banner.style.display = 'flex';
       if (bannerText) bannerText.textContent = `${winA ? nameA : nameB} wins tiebreaker · ${a} – ${b}`;
     } else {
@@ -2036,7 +2036,7 @@
     if (!m) return;
     const tA = AdminState.ftc.teams.find(t => t.id === m.team_a_id);
     const tB = AdminState.ftc.teams.find(t => t.id === m.team_b_id);
-    const info = FTC_MATCH_LABELS[m.match_type] || { label: m.match_type, color:'#174CCC' };
+    const info = FTC_MATCH_LABELS[m.match_type] || { label: m.match_type, color:'var(--blue)' };
     const pName = (id) => {
       if (!id) return 'TBD';
       const p = AdminState.ladderPlayers.find(x => x.id === id);
@@ -2061,15 +2061,15 @@
         const subName = s.subId ? pName(s.subId) : null;
         return `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:0.5px solid #f4f5f8;">
           <div>
-            <div style="font-size:10px;font-weight:700;color:#6b7a99;margin-bottom:2px;">${s.label}</div>
-            <div style="font-size:13px;font-weight:800;color:#0d1f4a;" id="ftc-me-name-${i}">${pName(s.pid)}</div>
-            ${subName ? `<div style="font-size:10px;font-weight:600;color:#24BC96;margin-top:1px;">Sub available: ${subName}</div>` : '<div style="font-size:10px;font-weight:600;color:#b0bbd6;margin-top:1px;">No sub available</div>'}
+            <div style="font-size:10px;font-weight:700;color:var(--text-muted);margin-bottom:2px;">${s.label}</div>
+            <div style="font-size:13px;font-weight:800;color:var(--text);" id="ftc-me-name-${i}">${pName(s.pid)}</div>
+            ${subName ? `<div style="font-size:10px;font-weight:600;color:var(--teal);margin-top:1px;">Sub available: ${subName}</div>` : '<div style="font-size:10px;font-weight:600;color:#b0bbd6;margin-top:1px;">No sub available</div>'}
           </div>
           ${subName ? `<div style="display:flex;align-items:center;gap:8px;">
             <button id="ftc-me-toggle-${i}"
               data-mid="${matchId}" data-field="${s.field}" data-regular="${isSub ? ftcGetRegular(s.team==='A'?tA:tB, m.match_type, s.slot) : s.pid}" data-sub="${s.subId}" data-issub="${isSub}"
               onclick="ftcToggleSub(${i})"
-              style="padding:5px 12px;border-radius:99px;font-family:'Montserrat',sans-serif;font-size:10px;font-weight:700;cursor:pointer;border:none;background:${isSub ? '#174CCC' : '#e0e7f5'};color:${isSub ? 'white' : '#6b7a99'};">
+              style="padding:5px 12px;border-radius:99px;font-family:'Inter',sans-serif;font-size:10px;font-weight:700;cursor:pointer;border:none;background:${isSub ? 'var(--blue)' : '#e0e7f5'};color:${isSub ? 'white' : 'var(--text-muted)'};">
               ${isSub ? 'Undo Sub' : 'Use Sub'}
             </button>
           </div>` : ''}
@@ -2085,7 +2085,7 @@
     if (!m) return;
     const tA = AdminState.ftc.teams.find(t => t.id === m.team_a_id);
     const tB = AdminState.ftc.teams.find(t => t.id === m.team_b_id);
-    const info = FTC_MATCH_LABELS[m.match_type] || { label: m.match_type, color:'#174CCC' };
+    const info = FTC_MATCH_LABELS[m.match_type] || { label: m.match_type, color:'var(--blue)' };
     const pName = (id) => {
       if (!id) return 'TBD';
       const p = AdminState.ladderPlayers.find(x => x.id === id);
@@ -2114,16 +2114,16 @@
         const subName     = s.subId ? pName(s.subId) : null;
         return `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:0.5px solid #f4f5f8;">
           <div>
-            <div style="font-size:10px;font-weight:700;color:#6b7a99;margin-bottom:2px;">${s.label}</div>
-            <div style="font-size:13px;font-weight:800;color:#0d1f4a;" id="ftc-me-name-${i}">${pName(s.pid)}</div>
-            ${subName ? `<div style="font-size:10px;font-weight:600;color:#24BC96;margin-top:1px;">Sub available: ${subName}</div>` : '<div style="font-size:10px;font-weight:600;color:#b0bbd6;margin-top:1px;">No sub available</div>'}
+            <div style="font-size:10px;font-weight:700;color:var(--text-muted);margin-bottom:2px;">${s.label}</div>
+            <div style="font-size:13px;font-weight:800;color:var(--text);" id="ftc-me-name-${i}">${pName(s.pid)}</div>
+            ${subName ? `<div style="font-size:10px;font-weight:600;color:var(--teal);margin-top:1px;">Sub available: ${subName}</div>` : '<div style="font-size:10px;font-weight:600;color:#b0bbd6;margin-top:1px;">No sub available</div>'}
           </div>
           ${subName ? `<div style="display:flex;align-items:center;gap:8px;">
-            <span style="font-size:10px;font-weight:600;color:#6b7a99;">${isSub ? 'Using sub' : 'Regular'}</span>
+            <span style="font-size:10px;font-weight:600;color:var(--text-muted);">${isSub ? 'Using sub' : 'Regular'}</span>
             <button id="ftc-me-toggle-${i}"
               data-mid="${matchId}" data-field="${s.field}" data-regular="${isSub ? ftcGetRegular(s.team==='A'?tA:tB, m.match_type, s.slot) : s.pid}" data-sub="${s.subId}" data-issub="${isSub}"
               onclick="ftcToggleSub(${i})"
-              style="padding:5px 12px;border-radius:99px;font-family:'Montserrat',sans-serif;font-size:10px;font-weight:700;cursor:pointer;border:none;background:${isSub ? '#174CCC' : '#e0e7f5'};color:${isSub ? 'white' : '#6b7a99'};">
+              style="padding:5px 12px;border-radius:99px;font-family:'Inter',sans-serif;font-size:10px;font-weight:700;cursor:pointer;border:none;background:${isSub ? 'var(--blue)' : '#e0e7f5'};color:${isSub ? 'white' : 'var(--text-muted)'};">
               ${isSub ? 'Undo Sub' : 'Use Sub'}
             </button>
           </div>` : ''}
@@ -2178,8 +2178,8 @@
     };
     nameEl.textContent = pName(newVal);
     btn.dataset.issub  = String(!isSub);
-    btn.style.background = !isSub ? '#174CCC' : '#e0e7f5';
-    btn.style.color      = !isSub ? 'white'   : '#6b7a99';
+    btn.style.background = !isSub ? 'var(--blue)' : '#e0e7f5';
+    btn.style.color      = !isSub ? 'white'   : 'var(--text-muted)';
     btn.textContent      = !isSub ? 'Undo Sub' : 'Use Sub';
   };
 

@@ -1,0 +1,189 @@
+/* ============================================================
+   FEROCIA SPORTS CENTER — DESIGN TOKENS
+   Single source of truth for color, typography, spacing, radius,
+   shadow, and shared component styles across the whole app.
+
+   Every page should link this file (after its Google Fonts <link>,
+   before any page-specific <style> block) and read from these
+   variables/classes instead of hardcoding colors, fonts, radii, etc.
+
+   BACKWARD-COMPATIBLE ALIASES: admin.html (and others, over time) was
+   already using var(--blue), var(--teal), var(--text-muted), etc.
+   throughout its own CSS — hundreds of references. Rather than rename
+   all of them at once (high risk, low benefit, since the VALUES already
+   match this spec), those names are kept here as aliases pointing at
+   the new spec-named variables. New code should prefer the spec names
+   (--primary, --success, --warning, etc.) going forward.
+   ============================================================ */
+
+:root {
+  /* ── Colors — spec names ─────────────────────────────────── */
+  --primary:        #174CCC;
+  --primary-hover:  #0F3FB0;
+  --primary-light:  rgba(23,76,204,0.10);
+  --success:        #24BC96;
+  --warning:        #F26024;
+  --accent:         #C6F221;
+  --info:           #9CE3FF;
+
+  --neutral-bg:     #F8FAFC;
+  --card-bg:        #FFFFFF;
+  --border-color:   #E5E7EB;
+  --divider-color:  #ECECEC;
+
+  --text-primary:   #111827;
+  --text-secondary: #6B7280;
+  --text-light:     #9CA3AF;
+  --text-disabled:  #D1D5DB;
+
+  /* ── Radius / shadow scale ────────────────────────────────── */
+  --radius-small:   8px;
+  --radius-medium:  12px;
+  --radius-large:   16px;
+  --radius-pill:    999px;
+
+  --shadow-small:   0 2px 6px rgba(0,0,0,.05);
+  --shadow-medium:  0 6px 18px rgba(0,0,0,.05);
+  --shadow-large:   0 12px 30px rgba(0,0,0,.10);
+
+  /* ── Layout ───────────────────────────────────────────────── */
+  --max-content-width: 1440px;
+  --page-padding:      32px;
+  --card-gap:          24px;
+  --section-gap:       32px;
+  --grid-gap:          20px;
+
+  --transition-base:   200ms ease;
+
+  /* ── Backward-compatible aliases (existing admin.html usage) ── */
+  --blue:         var(--primary);
+  --blue-hover:   var(--primary-hover);
+  --blue-pale:    var(--primary-light);
+  --blue-light:   var(--info);
+  --teal:         var(--success);
+  --teal-light:   #d4f5ed;
+  --orange:       var(--warning);
+  --orange-light: #fde8d8;
+  --lime:         var(--accent);
+  --lime-dark:    #7a9200;
+  --gray:         #EFEFEF;
+  --gray-dk:      #888;
+  --white:        #ffffff;
+  --dark:         #080f2e;
+  --text:         var(--text-primary);
+  --text-muted:   var(--text-secondary);
+  --muted:        var(--text-secondary); /* alias used by players.html/tournament-results.html/index.html/store.html/subscribe/confirm/unsubscribe */
+  --border:       var(--border-color);
+  --bg:           var(--neutral-bg);
+  --radius:       var(--radius-medium);
+  --radius-sm:    var(--radius-small);
+  --blue-dk:      #0d2f8a; /* darker blue variant used on index.html/store.html hero sections — not part of the spec's core palette, kept as-is */
+  --gold:         #FFD700; /* podium medal colors — decorative, not brand/semantic colors */
+  --silver:       #C0C0C0;
+  --bronze:       #CD7F32;
+}
+
+/* ============================================================
+   TYPOGRAPHY — utility classes matching the spec exactly.
+   Base font stack is applied via body{} in each page (kept there,
+   not here, since each page's own reset/base styles differ slightly).
+   ============================================================ */
+.ds-page-title    { font-size:32px; font-weight:700; line-height:38px; color:var(--text-primary); }
+.ds-section-title { font-size:22px; font-weight:700; color:var(--text-primary); }
+.ds-card-title    { font-size:18px; font-weight:600; color:var(--text-primary); }
+.ds-subtitle      { font-size:15px; font-weight:600; color:#374151; }
+.ds-body-text     { font-size:15px; font-weight:400; color:#4B5563; }
+.ds-small-text    { font-size:13px; font-weight:400; color:var(--text-secondary); }
+.ds-label         { font-size:13px; font-weight:600; letter-spacing:0.5px; text-transform:uppercase; color:var(--text-light); }
+
+/* ============================================================
+   BUTTONS
+   ============================================================ */
+.ds-btn-primary,
+.ds-btn-secondary,
+.ds-btn-danger {
+  height:42px; border-radius:var(--radius-medium); padding:0 18px;
+  font-family:'Inter',sans-serif; font-weight:600; font-size:14px;
+  cursor:pointer; display:inline-flex; align-items:center; gap:8px;
+  transition:background var(--transition-base), border-color var(--transition-base);
+}
+.ds-btn-primary   { background:var(--primary); color:#fff; border:none; box-shadow:0 4px 14px rgba(23,76,204,.25); }
+.ds-btn-primary:hover   { background:var(--primary-hover); }
+.ds-btn-secondary { background:#fff; border:1px solid var(--text-disabled); color:#374151; }
+.ds-btn-secondary:hover { background:var(--neutral-bg); }
+.ds-btn-danger    { background:var(--warning); color:#fff; border:none; }
+.ds-btn-danger:hover    { background:#D94A18; }
+.ds-btn-icon      { width:18px; height:18px; }
+
+/* ============================================================
+   INPUTS
+   ============================================================ */
+.ds-input {
+  height:42px; border-radius:var(--radius-medium); border:1px solid var(--text-disabled);
+  padding:0 14px; font-family:'Inter',sans-serif; font-size:14px;
+  transition:border var(--transition-base);
+}
+.ds-input:focus     { border:2px solid var(--primary); outline:none; }
+.ds-input::placeholder { color:var(--text-light); }
+.ds-search {
+  height:44px; border-radius:var(--radius-pill); background:#fff;
+  border:1px solid var(--text-disabled);
+}
+
+/* ============================================================
+   CARDS
+   ============================================================ */
+.ds-card {
+  background:var(--card-bg); border:1px solid var(--divider-color);
+  border-radius:var(--radius-large); padding:24px; box-shadow:var(--shadow-medium);
+}
+
+/* ============================================================
+   PROFILE IMAGE
+   ============================================================ */
+.ds-profile-img {
+  width:120px; height:120px; border-radius:50%; border:4px solid #fff;
+  box-shadow:0 10px 30px rgba(0,0,0,.15); object-fit:cover;
+}
+
+/* ============================================================
+   BADGES
+   ============================================================ */
+.ds-badge {
+  border-radius:var(--radius-pill); padding:8px 14px; font-size:13px;
+  font-weight:600; display:inline-block; font-family:'Inter',sans-serif;
+}
+.ds-badge-verified { background:#E7F8F2; color:var(--success); }
+.ds-badge-inactive { background:#FFF2ED; color:var(--warning); }
+
+/* ============================================================
+   TABLES
+   ============================================================ */
+.ds-table-header { background:var(--neutral-bg); height:52px; font-size:14px; font-weight:600; color:#374151; }
+.ds-table-row    { height:54px; border-bottom:1px solid var(--divider-color); transition:background var(--transition-base); }
+.ds-table-row:hover    { background:rgba(23,76,204,.04); }
+.ds-table-row.selected { background:rgba(23,76,204,.08); }
+
+/* ============================================================
+   TABS
+   ============================================================ */
+.ds-tab {
+  height:44px; border-radius:var(--radius-medium); color:var(--text-secondary);
+  font-family:'Inter',sans-serif; font-weight:600; transition:color var(--transition-base);
+}
+.ds-tab.ds-tab-active { color:var(--primary); border-bottom:2px solid var(--primary); }
+
+/* ============================================================
+   DROPDOWN MENUS
+   ============================================================ */
+.ds-dropdown      { border-radius:var(--radius-medium); padding:8px; box-shadow:0 10px 35px rgba(0,0,0,.12); background:#fff; }
+.ds-dropdown-item { height:40px; display:flex; align-items:center; transition:background var(--transition-base); }
+.ds-dropdown-item:hover { background:#F5F8FF; }
+
+/* ============================================================
+   CHARTS (reference palette — use inline per chart library)
+   ============================================================ */
+.ds-chart-primary   { color:var(--primary); }
+.ds-chart-secondary { color:var(--success); }
+.ds-chart-accent    { color:var(--warning); }
+.ds-chart-neutral   { color:var(--text-light); }

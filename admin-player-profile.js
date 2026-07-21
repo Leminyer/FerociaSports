@@ -44,7 +44,7 @@
   let _ppCurrent = null;
 
   // ── Small shared helpers ────────────────────────────────────────────────
-  const ppSVG = (d, color = '#6b7a99', w = 12) =>
+  const ppSVG = (d, color = 'var(--text-muted)', w = 12) =>
     `<svg width="${w}" height="${w}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
   const ICONS = {
     gender:   '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
@@ -184,10 +184,10 @@
   const renderHeader = (d) => {
     const { p } = d;
     const initials = ((p.first_name || '')[0] || '').toUpperCase() + ((p.last_name || '')[0] || '').toUpperCase();
-    const avColors = ['#174CCC', '#F26024', '#24BC96', '#9a6e00', '#7B2FBE', '#C04A0E'];
+    const avColors = ['var(--blue)', 'var(--orange)', 'var(--teal)', '#9a6e00', '#7B2FBE', '#C04A0E'];
     const avColor  = avColors[p.id % avColors.length];
     const isActive = p.status === 'active';
-    const streakColor = d.streakType === 'W' ? '#24BC96' : '#F26024';
+    const streakColor = d.streakType === 'W' ? 'var(--teal)' : 'var(--orange)';
 
     document.getElementById('pp-crumb-name').textContent = `${p.first_name} ${p.last_name}`;
 
@@ -217,28 +217,28 @@
         </div>
         <div class="pp-actions-col">
           <div class="pp-actions">
-            <button class="pp-btn pp-btn-outline" data-action="ppPrevPlayer">${ppSVG(ICONS.arrowL, '#174CCC', 12)} Previous Player</button>
-            <button class="pp-btn pp-btn-outline" data-action="ppSendMessage">${ppSVG(ICONS.mail, '#174CCC', 12)} Send Message</button>
+            <button class="pp-btn pp-btn-outline" data-action="ppPrevPlayer">${ppSVG(ICONS.arrowL, 'var(--blue)', 12)} Previous Player</button>
+            <button class="pp-btn pp-btn-outline" data-action="ppSendMessage">${ppSVG(ICONS.mail, 'var(--blue)', 12)} Send Message</button>
             <div style="position:relative;">
-              <button class="pp-btn pp-btn-outline" data-action="ppToggleMore">More ${ppSVG(ICONS.dots, '#174CCC', 12)}</button>
+              <button class="pp-btn pp-btn-outline" data-action="ppToggleMore">More ${ppSVG(ICONS.dots, 'var(--blue)', 12)}</button>
               <div id="pp-more-menu" style="display:none;position:absolute;top:calc(100% + 6px);right:0;background:white;border:0.5px solid #e0e7f5;border-radius:10px;box-shadow:0 8px 24px rgba(8,15,46,.12);min-width:210px;z-index:60;overflow:hidden;">
-                <button data-action="ppEditPlayer" style="width:100%;text-align:left;padding:10px 14px;font-size:12px;font-weight:700;color:#0d1f4a;background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:8px;font-family:'Montserrat',sans-serif;">${ppSVG(ICONS.edit, '#6b7a99')} Edit Player</button>
-                <button data-action="ppViewHistory" style="width:100%;text-align:left;padding:10px 14px;font-size:12px;font-weight:700;color:#0d1f4a;background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:8px;font-family:'Montserrat',sans-serif;">${ppSVG(ICONS.history, '#6b7a99')} Status History</button>
-                ${p.portal_token ? `<button data-action="ppCopyDnaLink" style="width:100%;text-align:left;padding:10px 14px;font-size:12px;font-weight:700;color:#0d1f4a;background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:8px;font-family:'Montserrat',sans-serif;border-top:0.5px solid #f4f5f8;">${ppSVG(ICONS.link, '#6b7a99')} Copy Player DNA Link</button>` : ''}
-                ${(p.email && !p.email_verified) ? `<button data-action="ppResendEmailVerification" style="width:100%;text-align:left;padding:10px 14px;font-size:12px;font-weight:700;color:#0d1f4a;background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:8px;font-family:'Montserrat',sans-serif;border-top:0.5px solid #f4f5f8;">${ppSVG(ICONS.mail, '#6b7a99')} Resend Email Verification</button>` : ''}
-                ${(p.phone && !p.phone_verified) ? `<button data-action="ppResendSmsVerification" style="width:100%;text-align:left;padding:10px 14px;font-size:12px;font-weight:700;color:#0d1f4a;background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:8px;font-family:'Montserrat',sans-serif;${(p.email && !p.email_verified) ? '' : 'border-top:0.5px solid #f4f5f8;'}">${ppSVG(ICONS.phone, '#6b7a99')} Resend SMS Verification</button>` : ''}
-                <button data-action="ppResetPlayerDna" style="width:100%;text-align:left;padding:10px 14px;font-size:12px;font-weight:700;color:#F26024;background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:8px;font-family:'Montserrat',sans-serif;border-top:0.5px solid #f4f5f8;">${ppSVG('<polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>', '#F26024')} Reset Player DNA</button>
+                <button data-action="ppEditPlayer" style="width:100%;text-align:left;padding:10px 14px;font-size:12px;font-weight:700;color:var(--text);background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:8px;font-family:'Inter',sans-serif;">${ppSVG(ICONS.edit, 'var(--text-muted)')} Edit Player</button>
+                <button data-action="ppViewHistory" style="width:100%;text-align:left;padding:10px 14px;font-size:12px;font-weight:700;color:var(--text);background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:8px;font-family:'Inter',sans-serif;">${ppSVG(ICONS.history, 'var(--text-muted)')} Status History</button>
+                ${p.portal_token ? `<button data-action="ppCopyDnaLink" style="width:100%;text-align:left;padding:10px 14px;font-size:12px;font-weight:700;color:var(--text);background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:8px;font-family:'Inter',sans-serif;border-top:0.5px solid #f4f5f8;">${ppSVG(ICONS.link, 'var(--text-muted)')} Copy Player DNA Link</button>` : ''}
+                ${(p.email && !p.email_verified) ? `<button data-action="ppResendEmailVerification" style="width:100%;text-align:left;padding:10px 14px;font-size:12px;font-weight:700;color:var(--text);background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:8px;font-family:'Inter',sans-serif;border-top:0.5px solid #f4f5f8;">${ppSVG(ICONS.mail, 'var(--text-muted)')} Resend Email Verification</button>` : ''}
+                ${(p.phone && !p.phone_verified) ? `<button data-action="ppResendSmsVerification" style="width:100%;text-align:left;padding:10px 14px;font-size:12px;font-weight:700;color:var(--text);background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:8px;font-family:'Inter',sans-serif;${(p.email && !p.email_verified) ? '' : 'border-top:0.5px solid #f4f5f8;'}">${ppSVG(ICONS.phone, 'var(--text-muted)')} Resend SMS Verification</button>` : ''}
+                <button data-action="ppResetPlayerDna" style="width:100%;text-align:left;padding:10px 14px;font-size:12px;font-weight:700;color:var(--orange);background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:8px;font-family:'Inter',sans-serif;border-top:0.5px solid #f4f5f8;">${ppSVG('<polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>', 'var(--orange)')} Reset Player DNA</button>
               </div>
             </div>
           </div>
           <div class="pp-stats-box">
             <div class="pp-stat-mini">
-              <div class="pp-stat-mini-icon" style="background:#e8f0ff;">${ppSVG(ICONS.flag, '#174CCC', 16)}</div>
+              <div class="pp-stat-mini-icon" style="background:#e8f0ff;">${ppSVG(ICONS.flag, 'var(--blue)', 16)}</div>
               <div><div class="pp-stat-mini-val">${d.totalPlayed}</div><div class="pp-stat-mini-lbl">Matches Played</div></div>
             </div>
             <div class="pp-stat-mini">
-              <div class="pp-stat-mini-icon" style="background:rgba(36,188,150,0.12);">${ppSVG('<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>', '#24BC96', 16)}</div>
-              <div><div class="pp-stat-mini-val" style="color:#24BC96;">${d.winPct}%</div><div class="pp-stat-mini-lbl">Win Rate</div></div>
+              <div class="pp-stat-mini-icon" style="background:rgba(36,188,150,0.12);">${ppSVG('<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>', 'var(--teal)', 16)}</div>
+              <div><div class="pp-stat-mini-val" style="color:var(--teal);">${d.winPct}%</div><div class="pp-stat-mini-lbl">Win Rate</div></div>
             </div>
             <div class="pp-stat-mini">
               <div class="pp-stat-mini-icon" style="background:rgba(246,166,35,0.15);">${ppSVG(ICONS.trophy, '#9a6200', 16)}</div>
@@ -268,9 +268,9 @@
       return `
         <div class="ppm-snap-grid" style="grid-template-columns:repeat(4,1fr);">
           <div class="ppm-snap-card"><div class="ppm-snap-val">${inPeriod.length}</div><div class="ppm-snap-lbl">Matches Played</div></div>
-          <div class="ppm-snap-card"><div class="ppm-snap-val" style="color:#24BC96;">${wins}</div><div class="ppm-snap-lbl">Wins</div></div>
-          <div class="ppm-snap-card"><div class="ppm-snap-val" style="color:#F26024;">${losses}</div><div class="ppm-snap-lbl">Losses</div></div>
-          <div class="ppm-snap-card"><div class="ppm-snap-val" style="color:#174CCC;">${wr}%</div><div class="ppm-snap-lbl">Win Rate</div></div>
+          <div class="ppm-snap-card"><div class="ppm-snap-val" style="color:var(--teal);">${wins}</div><div class="ppm-snap-lbl">Wins</div></div>
+          <div class="ppm-snap-card"><div class="ppm-snap-val" style="color:var(--orange);">${losses}</div><div class="ppm-snap-lbl">Losses</div></div>
+          <div class="ppm-snap-card"><div class="ppm-snap-val" style="color:var(--blue);">${wr}%</div><div class="ppm-snap-lbl">Win Rate</div></div>
           <div class="ppm-snap-card"><div class="ppm-snap-val">${d.myTournaments.length}</div><div class="ppm-snap-lbl">Tournaments</div></div>
           <div class="ppm-snap-card"><div class="ppm-snap-val">${d.myLadders.length}</div><div class="ppm-snap-lbl">Ladder Season${d.myLadders.length !== 1 ? 's' : ''}</div></div>
           <div class="ppm-snap-card"><div class="ppm-snap-val" style="color:#b0bbd6;">—</div><div class="ppm-snap-lbl">Avg Opponent Level</div></div>
@@ -287,11 +287,11 @@
     const streakBannerHTML = d.streak > 0
       ? `<div class="pp-streak-banner ${d.streakType === 'W' ? 'pp-streak-good' : ''}">
           <span style="flex-shrink:0;">${d.streakType === 'W'
-            ? ppSVG('<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>', '#24BC96', 18)
-            : ppSVG('<path d="M12 2v20M4.93 4.93l14.14 14.14M19.07 4.93 4.93 19.07M2 12h20M6 6l4 4M18 6l-4 4M6 18l4-4M18 18l-4-4"/>', '#F26024', 18)}</span>
+            ? ppSVG('<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>', 'var(--teal)', 18)
+            : ppSVG('<path d="M12 2v20M4.93 4.93l14.14 14.14M19.07 4.93 4.93 19.07M2 12h20M6 6l4 4M18 6l-4 4M6 18l4-4M18 18l-4-4"/>', 'var(--orange)', 18)}</span>
           <div>
-            <div style="font-size:12px;font-weight:800;color:${d.streakType === 'W' ? '#085041' : '#F26024'};">${d.streak} Consecutive ${d.streakType === 'W' ? 'Win' : 'Loss'}${d.streak !== 1 ? 'es' : ''}</div>
-            <div style="font-size:10px;font-weight:600;color:#6b7a99;">${d.streakType === 'W' ? 'On fire!' : 'Keep pushing!'}</div>
+            <div style="font-size:12px;font-weight:800;color:${d.streakType === 'W' ? '#085041' : 'var(--orange)'};">${d.streak} Consecutive ${d.streakType === 'W' ? 'Win' : 'Loss'}${d.streak !== 1 ? 'es' : ''}</div>
+            <div style="font-size:10px;font-weight:600;color:var(--text-muted);">${d.streakType === 'W' ? 'On fire!' : 'Keep pushing!'}</div>
           </div>
         </div>` : '';
 
@@ -315,12 +315,12 @@
     const yFor = (wr) => chartH - padY - (wr / axisMax) * (chartH - padY * 2);
     const points = validPts.map((w) => `${w.i * xStep},${yFor(w.wr)}`).join(' ');
     const ticks = [axisMax, axisMax / 2, 0];
-    const gridSVG = ticks.map((t) => `<line x1="0" y1="${yFor(t)}" x2="${chartW}" y2="${yFor(t)}" stroke="#f0f2f8" stroke-width="1"/>`).join('');
+    const gridSVG = ticks.map((t) => `<line x1="0" y1="${yFor(t)}" x2="${chartW}" y2="${yFor(t)}" stroke="var(--bg)" stroke-width="1"/>`).join('');
     const trendSVG = validPts.length >= 2
       ? `<svg width="100%" height="${chartH}" viewBox="0 0 ${chartW} ${chartH}" preserveAspectRatio="none" style="overflow:visible;">
            ${gridSVG}
-           <polyline points="${points}" fill="none" stroke="#174CCC" stroke-width="2"/>
-           ${validPts.map((w) => `<circle cx="${w.i * xStep}" cy="${yFor(w.wr)}" r="2.5" fill="#174CCC"/>`).join('')}
+           <polyline points="${points}" fill="none" stroke="var(--blue)" stroke-width="2"/>
+           ${validPts.map((w) => `<circle cx="${w.i * xStep}" cy="${yFor(w.wr)}" r="2.5" fill="var(--blue)"/>`).join('')}
          </svg>`
       : '<div class="pp-empty">Not enough recent matches for a trend yet.</div>';
     const yAxisLabelsHTML = ticks.map((t) => `<span>${t}%</span>`).join('');
@@ -340,23 +340,23 @@
         nextActivityHTML = `
           <div style="background:rgba(36,188,150,0.06);border:0.5px solid rgba(36,188,150,0.2);border-radius:12px;padding:16px;">
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
-              ${ppSVG(ICONS.trophy, '#24BC96', 20)}
+              ${ppSVG(ICONS.trophy, 'var(--teal)', 20)}
               <div>
-                <div style="font-size:13px;font-weight:800;color:#0d1f4a;">${esc(d.activeLadder.name)}</div>
-                <div style="font-size:11px;font-weight:700;color:#6b7a99;">Round ${sessionCount + 1}</div>
+                <div style="font-size:13px;font-weight:800;color:var(--text);">${esc(d.activeLadder.name)}</div>
+                <div style="font-size:11px;font-weight:700;color:var(--text-muted);">Round ${sessionCount + 1}</div>
               </div>
             </div>
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
               <div style="text-align:center;background:#e8f0ff;border-radius:8px;padding:4px 9px;flex-shrink:0;">
-                <div style="font-size:8px;font-weight:800;color:#174CCC;text-transform:uppercase;">${est.toLocaleDateString('en-US', { month: 'short' })}</div>
-                <div style="font-family:'Bebas Neue',sans-serif;font-size:16px;color:#174CCC;line-height:1;">${est.getDate()}</div>
+                <div style="font-size:8px;font-weight:800;color:var(--blue);text-transform:uppercase;">${est.toLocaleDateString('en-US', { month: 'short' })}</div>
+                <div style="font-family:'Inter',sans-serif;font-size:16px;color:var(--blue);line-height:1;">${est.getDate()}</div>
               </div>
-              ${estTime ? `<span style="font-size:12px;font-weight:700;color:#0d1f4a;">${estTime}</span>` : ''}
+              ${estTime ? `<span style="font-size:12px;font-weight:700;color:var(--text);">${estTime}</span>` : ''}
             </div>
             ${d.activeLadder.location ? `
               <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
-                ${ppSVG(ICONS.pin, '#24BC96', 14)}
-                <span style="font-size:12px;font-weight:700;color:#0d1f4a;">${esc(d.activeLadder.location)}</span>
+                ${ppSVG(ICONS.pin, 'var(--teal)', 14)}
+                <span style="font-size:12px;font-weight:700;color:var(--text);">${esc(d.activeLadder.location)}</span>
               </div>` : ''}
           </div>
           <button class="pp-btn pp-btn-outline" style="width:100%;justify-content:center;margin-top:12px;" data-action="ppViewLadder" data-ladderid="${d.activeLadder.id}">View Ladder</button>`;
@@ -375,7 +375,7 @@
               <div class="ppm-tl-ctx">Ladder match</div>
             </div>
             <div style="text-align:right;flex-shrink:0;">
-              <div style="font-size:13px;font-weight:800;color:${won ? '#24BC96' : '#F26024'};">${m.score_for}–${m.score_against}</div>
+              <div style="font-size:13px;font-weight:800;color:${won ? 'var(--teal)' : 'var(--orange)'};">${m.score_for}–${m.score_against}</div>
               <div class="ppm-tl-date" style="margin-top:2px;">${fmtShort(m.session_date)}</div>
             </div>
           </div>`;
@@ -386,9 +386,9 @@
     const careerHTML = `
       <div class="ppm-career-grid" style="grid-template-columns:repeat(2,1fr);">
         <div class="ppm-career-card"><div class="ppm-career-lbl">Matches Played</div><div class="ppm-career-val">${d.totalPlayed}</div></div>
-        <div class="ppm-career-card"><div class="ppm-career-lbl">Win Rate</div><div class="ppm-career-val" style="color:#24BC96;">${d.winPct}%</div></div>
-        <div class="ppm-career-card"><div class="ppm-career-lbl">Total Wins</div><div class="ppm-career-val" style="color:#24BC96;">${d.totalWins}</div></div>
-        <div class="ppm-career-card"><div class="ppm-career-lbl">Total Losses</div><div class="ppm-career-val" style="color:#F26024;">${d.totalLosses}</div></div>
+        <div class="ppm-career-card"><div class="ppm-career-lbl">Win Rate</div><div class="ppm-career-val" style="color:var(--teal);">${d.winPct}%</div></div>
+        <div class="ppm-career-card"><div class="ppm-career-lbl">Total Wins</div><div class="ppm-career-val" style="color:var(--teal);">${d.totalWins}</div></div>
+        <div class="ppm-career-card"><div class="ppm-career-lbl">Total Losses</div><div class="ppm-career-val" style="color:var(--orange);">${d.totalLosses}</div></div>
         <div class="ppm-career-card"><div class="ppm-career-lbl">Best Win Streak</div><div class="ppm-career-val">${d.bestWinStreak}</div></div>
         <div class="ppm-career-card"><div class="ppm-career-lbl">Longest Loss Streak</div><div class="ppm-career-val">${d.longestLossStreak}</div></div>
       </div>`;
@@ -408,7 +408,7 @@
         <div class="pp-card">
           <div class="pp-card-hdr">
             <span class="pp-card-title" style="display:flex;align-items:center;gap:6px;">PERFORMANCE SNAPSHOT ${ppSVG('<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>', '#b0bbd6', 13)}</span>
-            <select id="pp-snap-period" style="font-size:11px;font-weight:700;color:#6b7a99;border:0.5px solid #e0e7f5;border-radius:99px;padding:4px 10px;background:#f8f9ff;font-family:'Montserrat',sans-serif;">
+            <select id="pp-snap-period" style="font-size:11px;font-weight:700;color:var(--text-muted);border:0.5px solid #e0e7f5;border-radius:99px;padding:4px 10px;background:#f8f9ff;font-family:'Inter',sans-serif;">
               <option value="30d">Last 30 Days</option>
               <option value="all">All Time</option>
             </select>
@@ -421,7 +421,7 @@
           <div class="pp-card-body">
             <div class="pp-form-row">${formDotsHTML}</div>
             ${streakBannerHTML}
-            <div style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;margin-bottom:6px;">Win Rate Trend</div>
+            <div style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:6px;">Win Rate Trend</div>
             <div style="display:flex;gap:6px;">
               <div style="display:flex;flex-direction:column;justify-content:space-between;font-size:8px;font-weight:700;color:#b0bbd6;height:${90}px;flex-shrink:0;">${yAxisLabelsHTML}</div>
               <div style="flex:1;min-width:0;">
@@ -475,7 +475,7 @@
     el.dataset.rendered = '1';
     el.innerHTML = `
       <div class="pp-soon-card">
-        <div class="pp-soon-icon">${ppSVG(ICONS.clock, '#174CCC', 24)}</div>
+        <div class="pp-soon-icon">${ppSVG(ICONS.clock, 'var(--blue)', 24)}</div>
         <div class="pp-soon-title">${label} — Coming Soon</div>
         <div class="pp-soon-text">This tab is being designed right now. Once the design is ready, it'll be built out here.</div>
       </div>`;

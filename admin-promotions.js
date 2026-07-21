@@ -42,7 +42,7 @@
     const slice   = filtered.slice(0, _subsShown);
     const total   = filtered.length;
 
-    const avColors = ['#174CCC','#24BC96','#F26024','#7c3aed','#0891b2','#d97706'];
+    const avColors = ['var(--blue)','var(--teal)','var(--orange)','#7c3aed','#0891b2','#d97706'];
     const getAv = (s) => {
       const str = `${s.first_name}${s.last_name}`;
       let h = 0; for (let i=0;i<str.length;i++) h=str.charCodeAt(i)+((h<<5)-h);
@@ -51,18 +51,18 @@
     const pillCSS = (status) => {
       if (status === 'active')       return 'background:rgba(36,188,150,0.12);color:#085041;';
       if (status === 'pending')      return 'background:rgba(242,96,36,0.12);color:#7a3d00;';
-      return 'background:rgba(107,122,153,0.12);color:#6b7a99;';
+      return 'background:rgba(107,122,153,0.12);color:var(--text-muted);';
     };
     const tableHTML = slice.length ? `
       <table style="width:100%;border-collapse:collapse;">
         <thead>
           <tr>
-            <th style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#0d1f4a;padding:10px 16px;text-align:left;border-bottom:0.5px solid #e0e7f5;background:#fafbff;">Subscriber</th>
-            <th style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#0d1f4a;padding:10px 16px;text-align:left;border-bottom:0.5px solid #e0e7f5;background:#fafbff;">Email</th>
-            <th style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#0d1f4a;padding:10px 16px;text-align:left;border-bottom:0.5px solid #e0e7f5;background:#fafbff;">Phone</th>
-            <th style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#0d1f4a;padding:10px 16px;text-align:left;border-bottom:0.5px solid #e0e7f5;background:#fafbff;">Skill</th>
-            <th style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#0d1f4a;padding:10px 16px;text-align:left;border-bottom:0.5px solid #e0e7f5;background:#fafbff;">Status</th>
-            <th style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#0d1f4a;padding:10px 16px;text-align:left;border-bottom:0.5px solid #e0e7f5;background:#fafbff;">Joined</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text);padding:10px 16px;text-align:left;border-bottom:0.5px solid #e0e7f5;background:#fafbff;">Subscriber</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text);padding:10px 16px;text-align:left;border-bottom:0.5px solid #e0e7f5;background:#fafbff;">Email</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text);padding:10px 16px;text-align:left;border-bottom:0.5px solid #e0e7f5;background:#fafbff;">Phone</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text);padding:10px 16px;text-align:left;border-bottom:0.5px solid #e0e7f5;background:#fafbff;">Skill</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text);padding:10px 16px;text-align:left;border-bottom:0.5px solid #e0e7f5;background:#fafbff;">Status</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text);padding:10px 16px;text-align:left;border-bottom:0.5px solid #e0e7f5;background:#fafbff;">Joined</th>
           </tr>
         </thead>
         <tbody>
@@ -72,16 +72,16 @@
               <td style="padding:11px 16px;border-bottom:0.5px solid #f4f5f8;vertical-align:middle;">
                 <div style="display:flex;align-items:center;gap:10px;">
                   <div style="width:30px;height:30px;border-radius:50%;background:${getAv(s)};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:white;flex-shrink:0;">${esc(initials)}</div>
-                  <div style="font-size:13px;font-weight:700;color:#0d1f4a;">${esc(s.first_name)} ${esc(s.last_name)}</div>
+                  <div style="font-size:13px;font-weight:700;color:var(--text);">${esc(s.first_name)} ${esc(s.last_name)}</div>
                 </div>
               </td>
-              <td style="padding:11px 16px;border-bottom:0.5px solid #f4f5f8;font-size:12px;color:#6b7a99;">${esc(s.email || '—')}</td>
-              <td style="padding:11px 16px;border-bottom:0.5px solid #f4f5f8;font-size:12px;color:#6b7a99;">${esc(s.phone || '—')}</td>
-              <td style="padding:11px 16px;border-bottom:0.5px solid #f4f5f8;font-size:12px;color:#6b7a99;text-transform:capitalize;">${esc(s.skill_level || '—')}</td>
+              <td style="padding:11px 16px;border-bottom:0.5px solid #f4f5f8;font-size:12px;color:var(--text-muted);">${esc(s.email || '—')}</td>
+              <td style="padding:11px 16px;border-bottom:0.5px solid #f4f5f8;font-size:12px;color:var(--text-muted);">${esc(s.phone || '—')}</td>
+              <td style="padding:11px 16px;border-bottom:0.5px solid #f4f5f8;font-size:12px;color:var(--text-muted);text-transform:capitalize;">${esc(s.skill_level || '—')}</td>
               <td style="padding:11px 16px;border-bottom:0.5px solid #f4f5f8;">
                 <span style="font-size:9px;font-weight:800;padding:3px 9px;border-radius:99px;letter-spacing:.5px;text-transform:uppercase;${pillCSS(s.status)}">${esc(s.status || '—')}</span>
               </td>
-              <td style="padding:11px 16px;border-bottom:0.5px solid #f4f5f8;font-size:11px;color:#6b7a99;">${fmtDate(s.subscribed_at) || '—'}</td>
+              <td style="padding:11px 16px;border-bottom:0.5px solid #f4f5f8;font-size:11px;color:var(--text-muted);">${fmtDate(s.subscribed_at) || '—'}</td>
             </tr>`;
           }).join('')}
         </tbody>
@@ -145,11 +145,11 @@
 
     // Update ctx lines with real trend data
     const ctxActive = document.getElementById('promo-ctx-active');
-    if (ctxActive) ctxActive.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#24BC96" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg> +${newThisMonth} this month`;
+    if (ctxActive) ctxActive.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg> +${newThisMonth} this month`;
     const ctxPending = document.getElementById('promo-ctx-pending');
-    if (ctxPending) ctxPending.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#F26024" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 17H2a3 3 0 0 0 3-3V9a7 7 0 0 1 14 0v5a3 3 0 0 0 3 3z"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg> Awaiting email verification`;
+    if (ctxPending) ctxPending.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 17H2a3 3 0 0 0 3-3V9a7 7 0 0 1 14 0v5a3 3 0 0 0 3 3z"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg> Awaiting email verification`;
     const ctxTotal = document.getElementById('promo-ctx-total');
-    if (ctxTotal) ctxTotal.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg> +${growthPct}% growth`;
+    if (ctxTotal) ctxTotal.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg> +${growthPct}% growth`;
 
     // Growth badge on QR card
     const badge = document.getElementById('promo-growth-badge');
@@ -176,7 +176,7 @@
         if (!url) return;
         navigator.clipboard.writeText(url).then(() => {
           copyBtn.textContent = 'Copied!';
-          copyBtn.style.color = '#24BC96';
+          copyBtn.style.color = 'var(--teal)';
           setTimeout(() => { copyBtn.textContent = 'Copy'; copyBtn.style.color = '#C6F221'; }, 2000);
         });
       });
@@ -319,7 +319,7 @@
       setEl('promo-audience-count', count);
 
       const recipEl = document.getElementById('promo-recipient-count');
-      if (recipEl) recipEl.innerHTML = `<span style="font-weight:800;color:#24BC96;">${count} active subscriber${count !== 1 ? 's' : ''}</span> will receive this campaign.`;
+      if (recipEl) recipEl.innerHTML = `<span style="font-weight:800;color:var(--teal);">${count} active subscriber${count !== 1 ? 's' : ''}</span> will receive this campaign.`;
 
       const last = campaigns?.[0] || null;
       setEl('promo-last-sent', last ? _relTimePromo(last.sent_at) : 'No campaigns yet');

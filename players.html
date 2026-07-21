@@ -16,24 +16,16 @@
 <meta name="twitter:title"       content="Ladder Hub — Ferocia Sports Center">
 <meta name="twitter:description" content="Track standings, sessions, and season activity at Ferocia Sports Center.">
 <meta name="twitter:image"       content="https://ferociasports.com/og-preview.png">
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="design-tokens.css">
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="db.js"></script>
 <script src="assets.js"></script>
 <style>
-  :root {
-    --blue:#174CCC; --blue-light:#9CE3FF; --blue-pale:#e8f0ff;
-    --teal:#24BC96; --teal-light:#d4f5ed;
-    --lime:#C6F221; --lime-dark:#7a9200;
-    --orange:#F26024; --orange-light:#fde8d8;
-    --white:#ffffff; --text:#0d1f4a; --text-muted:#6b7a99;
-    --border:#e0e7f5; --bg:#f0f2f8;
-    --gold:#FFD700; --silver:#C0C0C0; --bronze:#CD7F32;
-    --radius:12px; --radius-sm:8px;
-  }
+  /* Color/typography/radius tokens now come from design-tokens.css. */
   *{box-sizing:border-box;margin:0;padding:0;}
-  body{font-family:'Montserrat',sans-serif;background:var(--bg);color:var(--text);font-size:14px;}
+  body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-size:14px;}
 
   /* HEADER */
   header{background:#080f2e;padding:0 28px;display:flex;align-items:center;justify-content:space-between;height:68px;border-bottom:3px solid var(--lime);position:sticky;top:0;z-index:100;}
@@ -45,7 +37,7 @@
 
   /* NAV — matches admin style */
   nav{background:white;border-bottom:1.5px solid var(--border);display:flex;padding:0 32px;position:sticky;top:68px;z-index:99;box-shadow:0 2px 8px rgba(23,76,204,0.06);}
-  nav button{background:none;border:none;padding:13px 18px;font-size:10px;font-family:'Montserrat',sans-serif;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1.5px;white-space:nowrap;transition:color .15s,border-color .15s;}
+  nav button{background:none;border:none;padding:13px 18px;font-size:10px;font-family:'Inter',sans-serif;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1.5px;white-space:nowrap;transition:color .15s,border-color .15s;}
   nav button.active{color:var(--blue);border-bottom-color:var(--lime);}
   nav button:hover:not(.active){color:var(--text);background:#f8f9ff;}
 
@@ -54,63 +46,63 @@
   .page{display:none;}.page.active{display:block;}
 
   /* PAGE TITLE */
-  .page-title{font-family:'Bebas Neue',sans-serif;font-size:28px;color:#0d1f4a;letter-spacing:1px;line-height:1;margin-bottom:4px;}
-  .page-sub{font-size:12px;font-weight:600;color:#6b7a99;margin-bottom:20px;}
+  .page-title{font-family:'Inter',sans-serif;font-size:28px;color:var(--text);letter-spacing:1px;line-height:1;margin-bottom:4px;}
+  .page-sub{font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:20px;}
 
   /* STAT CARDS — exact admin style */
   .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;}
   .stat{background:white;border:0.5px solid var(--border);border-radius:10px;padding:16px 18px 14px;border-top:3px solid transparent;box-shadow:0 1px 4px rgba(23,76,204,0.06);display:flex;flex-direction:column;}
-  .stat.stat-blue{border-top-color:#174CCC;}
-  .stat.stat-green{border-top-color:#24BC96;}
+  .stat.stat-blue{border-top-color:var(--blue);}
+  .stat.stat-green{border-top-color:var(--teal);}
   .stat.stat-lime{border-top-color:#C6F221;}
   .stat.stat-gold{border-top-color:#FFD700;}
-  .stat-label{font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#0d1f4a;margin-bottom:6px;}
-  .stat-value{font-family:'Bebas Neue',sans-serif;font-size:40px;color:#0d1f4a;line-height:1;margin-bottom:5px;}
+  .stat-label{font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text);margin-bottom:6px;}
+  .stat-value{font-family:'Inter',sans-serif;font-size:40px;color:var(--text);line-height:1;margin-bottom:5px;}
   .stat-ctx{font-size:11px;font-weight:600;margin-top:auto;}
-  .ctx-blue{color:#174CCC;}.ctx-green{color:#24BC96;}.ctx-lime{color:#7a9200;}
-  .stat-leader-name{font-family:'Bebas Neue',sans-serif;font-size:24px;color:#0d1f4a;line-height:1.1;margin-bottom:4px;}
-  .stat-leader-pts{font-family:'Bebas Neue',sans-serif;font-size:30px;color:#174CCC;line-height:1;margin-bottom:3px;}
-  .stat-leader-week{font-size:11px;font-weight:700;color:#24BC96;margin-bottom:2px;}
-  .stat-leader-streak{font-size:11px;font-weight:600;color:#F26024;display:flex;align-items:center;gap:4px;}
+  .ctx-blue{color:var(--blue);}.ctx-green{color:var(--teal);}.ctx-lime{color:#7a9200;}
+  .stat-leader-name{font-family:'Inter',sans-serif;font-size:24px;color:var(--text);line-height:1.1;margin-bottom:4px;}
+  .stat-leader-pts{font-family:'Inter',sans-serif;font-size:30px;color:var(--blue);line-height:1;margin-bottom:3px;}
+  .stat-leader-week{font-size:11px;font-weight:700;color:var(--teal);margin-bottom:2px;}
+  .stat-leader-streak{font-size:11px;font-weight:600;color:var(--orange);display:flex;align-items:center;gap:4px;}
 
   /* MOMENTUM WATCH */
   .mom-item{display:flex;align-items:center;gap:8px;}
   .mom-icon{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
-  .mom-text{font-size:12px;font-weight:700;color:#0d1f4a;}
+  .mom-text{font-size:12px;font-weight:700;color:var(--text);}
   .mom-sub{font-size:11px;font-weight:600;color:var(--text-muted);}
-  .mom-divider{width:1px;height:28px;background:#e0e7f5;flex-shrink:0;}
+  .mom-divider{width:1px;height:28px;background:var(--border);flex-shrink:0;}
 
   /* CARD */
   .card{background:white;border:0.5px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:20px;box-shadow:0 2px 12px rgba(23,76,204,0.05);}
 
   /* SECTION HEADER — exact admin */
   .section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px;}
-  .dash-section-title{font-size:12px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#0d1f4a;}
+  .dash-section-title{font-size:12px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text);}
 
   /* PODIUM — exact admin */
-  .podium-row{display:grid;grid-template-columns:1fr 1fr;gap:0;border-bottom:0.5px solid #e0e7f5;}
+  .podium-row{display:grid;grid-template-columns:1fr 1fr;gap:0;border-bottom:0.5px solid var(--border);}
   .podium-row.single{grid-template-columns:1fr;}
   .podium-half{padding:20px 20px 0;}
-  .podium-half:first-child:not(:only-child){border-right:0.5px solid #e0e7f5;}
-  .podium-eyebrow{font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#0d1f4a;margin-bottom:14px;display:flex;align-items:center;gap:8px;}
-  .podium-eyebrow::after{content:'';flex:1;height:1px;background:#e0e7f5;}
+  .podium-half:first-child:not(:only-child){border-right:0.5px solid var(--border);}
+  .podium-eyebrow{font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text);margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+  .podium-eyebrow::after{content:'';flex:1;height:1px;background:var(--border);}
   .podium{display:flex;justify-content:center;align-items:flex-end;gap:24px;margin-bottom:0;}
   .podium-slot{display:flex;flex-direction:column;align-items:center;gap:6px;flex:1;max-width:160px;}
-  .podium-avatar{width:52px;height:52px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:18px;color:white;position:relative;letter-spacing:1px;}
+  .podium-avatar{width:52px;height:52px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Inter',sans-serif;font-size:18px;color:white;position:relative;letter-spacing:1px;}
   .podium-avatar.gold-first{width:62px;height:62px;font-size:20px;}
   .podium-avatar.gold{background:#FFD700;color:#7a5a00;}
   .podium-avatar.silver{background:#C0C0C0;color:#444;}
   .podium-avatar.bronze{background:#CD7F32;color:#fff;}
   .podium-crown{position:absolute;top:-13px;font-size:14px;}
-  .podium-name{font-size:12px;font-weight:800;text-align:center;line-height:1.3;color:#0d1f4a;white-space:nowrap;}
-  .podium-pts{font-family:'Bebas Neue',sans-serif;font-size:18px;font-weight:800;color:#174CCC;}
+  .podium-name{font-size:12px;font-weight:800;text-align:center;line-height:1.3;color:var(--text);white-space:nowrap;}
+  .podium-pts{font-family:'Inter',sans-serif;font-size:18px;font-weight:800;color:var(--blue);}
   .podium-bar{width:100%;border-radius:7px 7px 0 0;display:flex;align-items:center;justify-content:center;font-size:20px;}
   .podium-bar.gold{background:rgba(255,215,0,0.1);border:1.5px solid rgba(255,215,0,0.3);border-bottom:none;height:64px;}
   .podium-bar.silver{background:rgba(192,192,192,0.1);border:1.5px solid rgba(192,192,192,0.3);border-bottom:none;height:46px;}
   .podium-bar.bronze{background:rgba(205,127,50,0.1);border:1.5px solid rgba(205,127,50,0.25);border-bottom:none;height:34px;}
 
   /* STANDINGS TABLE — exact admin */
-  .rank-num{font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--text-muted);min-width:32px;display:inline-block;text-align:center;}
+  .rank-num{font-family:'Inter',sans-serif;font-size:22px;color:var(--text-muted);min-width:32px;display:inline-block;text-align:center;}
   .rank-num.top1{color:#c8920a;}.rank-num.top2{color:#888;}.rank-num.top3{color:#9e6229;}
   .player-cell{display:flex;align-items:center;gap:10px;}
   .player-initials{width:32px;height:32px;border-radius:50%;background:var(--blue-pale);color:var(--blue);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex-shrink:0;}
@@ -119,50 +111,50 @@
   .player-initials.top3{background:rgba(205,127,50,0.15);color:#7a3d00;}
   .player-name{font-size:13px;font-weight:700;color:var(--text);}
   .player-sub{font-size:11px;font-weight:600;color:var(--text-muted);margin-top:1px;}
-  .points-display{font-family:'Bebas Neue',sans-serif;font-size:24px;font-weight:800;color:var(--blue);}
-  .filter-select{font-size:12px;padding:6px 12px;font-family:'Montserrat',sans-serif;font-weight:700;border:0.5px solid var(--border);border-radius:99px;background:white;color:var(--text);cursor:pointer;outline:none;}
+  .points-display{font-family:'Inter',sans-serif;font-size:24px;font-weight:800;color:var(--blue);}
+  .filter-select{font-size:12px;padding:6px 12px;font-family:'Inter',sans-serif;font-weight:700;border:0.5px solid var(--border);border-radius:99px;background:white;color:var(--text);cursor:pointer;outline:none;}
   table{width:100%;border-collapse:collapse;font-size:13px;}
   th{text-align:left;padding:10px 14px;font-size:9px;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;border-bottom:0.5px solid var(--border);background:#fafbff;}
   td{padding:11px 14px;border-bottom:0.5px solid #f4f5f8;}
   tr:last-child td{border-bottom:none;}
   tr:hover td{background:#f8f9ff;}
-  .trend-up{display:flex;align-items:center;gap:4px;color:#24BC96;font-size:11px;font-weight:700;justify-content:center;}
-  .trend-fire{display:flex;align-items:center;gap:4px;color:#F26024;font-size:11px;font-weight:700;justify-content:center;}
+  .trend-up{display:flex;align-items:center;gap:4px;color:var(--teal);font-size:11px;font-weight:700;justify-content:center;}
+  .trend-fire{display:flex;align-items:center;gap:4px;color:var(--orange);font-size:11px;font-weight:700;justify-content:center;}
   .trend-neu{color:var(--text-muted);font-size:11px;font-weight:600;text-align:center;}
 
   /* SESSION CARDS — exact admin */
   .sess-summary-row{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px;}
-  .sess-sum-card{background:white;border:0.5px solid #e0e7f5;border-radius:10px;padding:16px 18px 14px;border-top:3px solid transparent;box-shadow:0 1px 4px rgba(23,76,204,0.06);display:flex;flex-direction:column;}
-  .sess-sum-card.sc-blue{border-top-color:#174CCC;}.sess-sum-card.sc-gold{border-top-color:#FFD700;}
-  .sess-sum-card.sc-teal{border-top-color:#24BC96;}.sess-sum-card.sc-orange{border-top-color:#F26024;}
-  .sess-sum-label{font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#0d1f4a;margin-bottom:6px;}
-  .sess-sum-val{font-family:'Bebas Neue',sans-serif;font-size:40px;color:#0d1f4a;line-height:1;margin-bottom:6px;}
-  .sess-sum-val-text{font-size:18px;font-weight:800;color:#0d1f4a;line-height:1.2;margin-bottom:6px;}
+  .sess-sum-card{background:white;border:0.5px solid var(--border);border-radius:10px;padding:16px 18px 14px;border-top:3px solid transparent;box-shadow:0 1px 4px rgba(23,76,204,0.06);display:flex;flex-direction:column;}
+  .sess-sum-card.sc-blue{border-top-color:var(--blue);}.sess-sum-card.sc-gold{border-top-color:#FFD700;}
+  .sess-sum-card.sc-teal{border-top-color:var(--teal);}.sess-sum-card.sc-orange{border-top-color:var(--orange);}
+  .sess-sum-label{font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text);margin-bottom:6px;}
+  .sess-sum-val{font-family:'Inter',sans-serif;font-size:40px;color:var(--text);line-height:1;margin-bottom:6px;}
+  .sess-sum-val-text{font-size:18px;font-weight:800;color:var(--text);line-height:1.2;margin-bottom:6px;}
   .sess-sum-ctx{font-size:11px;font-weight:600;color:var(--text-muted);margin-top:auto;}
-  .scc-blue{color:#174CCC;}.scc-green{color:#24BC96;}.scc-orange{color:#F26024;}.scc-gold{color:#9a6e00;}
+  .scc-blue{color:var(--blue);}.scc-green{color:var(--teal);}.scc-orange{color:var(--orange);}.scc-gold{color:#9a6e00;}
 
   /* COURT BLOCKS — exact admin */
-  .court-block{border:0.5px solid #e0e7f5;border-radius:8px;overflow:hidden;margin-bottom:10px;}
-  .court-block-hdr{display:flex;align-items:center;padding:9px 14px;background:#f8f9ff;border-bottom:0.5px solid #e0e7f5;}
-  .court-block-label{font-size:11px;font-weight:800;color:#174CCC;letter-spacing:.5px;text-transform:uppercase;}
+  .court-block{border:0.5px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:10px;}
+  .court-block-hdr{display:flex;align-items:center;padding:9px 14px;background:#f8f9ff;border-bottom:0.5px solid var(--border);}
+  .court-block-label{font-size:11px;font-weight:800;color:var(--blue);letter-spacing:.5px;text-transform:uppercase;}
   .sess-game-row{padding:10px 14px;border-bottom:0.5px solid #f4f5f8;display:flex;align-items:center;gap:8px;}
   .sess-game-row:last-child{border-bottom:none;}
-  .sess-game-label{font-size:11px;font-weight:800;color:#0d1f4a;min-width:60px;letter-spacing:.3px;}
+  .sess-game-label{font-size:11px;font-weight:800;color:var(--text);min-width:60px;letter-spacing:.3px;}
   .sess-game-body{flex:1;display:flex;align-items:center;gap:6px;}
   .sess-team-block{flex:1;display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:7px;}
   .sess-team-win{background:rgba(36,188,150,0.06);border:0.5px solid rgba(36,188,150,0.2);}
-  .sess-team-lose{background:#fafafa;border:0.5px solid #f0f2f8;opacity:0.75;}
+  .sess-team-lose{background:#fafafa;border:0.5px solid var(--bg);opacity:0.75;}
   .sess-team-pending{background:#fffbf0;border:0.5px solid #f0e0b0;}
-  .sess-team-names{flex:1;font-size:12px;font-weight:700;color:#0d1f4a;line-height:1.5;}
-  .sess-team-names.lose{color:#6b7a99;font-weight:600;}.sess-team-names.pending{color:#9a7000;}
+  .sess-team-names{flex:1;font-size:12px;font-weight:700;color:var(--text);line-height:1.5;}
+  .sess-team-names.lose{color:var(--text-muted);font-weight:600;}.sess-team-names.pending{color:#9a7000;}
   .sess-team-score{text-align:right;flex-shrink:0;}
-  .sess-score-num{font-family:'Bebas Neue',sans-serif;font-size:24px;line-height:1;display:block;}
-  .sess-score-win{color:#24BC96;}.sess-score-lose{color:#6b7a99;}.sess-score-pending{color:#c8a000;}
+  .sess-score-num{font-family:'Inter',sans-serif;font-size:24px;line-height:1;display:block;}
+  .sess-score-win{color:var(--teal);}.sess-score-lose{color:var(--text-muted);}.sess-score-pending{color:#c8a000;}
   .sess-score-pts{font-size:10px;font-weight:700;display:block;margin-top:1px;}
-  .sess-pts-win{color:#24BC96;}.sess-pts-lose{color:#6b7a99;}.sess-pts-pending{color:#c8a000;}
+  .sess-pts-win{color:var(--teal);}.sess-pts-lose{color:var(--text-muted);}.sess-pts-pending{color:#c8a000;}
   .sess-vs{font-size:10px;font-weight:800;color:rgba(23,76,204,0.3);flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:3px;}
   .sess-vs-line{width:1px;height:16px;background:rgba(23,76,204,0.15);}
-  .sub-pill-blue{display:inline-block;font-size:8px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;background:#e8f0ff;color:#174CCC;padding:1px 5px;border-radius:99px;margin-left:4px;vertical-align:middle;}
+  .sub-pill-blue{display:inline-block;font-size:8px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;background:#e8f0ff;color:var(--blue);padding:1px 5px;border-radius:99px;margin-left:4px;vertical-align:middle;}
 
   /* LOADING / EMPTY / ERROR */
   .loading,.empty{text-align:center;padding:48px 16px;color:var(--text-muted);font-weight:600;font-size:13px;}
@@ -185,40 +177,40 @@
     .stats-grid{grid-template-columns:1fr 1fr;}
     .sess-summary-row{grid-template-columns:1fr 1fr;}
     .podium-row{grid-template-columns:1fr;}
-    .podium-half:first-child:not(:only-child){border-right:none;border-bottom:0.5px solid #e0e7f5;}
+    .podium-half:first-child:not(:only-child){border-right:none;border-bottom:0.5px solid var(--border);}
     .card{padding:16px 14px;}
     th,td{padding:9px 10px;}
     .player-initials{display:none;}
   }
 
   /* ── FTC PUBLIC VIEW ─────────────────────────────────────── */
-  .ftc-inner-tab-row{display:flex;border-bottom:1.5px solid #e0e7f5;background:white;border-radius:12px 12px 0 0;border:0.5px solid #e0e7f5;border-bottom:none;}
-  .ftc-inner-tab{padding:10px 18px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;color:#6b7a99;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1.5px;white-space:nowrap;background:none;border-top:none;border-left:none;border-right:none;font-family:'Montserrat',sans-serif;}
-  .ftc-inner-tab.active{color:#174CCC;border-bottom-color:#174CCC;}
-  .ftc-tab-panel{background:white;border:0.5px solid #e0e7f5;border-top:none;border-radius:0 0 12px 12px;overflow:hidden;margin-bottom:14px;}
-  .ftc-week-hdr{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;cursor:pointer;background:#f8f9ff;border-bottom:0.5px solid #e0e7f5;}
+  .ftc-inner-tab-row{display:flex;border-bottom:1.5px solid var(--border);background:white;border-radius:12px 12px 0 0;border:0.5px solid var(--border);border-bottom:none;}
+  .ftc-inner-tab{padding:10px 18px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;color:var(--text-muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1.5px;white-space:nowrap;background:none;border-top:none;border-left:none;border-right:none;font-family:'Inter',sans-serif;}
+  .ftc-inner-tab.active{color:var(--blue);border-bottom-color:var(--blue);}
+  .ftc-tab-panel{background:white;border:0.5px solid var(--border);border-top:none;border-radius:0 0 12px 12px;overflow:hidden;margin-bottom:14px;}
+  .ftc-week-hdr{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;cursor:pointer;background:#f8f9ff;border-bottom:0.5px solid var(--border);}
   .ftc-week-hdr:hover{background:#f0f4ff;}
   .ftc-week-badge{width:22px;height:22px;border-radius:50%;color:white;font-size:10px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;}
   .ftc-matchup-row{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px;padding:12px 18px;border-bottom:0.5px solid #f4f5f8;background:white;}
   .ftc-matchup-row:last-child{border-bottom:none;}
   .ftc-sp-done{background:rgba(36,188,150,0.12);color:#085041;font-size:9px;font-weight:700;padding:2px 8px;border-radius:99px;}
-  .ftc-sp-prog{background:rgba(242,96,36,0.1);color:#F26024;font-size:9px;font-weight:700;padding:2px 8px;border-radius:99px;}
-  .ftc-sp-sched{background:#e8f0ff;color:#174CCC;font-size:9px;font-weight:700;padding:2px 8px;border-radius:99px;}
+  .ftc-sp-prog{background:rgba(242,96,36,0.1);color:var(--orange);font-size:9px;font-weight:700;padding:2px 8px;border-radius:99px;}
+  .ftc-sp-sched{background:#e8f0ff;color:var(--blue);font-size:9px;font-weight:700;padding:2px 8px;border-radius:99px;}
   .ftc-rank{width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:white;}
   .ftc-r1{background:linear-gradient(135deg,#f6d365,#fda085);}
   .ftc-r2{background:#C0C0C0;color:#444!important;}
   .ftc-r3{background:#CD7F32;}
-  .ftc-rn{background:#e0e7f5;color:#6b7a99!important;}
+  .ftc-rn{background:var(--border);color:var(--text-muted)!important;}
   .ftc-pill{display:inline-flex;padding:2px 7px;border-radius:99px;font-size:9px;font-weight:700;}
   .ftc-pw{background:rgba(36,188,150,0.12);color:#085041;}
-  .ftc-pl{background:rgba(242,96,36,0.08);color:#F26024;}
-  .ftc-pp{background:#f0f2f8;color:#6b7a99;}
+  .ftc-pl{background:rgba(242,96,36,0.08);color:var(--orange);}
+  .ftc-pp{background:var(--bg);color:var(--text-muted);}
   .ftc-dot{width:11px;height:11px;border-radius:50%;display:inline-block;}
-  .ftc-prog{height:5px;border-radius:99px;background:#e0e7f5;width:70px;overflow:hidden;display:inline-block;vertical-align:middle;}
+  .ftc-prog{height:5px;border-radius:99px;background:var(--border);width:70px;overflow:hidden;display:inline-block;vertical-align:middle;}
   .ftc-prog-f{height:100%;border-radius:99px;}
   .ftc-avatar{width:28px;height:28px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:white;flex-shrink:0;}
   .ftc-tbl{width:100%;border-collapse:collapse;}
-  .ftc-tbl th{font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:8px 10px;background:#f8f9ff;border-bottom:0.5px solid #e0e7f5;text-align:left;}
+  .ftc-tbl th{font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);padding:8px 10px;background:#f8f9ff;border-bottom:0.5px solid var(--border);text-align:left;}
   .ftc-tbl th.c{text-align:center;}
   .ftc-tbl td{padding:10px 10px;border-bottom:0.5px solid #f4f5f8;vertical-align:middle;}
   .ftc-tbl td.c{text-align:center;}
@@ -256,7 +248,7 @@
     <div class="stats-grid" id="ladder-stats" style="display:none;"></div>
 
     <!-- Momentum Watch — populated by renderMomentumWatch() -->
-    <div id="momentum-watch" style="display:none;background:white;border:0.5px solid #e0e7f5;border-radius:10px;padding:14px 18px;margin-bottom:14px;box-shadow:0 1px 4px rgba(23,76,204,0.06);"></div>
+    <div id="momentum-watch" style="display:none;background:white;border:0.5px solid var(--border);border-radius:10px;padding:14px 18px;margin-bottom:14px;box-shadow:0 1px 4px rgba(23,76,204,0.06);"></div>
 
     <!-- Podium + Table card — populated by renderStandings() -->
     <div class="card" id="standings-card">
@@ -270,7 +262,7 @@
     <div class="page-sub">Track standings, sessions, and season activity.</div>
     <div class="card">
       <div class="dash-section-title" style="margin-bottom:16px;display:flex;align-items:center;gap:8px;">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0d1f4a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--text)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
         Session History
       </div>
       <div id="sessions-content"><div class="loading">Loading sessions...</div></div>
@@ -393,7 +385,7 @@
     const climber    = ranked.slice().sort((a,b) => (recentPts[b.id]||0) - (recentPts[a.id]||0))[1] || ranked[0];
     const consistent = ranked.slice().sort((a,b) => (gameCounts[b.id]||0) - (gameCounts[a.id]||0))[0];
     const n = (p) => p ? `${esc(p.first_name)} ${esc(p.last_name)}` : '—';
-    el.style.cssText = 'display:flex;align-items:center;gap:20px;flex-wrap:wrap;background:white;border:0.5px solid #e0e7f5;border-radius:10px;padding:14px 18px;margin-bottom:14px;box-shadow:0 1px 4px rgba(23,76,204,0.06);';
+    el.style.cssText = 'display:flex;align-items:center;gap:20px;flex-wrap:wrap;background:white;border:0.5px solid var(--border);border-radius:10px;padding:14px 18px;margin-bottom:14px;box-shadow:0 1px 4px rgba(23,76,204,0.06);';
     el.innerHTML = `
       <div style="display:flex;align-items:center;gap:6px;font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);flex-shrink:0;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
@@ -427,7 +419,7 @@
     const medals = ['gold', 'silver', 'bronze'];
     const top    = players.slice(0, 3);
     const order  = top.length === 1 ? [0] : top.length === 2 ? [1, 0] : [1, 0, 2];
-    const icon   = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0d1f4a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4a2 2 0 0 1-2-2V5h4"/><path d="M18 9h2a2 2 0 0 0 2-2V5h-4"/><path d="M12 17v4"/><path d="M8 21h8"/><path d="M6 9a6 6 0 0 0 12 0V3H6v6z"/></svg>`;
+    const icon   = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4a2 2 0 0 1-2-2V5h4"/><path d="M18 9h2a2 2 0 0 0 2-2V5h-4"/><path d="M12 17v4"/><path d="M8 21h8"/><path d="M6 9a6 6 0 0 0 12 0V3H6v6z"/></svg>`;
     return `<div class="podium-half">
       <div class="podium-eyebrow">${icon} Top ${label}</div>
       <div class="podium">
@@ -491,9 +483,9 @@
       const rankClass = i === 0 ? 'top1' : i === 1 ? 'top2' : i === 2 ? 'top3' : '';
       let trendHTML;
       if (i === 0) {
-        trendHTML = `<div class="trend-fire"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#F26024" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Season leader</div>`;
+        trendHTML = `<div class="trend-fire"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Season leader</div>`;
       } else if (p._points > 0) {
-        trendHTML = `<div class="trend-up"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#24BC96" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>${p._points} pts earned</div>`;
+        trendHTML = `<div class="trend-up"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>${p._points} pts earned</div>`;
       } else {
         trendHTML = `<div class="trend-neu">—</div>`;
       }
@@ -509,10 +501,10 @@
           </div>
         </td>
         <td style="text-align:right;padding-right:16px;"><span class="points-display">${p._points}</span><span style="font-size:11px;color:var(--text-muted);font-weight:600;margin-left:2px;">pts</span></td>
-        <td style="text-align:center;font-size:13px;font-weight:800;color:${p._diff > 0 ? '#24BC96' : p._diff < 0 ? '#F26024' : '#6b7a99'};">${p._diff > 0 ? '+' : ''}${p._diff}</td>
-        <td style="text-align:center;font-size:13px;font-weight:700;color:#24BC96;">${p._wins}</td>
-        <td style="text-align:center;font-size:13px;font-weight:700;color:#F26024;">${p._losses}</td>
-        <td style="text-align:center;font-size:13px;font-weight:700;color:#6b7a99;">${p._matches}</td>
+        <td style="text-align:center;font-size:13px;font-weight:800;color:${p._diff > 0 ? 'var(--teal)' : p._diff < 0 ? 'var(--orange)' : 'var(--text-muted)'};">${p._diff > 0 ? '+' : ''}${p._diff}</td>
+        <td style="text-align:center;font-size:13px;font-weight:700;color:var(--teal);">${p._wins}</td>
+        <td style="text-align:center;font-size:13px;font-weight:700;color:var(--orange);">${p._losses}</td>
+        <td style="text-align:center;font-size:13px;font-weight:700;color:var(--text-muted);">${p._matches}</td>
         <td style="width:160px;">${trendHTML}</td>
       </tr>`;
     }).join('');
@@ -590,7 +582,7 @@
         <div class="stat-leader-pts">${leaderPts} PTS</div>
         <div class="stat-leader-week">↑ Season leader</div>
         <div class="stat-leader-streak">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#F26024" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
           Top of the ladder
         </div>
       </div>`;
@@ -636,11 +628,11 @@
   };
 
   const renderSessions = () => {
-    const calSVG=`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
-    const calSm=`<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#6b7a99" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
-    const plrSm=`<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#6b7a99" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>`;
-    const subSm=`<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#6b7a99" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`;
-    const gameSm=`<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#6b7a99" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="5"/><path d="M8.56 13.9l-1.56 6.1 5-3 5 3-1.56-6.1"/></svg>`;
+    const calSVG=`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
+    const calSm=`<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
+    const plrSm=`<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>`;
+    const subSm=`<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`;
+    const gameSm=`<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="5"/><path d="M8.56 13.9l-1.56 6.1 5-3 5 3-1.56-6.1"/></svg>`;
 
     if (!sessionsRpcData.length) {
       document.getElementById('sessions-content').innerHTML = '<div class="empty">No sessions recorded yet.</div>';
@@ -679,14 +671,14 @@
           <div class="session-date-header ${isFirst?'open':''}"
                onclick="toggleSessionGroup('${groupId}')"
                style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:8px;cursor:pointer;background:#e8f0ff;border:0.5px solid #c5d6f5;user-select:none;">
-            <span class="sdg-chevron ${isFirst?'sdg-chevron-open':''}" style="font-size:11px;font-weight:800;color:#174CCC;transition:transform .2s;">▼</span>
+            <span class="sdg-chevron ${isFirst?'sdg-chevron-open':''}" style="font-size:11px;font-weight:800;color:var(--blue);transition:transform .2s;">▼</span>
             <div style="flex:1;min-width:0;">
-              <div style="font-size:13px;font-weight:800;color:#174CCC;display:flex;align-items:center;gap:8px;">${calSVG} ${esc(dateLabel)}</div>
+              <div style="font-size:13px;font-weight:800;color:var(--blue);display:flex;align-items:center;gap:8px;">${calSVG} ${esc(dateLabel)}</div>
               <div style="display:flex;align-items:center;gap:14px;margin-top:4px;">
-                <span style="font-size:11px;font-weight:600;color:#6b7a99;display:flex;align-items:center;gap:4px;">${calSm} ${courtCount} Court${courtCount!==1?'s':''}</span>
-                <span style="font-size:11px;font-weight:600;color:#6b7a99;display:flex;align-items:center;gap:4px;">${gameSm} ${totalGames} Games</span>
-                <span style="font-size:11px;font-weight:600;color:#6b7a99;display:flex;align-items:center;gap:4px;">${plrSm} ${uniquePlayers} Players</span>
-                <span style="font-size:11px;font-weight:600;color:#6b7a99;display:flex;align-items:center;gap:4px;">${subSm} ${subCount} Subs</span>
+                <span style="font-size:11px;font-weight:600;color:var(--text-muted);display:flex;align-items:center;gap:4px;">${calSm} ${courtCount} Court${courtCount!==1?'s':''}</span>
+                <span style="font-size:11px;font-weight:600;color:var(--text-muted);display:flex;align-items:center;gap:4px;">${gameSm} ${totalGames} Games</span>
+                <span style="font-size:11px;font-weight:600;color:var(--text-muted);display:flex;align-items:center;gap:4px;">${plrSm} ${uniquePlayers} Players</span>
+                <span style="font-size:11px;font-weight:600;color:var(--text-muted);display:flex;align-items:center;gap:4px;">${subSm} ${subCount} Subs</span>
               </div>
             </div>
           </div>
@@ -752,9 +744,9 @@
             </div>`;
             }).join('');
             return `<div style="margin-bottom:10px;">
-              <div style="display:flex;align-items:center;gap:8px;padding:6px 12px;background:#f4f6fc;border-radius:6px;margin-bottom:6px;border-left:3px solid #174CCC;">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                <span style="font-size:11px;font-weight:800;color:#174CCC;">${fmtTime12(time)}</span>
+              <div style="display:flex;align-items:center;gap:8px;padding:6px 12px;background:#f4f6fc;border-radius:6px;margin-bottom:6px;border-left:3px solid var(--blue);">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <span style="font-size:11px;font-weight:800;color:var(--blue);">${fmtTime12(time)}</span>
               </div>
               ${timeBlockHTML}
             </div>`;
@@ -939,7 +931,7 @@
     const tName  = (id) => teams.find(t => t.id === id)?.name || `Team #${id}`;
     const pName  = (id) => { const p = playerRows.find(x => x.id === id); return p ? `${p.first_name} ${p.last_name}` : `#${id}`; };
     const pInit  = (id) => { const p = playerRows.find(x => x.id === id); return p ? `${(p.first_name||'')[0]||''}${(p.last_name||'')[0]||''}`.toUpperCase() : '?'; };
-    const colors = ['#174CCC','#F26024','#24BC96','#9a6e00','#7B2FBE','#C04A0E'];
+    const colors = ['var(--blue)','var(--orange)','var(--teal)','#9a6e00','#7B2FBE','#C04A0E'];
 
     const completedMatches  = matchRows.filter(m => m.status === 'completed');
     const totalWeeks        = [...new Set(schedRows.map(s => s.week_number))].length;
@@ -1050,11 +1042,11 @@
     document.getElementById('ftc-pub-podium').innerHTML = `
       <div class="podium-row">
         <div class="podium-half">
-          <div class="podium-eyebrow"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0d1f4a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4a2 2 0 0 1-2-2V5h4"/><path d="M18 9h2a2 2 0 0 0 2-2V5h-4"/><path d="M12 17v4"/><path d="M8 21h8"/><path d="M6 9a6 6 0 0 0 12 0V3H6v6z"/></svg>Team Standings</div>
+          <div class="podium-eyebrow"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4a2 2 0 0 1-2-2V5h4"/><path d="M18 9h2a2 2 0 0 0 2-2V5h-4"/><path d="M12 17v4"/><path d="M8 21h8"/><path d="M6 9a6 6 0 0 0 12 0V3H6v6z"/></svg>Team Standings</div>
           <div class="podium">${renderPodium(top3T,'team')}</div>
         </div>
         <div class="podium-half">
-          <div class="podium-eyebrow"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0d1f4a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Top Player Performers</div>
+          <div class="podium-eyebrow"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Top Player Performers</div>
           <div class="podium">${renderPPodium()}</div>
         </div>
       </div>`;
@@ -1063,17 +1055,17 @@
     const typePill = (type, stat) => {
       if (!stat || (stat.w+stat.l)===0) return '<span style="color:#b0bbd6;font-size:10px;">—</span>';
       const bg  = {mens:'#e8f0ff',womens:'rgba(242,96,36,0.1)',mixed1:'rgba(36,188,150,0.1)',mixed2:'rgba(154,110,0,0.1)'};
-      const clr = {mens:'#174CCC',womens:'#F26024',mixed1:'#24BC96',mixed2:'#9a6e00'};
-      return `<span class="ftc-pill" style="background:${bg[type]||'#f0f2f8'};color:${clr[type]||'#6b7a99'};">${stat.w}W ${stat.l}L</span>`;
+      const clr = {mens:'var(--blue)',womens:'var(--orange)',mixed1:'var(--teal)',mixed2:'#9a6e00'};
+      return `<span class="ftc-pill" style="background:${bg[type]||'var(--bg)'};color:${clr[type]||'var(--text-muted)'};">${stat.w}W ${stat.l}L</span>`;
     };
 
     // ── Team standings table ─────────────────────────────────────────────────
     const rankBadge = (i) => {
       const bg = ['background:linear-gradient(135deg,#f6d365,#fda085)','background:#C0C0C0;color:#444','background:#CD7F32'];
-      return `<span class="ftc-rank" style="${bg[i]||'background:#e0e7f5;color:#6b7a99;'}">${i+1}</span>`;
+      return `<span class="ftc-rank" style="${bg[i]||'background:var(--border);color:var(--text-muted);'}">${i+1}</span>`;
     };
     const formDots = (form) => form.slice(-5).map(r =>
-      `<span class="ftc-dot" style="background:${r==='W'?'#24BC96':'#F26024'};"></span>`).join('');
+      `<span class="ftc-dot" style="background:${r==='W'?'var(--teal)':'var(--orange)'};"></span>`).join('');
 
     document.getElementById('ftc-pub-team-panel').innerHTML = `
       <table class="ftc-tbl">
@@ -1088,16 +1080,16 @@
             const diff = ts.ptsFor - ts.ptsAgainst;
             return `<tr>
               <td style="padding:10px 8px 10px 14px;">${rankBadge(i)}</td>
-              <td style="font-size:13px;font-weight:800;color:#0d1f4a;">${esc(ts.team.name)}</td>
-              <td class="c"><span style="font-size:14px;font-weight:800;color:#174CCC;">${ts.pts}</span></td>
-              <td class="c" style="font-weight:700;color:#24BC96;">${ts.wins}</td>
-              <td class="c" style="font-weight:700;color:#F26024;">${ts.losses}</td>
-              <td class="c" style="font-weight:700;color:${diff>=0?'#24BC96':'#F26024'};">${diff>=0?'+':''}${diff}</td>
+              <td style="font-size:13px;font-weight:800;color:var(--text);">${esc(ts.team.name)}</td>
+              <td class="c"><span style="font-size:14px;font-weight:800;color:var(--blue);">${ts.pts}</span></td>
+              <td class="c" style="font-weight:700;color:var(--teal);">${ts.wins}</td>
+              <td class="c" style="font-weight:700;color:var(--orange);">${ts.losses}</td>
+              <td class="c" style="font-weight:700;color:${diff>=0?'var(--teal)':'var(--orange)'};">${diff>=0?'+':''}${diff}</td>
               <td class="c">${typePill('mens',ts.byType.mens)}</td>
               <td class="c">${typePill('womens',ts.byType.womens)}</td>
               <td class="c">${typePill('mixed1',ts.byType.mixed1)}</td>
               <td class="c">${typePill('mixed2',ts.byType.mixed2)}</td>
-              <td class="c" style="color:#6b7a99;font-weight:600;">${ts.wins+ts.losses}</td>
+              <td class="c" style="color:var(--text-muted);font-weight:600;">${ts.wins+ts.losses}</td>
               <td style="padding-left:8px;"><div style="display:flex;gap:3px;">${formDots(ts.form)}</div></td>
             </tr>`;
           }).join('')}
@@ -1107,7 +1099,7 @@
     // ── Player stats table ────────────────────────────────────────────────────
     const typeLbls = {mens:'MD',womens:'WD',mixed1:'MX1',mixed2:'MX2'};
     const typeBg   = {mens:'#e8f0ff',womens:'rgba(242,96,36,0.1)',mixed1:'rgba(36,188,150,0.1)',mixed2:'rgba(154,110,0,0.1)'};
-    const typeClr  = {mens:'#174CCC',womens:'#F26024',mixed1:'#24BC96',mixed2:'#9a6e00'};
+    const typeClr  = {mens:'var(--blue)',womens:'var(--orange)',mixed1:'var(--teal)',mixed2:'#9a6e00'};
 
     document.getElementById('ftc-pub-player-panel').innerHTML = `
       <table class="ftc-tbl">
@@ -1123,34 +1115,34 @@
             const avClr  = colors[pi % colors.length];
             const teamNm = esc(tName(ps.teamId));
             const histRows = ps.history.map(h => `<tr>
-              <td style="font-size:11px;padding:5px 8px;border-bottom:0.5px solid #f0f2f8;">Wk ${h.week}</td>
-              <td style="padding:5px 8px;border-bottom:0.5px solid #f0f2f8;"><span style="font-size:8px;font-weight:800;padding:1px 5px;border-radius:4px;background:${typeBg[h.type]||'#f0f2f8'};color:${typeClr[h.type]||'#6b7a99'};">${typeLbls[h.type]||h.type}</span></td>
-              <td style="font-size:11px;padding:5px 8px;border-bottom:0.5px solid #f0f2f8;color:#6b7a99;">${esc(pName(h.partner))}</td>
-              <td style="font-size:11px;padding:5px 8px;border-bottom:0.5px solid #f0f2f8;color:#6b7a99;">${esc(pName(h.opp1))} / ${esc(pName(h.opp2))}</td>
-              <td style="font-size:11px;font-weight:800;padding:5px 8px;border-bottom:0.5px solid #f0f2f8;text-align:center;color:${h.won?'#24BC96':'#F26024'};">${h.scoreA}–${h.scoreB}</td>
-              <td style="padding:5px 8px;border-bottom:0.5px solid #f0f2f8;text-align:center;"><span class="ftc-pill ${h.won?'ftc-pw':'ftc-pl'}">${h.won?'W':'L'}</span></td>
-              <td style="font-size:11px;font-weight:700;padding:5px 8px;border-bottom:0.5px solid #f0f2f8;text-align:center;color:${h.won?'#24BC96':'#F26024'};">+${h.pts}</td>
+              <td style="font-size:11px;padding:5px 8px;border-bottom:0.5px solid var(--bg);">Wk ${h.week}</td>
+              <td style="padding:5px 8px;border-bottom:0.5px solid var(--bg);"><span style="font-size:8px;font-weight:800;padding:1px 5px;border-radius:4px;background:${typeBg[h.type]||'var(--bg)'};color:${typeClr[h.type]||'var(--text-muted)'};">${typeLbls[h.type]||h.type}</span></td>
+              <td style="font-size:11px;padding:5px 8px;border-bottom:0.5px solid var(--bg);color:var(--text-muted);">${esc(pName(h.partner))}</td>
+              <td style="font-size:11px;padding:5px 8px;border-bottom:0.5px solid var(--bg);color:var(--text-muted);">${esc(pName(h.opp1))} / ${esc(pName(h.opp2))}</td>
+              <td style="font-size:11px;font-weight:800;padding:5px 8px;border-bottom:0.5px solid var(--bg);text-align:center;color:${h.won?'var(--teal)':'var(--orange)'};">${h.scoreA}–${h.scoreB}</td>
+              <td style="padding:5px 8px;border-bottom:0.5px solid var(--bg);text-align:center;"><span class="ftc-pill ${h.won?'ftc-pw':'ftc-pl'}">${h.won?'W':'L'}</span></td>
+              <td style="font-size:11px;font-weight:700;padding:5px 8px;border-bottom:0.5px solid var(--bg);text-align:center;color:${h.won?'var(--teal)':'var(--orange)'};">+${h.pts}</td>
             </tr>`).join('');
             return `<tr style="cursor:pointer;border-bottom:0.5px solid #f4f5f8;" onclick="ftcPubTogglePlayer('ftc-pub-pr-${ps.id}')">
               <td style="padding:10px 8px 10px 14px;">
                 <div style="display:flex;align-items:center;gap:8px;">
                   <div class="ftc-avatar" style="background:${avClr};">${pInit(ps.id)}</div>
                   <div>
-                    <div style="font-size:12px;font-weight:800;color:#0d1f4a;">${esc(pName(ps.id))}</div>
-                    <div style="font-size:9px;font-weight:600;color:#6b7a99;">${teamNm}</div>
+                    <div style="font-size:12px;font-weight:800;color:var(--text);">${esc(pName(ps.id))}</div>
+                    <div style="font-size:9px;font-weight:600;color:var(--text-muted);">${teamNm}</div>
                   </div>
                 </div>
               </td>
               <td class="c" style="font-weight:700;">${ps.played}</td>
-              <td class="c" style="font-weight:700;color:#24BC96;">${ps.wins}</td>
-              <td class="c" style="font-weight:700;color:#F26024;">${ps.losses}</td>
+              <td class="c" style="font-weight:700;color:var(--teal);">${ps.wins}</td>
+              <td class="c" style="font-weight:700;color:var(--orange);">${ps.losses}</td>
               <td class="c">
                 <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
-                  <span style="font-weight:800;font-size:12px;color:${winPct>=50?'#24BC96':'#F26024'};">${winPct}%</span>
-                  <div class="ftc-prog"><div class="ftc-prog-f" style="width:${winPct}%;background:${winPct>=50?'#24BC96':'#F26024'};"></div></div>
+                  <span style="font-weight:800;font-size:12px;color:${winPct>=50?'var(--teal)':'var(--orange)'};">${winPct}%</span>
+                  <div class="ftc-prog"><div class="ftc-prog-f" style="width:${winPct}%;background:${winPct>=50?'var(--teal)':'var(--orange)'};"></div></div>
                 </div>
               </td>
-              <td class="c"><span style="font-size:14px;font-weight:800;color:#174CCC;">${ps.pts}</span></td>
+              <td class="c"><span style="font-size:14px;font-weight:800;color:var(--blue);">${ps.pts}</span></td>
               <td class="c">${typePill('mens',ps.byType.mens)}</td>
               <td class="c">${typePill('womens',ps.byType.womens)}</td>
               <td class="c">${typePill('mixed1',ps.byType.mixed1)}</td>
@@ -1159,16 +1151,16 @@
             <tr id="ftc-pub-pr-${ps.id}" style="display:none;" class="ftc-expand-row">
               <td colspan="10">
                 <div style="padding:12px 16px;">
-                  <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#174CCC;margin-bottom:8px;">${esc(pName(ps.id))} — Match History</div>
+                  <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--blue);margin-bottom:8px;">${esc(pName(ps.id))} — Match History</div>
                   <table style="width:100%;border-collapse:collapse;">
                     <tr>
-                      <th style="background:transparent;font-size:9px;color:#6b7a99;padding:4px 8px;border-bottom:0.5px solid #e0e7f5;">Week</th>
-                      <th style="background:transparent;font-size:9px;color:#6b7a99;padding:4px 8px;border-bottom:0.5px solid #e0e7f5;">Type</th>
-                      <th style="background:transparent;font-size:9px;color:#6b7a99;padding:4px 8px;border-bottom:0.5px solid #e0e7f5;">Partner</th>
-                      <th style="background:transparent;font-size:9px;color:#6b7a99;padding:4px 8px;border-bottom:0.5px solid #e0e7f5;">vs Opponents</th>
-                      <th style="background:transparent;font-size:9px;color:#6b7a99;padding:4px 8px;border-bottom:0.5px solid #e0e7f5;text-align:center;">Score</th>
-                      <th style="background:transparent;font-size:9px;color:#6b7a99;padding:4px 8px;border-bottom:0.5px solid #e0e7f5;text-align:center;">Result</th>
-                      <th style="background:transparent;font-size:9px;color:#6b7a99;padding:4px 8px;border-bottom:0.5px solid #e0e7f5;text-align:center;">Pts</th>
+                      <th style="background:transparent;font-size:9px;color:var(--text-muted);padding:4px 8px;border-bottom:0.5px solid var(--border);">Week</th>
+                      <th style="background:transparent;font-size:9px;color:var(--text-muted);padding:4px 8px;border-bottom:0.5px solid var(--border);">Type</th>
+                      <th style="background:transparent;font-size:9px;color:var(--text-muted);padding:4px 8px;border-bottom:0.5px solid var(--border);">Partner</th>
+                      <th style="background:transparent;font-size:9px;color:var(--text-muted);padding:4px 8px;border-bottom:0.5px solid var(--border);">vs Opponents</th>
+                      <th style="background:transparent;font-size:9px;color:var(--text-muted);padding:4px 8px;border-bottom:0.5px solid var(--border);text-align:center;">Score</th>
+                      <th style="background:transparent;font-size:9px;color:var(--text-muted);padding:4px 8px;border-bottom:0.5px solid var(--border);text-align:center;">Result</th>
+                      <th style="background:transparent;font-size:9px;color:var(--text-muted);padding:4px 8px;border-bottom:0.5px solid var(--border);text-align:center;">Pts</th>
                     </tr>
                     ${histRows}
                   </table>
@@ -1194,9 +1186,9 @@
 
     const schedEl = document.getElementById('ftc-pub-schedule');
     if (!schedEl) return;
-    schedEl.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:0.5px solid #e0e7f5;">
-      <div style="font-size:14px;font-weight:800;color:#0d1f4a;">Schedule &amp; Results</div>
-      <span style="font-size:11px;color:#6b7a99;">${totalWeeks} weeks · ${schedRows.filter(s=>!s.is_bye).length} matchups</span>
+    schedEl.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:0.5px solid var(--border);">
+      <div style="font-size:14px;font-weight:800;color:var(--text);">Schedule &amp; Results</div>
+      <span style="font-size:11px;color:var(--text-muted);">${totalWeeks} weeks · ${schedRows.filter(s=>!s.is_bye).length} matchups</span>
     </div>` +
     weekNums.map((wn, wi) => {
       const wRows = byWeek[wn];
@@ -1204,7 +1196,7 @@
       const allDone = wRows.every(s => s.status === 'completed');
       const anyProg = wRows.some(s => s.status === 'in_progress');
       const wStatus = allDone ? 'completed' : anyProg ? 'in_progress' : 'scheduled';
-      const badgeBg = wStatus==='completed'?'#24BC96':wStatus==='in_progress'?'#F26024':'#174CCC';
+      const badgeBg = wStatus==='completed'?'var(--teal)':wStatus==='in_progress'?'var(--orange)':'var(--blue)';
       const isFirst = wi === 0;
 
       const matchupRows = wRows.map(s => {
@@ -1214,17 +1206,17 @@
         const done  = s.status === 'completed';
         return `<div class="ftc-matchup-row">
           <div style="text-align:right;">
-            <div style="font-size:13px;font-weight:800;color:${done&&winsA>winsB?'#24BC96':'#0d1f4a'};">${esc(tName(s.team_a_id))}</div>
-            ${done && winsA>winsB ? `<div style="font-size:10px;font-weight:600;color:#24BC96;">Winner · ${winsA}–${winsB}</div>` : ''}
+            <div style="font-size:13px;font-weight:800;color:${done&&winsA>winsB?'var(--teal)':'var(--text)'};">${esc(tName(s.team_a_id))}</div>
+            ${done && winsA>winsB ? `<div style="font-size:10px;font-weight:600;color:var(--teal);">Winner · ${winsA}–${winsB}</div>` : ''}
           </div>
           <div style="display:flex;align-items:center;gap:8px;justify-content:center;">
-            <span style="font-size:18px;font-weight:800;color:${done&&winsA>winsB?'#24BC96':'#b0bbd6'};">${done?winsA:'—'}</span>
-            <span style="font-size:10px;font-weight:700;color:#b0bbd6;background:#f0f2f8;padding:2px 6px;border-radius:99px;">vs</span>
-            <span style="font-size:18px;font-weight:800;color:${done&&winsB>winsA?'#24BC96':'#b0bbd6'};">${done?winsB:'—'}</span>
+            <span style="font-size:18px;font-weight:800;color:${done&&winsA>winsB?'var(--teal)':'#b0bbd6'};">${done?winsA:'—'}</span>
+            <span style="font-size:10px;font-weight:700;color:#b0bbd6;background:var(--bg);padding:2px 6px;border-radius:99px;">vs</span>
+            <span style="font-size:18px;font-weight:800;color:${done&&winsB>winsA?'var(--teal)':'#b0bbd6'};">${done?winsB:'—'}</span>
           </div>
           <div>
-            <div style="font-size:13px;font-weight:800;color:${done&&winsB>winsA?'#24BC96':'#0d1f4a'};">${esc(tName(s.team_b_id))}</div>
-            ${done && winsB>winsA ? `<div style="font-size:10px;font-weight:600;color:#24BC96;">Winner · ${winsB}–${winsA}</div>` : ''}
+            <div style="font-size:13px;font-weight:800;color:${done&&winsB>winsA?'var(--teal)':'var(--text)'};">${esc(tName(s.team_b_id))}</div>
+            ${done && winsB>winsA ? `<div style="font-size:10px;font-weight:600;color:var(--teal);">Winner · ${winsB}–${winsA}</div>` : ''}
           </div>
         </div>`;
       }).join('');
@@ -1234,8 +1226,8 @@
           <div style="display:flex;align-items:center;gap:10px;">
             <span class="ftc-week-badge" style="background:${badgeBg};">${wn}</span>
             <div>
-              <div style="font-size:12px;font-weight:800;color:#0d1f4a;display:flex;align-items:center;gap:6px;">Week ${wn} ${statusLabel(wStatus)}</div>
-              ${firstDate ? `<div style="font-size:10px;font-weight:600;color:#6b7a99;">${new Date(firstDate+'T00:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})} · ${wRows.length} matchup${wRows.length!==1?'s':''}</div>` : ''}
+              <div style="font-size:12px;font-weight:800;color:var(--text);display:flex;align-items:center;gap:6px;">Week ${wn} ${statusLabel(wStatus)}</div>
+              ${firstDate ? `<div style="font-size:10px;font-weight:600;color:var(--text-muted);">${new Date(firstDate+'T00:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})} · ${wRows.length} matchup${wRows.length!==1?'s':''}</div>` : ''}
             </div>
           </div>
           <span id="ftc-pub-chev-${wn}">${isFirst?'▲':'▼'}</span>

@@ -18,7 +18,8 @@
   <meta name="twitter:description"content="Competitive pickleball ladders, tournaments, clinics and community in Boca Raton, FL. Where the game gets personal.">
   <meta name="twitter:image"      content="https://ferociasports.com/og-preview.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="design-tokens.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <script src="config.js"></script>
@@ -26,13 +27,15 @@
 <script src="assets.js"></script>
 <style>
 :root {
-  --blue:#174CCC; --blue-dk:#0d2f8a; --lime:#C6F221;
-  --teal:#24BC96; --white:#ffffff; --dark:#080f2e;
-  --muted:#6b7a99; --border:rgba(255,255,255,0.08);
+  /* Dark-theme override — this page uses a dark hero background with
+     white text, unlike the light-neutral pages, so its border needs to
+     stay a subtle white-transparent line instead of the shared light
+     gray border. Everything else now comes from design-tokens.css. */
+  --border: rgba(255,255,255,0.08);
 }
 *{box-sizing:border-box;margin:0;padding:0;}
 html{scroll-behavior:smooth;}
-body{font-family:'Montserrat',sans-serif;background:var(--dark);color:var(--white);overflow-x:hidden;}
+body{font-family:'Inter',sans-serif;background:var(--dark);color:var(--white);overflow-x:hidden;}
 
 /* ── HEADER ─────────────────────────────────────────────── */
 header{
@@ -44,7 +47,7 @@ header{
 }
 .header-logo{height:32px;width:auto;display:block;}
 .staff-btn{
-  font-family:'Montserrat',sans-serif;font-size:10px;font-weight:800;
+  font-family:'Inter',sans-serif;font-size:10px;font-weight:800;
   letter-spacing:2px;text-transform:uppercase;
   color:var(--dark);background:var(--lime);
   border:none;border-radius:99px;padding:9px 20px;
@@ -80,14 +83,14 @@ header{
   padding:0 64px;max-width:960px;
 }
 .hero-facility{
-  font-family:'Bebas Neue',sans-serif;
+  font-family:'Inter',sans-serif;
   font-size:clamp(22px,4vw,48px);
   letter-spacing:6px;text-transform:uppercase;
   color:var(--lime);margin-bottom:8px;
   text-shadow:0 2px 16px rgba(0,0,0,.7);
 }
 .headline{
-  font-family:'Bebas Neue',sans-serif;
+  font-family:'Inter',sans-serif;
   font-size:clamp(72px,13vw,140px);
   line-height:.9;color:var(--white);margin-bottom:16px;
   text-shadow:0 4px 32px rgba(0,0,0,.6);
@@ -101,7 +104,7 @@ header{
 }
 .hero-btns{display:flex;gap:16px;flex-wrap:wrap;}
 .btn-lime{
-  font-family:'Montserrat',sans-serif;font-size:12px;font-weight:800;
+  font-family:'Inter',sans-serif;font-size:12px;font-weight:800;
   letter-spacing:1.5px;text-transform:uppercase;
   background:var(--lime);color:var(--dark);
   border:none;border-radius:99px;padding:14px 28px;
@@ -110,7 +113,7 @@ header{
 }
 .btn-lime:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(198,242,33,.4);opacity:.92;}
 .btn-ghost{
-  font-family:'Montserrat',sans-serif;font-size:12px;font-weight:800;
+  font-family:'Inter',sans-serif;font-size:12px;font-weight:800;
   letter-spacing:1.5px;text-transform:uppercase;
   background:transparent;color:var(--white);
   border:2px solid rgba(255,255,255,.3);border-radius:99px;padding:14px 28px;
@@ -149,7 +152,7 @@ header{
 }
 .sec-eyebrow::after{content:'';flex:1;height:1px;background:rgba(198,242,33,0.2);}
 .sec-title{
-  font-family:'Bebas Neue',sans-serif;
+  font-family:'Inter',sans-serif;
   font-size:clamp(40px,6vw,72px);line-height:1;margin-bottom:48px;
   letter-spacing:1px;
 }
@@ -209,7 +212,7 @@ header{
   text-transform:uppercase;color:rgba(8,15,46,.45);margin-bottom:14px;
 }
 .sub-title{
-  font-family:'Bebas Neue',sans-serif;
+  font-family:'Inter',sans-serif;
   font-size:clamp(40px,6vw,72px);color:var(--dark);line-height:.95;margin-bottom:18px;
   letter-spacing:1px;
 }
@@ -218,7 +221,7 @@ header{
   margin-bottom:32px;line-height:1.7;max-width:420px;
 }
 .sub-btn{
-  display:inline-block;font-family:'Montserrat',sans-serif;
+  display:inline-block;font-family:'Inter',sans-serif;
   font-size:12px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;
   background:var(--dark);color:var(--lime);border:none;border-radius:99px;
   padding:14px 28px;cursor:pointer;text-decoration:none;
@@ -364,7 +367,7 @@ footer{
     <img id="modal-img" src="" alt="Event flyer">
     <div id="modal-reg" style="display:none;margin-top:16px;text-align:center;">
       <a id="modal-reg-link" href="" target="_blank" rel="noopener"
-         style="display:inline-block;font-family:'Montserrat',sans-serif;font-size:12px;
+         style="display:inline-block;font-family:'Inter',sans-serif;font-size:12px;
                 font-weight:800;letter-spacing:1.5px;text-transform:uppercase;
                 background:var(--lime);color:var(--dark);border-radius:99px;
                 padding:12px 28px;text-decoration:none;transition:opacity .2s;"
@@ -414,7 +417,7 @@ footer{
       const regBtn = ev.registration_url
         ? `<a href="${esc(ev.registration_url)}" target="_blank" rel="noopener"
               onclick="event.stopPropagation();"
-              style="display:block;margin-top:14px;font-family:'Montserrat',sans-serif;
+              style="display:block;margin-top:14px;font-family:'Inter',sans-serif;
                      font-size:11px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;
                      background:var(--lime);color:var(--dark);border-radius:99px;
                      padding:10px 18px;text-align:center;text-decoration:none;">

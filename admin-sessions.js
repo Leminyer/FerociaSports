@@ -136,12 +136,12 @@
       };
 
       // SVG icons (inline, match sidebar style)
-      const calSVG  = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
-      const calSm   = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#6b7a99" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
-      const plrSm   = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#6b7a99" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>`;
-      const subSm   = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#6b7a99" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`;
-      const gameSm  = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#6b7a99" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="5"/><path d="M8.56 13.9l-1.56 6.1 5-3 5 3-1.56-6.1"/></svg>`;
-      const editSVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
+      const calSVG  = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
+      const calSm   = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
+      const plrSm   = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>`;
+      const subSm   = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`;
+      const gameSm  = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="5"/><path d="M8.56 13.9l-1.56 6.1 5-3 5 3-1.56-6.1"/></svg>`;
+      const editSVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
       const dnlSVG  = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`;
 
       let html = '';
@@ -176,17 +176,17 @@
                         padding:12px 16px;border-radius:8px;cursor:pointer;
                         background:#e8f0ff;border:0.5px solid #c5d6f5;user-select:none;">
               <span class="sdg-chevron ${isFirst ? 'sdg-chevron-open' : ''}"
-                    style="font-size:11px;font-weight:800;color:#174CCC;">▼</span>
+                    style="font-size:11px;font-weight:800;color:var(--blue);">▼</span>
               <div style="flex:1;min-width:0;">
-                <div style="font-size:13px;font-weight:800;color:#174CCC;display:flex;align-items:center;gap:8px;">
+                <div style="font-size:13px;font-weight:800;color:var(--blue);display:flex;align-items:center;gap:8px;">
                   ${calSVG} ${esc(dateLabel)}
                   ${pendingGames ? `<span style="font-size:9px;font-weight:800;color:var(--orange);background:var(--orange-light);padding:2px 7px;border-radius:99px;text-transform:uppercase;letter-spacing:.5px;">⏳ ${pendingGames} pending</span>` : ''}
                 </div>
                 <div style="display:flex;align-items:center;gap:14px;margin-top:4px;">
-                  <span style="font-size:11px;font-weight:600;color:#6b7a99;display:flex;align-items:center;gap:4px;">${calSm} ${courtCount} Court${courtCount !== 1 ? 's' : ''}</span>
-                  <span style="font-size:11px;font-weight:600;color:#6b7a99;display:flex;align-items:center;gap:4px;">${gameSm} ${totalGames} Games</span>
-                  <span style="font-size:11px;font-weight:600;color:#6b7a99;display:flex;align-items:center;gap:4px;">${plrSm} ${uniquePlayers} Players</span>
-                  <span style="font-size:11px;font-weight:600;color:#6b7a99;display:flex;align-items:center;gap:4px;">${subSm} ${subCount} Subs</span>
+                  <span style="font-size:11px;font-weight:600;color:var(--text-muted);display:flex;align-items:center;gap:4px;">${calSm} ${courtCount} Court${courtCount !== 1 ? 's' : ''}</span>
+                  <span style="font-size:11px;font-weight:600;color:var(--text-muted);display:flex;align-items:center;gap:4px;">${gameSm} ${totalGames} Games</span>
+                  <span style="font-size:11px;font-weight:600;color:var(--text-muted);display:flex;align-items:center;gap:4px;">${plrSm} ${uniquePlayers} Players</span>
+                  <span style="font-size:11px;font-weight:600;color:var(--text-muted);display:flex;align-items:center;gap:4px;">${subSm} ${subCount} Subs</span>
                 </div>
               </div>
             </div>
@@ -232,9 +232,9 @@
         sortedTimes.forEach((time) => {
           const timeCourts = timeSlots[time];
           html += `<div style="margin-bottom:10px;">
-            <div style="display:flex;align-items:center;gap:8px;padding:6px 12px;background:#f4f6fc;border-radius:6px;margin-bottom:6px;border-left:3px solid #174CCC;">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-              <span style="font-size:11px;font-weight:800;color:#174CCC;">${window.fmtTime12(time)}</span>
+            <div style="display:flex;align-items:center;gap:8px;padding:6px 12px;background:#f4f6fc;border-radius:6px;margin-bottom:6px;border-left:3px solid var(--blue);">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              <span style="font-size:11px;font-weight:800;color:var(--blue);">${window.fmtTime12(time)}</span>
             </div>`;
 
           // Court blocks inside this time slot
@@ -258,7 +258,7 @@
               <span style="font-size:12px;font-weight:800;color:var(--orange);">No-show: ${name}</span>
               <span style="font-size:11px;font-weight:700;color:var(--orange);">${pts} pts</span>
               <button onclick="toggleNoShowPenalty(${ns.match_id}, ${pts})"
-                style="margin-left:auto;padding:3px 10px;border:1px solid rgba(242,96,36,0.3);border-radius:99px;background:white;color:var(--orange);font-family:'Montserrat',sans-serif;font-size:10px;font-weight:700;cursor:pointer;">
+                style="margin-left:auto;padding:3px 10px;border:1px solid rgba(242,96,36,0.3);border-radius:99px;background:white;color:var(--orange);font-family:'Inter',sans-serif;font-size:10px;font-weight:700;cursor:pointer;">
                 Change to ${isPenalty ? '0 pts (excused)' : '-4 pts (penalty)'}
               </button>
             </div>`;
@@ -509,11 +509,11 @@
     const isSubRow = (r) => r.is_sub || AdminState.ladderPlayers.find(p => p.id === r.player_id)?.ladder_status === 'sub';
     const teamANames = teamA.map(r => {
       const name = r.players ? `${esc(r.players.first_name)} ${esc(r.players.last_name)}` : 'Unknown';
-      return isSubRow(r) ? `${name} <span style="font-size:10px;font-weight:700;color:#6b7a99;background:#f0f2f8;padding:1px 6px;border-radius:99px;vertical-align:middle;">Sub</span>` : name;
+      return isSubRow(r) ? `${name} <span style="font-size:10px;font-weight:700;color:var(--text-muted);background:var(--bg);padding:1px 6px;border-radius:99px;vertical-align:middle;">Sub</span>` : name;
     }).join('<br>');
     const teamBNames = teamB.map(r => {
       const name = r.players ? `${esc(r.players.first_name)} ${esc(r.players.last_name)}` : 'Unknown';
-      return isSubRow(r) ? `${name} <span style="font-size:10px;font-weight:700;color:#6b7a99;background:#f0f2f8;padding:1px 6px;border-radius:99px;vertical-align:middle;">Sub</span>` : name;
+      return isSubRow(r) ? `${name} <span style="font-size:10px;font-weight:700;color:var(--text-muted);background:var(--bg);padding:1px 6px;border-radius:99px;vertical-align:middle;">Sub</span>` : name;
     }).join('<br>');
     const teamAScore = teamA[0] ? (teamA[0].score_for !== null ? teamA[0].score_for : '') : '';
     const teamBScore = teamB[0] ? (teamB[0].score_for !== null ? teamB[0].score_for : '') : '';
@@ -523,7 +523,7 @@
     const teamBIds = teamB.map(r => r.id).join(',');
 
     modalBody.innerHTML = `
-      <div style="font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#0d1f4a;margin-bottom:14px;">
+      <div style="font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text);margin-bottom:14px;">
         Game ${esc(gnum)} — ${fmtDate(date)} — Court ${esc(court)}
       </div>
       <label class="void-toggle-wrap" style="margin-bottom:16px;">
@@ -534,13 +534,13 @@
       <div id="eg-scores-section" class="${isVoided ? 'opacity-04' : ''}">
         <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:start;">
           <div style="background:#e8f0ff;border-radius:8px;padding:14px;">
-            <div style="font-size:12px;font-weight:800;color:#0d1f4a;margin-bottom:8px;line-height:1.8;">
+            <div style="font-size:12px;font-weight:800;color:var(--text);margin-bottom:8px;line-height:1.8;">
               ${teamA.map(r => {
                 const name = r.players ? `${esc(r.players.first_name)} ${esc(r.players.last_name)}` : 'Unknown';
                 const sub  = isSubRow(r);
                 return `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
-                  <span>${name}${sub ? ` <span style="font-size:10px;font-weight:700;color:#6b7a99;background:#f0f2f8;padding:1px 6px;border-radius:99px;">Sub</span>` : ''}</span>
-                  <span id="eg-inline-pts-${r.id}" style="font-size:11px;font-weight:700;color:#6b7a99;white-space:nowrap;"></span>
+                  <span>${name}${sub ? ` <span style="font-size:10px;font-weight:700;color:var(--text-muted);background:var(--bg);padding:1px 6px;border-radius:99px;">Sub</span>` : ''}</span>
+                  <span id="eg-inline-pts-${r.id}" style="font-size:11px;font-weight:700;color:var(--text-muted);white-space:nowrap;"></span>
                 </div>`;
               }).join('')}
             </div>
@@ -558,13 +558,13 @@
             <div style="width:1px;height:20px;background:rgba(23,76,204,0.15);"></div>
           </div>
           <div style="background:#e8f5f1;border-radius:8px;padding:14px;">
-            <div style="font-size:12px;font-weight:800;color:#0d1f4a;margin-bottom:8px;line-height:1.8;">
+            <div style="font-size:12px;font-weight:800;color:var(--text);margin-bottom:8px;line-height:1.8;">
               ${teamB.map(r => {
                 const name = r.players ? `${esc(r.players.first_name)} ${esc(r.players.last_name)}` : 'Unknown';
                 const sub  = isSubRow(r);
                 return `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
-                  <span>${name}${sub ? ` <span style="font-size:10px;font-weight:700;color:#6b7a99;background:#f0f2f8;padding:1px 6px;border-radius:99px;">Sub</span>` : ''}</span>
-                  <span id="eg-inline-pts-${r.id}" style="font-size:11px;font-weight:700;color:#6b7a99;white-space:nowrap;"></span>
+                  <span>${name}${sub ? ` <span style="font-size:10px;font-weight:700;color:var(--text-muted);background:var(--bg);padding:1px 6px;border-radius:99px;">Sub</span>` : ''}</span>
+                  <span id="eg-inline-pts-${r.id}" style="font-size:11px;font-weight:700;color:var(--text-muted);white-space:nowrap;"></span>
                 </div>`;
               }).join('')}
             </div>
@@ -598,7 +598,7 @@
         if (!el) return;
         const sub  = subIdsA.includes(String(r.id));
         el.textContent = sub ? '0 pts' : `${ptA > 0 ? '+' : ''}${ptA} pts`;
-        el.style.color = sub ? '#6b7a99' : '#174CCC';
+        el.style.color = sub ? 'var(--text-muted)' : 'var(--blue)';
       });
       // Update Team B player lines with inline points
       teamB.forEach(r => {
@@ -607,7 +607,7 @@
         if (!el) return;
         const sub  = subIdsB.includes(String(r.id));
         el.textContent = sub ? '0 pts' : `${ptB > 0 ? '+' : ''}${ptB} pts`;
-        el.style.color = sub ? '#6b7a99' : '#174CCC';
+        el.style.color = sub ? 'var(--text-muted)' : 'var(--blue)';
       });
       // Legacy displays
       document.getElementById('eg-pts-teamA-display').textContent = '+' + ptA;
@@ -829,7 +829,7 @@
         const badgeBg  = isNoShow ? 'no-show' : isSub ? 'sub-badge' : '';
 
         // Sub pill styles
-        const subActiveStyle  = 'background:rgba(36,188,150,0.15);border:1px solid #24BC96;color:#24BC96;';
+        const subActiveStyle  = 'background:rgba(36,188,150,0.15);border:1px solid var(--teal);color:var(--teal);';
         const subDefaultStyle = 'background:none;border:0.5px solid var(--border);color:var(--text-muted);';
         const subStyle = isSub ? subActiveStyle : subDefaultStyle;
         const subAction = isSub ? 'unmarkSub' : 'markSub';
@@ -840,7 +840,7 @@
         const nsDefaultStyle = 'background:none;border:0.5px solid var(--border);color:var(--text-muted);';
 
         return `<div class="court-player ${chipBg}" style="${isSub ? 'background:rgba(36,188,150,0.06);border-color:rgba(36,188,150,0.3);' : ''}">
-          <span class="court-num-badge ${badgeBg}" style="${isSub ? 'background:#24BC96;' : ''}">${i + 1}</span>
+          <span class="court-num-badge ${badgeBg}" style="${isSub ? 'background:var(--teal);' : ''}">${i + 1}</span>
           <span class="text-bold" style="font-size:13px;">${esc(p.first_name)} ${esc(p.last_name)}</span>
           <div style="display:flex;gap:5px;margin-left:auto;align-items:center;">
             ${isNoShow
@@ -940,15 +940,15 @@
           <div class="vs-grid-top" style="align-items:center;">
             <div class="team-pad-blue-l" style="text-align:center;">
               <div class="blue-tag mb-8">Team A</div>
-              <select id="extraA1-4" class="full-width mb-6" style="font-size:12px;font-family:Montserrat,sans-serif;"><option value="">Player 1</option>${playerOpts}</select>
-              <select id="extraA2-4" class="full-width mb-8" style="font-size:12px;font-family:Montserrat,sans-serif;"><option value="">Player 2</option>${playerOpts}</select>
+              <select id="extraA1-4" class="full-width mb-6" style="font-size:12px;font-family:Inter,sans-serif;"><option value="">Player 1</option>${playerOpts}</select>
+              <select id="extraA2-4" class="full-width mb-8" style="font-size:12px;font-family:Inter,sans-serif;"><option value="">Player 2</option>${playerOpts}</select>
               <input type="number" min="0" max="11" placeholder="Score" id="scoreA-4" data-egame="4" data-eteam="A" class="full-width score-input">
             </div>
             <div class="vs-tag"><span>VS</span></div>
             <div class="team-pad-teal-l" style="text-align:center;">
               <div class="label-tag mb-8" style="color:var(--teal);">Team B</div>
-              <select id="extraB1-4" class="full-width mb-6" style="font-size:12px;font-family:Montserrat,sans-serif;"><option value="">Player 1</option>${playerOpts}</select>
-              <select id="extraB2-4" class="full-width mb-8" style="font-size:12px;font-family:Montserrat,sans-serif;"><option value="">Player 2</option>${playerOpts}</select>
+              <select id="extraB1-4" class="full-width mb-6" style="font-size:12px;font-family:Inter,sans-serif;"><option value="">Player 1</option>${playerOpts}</select>
+              <select id="extraB2-4" class="full-width mb-8" style="font-size:12px;font-family:Inter,sans-serif;"><option value="">Player 2</option>${playerOpts}</select>
               <input type="number" min="0" max="11" placeholder="Score" id="scoreB-4" data-egame="4" data-eteam="B" class="full-width score-input">
             </div>
           </div>
@@ -990,7 +990,7 @@
         <div class="row gap-12">
           ${
             sitting && sitting.length
-              ? `<span style="font-size:11px;color:#174CCC;font-weight:500;">Sitting out: <strong style="color:#174CCC;font-weight:800;">${sitting.map((p) => esc(p.first_name + ' ' + p.last_name)).join(', ')}</strong></span>`
+              ? `<span style="font-size:11px;color:var(--blue);font-weight:500;">Sitting out: <strong style="color:var(--blue);font-weight:800;">${sitting.map((p) => esc(p.first_name + ' ' + p.last_name)).join(', ')}</strong></span>`
               : ''
           }
           <label class="void-toggle-wrap">
@@ -1010,8 +1010,8 @@
                 const sub = AdminState.subPlayers.has(p.id);
                 const pts = document.getElementById ? '' : '';
                 return `<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
-                  <span>${esc(p.first_name + ' ' + p.last_name)}${sub ? ` <span style="font-size:9px;font-weight:700;color:#6b7a99;background:#f0f2f8;padding:1px 5px;border-radius:99px;">Sub</span>` : ''}</span>
-                  <span id="rc-pts-${gameNum}-a-${p.id}" style="font-size:10px;font-weight:700;color:#6b7a99;white-space:nowrap;"></span>
+                  <span>${esc(p.first_name + ' ' + p.last_name)}${sub ? ` <span style="font-size:9px;font-weight:700;color:var(--text-muted);background:var(--bg);padding:1px 5px;border-radius:99px;">Sub</span>` : ''}</span>
+                  <span id="rc-pts-${gameNum}-a-${p.id}" style="font-size:10px;font-weight:700;color:var(--text-muted);white-space:nowrap;"></span>
                 </div>`;
               }).join('')}
             </div>
@@ -1024,8 +1024,8 @@
               ${tB.map(p => {
                 const sub = AdminState.subPlayers.has(p.id);
                 return `<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
-                  <span>${esc(p.first_name + ' ' + p.last_name)}${sub ? ` <span style="font-size:9px;font-weight:700;color:#6b7a99;background:#f0f2f8;padding:1px 5px;border-radius:99px;">Sub</span>` : ''}</span>
-                  <span id="rc-pts-${gameNum}-b-${p.id}" style="font-size:10px;font-weight:700;color:#6b7a99;white-space:nowrap;"></span>
+                  <span>${esc(p.first_name + ' ' + p.last_name)}${sub ? ` <span style="font-size:9px;font-weight:700;color:var(--text-muted);background:var(--bg);padding:1px 5px;border-radius:99px;">Sub</span>` : ''}</span>
+                  <span id="rc-pts-${gameNum}-b-${p.id}" style="font-size:10px;font-weight:700;color:var(--text-muted);white-space:nowrap;"></span>
                 </div>`;
               }).join('')}
             </div>
@@ -1087,14 +1087,14 @@
       if (!el) return;
       const sub = isSub(id);
       el.textContent = sub ? '0 pts' : `${ptA > 0 ? '+' : ''}${ptA} pts`;
-      el.style.color  = sub ? '#6b7a99' : '#174CCC';
+      el.style.color  = sub ? 'var(--text-muted)' : 'var(--blue)';
     });
     tBIds.forEach(id => {
       const el  = document.getElementById(`rc-pts-${gameNum}-b-${id}`);
       if (!el) return;
       const sub = isSub(id);
       el.textContent = sub ? '0 pts' : `${ptB > 0 ? '+' : ''}${ptB} pts`;
-      el.style.color  = sub ? '#6b7a99' : '#174CCC';
+      el.style.color  = sub ? 'var(--text-muted)' : 'var(--blue)';
     });
     // Keep summary preview for overall display
     const teamAParts = tAIds.map(id => playerLabel(id, ptA));
@@ -1148,15 +1148,15 @@
         <div class="vs-grid-top" style="align-items:center;">
           <div class="team-pad-blue-l" style="text-align:center;">
             <div class="blue-tag mb-8">Team A</div>
-            <select id="extraA1-${gameNum}" class="full-width mb-6" style="font-size:12px;font-family:Montserrat,sans-serif;"><option value="">Player 1</option>${playerOpts}</select>
-            <select id="extraA2-${gameNum}" class="full-width mb-8" style="font-size:12px;font-family:Montserrat,sans-serif;"><option value="">Player 2</option>${playerOpts}</select>
+            <select id="extraA1-${gameNum}" class="full-width mb-6" style="font-size:12px;font-family:Inter,sans-serif;"><option value="">Player 1</option>${playerOpts}</select>
+            <select id="extraA2-${gameNum}" class="full-width mb-8" style="font-size:12px;font-family:Inter,sans-serif;"><option value="">Player 2</option>${playerOpts}</select>
             <input type="number" min="0" max="11" placeholder="Score" id="scoreA-${gameNum}" data-egame="${gameNum}" data-eteam="A" class="full-width score-input">
           </div>
           <div class="vs-tag"><span>VS</span></div>
           <div class="team-pad-teal-l" style="text-align:center;">
             <div class="label-tag mb-8" style="color:var(--teal);">Team B</div>
-            <select id="extraB1-${gameNum}" class="full-width mb-6" style="font-size:12px;font-family:Montserrat,sans-serif;"><option value="">Player 1</option>${playerOpts}</select>
-            <select id="extraB2-${gameNum}" class="full-width mb-8" style="font-size:12px;font-family:Montserrat,sans-serif;"><option value="">Player 2</option>${playerOpts}</select>
+            <select id="extraB1-${gameNum}" class="full-width mb-6" style="font-size:12px;font-family:Inter,sans-serif;"><option value="">Player 1</option>${playerOpts}</select>
+            <select id="extraB2-${gameNum}" class="full-width mb-8" style="font-size:12px;font-family:Inter,sans-serif;"><option value="">Player 2</option>${playerOpts}</select>
             <input type="number" min="0" max="11" placeholder="Score" id="scoreB-${gameNum}" data-egame="${gameNum}" data-eteam="B" class="full-width score-input">
           </div>
         </div>

@@ -16,7 +16,7 @@ window.selectLadderType = (type) => {
   inp.value = type;
 
   const selectedStyle = (el) => {
-    el.style.border          = '1.5px solid #174CCC';
+    el.style.border          = '1.5px solid var(--blue)';
     el.style.background      = 'linear-gradient(135deg,rgba(23,76,204,0.03),rgba(23,76,204,0.06))';
     el.style.boxShadow       = '0 0 0 4px rgba(23,76,204,0.1),0 4px 16px rgba(23,76,204,0.12)';
     el.style.transform       = 'scale(1.01)';
@@ -160,7 +160,7 @@ window.selectLadderType = (type) => {
       const role  = admin?.role || 'Admin';
       const initials = name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || 'A';
       el.innerHTML = `
-        <div style="width:32px;height:32px;border-radius:50%;background:#174CCC;color:white;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;font-family:'Montserrat',sans-serif;flex-shrink:0;">${esc(initials)}</div>
+        <div style="width:32px;height:32px;border-radius:50%;background:var(--blue);color:white;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;font-family:'Inter',sans-serif;flex-shrink:0;">${esc(initials)}</div>
         <div style="line-height:1.25;">
           <div style="font-size:12px;font-weight:700;color:white;">${esc(name)}</div>
           <div style="font-size:10px;font-weight:600;color:rgba(255,255,255,0.55);">${esc(role)}</div>
@@ -231,7 +231,7 @@ window.selectLadderType = (type) => {
           const topLadderId = Object.keys(pmLadderCounts).sort((a,b) => pmLadderCounts[b] - pmLadderCounts[a])[0] || '';
           items.push({
             strip: 'orange',
-            icon: `<svg viewBox="0 0 24 24" style="stroke:#F26024;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
+            icon: `<svg viewBox="0 0 24 24" style="stroke:var(--orange);"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
             title: `Matches Awaiting Scores`,
             ctx:   'Sessions without results recorded',
             metric: `${pendingMatches.length} match${pendingMatches.length !== 1 ? 'es' : ''} pending`,
@@ -248,7 +248,7 @@ window.selectLadderType = (type) => {
         if (pendingSubs.length) {
           items.push({
             strip: 'blue',
-            icon: `<svg viewBox="0 0 24 24" style="stroke:#174CCC;"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>`,
+            icon: `<svg viewBox="0 0 24 24" style="stroke:var(--blue);"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>`,
             title: `Subscribers Pending Confirmation`,
             ctx:   'Awaiting email verification',
             metric: `${pendingSubs.length} subscriber${pendingSubs.length !== 1 ? 's' : ''} pending`,
@@ -294,7 +294,7 @@ window.selectLadderType = (type) => {
         const rows = [];
         ladders.forEach(l => rows.push({
           name: l.name, type: 'Ladder', page: 'ladders',
-          btnLabel: 'View Ladder →', barColor: '#9CE3FF', countColor: '#174CCC', countLabel: 'Active',
+          btnLabel: 'View Ladder →', barColor: '#9CE3FF', countColor: 'var(--blue)', countLabel: 'Active',
         }));
         tournaments.forEach(t => rows.push({
           name: t.name, type: 'Tournament', page: 't-tournaments',
@@ -335,7 +335,7 @@ window.selectLadderType = (type) => {
           eventsEl.innerHTML = `
             <div class="ev-empty">
               <div class="ev-empty-ico">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <rect x="3" y="4" width="18" height="18" rx="2"/>
                   <line x1="16" y1="2" x2="16" y2="6"/>
                   <line x1="8" y1="2" x2="8" y2="6"/>
@@ -608,18 +608,18 @@ window.selectLadderType = (type) => {
       if (!events.length) {
         el.innerHTML = `<div style="text-align:center;padding:24px 16px;">
           <div style="width:38px;height:38px;border-radius:50%;background:#e8f0ff;display:flex;align-items:center;justify-content:center;margin:0 auto 10px;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
           </div>
-          <div style="font-size:13px;font-weight:700;color:#0d1f4a;margin-bottom:4px;">No upcoming events</div>
-          <div style="font-size:11px;font-weight:600;color:#6b7a99;">Create your first event using the form.</div>
+          <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px;">No upcoming events</div>
+          <div style="font-size:11px;font-weight:600;color:var(--text-muted);">Create your first event using the form.</div>
         </div>`;
         return;
       }
 
       const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-      const editSVG  = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
+      const editSVG  = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
       const delSVG   = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#e53935" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>`;
-      const linkSVG  = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`;
+      const linkSVG  = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`;
 
       el.innerHTML = events.map((ev) => {
         const d      = new Date(ev.event_date + 'T00:00:00');

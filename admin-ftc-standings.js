@@ -186,7 +186,7 @@
         <div class="stat-leader-pts">${leaderTeam?.pts || 0} PTS</div>
         <div class="stat-leader-week">↑ Season leader</div>
         <div class="stat-leader-streak">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#F26024" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
           Top of the ladder
         </div>
       </div>`;
@@ -198,7 +198,7 @@
     const podiumHTML = (teams, eyebrow) => {
       return `<div class="podium-half">
         <div class="podium-eyebrow">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0d1f4a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4a2 2 0 0 1-2-2V5h4"/><path d="M18 9h2a2 2 0 0 0 2-2V5h-4"/><path d="M12 17v4"/><path d="M8 21h8"/><path d="M6 9a6 6 0 0 0 12 0V3H6v6z"/></svg>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4a2 2 0 0 1-2-2V5h4"/><path d="M18 9h2a2 2 0 0 0 2-2V5h-4"/><path d="M12 17v4"/><path d="M8 21h8"/><path d="M6 9a6 6 0 0 0 12 0V3H6v6z"/></svg>
           ${eyebrow}
         </div>
         <div class="podium">
@@ -228,7 +228,7 @@
         ${podiumHTML(top3Teams, 'Team Standings')}
         <div class="podium-half" style="border-left:0.5px solid #e0e7f5;">
           <div class="podium-eyebrow">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0d1f4a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
             Top Player Performers
           </div>
           <div class="podium">
@@ -252,59 +252,59 @@
     // ── Helper: type pill ─────────────────────────────────────────────────
     const typePill = (type, stat) => {
       if (!stat || (stat.w + stat.l) === 0) return '<span style="color:#b0bbd6;font-size:10px;">—</span>';
-      const colors = { mens:'#174CCC', womens:'#F26024', mixed1:'#24BC96', mixed2:'#9a6e00' };
+      const colors = { mens:'var(--blue)', womens:'var(--orange)', mixed1:'var(--teal)', mixed2:'#9a6e00' };
       const bg     = { mens:'#e8f0ff', womens:'rgba(242,96,36,0.1)', mixed1:'rgba(36,188,150,0.1)', mixed2:'rgba(154,110,0,0.1)' };
-      const color  = colors[type] || '#6b7a99';
-      const bgc    = bg[type] || '#f0f2f8';
+      const color  = colors[type] || 'var(--text-muted)';
+      const bgc    = bg[type] || 'var(--bg)';
       return `<span style="display:inline-flex;padding:2px 7px;border-radius:99px;font-size:9px;font-weight:700;background:${bgc};color:${color};">${stat.w}W ${stat.l}L</span>`;
     };
 
     // ── Render team standings table ───────────────────────────────────────
     const rankBadge = (i) => {
       const styles = ['background:linear-gradient(135deg,#f6d365,#fda085)', 'background:#C0C0C0;color:#444', 'background:#CD7F32'];
-      const bg = styles[i] || 'background:#e0e7f5;color:#6b7a99';
+      const bg = styles[i] || 'background:#e0e7f5;color:var(--text-muted)';
       return `<span style="width:24px;height:24px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:white;${bg}">${i+1}</span>`;
     };
 
     const formDots = (form) => form.slice(-5).map(r =>
-      `<span style="width:12px;height:12px;border-radius:50%;display:inline-block;background:${r==='W'?'#24BC96':'#F26024'};"></span>`
+      `<span style="width:12px;height:12px;border-radius:50%;display:inline-block;background:${r==='W'?'var(--teal)':'var(--orange)'};"></span>`
     ).join('');
 
     document.getElementById('ftc-std-team-table').innerHTML = `
       <table style="width:100%;border-collapse:collapse;">
         <thead>
           <tr style="background:#f8f9ff;border-bottom:0.5px solid #e0e7f5;">
-            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:8px 8px 8px 16px;text-align:left;width:40px;">#</th>
-            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:8px;text-align:left;">Team</th>
-            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:8px;text-align:center;">Pts</th>
-            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:8px;text-align:center;">W</th>
-            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:8px;text-align:center;">L</th>
-            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:8px;text-align:center;">Diff</th>
-            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:8px;text-align:center;">Men's DB</th>
-            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:8px;text-align:center;">Women's DB</th>
-            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:8px;text-align:center;">Mixed #1</th>
-            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:8px;text-align:center;">Mixed #2</th>
-            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:8px;text-align:center;">Played</th>
-            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:8px;text-align:left;min-width:80px;">Form</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);padding:8px 8px 8px 16px;text-align:left;width:40px;">#</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);padding:8px;text-align:left;">Team</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);padding:8px;text-align:center;">Pts</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);padding:8px;text-align:center;">W</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);padding:8px;text-align:center;">L</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);padding:8px;text-align:center;">Diff</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);padding:8px;text-align:center;">Men's DB</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);padding:8px;text-align:center;">Women's DB</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);padding:8px;text-align:center;">Mixed #1</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);padding:8px;text-align:center;">Mixed #2</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);padding:8px;text-align:center;">Played</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);padding:8px;text-align:left;min-width:80px;">Form</th>
           </tr>
         </thead>
         <tbody>
           ${ranked.map((ts,i) => {
             const diff = ts.ptsFor - ts.ptsAgainst;
             const diffStr = diff > 0 ? `+${diff}` : String(diff);
-            const diffColor = diff > 0 ? '#24BC96' : diff < 0 ? '#F26024' : '#6b7a99';
+            const diffColor = diff > 0 ? 'var(--teal)' : diff < 0 ? 'var(--orange)' : 'var(--text-muted)';
             return `<tr style="border-bottom:0.5px solid #f4f5f8;">
               <td style="padding:10px 8px 10px 16px;">${rankBadge(i)}</td>
-              <td style="padding:10px 8px;font-size:13px;font-weight:800;color:#0d1f4a;">${esc(ts.team.name)}</td>
-              <td style="padding:10px 8px;text-align:center;"><span style="font-size:14px;font-weight:800;color:#174CCC;">${ts.pts}</span></td>
-              <td style="padding:10px 8px;text-align:center;font-weight:700;color:#24BC96;">${ts.wins}</td>
-              <td style="padding:10px 8px;text-align:center;font-weight:700;color:#F26024;">${ts.losses}</td>
+              <td style="padding:10px 8px;font-size:13px;font-weight:800;color:var(--text);">${esc(ts.team.name)}</td>
+              <td style="padding:10px 8px;text-align:center;"><span style="font-size:14px;font-weight:800;color:var(--blue);">${ts.pts}</span></td>
+              <td style="padding:10px 8px;text-align:center;font-weight:700;color:var(--teal);">${ts.wins}</td>
+              <td style="padding:10px 8px;text-align:center;font-weight:700;color:var(--orange);">${ts.losses}</td>
               <td style="padding:10px 8px;text-align:center;font-weight:700;color:${diffColor};">${diffStr}</td>
               <td style="padding:10px 8px;text-align:center;">${typePill('mens',ts.byType.mens)}</td>
               <td style="padding:10px 8px;text-align:center;">${typePill('womens',ts.byType.womens)}</td>
               <td style="padding:10px 8px;text-align:center;">${typePill('mixed1',ts.byType.mixed1)}</td>
               <td style="padding:10px 8px;text-align:center;">${typePill('mixed2',ts.byType.mixed2)}</td>
-              <td style="padding:10px 8px;text-align:center;font-weight:600;color:#6b7a99;">${ts.played}</td>
+              <td style="padding:10px 8px;text-align:center;font-weight:600;color:var(--text-muted);">${ts.played}</td>
               <td style="padding:10px 8px;"><div style="display:flex;gap:3px;">${formDots(ts.form)}</div></td>
             </tr>`;
           }).join('')}
@@ -312,21 +312,21 @@
       </table>`;
 
     // ── Render player stats table ─────────────────────────────────────────
-    const colors = ['#174CCC','#F26024','#24BC96','#9a6e00','#7B2FBE','#C04A0E'];
+    const colors = ['var(--blue)','var(--orange)','var(--teal)','#9a6e00','#7B2FBE','#C04A0E'];
     document.getElementById('ftc-std-player-table').innerHTML = `
       <table style="width:100%;border-collapse:collapse;">
         <thead>
           <tr style="background:#f8f9ff;border-bottom:0.5px solid #e0e7f5;">
-            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:8px 8px 8px 16px;text-align:left;">Player</th>
-            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:8px;text-align:center;">Played</th>
-            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:8px;text-align:center;">W</th>
-            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:8px;text-align:center;">L</th>
-            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:8px;text-align:center;">Win %</th>
-            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:8px;text-align:center;">Pts</th>
-            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:8px;text-align:center;">Men's DB</th>
-            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:8px;text-align:center;">Women's DB</th>
-            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:8px;text-align:center;">Mixed #1</th>
-            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;padding:8px;text-align:center;">Mixed #2</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);padding:8px 8px 8px 16px;text-align:left;">Player</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);padding:8px;text-align:center;">Played</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);padding:8px;text-align:center;">W</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);padding:8px;text-align:center;">L</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);padding:8px;text-align:center;">Win %</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);padding:8px;text-align:center;">Pts</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);padding:8px;text-align:center;">Men's DB</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);padding:8px;text-align:center;">Women's DB</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);padding:8px;text-align:center;">Mixed #1</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);padding:8px;text-align:center;">Mixed #2</th>
           </tr>
         </thead>
         <tbody>
@@ -336,37 +336,37 @@
             const pNameShort = (id) => { const p = AdminState.ladderPlayers.find(x => x.id === id); return p ? `${p.first_name[0]}. ${p.last_name}` : '—'; };
             const typeLabels = { mens:'MD', womens:'WD', mixed1:'MX1', mixed2:'MX2' };
             const typeBg     = { mens:'#e8f0ff', womens:'rgba(242,96,36,0.1)', mixed1:'rgba(36,188,150,0.1)', mixed2:'rgba(154,110,0,0.1)' };
-            const typeClr    = { mens:'#174CCC', womens:'#F26024', mixed1:'#24BC96', mixed2:'#9a6e00' };
+            const typeClr    = { mens:'var(--blue)', womens:'var(--orange)', mixed1:'var(--teal)', mixed2:'#9a6e00' };
             const historyRows = ps.history.map(h => `
               <tr>
-                <td style="font-size:11px;padding:5px 8px;border-bottom:0.5px solid #f0f2f8;">Wk ${h.week}</td>
-                <td style="padding:5px 8px;border-bottom:0.5px solid #f0f2f8;"><span style="font-size:8px;font-weight:800;padding:2px 5px;border-radius:4px;background:${typeBg[h.type]||'#f0f2f8'};color:${typeClr[h.type]||'#6b7a99'};">${typeLabels[h.type]||h.type}</span></td>
-                <td style="font-size:11px;padding:5px 8px;border-bottom:0.5px solid #f0f2f8;color:#6b7a99;">${pNameShort(h.partnerId)}</td>
-                <td style="font-size:11px;padding:5px 8px;border-bottom:0.5px solid #f0f2f8;color:#6b7a99;">${pNameShort(h.opp1)} / ${pNameShort(h.opp2)}</td>
-                <td style="font-size:11px;font-weight:800;padding:5px 8px;border-bottom:0.5px solid #f0f2f8;text-align:center;color:${h.won?'#24BC96':'#F26024'};">${h.scoreA}–${h.scoreB}</td>
-                <td style="padding:5px 8px;border-bottom:0.5px solid #f0f2f8;text-align:center;"><span style="display:inline-flex;padding:2px 7px;border-radius:99px;font-size:9px;font-weight:700;background:${h.won?'rgba(36,188,150,0.12)':'rgba(242,96,36,0.08)'};color:${h.won?'#085041':'#F26024'};">${h.won?'W':'L'}</span></td>
-                <td style="font-size:11px;font-weight:700;padding:5px 8px;border-bottom:0.5px solid #f0f2f8;text-align:center;color:${h.won?'#24BC96':'#F26024'};">+${h.pts}</td>
+                <td style="font-size:11px;padding:5px 8px;border-bottom:0.5px solid var(--bg);">Wk ${h.week}</td>
+                <td style="padding:5px 8px;border-bottom:0.5px solid var(--bg);"><span style="font-size:8px;font-weight:800;padding:2px 5px;border-radius:4px;background:${typeBg[h.type]||'var(--bg)'};color:${typeClr[h.type]||'var(--text-muted)'};">${typeLabels[h.type]||h.type}</span></td>
+                <td style="font-size:11px;padding:5px 8px;border-bottom:0.5px solid var(--bg);color:var(--text-muted);">${pNameShort(h.partnerId)}</td>
+                <td style="font-size:11px;padding:5px 8px;border-bottom:0.5px solid var(--bg);color:var(--text-muted);">${pNameShort(h.opp1)} / ${pNameShort(h.opp2)}</td>
+                <td style="font-size:11px;font-weight:800;padding:5px 8px;border-bottom:0.5px solid var(--bg);text-align:center;color:${h.won?'var(--teal)':'var(--orange)'};">${h.scoreA}–${h.scoreB}</td>
+                <td style="padding:5px 8px;border-bottom:0.5px solid var(--bg);text-align:center;"><span style="display:inline-flex;padding:2px 7px;border-radius:99px;font-size:9px;font-weight:700;background:${h.won?'rgba(36,188,150,0.12)':'rgba(242,96,36,0.08)'};color:${h.won?'#085041':'var(--orange)'};">${h.won?'W':'L'}</span></td>
+                <td style="font-size:11px;font-weight:700;padding:5px 8px;border-bottom:0.5px solid var(--bg);text-align:center;color:${h.won?'var(--teal)':'var(--orange)'};">+${h.pts}</td>
               </tr>`).join('');
             return `<tr style="border-bottom:0.5px solid #f4f5f8;cursor:pointer;" onclick="ftcTogglePlayerRow(${ps.id})">
               <td style="padding:10px 8px 10px 16px;">
                 <div style="display:flex;align-items:center;gap:8px;">
                   <div style="width:28px;height:28px;border-radius:50%;background:${avatarColor};display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:white;flex-shrink:0;">${esc(ps.initials)}</div>
                   <div>
-                    <div style="font-size:12px;font-weight:800;color:#0d1f4a;">${esc(ps.name)}</div>
-                    <div style="font-size:9px;font-weight:600;color:#6b7a99;">${esc(ps.teamName)}</div>
+                    <div style="font-size:12px;font-weight:800;color:var(--text);">${esc(ps.name)}</div>
+                    <div style="font-size:9px;font-weight:600;color:var(--text-muted);">${esc(ps.teamName)}</div>
                   </div>
                 </div>
               </td>
               <td style="padding:10px 8px;text-align:center;font-weight:700;">${ps.played}</td>
-              <td style="padding:10px 8px;text-align:center;font-weight:700;color:#24BC96;">${ps.wins}</td>
-              <td style="padding:10px 8px;text-align:center;font-weight:700;color:#F26024;">${ps.losses}</td>
+              <td style="padding:10px 8px;text-align:center;font-weight:700;color:var(--teal);">${ps.wins}</td>
+              <td style="padding:10px 8px;text-align:center;font-weight:700;color:var(--orange);">${ps.losses}</td>
               <td style="padding:10px 8px;text-align:center;">
                 <div style="display:flex;flex-direction:column;align-items:center;gap:3px;">
-                  <span style="font-weight:800;font-size:12px;color:${winPct>=50?'#24BC96':'#F26024'};">${winPct}%</span>
-                  <div style="height:5px;border-radius:99px;background:#e0e7f5;width:60px;overflow:hidden;"><div style="height:100%;border-radius:99px;background:${winPct>=50?'#24BC96':'#F26024'};width:${winPct}%;"></div></div>
+                  <span style="font-weight:800;font-size:12px;color:${winPct>=50?'var(--teal)':'var(--orange)'};">${winPct}%</span>
+                  <div style="height:5px;border-radius:99px;background:#e0e7f5;width:60px;overflow:hidden;"><div style="height:100%;border-radius:99px;background:${winPct>=50?'var(--teal)':'var(--orange)'};width:${winPct}%;"></div></div>
                 </div>
               </td>
-              <td style="padding:10px 8px;text-align:center;"><span style="font-size:14px;font-weight:800;color:#174CCC;">${ps.pts}</span></td>
+              <td style="padding:10px 8px;text-align:center;"><span style="font-size:14px;font-weight:800;color:var(--blue);">${ps.pts}</span></td>
               <td style="padding:10px 8px;text-align:center;">${typePill('mens',ps.byType.mens)}</td>
               <td style="padding:10px 8px;text-align:center;">${typePill('womens',ps.byType.womens)}</td>
               <td style="padding:10px 8px;text-align:center;">${typePill('mixed1',ps.byType.mixed1)}</td>
@@ -375,9 +375,9 @@
             <tr id="ftc-player-row-${ps.id}" style="display:none;">
               <td colspan="10" style="padding:0;background:#f8f9ff;">
                 <div style="padding:12px 16px;">
-                  <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#174CCC;margin-bottom:8px;">${esc(ps.name)} — Match History</div>
+                  <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--blue);margin-bottom:8px;">${esc(ps.name)} — Match History</div>
                   <table style="width:100%;border-collapse:collapse;">
-                    <tr><th style="background:transparent;font-size:9px;color:#6b7a99;padding:4px 8px;border-bottom:0.5px solid #e0e7f5;text-align:left;">Week</th><th style="background:transparent;font-size:9px;color:#6b7a99;padding:4px 8px;border-bottom:0.5px solid #e0e7f5;">Type</th><th style="background:transparent;font-size:9px;color:#6b7a99;padding:4px 8px;border-bottom:0.5px solid #e0e7f5;">Partner</th><th style="background:transparent;font-size:9px;color:#6b7a99;padding:4px 8px;border-bottom:0.5px solid #e0e7f5;">vs Opponents</th><th style="background:transparent;font-size:9px;color:#6b7a99;padding:4px 8px;border-bottom:0.5px solid #e0e7f5;text-align:center;">Score</th><th style="background:transparent;font-size:9px;color:#6b7a99;padding:4px 8px;border-bottom:0.5px solid #e0e7f5;text-align:center;">Result</th><th style="background:transparent;font-size:9px;color:#6b7a99;padding:4px 8px;border-bottom:0.5px solid #e0e7f5;text-align:center;">Pts</th></tr>
+                    <tr><th style="background:transparent;font-size:9px;color:var(--text-muted);padding:4px 8px;border-bottom:0.5px solid #e0e7f5;text-align:left;">Week</th><th style="background:transparent;font-size:9px;color:var(--text-muted);padding:4px 8px;border-bottom:0.5px solid #e0e7f5;">Type</th><th style="background:transparent;font-size:9px;color:var(--text-muted);padding:4px 8px;border-bottom:0.5px solid #e0e7f5;">Partner</th><th style="background:transparent;font-size:9px;color:var(--text-muted);padding:4px 8px;border-bottom:0.5px solid #e0e7f5;">vs Opponents</th><th style="background:transparent;font-size:9px;color:var(--text-muted);padding:4px 8px;border-bottom:0.5px solid #e0e7f5;text-align:center;">Score</th><th style="background:transparent;font-size:9px;color:var(--text-muted);padding:4px 8px;border-bottom:0.5px solid #e0e7f5;text-align:center;">Result</th><th style="background:transparent;font-size:9px;color:var(--text-muted);padding:4px 8px;border-bottom:0.5px solid #e0e7f5;text-align:center;">Pts</th></tr>
                     ${historyRows}
                   </table>
                 </div>

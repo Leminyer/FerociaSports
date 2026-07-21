@@ -16,23 +16,17 @@
   <meta name="twitter:title"      content="Join Our Community — Ferocia Sports Center">
   <meta name="twitter:description"content="Subscribe to get event invites, tournament news, ladder updates and member-only promos from Ferocia Sports Center.">
   <meta name="twitter:image"      content="https://ferociasports.com/og-preview.png">
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="design-tokens.css">
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="db.js"></script>
 <script src="assets.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <style>
-  :root{
-    --blue:#174CCC;--blue-pale:#e8f0ff;
-    --lime:#C6F221;--teal:#24BC96;--teal-light:#d4f5ed;
-    --orange:#F26024;
-    --dark:#080f2e;--white:#fff;
-    --text:#0d1f4a;--muted:#6b7a99;--border:#d6dff5;--bg:#f0f2f8;
-    --radius:14px;--radius-sm:8px;
-  }
+  /* Color/typography/radius tokens now come from design-tokens.css. */
   *{box-sizing:border-box;margin:0;padding:0;}
-  body{font-family:'Montserrat',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column;}
+  body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column;}
 
   /* ── HEADER ─────────────────────────────────────────── */
   header{
@@ -68,7 +62,7 @@
     text-transform:uppercase;color:var(--lime);margin-bottom:6px;
   }
   .card-title{
-    font-family:'Bebas Neue',sans-serif;
+    font-family:'Inter',sans-serif;
     font-size:32px;color:var(--white);letter-spacing:1px;line-height:1;
   }
   .card-sub{
@@ -86,7 +80,7 @@
   input,select{
     padding:11px 14px;border:0.5px solid var(--border);
     border-radius:var(--radius-sm);font-size:13px;
-    font-family:'Montserrat',sans-serif;color:var(--text);
+    font-family:'Inter',sans-serif;color:var(--text);
     background:var(--white);outline:none;transition:border-color .15s;
     width:100%;
   }
@@ -99,7 +93,7 @@
     width:100%;padding:14px;
     background:var(--blue);color:white;border:none;border-radius:99px;
     font-size:12px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;
-    cursor:pointer;font-family:'Montserrat',sans-serif;
+    cursor:pointer;font-family:'Inter',sans-serif;
     transition:opacity .15s,transform .15s;margin-top:8px;
   }
   .btn:hover{opacity:.88;transform:translateY(-1px);}
@@ -113,7 +107,7 @@
     margin:0 auto 20px;font-size:32px;
     box-shadow:0 8px 24px rgba(36,188,150,0.3);
   }
-  .success-title{font-family:'Bebas Neue',sans-serif;font-size:32px;color:var(--text);margin-bottom:10px;letter-spacing:1px;}
+  .success-title{font-family:'Inter',sans-serif;font-size:32px;color:var(--text);margin-bottom:10px;letter-spacing:1px;}
   .success-body{font-size:14px;color:var(--muted);line-height:1.7;}
   .success-email{font-size:15px;font-weight:800;color:var(--blue);margin:8px 0 16px;display:block;}
 

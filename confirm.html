@@ -4,20 +4,16 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Confirm Subscription — Ferocia Sports</title>
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="design-tokens.css">
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="db.js"></script>
 <script src="assets.js"></script>
 <style>
-  :root{
-    --blue:#174CCC;--lime:#C6F221;--teal:#24BC96;--teal-light:#d4f5ed;
-    --orange:#F26024;--orange-light:#fde8d8;--blue-pale:#e8f0ff;
-    --dark:#080f2e;--white:#fff;--text:#0d1f4a;--muted:#6b7a99;
-    --border:#d6dff5;--bg:#f0f2f8;--radius:14px;
-  }
+  /* Color/typography/radius tokens now come from design-tokens.css. */
   *{box-sizing:border-box;margin:0;padding:0;}
-  body{font-family:'Montserrat',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column;}
+  body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column;}
 
   /* ── HEADER ─────────────────────────────────────────── */
   header{
@@ -49,7 +45,7 @@
   .icon.loading{background:var(--blue-pale);}
 
   h2{
-    font-family:'Bebas Neue',sans-serif;
+    font-family:'Inter',sans-serif;
     font-size:32px;color:var(--text);margin-bottom:12px;
     letter-spacing:1px;
   }

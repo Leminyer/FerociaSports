@@ -110,9 +110,9 @@
     const eyeIcon    = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
     const shareIcon  = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>`;
     const linkIcon   = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#b0bbd6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`;
-    const plrIcon    = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#6b7a99" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>`;
-    const clkIcon    = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#6b7a99" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`;
-    const visIcon    = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+    const plrIcon    = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>`;
+    const clkIcon    = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`;
+    const visIcon    = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
     const hotIcon    = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`;
     const sharedfIcon= `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>`;
 
@@ -165,11 +165,11 @@
             <div class="share-card-name">${esc(item.name)}</div>
             <div class="share-card-meta">
               <span class="pill ${pillClass}">${esc(pillLabel)}</span>
-              <span class="pill" style="background:#e8f0ff;color:#174CCC;">${typeLabel}</span>
+              <span class="pill" style="background:#e8f0ff;color:var(--blue);">${typeLabel}</span>
             </div>
             <div class="share-card-stats">
               <span class="share-card-stat">${clkIcon} Updated ${esc(updatedStr)}</span>
-              <span class="share-card-stat" style="${visitCount ? 'color:#174CCC;' : ''}">${visIcon} ${visitCount || '—'} visits</span>
+              <span class="share-card-stat" style="${visitCount ? 'color:var(--blue);' : ''}">${visIcon} ${visitCount || '—'} visits</span>
             </div>
             ${intelHTML ? `<div style="display:flex;gap:6px;flex-wrap:wrap;">${intelHTML}</div>` : ''}
           </div>
@@ -232,7 +232,7 @@
     document.querySelectorAll('.share-tab').forEach((b) => {
       const isActive = b.dataset.tab === tab;
       b.classList.toggle('active', isActive);
-      b.style.color = isActive ? '#174CCC' : '#6b7a99';
+      b.style.color = isActive ? 'var(--blue)' : 'var(--text-muted)';
       b.style.borderBottomColor = isActive ? '#C6F221' : 'transparent';
     });
     // Reset search placeholder
@@ -286,8 +286,8 @@
       copyBtn.onclick = () => {
         navigator.clipboard.writeText(url).then(() => {
           copyBtn.textContent = 'Copied!';
-          copyBtn.style.color = '#24BC96';
-          setTimeout(() => { copyBtn.textContent = 'Copy'; copyBtn.style.color = '#174CCC'; }, 2000);
+          copyBtn.style.color = 'var(--teal)';
+          setTimeout(() => { copyBtn.textContent = 'Copy'; copyBtn.style.color = 'var(--blue)'; }, 2000);
         });
       };
     }
@@ -309,7 +309,7 @@
         if (btn) {
           const origHTML = btn.innerHTML;
           btn.innerHTML = '✓ Copied!';
-          btn.style.background = '#24BC96';
+          btn.style.background = 'var(--teal)';
           setTimeout(() => {
             btn.innerHTML = origHTML;
             btn.style.background = '';
