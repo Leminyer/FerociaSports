@@ -17,6 +17,24 @@ function tToast(msg, isError = false) {
   alert(msg);
 }
 
+// Fetches and renders this tournament's Incident Reports — fired
+// (fire-and-forget, not awaited) from the end of renderTournamentDetail,
+// so it refreshes automatically no matter which of that function's many
+// call sites triggered the re-render.
+async function loadTournamentIncidents(tournamentId) {
+  const el = document.getElementById('td-incidents-list');
+  if (!el) return;
+  try {
+    const { data, error } = await window.supabase.rpc('get_tournament_incidents', { p_tournament_id: tournamentId });
+    if (error) throw new Error(error.message);
+    const incidents = data || [];
+    const html = window.renderIncidentReportsList ? window.renderIncidentReportsList(incidents) : '';
+    el.innerHTML = html || '<span style="color:#b0bbd6;">No incident reports for this tournament.</span>';
+  } catch (e) {
+    el.innerHTML = '<span style="color:#b0bbd6;">Could not load incident reports.</span>';
+  }
+}
+
 function getTeamPlayerNames(team) {
   if (!team) return '';
   const ids = [team.player1_id, team.player2_id, team.player3_id, team.player4_id].filter(Boolean);
@@ -26,6 +44,37 @@ function getTeamPlayerNames(team) {
     return p ? `${p.first_name} ${p.last_name}` : null;
   }).filter(Boolean);
   return names.join(' & ');
+}
+
+// Opens the shared Incident Report modal (admin-incident-reports.js) for
+// this tournament — court starts blank (no single "current court" the
+// way a ladder session has one) and the player pool is every player
+// across every category/team in the tournament, combined into one list.
+async function openIncidentReportForTournament(tournamentId, tournamentName, tournamentDate) {
+  if (!window.openIncidentReportModal) { tToast('Incident Report module not loaded.', true); return; }
+  try {
+    const categories = await tApi(`tournament_categories?tournament_id=eq.${tournamentId}&select=id`);
+    const catIds = categories.map(c => c.id);
+    const teams = catIds.length
+      ? await tApi(`tournament_teams?category_id=in.(${catIds.join(',')})&select=player1_id,player2_id,player3_id,player4_id`)
+      : [];
+    const playerIdSet = new Set();
+    teams.forEach(team => {
+      [team.player1_id, team.player2_id, team.player3_id, team.player4_id].filter(Boolean).forEach(id => playerIdSet.add(id));
+    });
+    const playerPool = tAllPlayers.filter(p => playerIdSet.has(p.id));
+
+    window.openIncidentReportModal({
+      sourceType: 'tournament',
+      tournamentId,
+      tournamentName,
+      tournamentDate,
+      playerPool, // playerSelectMode left unset — defaults to the search box, since a tournament's full roster can be large
+      onSaved: () => openTournament(tournamentId),
+    });
+  } catch (e) {
+    tToast(`Error loading tournament roster: ${e.message}`, true);
+  }
 }
 
 // ─── ROUND ROBIN SCHEDULE LOOKUP TABLE ──────────────────────
@@ -1760,7 +1809,18 @@ function renderTournamentDetail(t, categories) {
         style="min-width:34px;height:34px;padding:0 10px;border:0.5px solid #e0e7f5;border-radius:8px;background:white;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#6b7a99;white-space:nowrap;" title="Print Roster">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
       </button>
+      <button onclick="openIncidentReportForTournament(${t.id}, '${tEsc(t.name).replace(/'/g, "\\'")}', '${t.date || ''}')"
+        style="height:34px;padding:0 14px;border:0.5px solid rgba(242,96,36,0.3);border-radius:8px;background:white;display:flex;align-items:center;gap:6px;cursor:pointer;color:#F26024;white-space:nowrap;font-family:'Inter',sans-serif;font-size:11px;font-weight:700;" title="Incident Report">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        Incident Report
+      </button>
     </div>
+    </div>
+
+    <div style="padding:12px 28px 0;">
+      <div style="background:white;border:0.5px solid #e0e7f5;border-radius:12px;padding:14px 16px;box-shadow:0 1px 4px rgba(23,76,204,0.06);" id="td-incidents-box">
+        <div id="td-incidents-list" style="font-size:11px;font-weight:600;color:#6b7a99;">Loading incident reports...</div>
+      </div>
     </div>
 
     <div style="padding:16px 28px 0;">
@@ -1777,6 +1837,7 @@ function renderTournamentDetail(t, categories) {
   `;
 
   if (tCurrentCategoryId) loadCategory(tCurrentCategoryId, t);
+  loadTournamentIncidents(t.id);
 }
 async function switchCategory(catId, tId) {
   tCurrentCategoryId = catId;
