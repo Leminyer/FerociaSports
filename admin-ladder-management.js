@@ -210,7 +210,7 @@
             <div class="lop-action-title">Actions</div>
             <button class="lop-btn" data-action="openLadderPlayers" data-lid="${l.id}" data-lname="${esc(l.name)}" ${dis}>${plrsSVG} Manage Players</button>
             <button class="lop-btn" data-action="openEditLadder" data-lid="${l.id}" ${dis}>${editSVG} Edit Ladder</button>
-            <button class="lop-btn warn" data-action="toggleLadderStatus" data-lid="${l.id}" data-lstatus="${esc(l.status)}" ${dis}>${isActive ? closSVG + ' Close Ladder' : reopSVG + ' Reopen Ladder'}</button>
+            <button class="lop-btn warn" data-action="toggleLadderStatus" data-lid="${l.id}" data-lstatus="${esc(l.status)}">${isActive ? closSVG + ' Close Ladder' : reopSVG + ' Reopen Ladder'}</button>
             <button class="lop-btn danger" data-action="deleteLadder" data-lid="${l.id}" data-lname="${esc(l.name)}">${trshSVG} Delete</button>
           </div>
         </div>
