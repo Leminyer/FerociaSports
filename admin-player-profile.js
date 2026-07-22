@@ -184,7 +184,7 @@
   const renderHeader = (d) => {
     const { p } = d;
     const initials = ((p.first_name || '')[0] || '').toUpperCase() + ((p.last_name || '')[0] || '').toUpperCase();
-    const avColors = ['var(--blue)', 'var(--orange)', 'var(--teal)', '#9a6e00', '#7B2FBE', '#C04A0E'];
+    const avColors = ['var(--blue)', 'var(--orange)', 'var(--teal)', '#9a6e00', 'var(--purple)', '#C04A0E'];
     const avColor  = avColors[p.id % avColors.length];
     const isActive = p.status === 'active';
     const streakColor = d.streakType === 'W' ? 'var(--teal)' : 'var(--orange)';
@@ -201,7 +201,7 @@
             <div class="pp-name">${esc(p.first_name)} ${esc(p.last_name)}</div>
             ${p.current_rank ? `
               <div class="pp-rank">
-                <span class="pp-rank-icon">${ppSVG(ICONS.trophy, '#7B2FBE', 22)}</span>
+                <span class="pp-rank-icon">${ppSVG(ICONS.trophy, 'var(--purple)', 22)}</span>
                 <div>
                   <div class="pp-rank-lbl">FEROCIA Rank</div>
                   <div class="pp-rank-num">#${p.current_rank}</div>
@@ -221,7 +221,7 @@
             <button class="pp-btn pp-btn-outline" data-action="ppSendMessage">${ppSVG(ICONS.mail, 'var(--blue)', 12)} Send Message</button>
             <div style="position:relative;">
               <button class="pp-btn pp-btn-outline" data-action="ppToggleMore">More ${ppSVG(ICONS.dots, 'var(--blue)', 12)}</button>
-              <div id="pp-more-menu" style="display:none;position:absolute;top:calc(100% + 6px);right:0;background:white;border:0.5px solid #e0e7f5;border-radius:10px;box-shadow:0 8px 24px rgba(8,15,46,.12);min-width:210px;z-index:60;overflow:hidden;">
+              <div id="pp-more-menu" style="display:none;position:absolute;top:calc(100% + 6px);right:0;background:white;border:0.5px solid var(--divider-color);border-radius:10px;box-shadow:0 8px 24px rgba(8,15,46,.12);min-width:210px;z-index:60;overflow:hidden;">
                 <button data-action="ppEditPlayer" style="width:100%;text-align:left;padding:10px 14px;font-size:12px;font-weight:700;color:var(--text);background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:8px;font-family:'Inter',sans-serif;">${ppSVG(ICONS.edit, 'var(--text-muted)')} Edit Player</button>
                 <button data-action="ppViewHistory" style="width:100%;text-align:left;padding:10px 14px;font-size:12px;font-weight:700;color:var(--text);background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:8px;font-family:'Inter',sans-serif;">${ppSVG(ICONS.history, 'var(--text-muted)')} Status History</button>
                 ${p.portal_token ? `<button data-action="ppCopyDnaLink" style="width:100%;text-align:left;padding:10px 14px;font-size:12px;font-weight:700;color:var(--text);background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:8px;font-family:'Inter',sans-serif;border-top:0.5px solid #f4f5f8;">${ppSVG(ICONS.link, 'var(--text-muted)')} Copy Player DNA Link</button>` : ''}
@@ -241,7 +241,7 @@
               <div><div class="pp-stat-mini-val" style="color:var(--teal);">${d.winPct}%</div><div class="pp-stat-mini-lbl">Win Rate</div></div>
             </div>
             <div class="pp-stat-mini">
-              <div class="pp-stat-mini-icon" style="background:rgba(246,166,35,0.15);">${ppSVG(ICONS.trophy, '#9a6200', 16)}</div>
+              <div class="pp-stat-mini-icon" style="background:rgba(246,166,35,0.15);">${ppSVG(ICONS.trophy, 'var(--amber)', 16)}</div>
               <div><div class="pp-stat-mini-val" style="font-size:16px;white-space:nowrap;">${d.totalWins}W - ${d.totalLosses}L</div><div class="pp-stat-mini-lbl">Overall Record</div></div>
             </div>
             <div class="pp-stat-mini">
@@ -297,7 +297,7 @@
             ? ppSVG('<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>', 'var(--teal)', 18)
             : ppSVG('<path d="M12 2v20M4.93 4.93l14.14 14.14M19.07 4.93 4.93 19.07M2 12h20M6 6l4 4M18 6l-4 4M6 18l4-4M18 18l-4-4"/>', 'var(--orange)', 18)}</span>
           <div>
-            <div style="font-size:12px;font-weight:800;color:${bannerIsWin ? '#085041' : 'var(--orange)'};">${bannerStreak} Consecutive ${bannerIsWin ? 'Win' : 'Loss'}${bannerStreak !== 1 ? 'es' : ''}</div>
+            <div style="font-size:12px;font-weight:800;color:${bannerIsWin ? 'var(--teal-dark)' : 'var(--orange)'};">${bannerStreak} Consecutive ${bannerIsWin ? 'Win' : 'Loss'}${bannerStreak !== 1 ? 'es' : ''}</div>
             <div style="font-size:10px;font-weight:600;color:var(--text-muted);">${bannerIsWin ? 'Best streak this career' : 'Longest rough patch this career'}</div>
           </div>
         </div>` : '';
@@ -415,7 +415,7 @@
         <div class="pp-card">
           <div class="pp-card-hdr">
             <span class="pp-card-title" style="display:flex;align-items:center;gap:6px;">PERFORMANCE SNAPSHOT ${ppSVG('<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>', '#b0bbd6', 13)}</span>
-            <select id="pp-snap-period" style="font-size:11px;font-weight:700;color:var(--text-muted);border:0.5px solid #e0e7f5;border-radius:99px;padding:4px 10px;background:#f8f9ff;font-family:'Inter',sans-serif;">
+            <select id="pp-snap-period" style="font-size:11px;font-weight:700;color:var(--text-muted);border:0.5px solid var(--divider-color);border-radius:99px;padding:4px 10px;background:#f8f9ff;font-family:'Inter',sans-serif;">
               <option value="30d">Last 30 Days</option>
               <option value="all">All Time</option>
             </select>
@@ -523,7 +523,7 @@
     const ringOffset = ringC - (d.winPct / 100) * ringC;
     const winRateRingSVG = `
       <svg width="76" height="76" viewBox="0 0 76 76" style="transform:rotate(-90deg);">
-        <circle cx="38" cy="38" r="${ringR}" fill="none" stroke="#f0f2f8" stroke-width="8"/>
+        <circle cx="38" cy="38" r="${ringR}" fill="none" stroke="var(--bg)" stroke-width="8"/>
         <circle cx="38" cy="38" r="${ringR}" fill="none" stroke="var(--teal)" stroke-width="8"
           stroke-dasharray="${ringC}" stroke-dashoffset="${ringOffset}" stroke-linecap="round"/>
       </svg>`;
@@ -579,7 +579,7 @@
        </div>`;
     const perfOverviewHTML = `
       <div class="pp-perf-card">
-        ${perfTitleRow('Performance Overview', '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>', '#174CCC')}
+        ${perfTitleRow('Performance Overview', '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>', 'var(--blue)')}
         ${perfRow('Total Matches', d.totalPlayed)}
         ${perfRow('Wins', d.totalWins, 'var(--teal)')}
         ${perfRow('Losses', d.totalLosses, 'var(--orange)')}
@@ -608,11 +608,11 @@
     const bestFinishLabel = championships > 0 ? 'Champion' : runnerUps > 0 ? 'Runner-Up' : thirdPlaceWins > 0 ? '3rd Place' : semis.length ? 'Semifinalist' : quarters.length ? 'Quarterfinalist' : d.myTournaments.length ? 'Participant' : null;
     const tournHTML = `
       <div class="pp-perf-card">
-        ${perfTitleRow('Tournament Performance', ICONS.trophy, '#F26024')}
+        ${perfTitleRow('Tournament Performance', ICONS.trophy, 'var(--orange)')}
         ${perfRow('Tournaments Played', d.myTournaments.length)}
-        ${perfRow('Championships', championships, championships > 0 ? '#9a6200' : null)}
+        ${perfRow('Championships', championships, championships > 0 ? 'var(--amber)' : null)}
         ${perfRow('Runner-Up', runnerUps)}
-        ${perfRow('Third Place Finishes', thirdPlaceWins, thirdPlaceWins > 0 ? '#9a3412' : null)}
+        ${perfRow('Third Place Finishes', thirdPlaceWins, thirdPlaceWins > 0 ? 'var(--orange-dark)' : null)}
         ${perfRow('Quarterfinal Appearances', quarters.length)}
         ${perfRow('Semifinal Appearances', semis.length)}
         ${perfRow('Best Finish', bestFinishLabel, bestFinishLabel === 'Champion' ? 'var(--teal)' : null)}
@@ -628,7 +628,7 @@
     const avgFinish = ex.positionHistory.length ? (ex.positionHistory.reduce((s, r) => s + r.position, 0) / ex.positionHistory.length).toFixed(1) : null;
     const ladderHTML = `
       <div class="pp-perf-card">
-        ${perfTitleRow('Ladder Performance', '<line x1="6" y1="2" x2="6" y2="22"/><line x1="18" y1="2" x2="18" y2="22"/><line x1="6" y1="7" x2="18" y2="7"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="6" y1="17" x2="18" y2="17"/>', '#24BC96')}
+        ${perfTitleRow('Ladder Performance', '<line x1="6" y1="2" x2="6" y2="22"/><line x1="18" y1="2" x2="18" y2="22"/><line x1="6" y1="7" x2="18" y2="7"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="6" y1="17" x2="18" y2="17"/>', 'var(--teal)')}
         ${perfRow('Ladders Played', d.myLadders.length)}
         ${perfRow('Current Ladder', d.activeLadder ? esc(d.activeLadder.name) : 'None', d.activeLadder ? 'var(--blue)' : null)}
         ${perfRow('Current Position', ex.myStandingRow ? `#${ex.myStandingRow.position} of ${ex.standingsRows.length}` : null)}
@@ -674,10 +674,10 @@
     // badge, since that data already exists per match.
     const resultBadge = (label, kind) => {
       const styles = {
-        champion:  'background:rgba(36,188,150,0.12);color:#085041;border-color:rgba(36,188,150,0.3);',
-        runnerup:  'background:#f4f5f8;color:var(--text-muted);border-color:#e0e7f5;',
+        champion:  'background:rgba(36,188,150,0.12);color:var(--teal-dark);border-color:rgba(36,188,150,0.3);',
+        runnerup:  'background:#f4f5f8;color:var(--text-muted);border-color:var(--divider-color);',
         semi:      'background:rgba(23,76,204,0.08);color:var(--blue);border-color:rgba(23,76,204,0.25);',
-        win:       'background:rgba(36,188,150,0.12);color:#085041;border-color:rgba(36,188,150,0.3);',
+        win:       'background:rgba(36,188,150,0.12);color:var(--teal-dark);border-color:rgba(36,188,150,0.3);',
         loss:      'background:rgba(242,96,36,0.1);color:var(--orange);border-color:rgba(242,96,36,0.25);',
       };
       return `<span style="display:inline-block;padding:3px 12px;border-radius:99px;font-size:11px;font-weight:700;border:1px solid;${styles[kind]}">${label}</span>`;
@@ -888,10 +888,10 @@
   // Fixed catalog — administrators pick from this list, they can't create
   // custom tags (matches the spec). Colors are per-category, not per-tag.
   const TAG_CATALOG = {
-    Community:   { color: '#7B2FBE', tags: ['Volunteer', 'Community Leader', 'Ambassador'] },
-    Coaching:    { color: '#174CCC', tags: ['Coach', 'Instructor', 'Junior Parent'] },
-    Business:    { color: '#9a6200', tags: ['VIP', 'Sponsor', 'Partner'] },
-    Competition: { color: '#24BC96', tags: ['Tournament Director', 'Referee', 'Mentor'] },
+    Community:   { color: 'var(--purple)', tags: ['Volunteer', 'Community Leader', 'Ambassador'] },
+    Coaching:    { color: 'var(--blue)', tags: ['Coach', 'Instructor', 'Junior Parent'] },
+    Business:    { color: 'var(--amber)', tags: ['VIP', 'Sponsor', 'Partner'] },
+    Competition: { color: 'var(--teal)', tags: ['Tournament Director', 'Referee', 'Mentor'] },
   };
   const tagColor = (tag) => {
     for (const cat of Object.values(TAG_CATALOG)) if (cat.tags.includes(tag)) return cat.color;
@@ -989,15 +989,15 @@
   };
 
   const TASK_COLORS = {
-    verify_phone:      '#174CCC',
-    verify_email:      '#24BC96',
-    missing_waiver:    '#F26024',
-    emergency_contact: '#7B2FBE',
+    verify_phone:      'var(--blue)',
+    verify_email:      'var(--teal)',
+    missing_waiver:    'var(--orange)',
+    emergency_contact: 'var(--purple)',
   };
 
   const renderTasksList = (tasks) => tasks.length
     ? tasks.map((t) => {
-        const c = TASK_COLORS[t.task_type] || '#6b7a99';
+        const c = TASK_COLORS[t.task_type] || 'var(--text-muted)';
         return `
         <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:0.5px solid #f4f5f8;">
           <span style="width:32px;height:32px;border-radius:8px;background:${c}22;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${ppSVG(TASK_ICONS[t.task_type] || ICONS.flag, c, 15)}</span>
@@ -1027,6 +1027,141 @@
     }
   };
 
+  // ── Private Attachments ──────────────────────────────────────────────
+  // Scope (per the founder's decision): upload, download, delete only —
+  // no preview, no replace. Files live in the "player-attachments"
+  // Supabase Storage bucket; player_attachments just tracks the metadata.
+  const ATTACH_MAX_BYTES = 10 * 1024 * 1024; // 10MB — no Settings page exists yet to make this configurable
+  const ATTACH_ALLOWED_EXT = ['pdf', 'jpg', 'jpeg', 'png', 'docx'];
+
+  const fetchPlayerAttachments = async (playerId) => {
+    try {
+      return await api(`player_attachments?player_id=eq.${playerId}&select=*&order=created_at.desc`);
+    } catch (e) { console.warn('[attachments] fetch failed:', e.message); return []; }
+  };
+
+  const fmtFileSize = (bytes) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const renderAttachmentsList = (files) => files.length
+    ? files.map((f) => `
+        <div class="pp-attach-row">
+          <span class="pp-attach-icon pp-attach-icon-${f.file_type}">${f.file_type}</span>
+          <div style="flex:1;min-width:0;">
+            <div class="pp-attach-name">${esc(f.file_name)}</div>
+            <div class="pp-attach-meta">${f.file_type.toUpperCase()} · ${fmtFileSize(f.file_size)} · Uploaded ${fmtShort(f.created_at?.slice(0, 10))}</div>
+          </div>
+          <div class="pp-attach-actions">
+            <button type="button" class="pp-attach-btn" data-action="ppDownloadAttachment" data-id="${f.id}" title="Download">${ppSVG('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>', 'var(--blue)', 13)}</button>
+            <button type="button" class="pp-attach-btn pp-attach-btn-danger" data-action="ppDeleteAttachment" data-id="${f.id}" title="Delete">${ppSVG('<polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>', 'var(--danger)', 13)}</button>
+          </div>
+        </div>`).join('')
+    : '<div class="pp-empty">No files uploaded yet.</div>';
+
+  const attachmentsCardHTML = () => `
+    <div class="pp-perf-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <span class="pp-perf-title" style="margin-bottom:0;">Private Attachments</span>
+        <button type="button" class="pp-upload-btn" data-action="ppTriggerFileUpload">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Upload File
+        </button>
+      </div>
+      <input type="file" id="pp-file-input" accept=".pdf,.jpg,.jpeg,.png,.docx" style="display:none;">
+      <div id="pp-attachments-list"><div class="loading" style="padding:16px;">Loading files...</div></div>
+    </div>`;
+
+  const ppTriggerFileUpload = () => {
+    document.getElementById('pp-file-input')?.click();
+  };
+
+  const _ppRefreshAttachmentsList = async () => {
+    if (!_ppCurrent) return;
+    const el = document.getElementById('pp-attachments-list');
+    if (!el) return;
+    const files = await fetchPlayerAttachments(_ppCurrent.p.id);
+    el.innerHTML = renderAttachmentsList(files);
+  };
+
+  const ppHandleFileUpload = async (input) => {
+    const file = input.files?.[0];
+    if (!file || !_ppCurrent) return;
+    const ext = file.name.split('.').pop().toLowerCase();
+    if (!ATTACH_ALLOWED_EXT.includes(ext)) {
+      toast('Unsupported file type. Allowed: PDF, JPG, PNG, DOCX.', true);
+      input.value = '';
+      return;
+    }
+    if (file.size > ATTACH_MAX_BYTES) {
+      toast('File is too large — 10MB max.', true);
+      input.value = '';
+      return;
+    }
+    if (!AdminState.currentAdminId) { toast('Could not identify the current admin — try refreshing the page.', true); return; }
+
+    const fileType = ext === 'jpeg' ? 'jpg' : ext;
+    const path = `${_ppCurrent.p.id}/${Date.now()}_${file.name}`;
+
+    try {
+      const { error: uploadError } = await supabase.storage.from('player-attachments').upload(path, file);
+      if (uploadError) throw uploadError;
+
+      await api('player_attachments', 'POST', {
+        player_id: _ppCurrent.p.id,
+        file_name: file.name,
+        file_type: fileType,
+        file_size: file.size,
+        storage_path: path,
+        admin_id: AdminState.currentAdminId,
+      });
+      toast('File uploaded.');
+      input.value = '';
+      _ppRefreshAttachmentsList();
+    } catch (e) {
+      toast(`Upload failed: ${e.message}`, true);
+    }
+  };
+
+  const ppDownloadAttachment = async (btn) => {
+    if (!_ppCurrent) return;
+    const id = parseInt(btn.dataset.id, 10);
+    const files = await fetchPlayerAttachments(_ppCurrent.p.id);
+    const file = files.find((f) => f.id === id);
+    if (!file) return;
+    try {
+      const { data, error } = await supabase.storage.from('player-attachments').createSignedUrl(file.storage_path, 60);
+      if (error) throw error;
+      window.open(data.signedUrl, '_blank');
+    } catch (e) {
+      toast(`Error: ${e.message}`, true);
+    }
+  };
+
+  const ppDeleteAttachment = async (btn) => {
+    if (!_ppCurrent) return;
+    const id = parseInt(btn.dataset.id, 10);
+    const ok = await window.confirmModal({
+      title: 'Delete this file?',
+      message: 'This removes the file permanently and cannot be undone. Are you sure?',
+      okLabel: 'Delete File',
+    });
+    if (!ok) return;
+    try {
+      const files = await fetchPlayerAttachments(_ppCurrent.p.id);
+      const file = files.find((f) => f.id === id);
+      if (!file) return;
+      await supabase.storage.from('player-attachments').remove([file.storage_path]);
+      await api(`player_attachments?id=eq.${id}`, 'DELETE');
+      toast('File deleted.');
+      _ppRefreshAttachmentsList();
+    } catch (e) {
+      toast(`Error: ${e.message}`, true);
+    }
+  };
+
   const notesCardHTML = (playerId) => `
     <div class="pp-perf-card">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
@@ -1037,12 +1172,12 @@
         </button>
       </div>
       <div id="pp-note-form-wrap" class="pp-note-form" style="display:none;">
-        <select id="pp-note-type" style="width:100%;padding:8px 10px;border:1px solid #e0e7f5;border-radius:8px;font-family:'Inter',sans-serif;font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px;">
+        <select id="pp-note-type" style="width:100%;padding:8px 10px;border:1px solid var(--divider-color);border-radius:8px;font-family:'Inter',sans-serif;font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px;">
           ${Object.entries(NOTE_TYPE_LABELS).map(([val, lbl]) => `<option value="${val}">${lbl}</option>`).join('')}
         </select>
-        <textarea id="pp-note-content" placeholder="Write the note..." style="width:100%;min-height:70px;padding:10px;border:1px solid #e0e7f5;border-radius:8px;font-family:'Inter',sans-serif;font-size:12px;font-weight:500;color:var(--text);resize:vertical;margin-bottom:8px;"></textarea>
+        <textarea id="pp-note-content" placeholder="Write the note..." style="width:100%;min-height:70px;padding:10px;border:1px solid var(--divider-color);border-radius:8px;font-family:'Inter',sans-serif;font-size:12px;font-weight:500;color:var(--text);resize:vertical;margin-bottom:8px;"></textarea>
         <div style="display:flex;justify-content:flex-end;gap:8px;">
-          <button type="button" data-action="ppToggleNoteForm" style="padding:7px 14px;border:1px solid #e0e7f5;border-radius:99px;background:white;color:var(--text-muted);font-size:11px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">Cancel</button>
+          <button type="button" data-action="ppToggleNoteForm" style="padding:7px 14px;border:1px solid var(--divider-color);border-radius:99px;background:white;color:var(--text-muted);font-size:11px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">Cancel</button>
           <button type="button" data-action="ppSaveNote" style="padding:7px 16px;border:none;border-radius:99px;background:var(--blue);color:white;font-size:11px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">Save Note</button>
         </div>
       </div>
@@ -1091,19 +1226,19 @@
       const r = 20, c = 2 * Math.PI * r;
       const offset = c - (Math.min(pct, 100) / 100) * c;
       return `<svg width="48" height="48" viewBox="0 0 48 48" style="transform:rotate(-90deg);margin-top:8px;">
-        <circle cx="24" cy="24" r="${r}" fill="none" stroke="#f0f2f8" stroke-width="5"/>
+        <circle cx="24" cy="24" r="${r}" fill="none" stroke="var(--bg)" stroke-width="5"/>
         <circle cx="24" cy="24" r="${r}" fill="none" stroke="${color}" stroke-width="5" stroke-dasharray="${c}" stroke-dashoffset="${offset}" stroke-linecap="round"/>
       </svg>`;
     };
     const dotsViz = (count, color) => {
       const shown = Math.min(count, 5);
       const dots = Array.from({ length: 5 }, (_, i) =>
-        `<span style="width:8px;height:8px;border-radius:50%;background:${i < shown ? color : '#e5e7eb'};display:inline-block;"></span>`).join('');
+        `<span style="width:8px;height:8px;border-radius:50%;background:${i < shown ? color : 'var(--border-color)'};display:inline-block;"></span>`).join('');
       return `<div style="display:flex;gap:4px;justify-content:center;margin-top:12px;">${dots}</div>`;
     };
     const gaugeViz = (count, max, color) => {
       const pct = Math.min((count / max) * 100, 100);
-      return `<div style="width:100%;height:6px;background:#f0f2f8;border-radius:99px;margin-top:12px;overflow:hidden;">
+      return `<div style="width:100%;height:6px;background:var(--bg);border-radius:99px;margin-top:12px;overflow:hidden;">
         <div style="width:${pct}%;height:100%;background:${color};border-radius:99px;"></div>
       </div>`;
     };
@@ -1124,7 +1259,7 @@
       </div>`;
     const logCancellationBtn = `
       <button type="button" data-action="ppLogLateCancellation" title="Log a late cancellation for today"
-        style="position:absolute;top:6px;right:6px;width:18px;height:18px;border-radius:50%;border:none;background:#f0f2f8;color:var(--text-muted);font-size:11px;font-weight:800;cursor:pointer;line-height:1;">+</button>`;
+        style="position:absolute;top:6px;right:6px;width:18px;height:18px;border-radius:50%;border:none;background:var(--bg);color:var(--text-muted);font-size:11px;font-weight:800;cursor:pointer;line-height:1;">+</button>`;
     const relCard = rel ? `
       <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;">
         ${relStat('Attendance', rel.attendance_pct !== null ? `${rel.attendance_pct}%` : '—', ringViz(rel.attendance_pct || 0, 'var(--teal)'), 'var(--teal)')}
@@ -1159,7 +1294,7 @@
       <div class="pp-2col pp-section-gap" style="align-items:start;">
         <div style="display:flex;flex-direction:column;gap:24px;">
           ${notesCardHTML(d.p.id)}
-          ${comingSoonRow('Private Attachments')}
+          ${attachmentsCardHTML()}
         </div>
         <div style="display:flex;flex-direction:column;gap:24px;">
           <div class="pp-perf-card">
@@ -1193,6 +1328,13 @@
       const tasks = await fetchPlayerTasks(d.p.id);
       if (_ppCurrent && _ppCurrent.p.id === playerIdAtStart) tasksEl.innerHTML = renderTasksList(tasks);
     }
+
+    const attachEl = document.getElementById('pp-attachments-list');
+    if (attachEl) {
+      const files = await fetchPlayerAttachments(d.p.id);
+      if (_ppCurrent && _ppCurrent.p.id === playerIdAtStart) attachEl.innerHTML = renderAttachmentsList(files);
+    }
+    document.getElementById('pp-file-input')?.addEventListener('change', (e) => ppHandleFileUpload(e.target));
   };
 
   const renderSoon = (tabId, label) => {
@@ -1431,6 +1573,9 @@
     ppAddTag: (btn) => ppAddTag(btn),
     ppRemoveTag: (btn) => ppRemoveTag(btn),
     ppCompleteTask: (btn) => ppCompleteTask(btn),
+    ppTriggerFileUpload: () => ppTriggerFileUpload(),
+    ppDownloadAttachment: (btn) => ppDownloadAttachment(btn),
+    ppDeleteAttachment: (btn) => ppDeleteAttachment(btn),
     ppViewLadder:   (btn) => ppViewLadder(btn),
     // Route "openPlayerProfile" (used across the admin — Players table,
     // Match Hub, etc.) to this page instead of the old modal.
