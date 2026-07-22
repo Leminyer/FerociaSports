@@ -888,21 +888,26 @@
   // Fixed catalog — administrators pick from this list, they can't create
   // custom tags (matches the spec). Colors are per-category, not per-tag.
   const TAG_CATALOG = {
-    Community:   { color: 'var(--purple)', tags: ['Volunteer', 'Community Leader', 'Ambassador'] },
-    Coaching:    { color: 'var(--blue)', tags: ['Coach', 'Instructor', 'Junior Parent'] },
-    Business:    { color: 'var(--amber)', tags: ['VIP', 'Sponsor', 'Partner'] },
-    Competition: { color: 'var(--teal)', tags: ['Tournament Director', 'Referee', 'Mentor'] },
+    Community:   { color: 'var(--purple)', bg: 'var(--purple-light)', tags: ['Volunteer', 'Community Leader', 'Ambassador'] },
+    Coaching:    { color: 'var(--blue)', bg: 'var(--primary-light)', tags: ['Coach', 'Instructor', 'Junior Parent'] },
+    Business:    { color: 'var(--amber)', bg: 'var(--amber-light)', tags: ['VIP', 'Sponsor', 'Partner'] },
+    Competition: { color: 'var(--teal)', bg: 'var(--teal-light)', tags: ['Tournament Director', 'Referee', 'Mentor'] },
   };
   const tagColor = (tag) => {
     for (const cat of Object.values(TAG_CATALOG)) if (cat.tags.includes(tag)) return cat.color;
     return 'var(--text-muted)';
+  };
+  const tagBg = (tag) => {
+    for (const cat of Object.values(TAG_CATALOG)) if (cat.tags.includes(tag)) return cat.bg;
+    return '#f0f2f8';
   };
   let _ppTagPickerOpen = false;
 
   const renderTagsCard = (tags) => {
     const pills = (tags || []).map((t) => {
       const c = tagColor(t);
-      return `<span style="display:inline-flex;align-items:center;gap:8px;background:${c}22;color:${c};border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;">
+      const bg = tagBg(t);
+      return `<span style="display:inline-flex;align-items:center;gap:8px;background:${bg};color:${c};border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;">
         ${esc(t)}
         <button type="button" data-action="ppRemoveTag" data-tag="${esc(t)}" style="background:none;border:none;color:${c};cursor:pointer;font-weight:800;padding:0;line-height:1;font-size:15px;">×</button>
       </span>`;

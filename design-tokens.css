@@ -82,7 +82,9 @@
   --silver:       #C0C0C0;
   --bronze:       #CD7F32;
   --purple:       #7B2FBE; /* used for the "Community" tag category and FEROCIA Rank — not in the original spec, added because it's used repeatedly */
+  --purple-light: #f0e4fa; /* light background tint for --purple, matching the --teal-light/--orange-light pattern */
   --amber:        #9a6200; /* used for "Championships"/"Business" tag category — same reasoning as --purple */
+  --amber-light:  #fdf0d5; /* light background tint for --amber */
   --teal-dark:    #085041; /* readable text-on-light-green shade (vs --success/--teal, which is meant for backgrounds/accents, not body text) */
   --orange-dark:  #9a3412; /* readable text-on-light-orange shade, same reasoning as --teal-dark */
   --danger:       #dc2626; /* used for Incident notes and delete/remove actions — distinct from --warning (orange), this is specifically for destructive/critical actions */
