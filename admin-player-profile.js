@@ -1308,6 +1308,13 @@
       <div class="pp-2col pp-section-gap" style="align-items:start;">
         <div style="display:flex;flex-direction:column;gap:24px;">
           ${notesCardHTML(d.p.id)}
+          <div class="pp-perf-card">
+            <div class="pp-perf-title" style="display:flex;align-items:center;gap:8px;">
+              ${ppSVG('<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>', 'var(--orange)', 15)} Incident Reports
+            </div>
+            <div id="pp-incidents-list"><div class="loading" style="padding:16px;">Loading incident reports...</div></div>
+            <div style="margin-top:10px;"><a class="pp-link" data-action="ppShowTab" data-pptab="history">View all incident reports →</a></div>
+          </div>
           ${attachmentsCardHTML()}
         </div>
         <div style="display:flex;flex-direction:column;gap:24px;">
@@ -1328,12 +1335,6 @@
             <div style="margin-top:10px;"><a class="pp-link" data-action="ppShowTab" data-pptab="history">View all tasks →</a></div>
           </div>
         </div>
-      </div>
-      <div class="pp-perf-card pp-section-gap">
-        <div class="pp-perf-title" style="display:flex;align-items:center;gap:8px;">
-          ${ppSVG('<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>', 'var(--orange)', 15)} Incident Reports
-        </div>
-        <div id="pp-incidents-list"><div class="loading" style="padding:16px;">Loading incident reports...</div></div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:24px;background:var(--bg);border-radius:12px;padding:16px 20px;">
         <div style="display:flex;align-items:flex-start;gap:10px;">
