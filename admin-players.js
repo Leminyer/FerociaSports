@@ -1564,6 +1564,7 @@
       const _origEmail  = (_origPlayer?.email      || '').trim();
 
       await api(`players?id=eq.${id}`, 'PATCH', body);
+      window.logAuditAction(id, 'player_edited', 'Edited player information');
 
       // Sync subscriber record if exists — match by original name + email
       try {

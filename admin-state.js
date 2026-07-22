@@ -60,3 +60,22 @@ window.AdminState = {
 
 window.CLICK_HANDLERS   = window.CLICK_HANDLERS   || {};
 window.AdminPageLoaders = window.AdminPageLoaders || {};
+
+// Shared audit-logging helper — used by admin-player-profile.js (notes,
+// tags, tasks, attachments, email) and admin-players.js (Edit Player).
+// Lives here, not in either of those files, since it's needed by both.
+// Best-effort: a logging failure should never block the actual action
+// it's recording, so this never throws — it just warns to the console.
+window.logAuditAction = async (playerId, actionType, description) => {
+  if (!playerId || !window.AdminState.currentAdminId) return;
+  try {
+    await api('player_audit_log', 'POST', {
+      player_id: playerId,
+      admin_id: window.AdminState.currentAdminId,
+      action_type: actionType,
+      description,
+    });
+  } catch (e) {
+    console.warn('[audit log] failed:', e.message);
+  }
+};

@@ -844,6 +844,7 @@
         note_type: type,
         content,
       });
+      window.logAuditAction(_ppCurrent.p.id, 'note_created', `Added a ${NOTE_TYPE_LABELS[type] || type} note`);
       toast('Note added.');
       document.getElementById('pp-note-content').value = '';
       _ppNoteFormOpen = false;
@@ -876,6 +877,7 @@
         ladder_id: _ppCurrent.activeLadder?.id || null,
         admin_id: AdminState.currentAdminId,
       });
+      window.logAuditAction(_ppCurrent.p.id, 'late_cancellation_logged', 'Logged a late cancellation');
       toast('Late cancellation logged.');
       document.getElementById('pp-tab-adminnotes').removeAttribute('data-rendered');
       renderAdmin(_ppCurrent);
@@ -952,6 +954,7 @@
     try {
       await api(`players?id=eq.${_ppCurrent.p.id}`, 'PATCH', { tags: updated });
       _ppCurrent.p.tags = updated;
+      window.logAuditAction(_ppCurrent.p.id, 'tag_added', `Added tag: ${tag}`);
       _ppTagPickerOpen = false;
       _ppRefreshTagsCard();
     } catch (e) { toast(`Error: ${e.message}`, true); }
@@ -964,6 +967,7 @@
     try {
       await api(`players?id=eq.${_ppCurrent.p.id}`, 'PATCH', { tags: updated });
       _ppCurrent.p.tags = updated;
+      window.logAuditAction(_ppCurrent.p.id, 'tag_removed', `Removed tag: ${tag}`);
       _ppRefreshTagsCard();
     } catch (e) { toast(`Error: ${e.message}`, true); }
   };
@@ -1024,6 +1028,7 @@
     try {
       await api(`players?id=eq.${_ppCurrent.p.id}`, 'PATCH', { [mapping.field]: mapping.value });
       _ppCurrent.p[mapping.field] = mapping.value;
+      window.logAuditAction(_ppCurrent.p.id, 'task_completed', `Completed task: ${type}`);
       toast('Task marked complete.');
       document.getElementById('pp-tab-adminnotes').removeAttribute('data-rendered');
       renderAdmin(_ppCurrent);
@@ -1124,6 +1129,7 @@
         storage_path: path,
         admin_id: AdminState.currentAdminId,
       });
+      window.logAuditAction(_ppCurrent.p.id, 'attachment_uploaded', `Uploaded file: ${file.name}`);
       toast('File uploaded.');
       input.value = '';
       _ppRefreshAttachmentsList();
@@ -1162,6 +1168,7 @@
       if (!file) return;
       await supabase.storage.from('player-attachments').remove([file.storage_path]);
       await api(`player_attachments?id=eq.${id}`, 'DELETE');
+      window.logAuditAction(_ppCurrent.p.id, 'attachment_removed', `Removed file: ${file.file_name}`);
       toast('File deleted.');
       _ppRefreshAttachmentsList();
     } catch (e) {
@@ -1322,6 +1329,20 @@
           </div>
         </div>
       </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:24px;background:var(--bg);border-radius:12px;padding:16px 20px;">
+        <div style="display:flex;align-items:flex-start;gap:10px;">
+          ${ppSVG('<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>', 'var(--blue)', 16)}
+          <div><div style="font-size:12px;font-weight:700;color:var(--text);">Important</div><div style="font-size:10px;font-weight:600;color:var(--text-muted);">All information in this tab is internal and only visible to FEROCIA administrators.</div></div>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:10px;">
+          ${ppSVG(ICONS.calendar, 'var(--blue)', 16)}
+          <div><div style="font-size:12px;font-weight:700;color:var(--text);">Last Updated</div><div id="pp-audit-lastupdate" style="font-size:10px;font-weight:600;color:var(--text-muted);">Loading...</div></div>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:10px;">
+          ${ppSVG('<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>', 'var(--blue)', 16)}
+          <div><div style="font-size:12px;font-weight:700;color:var(--text);">Audit Trail</div><div style="font-size:10px;font-weight:600;color:var(--text-muted);">All administrative actions are recorded in the system audit log.</div></div>
+        </div>
+      </div>
     `;
 
     const notesEl = document.getElementById('pp-notes-list');
@@ -1342,6 +1363,21 @@
       if (_ppCurrent && _ppCurrent.p.id === playerIdAtStart) attachEl.innerHTML = renderAttachmentsList(files);
     }
     document.getElementById('pp-file-input')?.addEventListener('change', (e) => ppHandleFileUpload(e.target));
+
+    const lastUpdateEl = document.getElementById('pp-audit-lastupdate');
+    if (lastUpdateEl) {
+      try {
+        const { data } = await supabase.rpc('get_player_audit_log', { p_player_id: d.p.id });
+        const latest = data?.[0];
+        if (_ppCurrent && _ppCurrent.p.id === playerIdAtStart) {
+          lastUpdateEl.textContent = latest
+            ? `${fmtShort(latest.created_at?.slice(0, 10))} by ${latest.admin_name}`
+            : 'No activity recorded yet';
+        }
+      } catch (e) {
+        if (_ppCurrent && _ppCurrent.p.id === playerIdAtStart) lastUpdateEl.textContent = 'Unavailable';
+      }
+    }
   };
 
   const renderSoon = (tabId, label) => {
@@ -1500,6 +1536,7 @@
         leaderboard_url: window.location.origin + window.location.pathname.replace('admin.html', '') + 'players.html',
       });
       if (ok) {
+        window.logAuditAction(p.id, 'email_sent', `Sent email: ${subject}`);
         toast(`Email sent to ${p.first_name} ${p.last_name}!`);
         ppCloseEmailModal();
       } else {
