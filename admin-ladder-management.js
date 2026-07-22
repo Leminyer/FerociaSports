@@ -504,7 +504,7 @@
   };
 
   // Toggle single row on click (but not if clicking seg button)
-  window.lpRowClick = (e, pid) => {
+  window.lpRowClick = async (e, pid) => {
     if (e.target.closest('.lp-seg')) return; // ignore seg clicks
     const row = e.currentTarget;
     const cb  = row.querySelector('.lp-cb-box');
@@ -529,6 +529,22 @@
       seg.dataset.pid = pid;
       seg.innerHTML = `<button type="button" class="lp-seg-btn lp-seg-active" onclick="lpSegClick(this,'active',${pid})">Active</button><button type="button" class="lp-seg-btn" onclick="lpSegClick(this,'sub',${pid})">Sub</button>`;
       row.appendChild(seg);
+
+      // Warn if this player has negative internal notes (warning/incident/
+      // suspension) — uses the same lightweight RPC built for exactly
+      // this purpose when we did the Admin tab's Internal Notes work.
+      try {
+        const { data } = await supabase.rpc('get_player_note_alerts', { p_player_id: pid });
+        const alert = data?.[0];
+        if (alert?.has_any_flag) {
+          const name = row.querySelector('.lp-pname')?.textContent || 'This player';
+          const parts = [];
+          if (alert.suspension_count > 0) parts.push(`${alert.suspension_count} suspension${alert.suspension_count > 1 ? 's' : ''}`);
+          if (alert.incident_count > 0) parts.push(`${alert.incident_count} incident${alert.incident_count > 1 ? 's' : ''}`);
+          if (alert.warning_count > 0) parts.push(`${alert.warning_count} warning${alert.warning_count > 1 ? 's' : ''}`);
+          toast(`⚠️ ${name} has ${parts.join(', ')} on file — check their Admin tab before proceeding.`, true);
+        }
+      } catch (err) { /* best-effort — never block enrollment over a notes-check failure */ }
     }
   };
 
