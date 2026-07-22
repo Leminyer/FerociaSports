@@ -88,7 +88,11 @@
 
       // Incident Reports — fetched once for the whole ladder, then
       // filtered per court below (avoids one RPC call per court).
-      const { data: incidentsData } = await supabase.rpc('get_ladder_incidents', { p_ladder_id: AdminState.currentLadder.id }).catch(() => ({ data: [] }));
+      let incidentsData = [];
+      try {
+        const res = await supabase.rpc('get_ladder_incidents', { p_ladder_id: AdminState.currentLadder.id });
+        incidentsData = res.data || [];
+      } catch (e) { /* best-effort — an incident-fetch failure shouldn't block the Sessions page */ }
       const allLadderIncidents = incidentsData || [];
 
       // Player pool for the Incident Report modal's search — only
