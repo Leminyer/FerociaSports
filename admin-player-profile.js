@@ -1329,6 +1329,12 @@
           </div>
         </div>
       </div>
+      <div class="pp-perf-card pp-section-gap">
+        <div class="pp-perf-title" style="display:flex;align-items:center;gap:8px;">
+          ${ppSVG('<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>', 'var(--orange)', 15)} Incident Reports
+        </div>
+        <div id="pp-incidents-list"><div class="loading" style="padding:16px;">Loading incident reports...</div></div>
+      </div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:24px;background:var(--bg);border-radius:12px;padding:16px 20px;">
         <div style="display:flex;align-items:flex-start;gap:10px;">
           ${ppSVG('<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>', 'var(--blue)', 16)}
@@ -1363,6 +1369,22 @@
       if (_ppCurrent && _ppCurrent.p.id === playerIdAtStart) attachEl.innerHTML = renderAttachmentsList(files);
     }
     document.getElementById('pp-file-input')?.addEventListener('change', (e) => ppHandleFileUpload(e.target));
+
+    // Incident Reports — read-only here (they can only be created from a
+    // Ladder Session or a Tournament, never from Player Profile).
+    const incidentsEl = document.getElementById('pp-incidents-list');
+    if (incidentsEl) {
+      try {
+        const { data } = await supabase.rpc('get_player_incidents', { p_player_id: d.p.id });
+        const incidents = data || [];
+        if (_ppCurrent && _ppCurrent.p.id === playerIdAtStart) {
+          const html = window.renderIncidentReportsList ? window.renderIncidentReportsList(incidents, { showPlayer: false }) : '';
+          incidentsEl.innerHTML = html || '<div class="pp-empty">No incident reports on file.</div>';
+        }
+      } catch (e) {
+        if (_ppCurrent && _ppCurrent.p.id === playerIdAtStart) incidentsEl.innerHTML = '<div class="pp-empty">Could not load incident reports.</div>';
+      }
+    }
 
     const lastUpdateEl = document.getElementById('pp-audit-lastupdate');
     if (lastUpdateEl) {
