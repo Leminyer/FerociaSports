@@ -3784,6 +3784,85 @@
   </div>
 </div>
 
+<!-- Incident Report Modal — shared by Ladder Sessions and Tournaments -->
+<div class="modal-bg" id="incident-report-modal">
+  <div class="modal" style="max-width:560px;border-radius:14px;padding:0;overflow:hidden;display:flex;flex-direction:column;max-height:85vh;">
+
+    <!-- HEADER -->
+    <div style="padding:20px 24px 0;display:flex;align-items:flex-start;justify-content:space-between;flex-shrink:0;">
+      <div style="font-family:'Inter',sans-serif;font-size:22px;color:var(--text);letter-spacing:.5px;line-height:1;">Report Incident</div>
+      <button type="button" data-action="closeIncidentReportModal"
+        style="width:30px;height:30px;border-radius:8px;border:0.5px solid var(--divider-color);background:white;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;outline:none;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#e53935" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div style="border-top:0.5px solid var(--divider-color);margin:14px 24px 0;"></div>
+
+    <!-- BODY -->
+    <form id="incident-report-form" style="padding:16px 24px;display:flex;flex-direction:column;gap:14px;overflow-y:auto;">
+      <div id="ir-context-box" style="background:var(--bg);border-radius:10px;padding:12px 14px;font-size:12px;font-weight:600;color:var(--text-muted);"></div>
+
+      <div>
+        <div style="font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;">Court <span style="color:#e53935;">*</span></div>
+        <select id="ir-court" style="width:100%;padding:9px 12px;border:1px solid var(--divider-color);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;color:var(--text);outline:none;">
+          <option value="">Select court...</option>
+        </select>
+      </div>
+
+      <div style="position:relative;">
+        <div style="font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;">Player Involved <span style="color:#e53935;">*</span></div>
+        <input type="text" id="ir-player-search" placeholder="Search by first or last name..." autocomplete="off"
+          style="width:100%;padding:9px 12px;border:1px solid var(--divider-color);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;color:var(--text);outline:none;">
+        <input type="hidden" id="ir-player-id">
+        <div id="ir-player-results" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:white;border:1px solid var(--divider-color);border-radius:8px;box-shadow:0 8px 24px rgba(8,15,46,.12);max-height:180px;overflow-y:auto;z-index:20;"></div>
+      </div>
+
+      <div>
+        <div style="font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;">Incident Reason <span style="color:#e53935;">*</span></div>
+        <select id="ir-reason" style="width:100%;padding:9px 12px;border:1px solid var(--divider-color);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;color:var(--text);outline:none;">
+          <option value="">Select a reason...</option>
+          <option>Unsportsmanlike Conduct</option>
+          <option>Verbal Abuse</option>
+          <option>Physical Aggression</option>
+          <option>Paddle Throwing</option>
+          <option>Equipment Abuse</option>
+          <option>Harassment</option>
+          <option>Cheating</option>
+          <option>Rules Violation</option>
+          <option>Match Abandonment</option>
+          <option>No-Show</option>
+          <option>Late Arrival</option>
+          <option>Facility Damage</option>
+          <option>Safety Concern</option>
+          <option>Other</option>
+        </select>
+      </div>
+
+      <div id="ir-other-wrap" style="display:none;">
+        <div style="font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;">Please specify <span style="color:#e53935;">*</span></div>
+        <input type="text" id="ir-other-reason" style="width:100%;padding:9px 12px;border:1px solid var(--divider-color);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;color:var(--text);outline:none;">
+      </div>
+
+      <div>
+        <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:4px;">
+          <span style="font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);">Description <span style="color:#e53935;">*</span></span>
+          <span id="ir-char-count" style="font-size:9px;font-weight:600;color:var(--text-muted);">0 / 2000</span>
+        </div>
+        <textarea id="ir-description" maxlength="2000" placeholder="Describe exactly what happened. Include factual information only."
+          style="width:100%;min-height:120px;padding:12px;border:1px solid var(--divider-color);border-radius:10px;outline:none;font-family:'Inter',sans-serif;font-size:13px;font-weight:500;color:var(--text);line-height:1.6;resize:vertical;"></textarea>
+      </div>
+
+      <!-- FOOTER -->
+      <div style="display:flex;justify-content:flex-end;gap:8px;padding-top:4px;border-top:0.5px solid var(--divider-color);margin-top:2px;">
+        <button type="button" data-action="closeIncidentReportModal"
+          style="padding:10px 20px;border:1px solid var(--divider-color);border-radius:99px;background:white;color:var(--text-muted);font-family:'Inter',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Cancel</button>
+        <button type="submit" id="ir-save-btn"
+          style="padding:10px 24px;border:none;border-radius:99px;background:linear-gradient(180deg,#2456d3,var(--blue));color:white;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Save Incident Report</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <!-- Tournament Notify Modal -->
 <div class="modal-bg" id="tournament-notify-modal">
   <div class="modal" style="max-width:560px;border-radius:14px;padding:0;overflow:hidden;display:flex;flex-direction:column;">
@@ -4244,25 +4323,26 @@
   </div>
 </div>
 
-<script src="admin-state.js?v=20260775"></script>
-<script src="admin-ladder-selector.js?v=20260775"></script>
-<script src="admin-orders.js?v=20260775"></script>
-<script src="admin-email-utils.js?v=20260775"></script>
-<script src="admin-share.js?v=20260775"></script>
-<script src="admin-tournament-notify.js?v=20260775"></script>
-<script src="admin-player-status-history.js?v=20260775"></script>
-<script src="admin-player-profile.js?v=20260775"></script>
-<script src="admin-email-notifications.js?v=20260775"></script>
-<script src="admin-ladder-standings.js?v=20260775"></script>
-<script src="admin-sessions.js?v=20260775"></script>
-<script src="admin-print-roster.js?v=20260775"></script>
-<script src="admin-ladder-management.js?v=20260775"></script>
-<script src="admin-promotions.js?v=20260775"></script>
-<script src="admin-players.js?v=20260775"></script>
-<script src="admin-ftc-standings.js?v=20260775"></script>
-<script src="admin-ftc-playoffs-schedule.js?v=20260775"></script>
-<script src="admin-ftc-teams.js?v=20260775"></script>
-<script src="app.js?v=20260775"></script>
+<script src="admin-state.js?v=20260776"></script>
+<script src="admin-incident-reports.js?v=20260776"></script>
+<script src="admin-ladder-selector.js?v=20260776"></script>
+<script src="admin-orders.js?v=20260776"></script>
+<script src="admin-email-utils.js?v=20260776"></script>
+<script src="admin-share.js?v=20260776"></script>
+<script src="admin-tournament-notify.js?v=20260776"></script>
+<script src="admin-player-status-history.js?v=20260776"></script>
+<script src="admin-player-profile.js?v=20260776"></script>
+<script src="admin-email-notifications.js?v=20260776"></script>
+<script src="admin-ladder-standings.js?v=20260776"></script>
+<script src="admin-sessions.js?v=20260776"></script>
+<script src="admin-print-roster.js?v=20260776"></script>
+<script src="admin-ladder-management.js?v=20260776"></script>
+<script src="admin-promotions.js?v=20260776"></script>
+<script src="admin-players.js?v=20260776"></script>
+<script src="admin-ftc-standings.js?v=20260776"></script>
+<script src="admin-ftc-playoffs-schedule.js?v=20260776"></script>
+<script src="admin-ftc-teams.js?v=20260776"></script>
+<script src="app.js?v=20260776"></script>
 <script src="tournament.js?v=20260526"></script>
 <script>
   // ── Sidebar toggle — persisted in localStorage ──────────────────────
