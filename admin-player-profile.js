@@ -1068,15 +1068,17 @@
 
   const attachmentsCardHTML = () => `
     <div class="pp-perf-card">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
         <span class="pp-perf-title" style="margin-bottom:0;">Private Attachments</span>
         <button type="button" class="pp-upload-btn" data-action="ppTriggerFileUpload">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           Upload File
         </button>
       </div>
+      <div style="font-size:10px;font-weight:600;color:var(--text-muted);margin-bottom:10px;">Accepted file types: PDF, JPG, PNG, DOCX — max 10MB</div>
       <input type="file" id="pp-file-input" accept=".pdf,.jpg,.jpeg,.png,.docx" style="display:none;">
       <div id="pp-attachments-list"><div class="loading" style="padding:16px;">Loading files...</div></div>
+      <div style="margin-top:10px;"><a class="pp-link" data-action="ppShowTab" data-pptab="history">View all files →</a></div>
     </div>`;
 
   const ppTriggerFileUpload = () => {
