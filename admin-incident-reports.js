@@ -42,17 +42,47 @@
       ctxEl.innerHTML = `<b>${esc(ctx.tournamentName || 'Tournament')}</b><br>${ctx.tournamentDate ? fmtDate(ctx.tournamentDate) : '—'}`;
     }
 
-    // Court dropdown — pre-selected for ladders, blank for tournaments
-    const courtSel = document.getElementById('ir-court');
-    courtSel.innerHTML = '<option value="">Select court...</option>' +
-      Array.from({ length: IR_COURT_COUNT }, (_, i) => `<option>Court ${i + 1}</option>`).join('') +
-      '<option>Unknown / Not Assigned</option>';
-    courtSel.value = ctx.sourceType === 'ladder' && ctx.defaultCourt ? `Court ${ctx.defaultCourt}` : '';
+    // ── Court — already known when opened from a specific ladder court
+    // (no need to ask again); still a real dropdown for tournaments,
+    // which have no single "current court" to infer. ───────────────────
+    const courtDropdownWrap = document.getElementById('ir-court-dropdown-wrap');
+    const courtLockedNote = document.getElementById('ir-court-locked-note');
+    if (ctx.lockedCourt) {
+      courtDropdownWrap.style.display = 'none';
+      courtLockedNote.style.display = 'block';
+      courtLockedNote.textContent = `This incident report is for ${ctx.lockedCourt}.`;
+      courtLockedNote.dataset.court = ctx.lockedCourt;
+    } else {
+      courtDropdownWrap.style.display = '';
+      courtLockedNote.style.display = 'none';
+      const courtSel = document.getElementById('ir-court');
+      courtSel.innerHTML = '<option value="">Select court...</option>' +
+        Array.from({ length: IR_COURT_COUNT }, (_, i) => `<option>Court ${i + 1}</option>`).join('') +
+        '<option>Unknown / Not Assigned</option>';
+      courtSel.value = '';
+    }
+
+    // ── Player — a real dropdown when the pool is already narrowed to
+    // "who's on this court" (ladders); a search box when the pool is
+    // large (every player across a whole tournament). ──────────────────
+    const playerSearchWrap = document.getElementById('ir-player-search-wrap');
+    const playerDropdownWrap = document.getElementById('ir-player-dropdown-wrap');
+    if (ctx.playerSelectMode === 'dropdown') {
+      playerSearchWrap.style.display = 'none';
+      playerDropdownWrap.style.display = '';
+      const dd = document.getElementById('ir-player-dropdown');
+      dd.innerHTML = '<option value="">Select player...</option>' +
+        (ctx.playerPool || []).map((p) => `<option value="${p.id}">${esc(p.first_name)} ${esc(p.last_name)}</option>`).join('');
+      dd.value = '';
+    } else {
+      playerSearchWrap.style.display = '';
+      playerDropdownWrap.style.display = 'none';
+      document.getElementById('ir-player-search').value = '';
+      document.getElementById('ir-player-id').value = '';
+      document.getElementById('ir-player-results').style.display = 'none';
+    }
 
     // Reset the rest of the form
-    document.getElementById('ir-player-search').value = '';
-    document.getElementById('ir-player-id').value = '';
-    document.getElementById('ir-player-results').style.display = 'none';
     document.getElementById('ir-reason').value = '';
     document.getElementById('ir-other-wrap').style.display = 'none';
     document.getElementById('ir-other-reason').value = '';
@@ -112,8 +142,10 @@
     e.preventDefault();
     if (!_irCtx) return;
 
-    const court = document.getElementById('ir-court').value;
-    const playerId = parseInt(document.getElementById('ir-player-id').value, 10);
+    const court = _irCtx.lockedCourt || document.getElementById('ir-court').value;
+    const playerId = _irCtx.playerSelectMode === 'dropdown'
+      ? parseInt(document.getElementById('ir-player-dropdown').value, 10)
+      : parseInt(document.getElementById('ir-player-id').value, 10);
     const reason = document.getElementById('ir-reason').value;
     const otherReason = document.getElementById('ir-other-reason').value.trim();
     const description = document.getElementById('ir-description').value.trim();

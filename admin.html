@@ -3802,19 +3802,26 @@
     <form id="incident-report-form" style="padding:16px 24px;display:flex;flex-direction:column;gap:14px;overflow-y:auto;">
       <div id="ir-context-box" style="background:var(--bg);border-radius:10px;padding:12px 14px;font-size:12px;font-weight:600;color:var(--text-muted);"></div>
 
-      <div>
+      <div id="ir-court-dropdown-wrap">
         <div style="font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;">Court <span style="color:#e53935;">*</span></div>
         <select id="ir-court" style="width:100%;padding:9px 12px;border:1px solid var(--divider-color);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;color:var(--text);outline:none;">
           <option value="">Select court...</option>
         </select>
       </div>
+      <div id="ir-court-locked-note" style="display:none;background:var(--primary-light);border-radius:10px;padding:10px 14px;font-size:12px;font-weight:700;color:var(--blue);"></div>
 
-      <div style="position:relative;">
+      <div id="ir-player-search-wrap" style="position:relative;">
         <div style="font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;">Player Involved <span style="color:#e53935;">*</span></div>
         <input type="text" id="ir-player-search" placeholder="Search by first or last name..." autocomplete="off"
           style="width:100%;padding:9px 12px;border:1px solid var(--divider-color);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;color:var(--text);outline:none;">
         <input type="hidden" id="ir-player-id">
         <div id="ir-player-results" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:white;border:1px solid var(--divider-color);border-radius:8px;box-shadow:0 8px 24px rgba(8,15,46,.12);max-height:180px;overflow-y:auto;z-index:20;"></div>
+      </div>
+      <div id="ir-player-dropdown-wrap" style="display:none;">
+        <div style="font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;">Player Involved <span style="color:#e53935;">*</span></div>
+        <select id="ir-player-dropdown" style="width:100%;padding:9px 12px;border:1px solid var(--divider-color);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;color:var(--text);outline:none;">
+          <option value="">Select player...</option>
+        </select>
       </div>
 
       <div>
@@ -4323,26 +4330,26 @@
   </div>
 </div>
 
-<script src="admin-state.js?v=20260778"></script>
-<script src="admin-incident-reports.js?v=20260778"></script>
-<script src="admin-ladder-selector.js?v=20260778"></script>
-<script src="admin-orders.js?v=20260778"></script>
-<script src="admin-email-utils.js?v=20260778"></script>
-<script src="admin-share.js?v=20260778"></script>
-<script src="admin-tournament-notify.js?v=20260778"></script>
-<script src="admin-player-status-history.js?v=20260778"></script>
-<script src="admin-player-profile.js?v=20260778"></script>
-<script src="admin-email-notifications.js?v=20260778"></script>
-<script src="admin-ladder-standings.js?v=20260778"></script>
-<script src="admin-sessions.js?v=20260778"></script>
-<script src="admin-print-roster.js?v=20260778"></script>
-<script src="admin-ladder-management.js?v=20260778"></script>
-<script src="admin-promotions.js?v=20260778"></script>
-<script src="admin-players.js?v=20260778"></script>
-<script src="admin-ftc-standings.js?v=20260778"></script>
-<script src="admin-ftc-playoffs-schedule.js?v=20260778"></script>
-<script src="admin-ftc-teams.js?v=20260778"></script>
-<script src="app.js?v=20260778"></script>
+<script src="admin-state.js?v=20260779"></script>
+<script src="admin-incident-reports.js?v=20260779"></script>
+<script src="admin-ladder-selector.js?v=20260779"></script>
+<script src="admin-orders.js?v=20260779"></script>
+<script src="admin-email-utils.js?v=20260779"></script>
+<script src="admin-share.js?v=20260779"></script>
+<script src="admin-tournament-notify.js?v=20260779"></script>
+<script src="admin-player-status-history.js?v=20260779"></script>
+<script src="admin-player-profile.js?v=20260779"></script>
+<script src="admin-email-notifications.js?v=20260779"></script>
+<script src="admin-ladder-standings.js?v=20260779"></script>
+<script src="admin-sessions.js?v=20260779"></script>
+<script src="admin-print-roster.js?v=20260779"></script>
+<script src="admin-ladder-management.js?v=20260779"></script>
+<script src="admin-promotions.js?v=20260779"></script>
+<script src="admin-players.js?v=20260779"></script>
+<script src="admin-ftc-standings.js?v=20260779"></script>
+<script src="admin-ftc-playoffs-schedule.js?v=20260779"></script>
+<script src="admin-ftc-teams.js?v=20260779"></script>
+<script src="app.js?v=20260779"></script>
 <script src="tournament.js?v=20260526"></script>
 <script>
   // ── Sidebar toggle — persisted in localStorage ──────────────────────

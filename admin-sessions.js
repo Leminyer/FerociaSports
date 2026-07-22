@@ -28,9 +28,10 @@
 
   const AdminState = window.AdminState;
 
-  // Player pool for the Incident Report modal — refreshed each time
-  // loadSessions() runs, scoped to whichever ladder is currently open.
-  let _sessIrPlayerPool = [];
+  // Per-court player lists (key: "date|time|court") — the incident
+  // report's player dropdown only shows who actually played that court,
+  // not the whole ladder roster.
+  let _sessIrCourtPlayers = {};
 
   /* ─── SESSIONS ─────────────────────────────────────────── */
 
@@ -94,15 +95,6 @@
         incidentsData = res.data || [];
       } catch (e) { /* best-effort — an incident-fetch failure shouldn't block the Sessions page */ }
       const allLadderIncidents = incidentsData || [];
-
-      // Player pool for the Incident Report modal's search — only
-      // players enrolled in this ladder, per the spec.
-      const ladderPlayerIds = (await api(`ladder_players?ladder_id=eq.${AdminState.currentLadder.id}&select=player_id`).catch(() => []))
-        .map((r) => r.player_id);
-      const irPlayerPool = ladderPlayerIds.length
-        ? await api(`players?id=in.(${ladderPlayerIds.join(',')})&select=id,first_name,last_name`).catch(() => [])
-        : [];
-      _sessIrPlayerPool = irPlayerPool;
 
       // Group by date → time → courts (each court already carries deduped, paired games)
       const byDate = {};
@@ -289,8 +281,21 @@
           const courtIncidents = allLadderIncidents.filter((r) => r.session_date === s.session_date && r.court === `Court ${s.court_group}`);
           const incidentsListHTML = window.renderIncidentReportsList ? window.renderIncidentReportsList(courtIncidents) : '';
 
-          html += `<div class="court-block">
-            <div class="court-block-hdr">
+          // Players who actually played (or no-showed) this specific
+          // court — the Incident Report modal's player dropdown is
+          // scoped to just these, not the whole ladder roster.
+          const courtPlayerMap = {};
+          courtGames.forEach((g) => {
+            [...(g.team_a || []), ...(g.team_b || [])].forEach((row) => {
+              courtPlayerMap[row.player_id] = { id: row.player_id, first_name: row.first_name, last_name: row.last_name };
+            });
+          });
+          (s.no_shows || []).forEach((ns) => {
+            courtPlayerMap[ns.player_id] = { id: ns.player_id, first_name: ns.first_name, last_name: ns.last_name };
+          });
+          _sessIrCourtPlayers[`${s.session_date}|${s.session_time || ''}|${s.court_group}`] = Object.values(courtPlayerMap);
+
+          html += `<div class="court-block">            <div class="court-block-hdr">
               <span class="court-block-label">Court ${s.court_group}${courtPending ? ' <span style="font-size:9px;font-weight:800;color:var(--orange);background:var(--orange-light);padding:1px 6px;border-radius:99px;text-transform:uppercase;margin-left:6px;">Pending</span>' : ''}</span>
               <div style="display:flex;gap:6px;align-items:center;">
                 <button class="sess-edit-btn" data-action="editSession" data-matchids="${sessionMatchIds}" data-date="${esc(s.session_date)}" data-court="${s.court_group}" data-time="${esc(s.session_time || '')}" title="Edit session">${editSVG}</button>
@@ -1443,14 +1448,16 @@
   // ladder's context and this specific court pre-selected.
   const openIncidentReportForSession = (btn) => {
     if (!AdminState.currentLadder) return;
+    const key = `${btn.dataset.date}|${btn.dataset.time || ''}|${btn.dataset.court}`;
     window.openIncidentReportModal({
       sourceType: 'ladder',
       ladderId: AdminState.currentLadder.id,
       ladderName: AdminState.currentLadder.name,
       sessionDate: btn.dataset.date,
       sessionTime: btn.dataset.time || null,
-      defaultCourt: btn.dataset.court,
-      playerPool: _sessIrPlayerPool,
+      lockedCourt: `Court ${btn.dataset.court}`,
+      playerSelectMode: 'dropdown',
+      playerPool: _sessIrCourtPlayers[key] || [],
       onSaved: () => loadSessions(),
     });
   };
