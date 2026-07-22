@@ -886,6 +886,32 @@
     }
   };
 
+  // Same pattern as ppLogLateCancellation, for the other cancellation
+  // type. Both live on the Reliability tab's Participation Metrics card.
+  const ppLogOnTimeCancellation = async () => {
+    if (!_ppCurrent) return;
+    if (!AdminState.currentAdminId) { toast('Could not identify the current admin — try refreshing the page.', true); return; }
+    const ok = await window.confirmModal({
+      title: 'Log on-time cancellation?',
+      message: `This will mark today as an on-time cancellation for ${_ppCurrent.p.first_name} ${_ppCurrent.p.last_name}. This action cannot be undone — are you sure?`,
+      okLabel: 'Log Cancellation',
+    });
+    if (!ok) return;
+    try {
+      await api('player_ontime_cancellations', 'POST', {
+        player_id: _ppCurrent.p.id,
+        ladder_id: _ppCurrent.activeLadder?.id || null,
+        admin_id: AdminState.currentAdminId,
+      });
+      window.logAuditAction(_ppCurrent.p.id, 'ontime_cancellation_logged', 'Logged an on-time cancellation');
+      toast('On-time cancellation logged.');
+      document.getElementById('pp-tab-reliability').removeAttribute('data-rendered');
+      renderReliability(_ppCurrent);
+    } catch (e) {
+      toast(`Error: ${e.message}`, true);
+    }
+  };
+
   // ── Player Tags ──────────────────────────────────────────────────────
   // Fixed catalog — administrators pick from this list, they can't create
   // custom tags (matches the spec). Colors are per-category, not per-tag.
@@ -1403,6 +1429,167 @@
     }
   };
 
+  // ── Reliability tab ──────────────────────────────────────────────────
+  const RELIABILITY_STATUS_STYLE = {
+    'Excellent':      { color: 'var(--teal)', icon: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/>' },
+    'Good':           { color: 'var(--blue)', icon: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>' },
+    'Needs Attention':{ color: 'var(--orange)', icon: '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>' },
+    'Limited Data':   { color: 'var(--text-muted)', icon: '<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>' },
+  };
+  const IMPACT_STYLE = {
+    Positive: 'var(--teal)', Neutral: 'var(--text-muted)', Negative: 'var(--orange)', Excluded: '#b0bbd6',
+  };
+
+  const renderReliability = async (d) => {
+    const el = document.getElementById('pp-tab-reliability');
+    if (!el || el.dataset.rendered) return;
+    el.dataset.rendered = '1';
+    el.innerHTML = '<div class="loading" style="padding:40px;">Loading reliability data...</div>';
+    const playerIdAtStart = d.p.id;
+
+    let rel = null, activity = [];
+    try {
+      const [relRes, actRes] = await Promise.all([
+        supabase.rpc('get_player_reliability', { p_player_id: d.p.id }),
+        supabase.rpc('get_player_reliability_activity', { p_player_id: d.p.id }),
+      ]);
+      rel = relRes.data?.[0] || null;
+      activity = actRes.data || [];
+    } catch (e) { console.warn('[reliability] failed:', e.message); }
+    if (!_ppCurrent || _ppCurrent.p.id !== playerIdAtStart) return;
+
+    if (!rel) { el.innerHTML = '<div class="pp-empty">Could not load reliability data.</div>'; return; }
+
+    const statusStyle = RELIABILITY_STATUS_STYLE[rel.overall_label] || RELIABILITY_STATUS_STYLE['Limited Data'];
+
+    // ── Section 1: KPI cards ──────────────────────────────────────────
+    const kpiHTML = `
+      <div class="pp-kpi-row pp-section-gap">
+        <div class="pp-kpi-card">
+          <div class="pp-kpi-lbl">Reliability Status</div>
+          <div style="display:flex;align-items:center;gap:8px;margin:4px 0;">
+            ${ppSVG(statusStyle.icon, statusStyle.color, 22)}
+            <span style="font-size:20px;font-weight:800;color:${statusStyle.color};">${esc(rel.overall_label)}</span>
+          </div>
+          <div class="pp-kpi-sub">Based on ${rel.scheduled_sessions} recorded commitment${rel.scheduled_sessions !== 1 ? 's' : ''}.</div>
+        </div>
+        <div class="pp-kpi-card">
+          <div class="pp-kpi-lbl">Attendance Rate</div>
+          <div class="pp-kpi-val" style="color:var(--teal);">${rel.attendance_pct !== null ? `${rel.attendance_pct}%` : '—'}</div>
+          <div class="pp-kpi-sub">${rel.sessions_attended} / ${rel.scheduled_sessions} Session${rel.scheduled_sessions !== 1 ? 's' : ''}</div>
+        </div>
+        <div class="pp-kpi-card">
+          <div class="pp-kpi-lbl">Late Cancellations</div>
+          <div class="pp-kpi-val" style="color:${rel.late_cancellations > 0 ? 'var(--orange)' : 'var(--text)'};">${rel.late_cancellations}</div>
+        </div>
+        <div class="pp-kpi-card">
+          <div class="pp-kpi-lbl">No Shows</div>
+          <div class="pp-kpi-val" style="color:${rel.no_shows > 0 ? 'var(--orange)' : 'var(--text)'};">${rel.no_shows}</div>
+        </div>
+      </div>`;
+
+    // ── Section 2: Participation Metrics ──────────────────────────────
+    const metricRow = (lbl, val, extraBtn) => `<div class="pp-perf-row"><span class="pp-perf-lbl">${lbl}${extraBtn || ''}</span><span class="${val === null ? 'pp-perf-val-empty' : 'pp-perf-val'}">${val === null ? 'Not tracked yet' : val}</span></div>`;
+    const logOnTimeBtn = `<button type="button" data-action="ppLogOnTimeCancellation" title="Log an on-time cancellation for today" style="margin-left:6px;width:16px;height:16px;border-radius:50%;border:none;background:#f0f2f8;color:var(--text-muted);font-size:10px;font-weight:800;cursor:pointer;line-height:1;vertical-align:middle;">+</button>`;
+    const participationHTML = `
+      <div class="pp-perf-card">
+        <div class="pp-perf-title">Participation Metrics</div>
+        ${metricRow('Scheduled Sessions', rel.scheduled_sessions)}
+        ${metricRow('Sessions Attended', rel.sessions_attended)}
+        ${metricRow('Sessions Missed', rel.sessions_missed)}
+        ${metricRow('On-Time Cancellations', rel.on_time_cancellations, logOnTimeBtn)}
+        ${metricRow('Late Cancellations', rel.late_cancellations)}
+        ${metricRow('No Shows', rel.no_shows)}
+        ${metricRow('Competitions Started', rel.competitions_started)}
+        ${metricRow('Competitions Completed', rel.competitions_completed)}
+        ${metricRow('Withdrawals', null)}
+        ${metricRow('Competition Completion Rate', rel.competition_completion_rate !== null ? `${rel.competition_completion_rate}%` : null)}
+      </div>`;
+
+    // ── Section 3: Reliability Trend — no historical snapshots exist yet ──
+    const trendHTML = `
+      <div class="pp-perf-card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <span class="pp-perf-title" style="margin-bottom:0;">Reliability Trend</span>
+        </div>
+        <div class="pp-empty">No historical trend data yet — this will populate once daily attendance snapshots start being recorded.</div>
+      </div>`;
+
+    // ── Section 4: Reliability Breakdown — only Ladders has real data ──
+    const breakdownHTML = `
+      <div class="pp-perf-card">
+        <div class="pp-perf-title">Reliability Breakdown</div>
+        <table class="pp-timeline-table">
+          <thead><tr><th>Category</th><th>Attendance</th><th>Late Canc.</th><th>No Shows</th><th>Comp. Rate</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>Ladders</td>
+              <td>${rel.attendance_pct !== null ? `${rel.attendance_pct}%` : '—'}</td>
+              <td>${rel.late_cancellations}</td>
+              <td>${rel.no_shows}</td>
+              <td>—</td>
+            </tr>
+          </tbody>
+        </table>
+        <div style="font-size:10px;font-weight:600;color:var(--text-muted);margin-top:8px;">Only categories with available data are shown — Tournaments, Clinics, and Junior Programs don't have reliability data recorded yet.</div>
+      </div>`;
+
+    // ── Section 5: Reliability Activity ───────────────────────────────
+    const activityRows = activity.slice(0, 15).map((a) => `
+      <tr>
+        <td>${fmtShort(a.event_date)}</td>
+        <td>${esc(a.activity)}</td>
+        <td>${esc(a.competition)}</td>
+        <td>${esc(a.status)}</td>
+        <td><span style="color:${IMPACT_STYLE[a.impact] || 'var(--text)'};font-weight:700;">${esc(a.impact)}</span></td>
+      </tr>`).join('');
+    const activityHTML = `
+      <div class="pp-perf-card">
+        <div class="pp-perf-title">Reliability Activity</div>
+        ${activity.length
+          ? `<table class="pp-timeline-table"><thead><tr><th>Date</th><th>Activity</th><th>Competition</th><th>Status</th><th>Impact</th></tr></thead><tbody>${activityRows}</tbody></table>`
+          : '<div class="pp-empty">No reliability activity recorded yet.</div>'}
+        <div style="margin-top:10px;"><a class="pp-link" data-action="ppShowTab" data-pptab="history">View all activity →</a></div>
+      </div>`;
+
+    // ── Section 7: Excluded Events ────────────────────────────────────
+    const excluded = (activity || []).filter((a) => a.impact === 'Excluded');
+    const excludedHTML = `
+      <div class="pp-perf-card">
+        <div class="pp-perf-title">Excluded Events</div>
+        <div style="font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:8px;">Events excluded from reliability calculations.</div>
+        ${excluded.length
+          ? excluded.map((e) => `<div style="padding:8px 0;border-bottom:0.5px solid #f4f5f8;"><div style="font-size:12px;font-weight:700;color:var(--text);">${esc(e.activity)}</div><div style="font-size:10px;font-weight:600;color:var(--text-muted);">${esc(e.competition)} · ${fmtShort(e.event_date)}</div></div>`).join('')
+          : '<div class="pp-empty">No excluded events.</div>'}
+      </div>`;
+
+    // ── Rules footer ───────────────────────────────────────────────────
+    const rulesHTML = `
+      <div style="display:flex;align-items:flex-start;gap:10px;background:var(--primary-light);border-radius:12px;padding:16px 20px;">
+        ${ppSVG('<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>', 'var(--blue)', 16)}
+        <div>
+          <div style="font-size:12px;font-weight:700;color:var(--text);">Reliability Rules</div>
+          <div style="font-size:11px;font-weight:600;color:var(--text-muted);">Reliability Status is automatically calculated by the system and can never be manually changed. Incident Reports never affect Reliability automatically. Winning or losing matches has no effect on Reliability.</div>
+        </div>
+      </div>`;
+
+    el.innerHTML = `
+      ${kpiHTML}
+      <div class="pp-2col pp-section-gap" style="align-items:start;">
+        ${participationHTML}
+        <div style="display:flex;flex-direction:column;gap:24px;">
+          ${trendHTML}
+          ${breakdownHTML}
+        </div>
+      </div>
+      <div class="pp-2col pp-section-gap" style="align-items:start;">
+        ${activityHTML}
+        ${excludedHTML}
+      </div>
+      ${rulesHTML}
+    `;
+  };
+
   const renderSoon = (tabId, label) => {
     const el = document.getElementById(`pp-tab-${tabId}`);
     if (!el || el.dataset.rendered) return;
@@ -1423,7 +1610,8 @@
     if (target) target.style.display = '';
     if (tab === 'competition') { if (_ppCurrent) renderCompetition(_ppCurrent); return; }
     if (tab === 'adminnotes') { if (_ppCurrent) renderAdmin(_ppCurrent); return; }
-    const labels = { dna: 'DNA', reliability: 'Reliability', membership: 'Membership', history: 'History' };
+    if (tab === 'reliability') { if (_ppCurrent) renderReliability(_ppCurrent); return; }
+    const labels = { dna: 'DNA', membership: 'Membership', history: 'History' };
     if (labels[tab]) renderSoon(tab, labels[tab]);
   };
 
@@ -1636,6 +1824,7 @@
     ppToggleNoteForm: () => ppToggleNoteForm(),
     ppSaveNote: () => ppSaveNote(),
     ppLogLateCancellation: () => ppLogLateCancellation(),
+    ppLogOnTimeCancellation: () => ppLogOnTimeCancellation(),
     ppToggleTagPicker: () => ppToggleTagPicker(),
     ppAddTag: (btn) => ppAddTag(btn),
     ppRemoveTag: (btn) => ppRemoveTag(btn),
