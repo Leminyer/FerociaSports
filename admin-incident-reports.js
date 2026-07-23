@@ -179,9 +179,10 @@
       if (window.logAuditAction) {
         window.logAuditAction(playerId, 'incident_report_created', `Incident reported: ${reason}`);
       }
+      const onSaved = _irCtx.onSaved;
       toast('Incident Report created successfully.');
       window.closeIncidentReportModal();
-      if (typeof _irCtx.onSaved === 'function') _irCtx.onSaved();
+      if (typeof onSaved === 'function') onSaved();
     } catch (err) {
       toast(`Error: ${err.message}`, true);
     } finally {
