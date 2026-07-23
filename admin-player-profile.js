@@ -1463,56 +1463,140 @@
     const statusStyle = RELIABILITY_STATUS_STYLE[rel.overall_label] || RELIABILITY_STATUS_STYLE['Limited Data'];
 
     // ── Section 1: KPI cards ──────────────────────────────────────────
+    // Real trend, computed from the activity feed itself (not
+    // fabricated) — walk the chronological session events (Attended /
+    // No Show) oldest-to-newest, tracking the cumulative attendance
+    // rate at each point. Negative events (late cancellations, no
+    // shows) are marked at their actual dates. Reused for both the big
+    // Reliability Trend chart and the small Attendance Rate sparkline.
+    const sessionEvents = [...activity]
+      .filter((a) => a.activity === 'Attended Session' || a.activity === 'No Show')
+      .sort((a, b) => new Date(a.event_date) - new Date(b.event_date));
+    let cumAttended = 0;
+    const trendPoints = sessionEvents.map((e, idx) => {
+      if (e.activity === 'Attended Session') cumAttended++;
+      return { date: e.event_date, pct: Math.round((cumAttended / (idx + 1)) * 100) };
+    });
+    const negativeDates = new Set(activity.filter((a) => a.impact === 'Negative').map((a) => a.event_date));
+
+    const miniSparkline = (points, color) => {
+      if (points.length < 2) return '';
+      const w = 90, h = 34;
+      const step = w / (points.length - 1);
+      const coords = points.map((p, i) => `${(i * step).toFixed(1)},${(h - (p.pct / 100) * h).toFixed(1)}`).join(' ');
+      return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
+        <polyline points="${coords}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>`;
+    };
+
     const kpiHTML = `
       <div class="pp-kpi-row pp-section-gap">
         <div class="pp-kpi-card">
           <div class="pp-kpi-lbl">Reliability Status</div>
-          <div style="display:flex;align-items:center;gap:8px;margin:4px 0;">
-            ${ppSVG(statusStyle.icon, statusStyle.color, 22)}
-            <span style="font-size:20px;font-weight:800;color:${statusStyle.color};">${esc(rel.overall_label)}</span>
-          </div>
+          <div style="margin:6px 0 8px;">${ppSVG(statusStyle.icon, statusStyle.color, 34)}</div>
+          <div style="font-size:18px;font-weight:800;color:${statusStyle.color};line-height:1.1;">${esc(rel.overall_label)}</div>
           <div class="pp-kpi-sub">Based on ${rel.scheduled_sessions} recorded commitment${rel.scheduled_sessions !== 1 ? 's' : ''}.</div>
         </div>
-        <div class="pp-kpi-card">
-          <div class="pp-kpi-lbl">Attendance Rate</div>
-          <div class="pp-kpi-val" style="color:var(--teal);">${rel.attendance_pct !== null ? `${rel.attendance_pct}%` : '—'}</div>
-          <div class="pp-kpi-sub">${rel.sessions_attended} / ${rel.scheduled_sessions} Session${rel.scheduled_sessions !== 1 ? 's' : ''}</div>
+        <div class="pp-kpi-card" style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+          <div>
+            <div class="pp-kpi-lbl">Attendance Rate</div>
+            <div class="pp-kpi-val" style="color:var(--teal);">${rel.attendance_pct !== null ? `${rel.attendance_pct}%` : '—'}</div>
+            <div class="pp-kpi-sub">${rel.sessions_attended} / ${rel.scheduled_sessions} Session${rel.scheduled_sessions !== 1 ? 's' : ''}</div>
+          </div>
+          ${miniSparkline(trendPoints.slice(-8), 'var(--teal)')}
         </div>
-        <div class="pp-kpi-card">
-          <div class="pp-kpi-lbl">Late Cancellations</div>
-          <div class="pp-kpi-val" style="color:${rel.late_cancellations > 0 ? 'var(--orange)' : 'var(--text)'};">${rel.late_cancellations}</div>
+        <div class="pp-kpi-card" style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+          <div>
+            <div class="pp-kpi-lbl">Late Cancellations</div>
+            <div class="pp-kpi-val" style="color:${rel.late_cancellations > 0 ? 'var(--orange)' : 'var(--text)'};">${rel.late_cancellations}</div>
+            <div style="margin-top:4px;"><a class="pp-link" style="font-size:10px;" data-action="ppShowTab" data-pptab="history">View details</a></div>
+          </div>
+          <span style="width:36px;height:36px;border-radius:10px;background:var(--orange-light);display:flex;align-items:center;justify-content:center;flex-shrink:0;">${ppSVG('<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><circle cx="16" cy="16" r="3"/><path d="M16 15v1.5l1 .5"/>', 'var(--orange)', 18)}</span>
         </div>
-        <div class="pp-kpi-card">
-          <div class="pp-kpi-lbl">No Shows</div>
-          <div class="pp-kpi-val" style="color:${rel.no_shows > 0 ? 'var(--orange)' : 'var(--text)'};">${rel.no_shows}</div>
+        <div class="pp-kpi-card" style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+          <div>
+            <div class="pp-kpi-lbl">No Shows</div>
+            <div class="pp-kpi-val" style="color:${rel.no_shows > 0 ? 'var(--orange)' : 'var(--text)'};">${rel.no_shows}</div>
+            <div style="margin-top:4px;"><a class="pp-link" style="font-size:10px;" data-action="ppShowTab" data-pptab="history">View details</a></div>
+          </div>
+          <span style="width:36px;height:36px;border-radius:10px;background:var(--orange-light);display:flex;align-items:center;justify-content:center;flex-shrink:0;">${ppSVG('<circle cx="9" cy="7" r="4"/><path d="M2 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 2.3.7"/><circle cx="18" cy="18" r="3"/><line x1="16.5" y1="16.5" x2="19.5" y2="19.5"/><line x1="19.5" y1="16.5" x2="16.5" y2="19.5"/>', 'var(--orange)', 18)}</span>
         </div>
       </div>`;
 
     // ── Section 2: Participation Metrics ──────────────────────────────
-    const metricRow = (lbl, val, extraBtn) => `<div class="pp-perf-row"><span class="pp-perf-lbl">${lbl}${extraBtn || ''}</span><span class="${val === null ? 'pp-perf-val-empty' : 'pp-perf-val'}">${val === null ? 'Not tracked yet' : val}</span></div>`;
+    const metricRow = (icon, color, lbl, val, extraBtn, valColor) => `
+      <div class="pp-perf-row">
+        <span class="pp-perf-lbl" style="display:flex;align-items:center;gap:8px;">${ppSVG(icon, color, 14)} ${lbl}${extraBtn || ''}</span>
+        <span class="${val === null ? 'pp-perf-val-empty' : 'pp-perf-val'}" style="${valColor && val !== null ? `color:${valColor};` : ''}">${val === null ? 'Not tracked yet' : val}</span>
+      </div>`;
     const logOnTimeBtn = `<button type="button" data-action="ppLogOnTimeCancellation" title="Log an on-time cancellation for today" style="margin-left:6px;width:16px;height:16px;border-radius:50%;border:none;background:#f0f2f8;color:var(--text-muted);font-size:10px;font-weight:800;cursor:pointer;line-height:1;vertical-align:middle;">+</button>`;
+    const ICO = {
+      cal:      '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
+      calCheck: '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><polyline points="9 16 11 18 15 14"/>',
+      calX:     '<circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>',
+      clock:    '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+      calClock: '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><circle cx="16" cy="16" r="3"/><path d="M16 15v1.5l1 .5"/>',
+      personX:  '<circle cx="9" cy="7" r="4"/><path d="M2 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 2.3.7"/><circle cx="18" cy="18" r="3"/><line x1="16.5" y1="16.5" x2="19.5" y2="19.5"/><line x1="19.5" y1="16.5" x2="16.5" y2="19.5"/>',
+      flag:     '<path d="M4 22V4"/><path d="M4 4h14l-2 4 2 4H4"/>',
+      flagCheck:'<path d="M4 22V4"/><path d="M4 4h14l-2 4 2 4H4"/><polyline points="8 10 9 11 11 9"/>',
+      personMinus: '<circle cx="9" cy="7" r="4"/><path d="M2 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 2.3.7"/><line x1="16" y1="18" x2="22" y2="18"/>',
+      check:    '<circle cx="12" cy="12" r="10"/><polyline points="9 12 11 14 15 10"/>',
+    };
     const participationHTML = `
       <div class="pp-perf-card">
         <div class="pp-perf-title">Participation Metrics</div>
-        ${metricRow('Scheduled Sessions', rel.scheduled_sessions)}
-        ${metricRow('Sessions Attended', rel.sessions_attended)}
-        ${metricRow('Sessions Missed', rel.sessions_missed)}
-        ${metricRow('On-Time Cancellations', rel.on_time_cancellations, logOnTimeBtn)}
-        ${metricRow('Late Cancellations', rel.late_cancellations)}
-        ${metricRow('No Shows', rel.no_shows)}
-        ${metricRow('Competitions Started', rel.competitions_started)}
-        ${metricRow('Competitions Completed', rel.competitions_completed)}
-        ${metricRow('Withdrawals', null)}
-        ${metricRow('Competition Completion Rate', rel.competition_completion_rate !== null ? `${rel.competition_completion_rate}%` : null)}
+        ${metricRow(ICO.cal, 'var(--blue)', 'Scheduled Sessions', rel.scheduled_sessions)}
+        ${metricRow(ICO.calCheck, 'var(--blue)', 'Sessions Attended', rel.sessions_attended)}
+        ${metricRow(ICO.calX, 'var(--blue)', 'Sessions Missed', rel.sessions_missed)}
+        ${metricRow(ICO.clock, 'var(--blue)', 'On-Time Cancellations', rel.on_time_cancellations, logOnTimeBtn)}
+        ${metricRow(ICO.calClock, 'var(--orange)', 'Late Cancellations', rel.late_cancellations, null, rel.late_cancellations > 0 ? 'var(--orange)' : null)}
+        ${metricRow(ICO.personX, 'var(--danger)', 'No Shows', rel.no_shows, null, rel.no_shows > 0 ? 'var(--danger)' : null)}
+        ${metricRow(ICO.flag, 'var(--blue)', 'Competitions Started', rel.competitions_started)}
+        ${metricRow(ICO.flagCheck, 'var(--blue)', 'Competitions Completed', rel.competitions_completed)}
+        ${metricRow(ICO.personMinus, 'var(--blue)', 'Withdrawals', rel.withdrawals)}
+        ${metricRow(ICO.check, 'var(--teal)', 'Competition Completion Rate', rel.competition_completion_rate !== null ? `${rel.competition_completion_rate}%` : null, null, 'var(--teal)')}
       </div>`;
 
-    // ── Section 3: Reliability Trend — no historical snapshots exist yet ──
+    // ── Section 3: Reliability Trend — computed from real events ──────
+    let trendChartHTML;
+    if (trendPoints.length >= 2) {
+      const w = 500, h = 180, padL = 34, padB = 24, padT = 8;
+      const plotW = w - padL - 10, plotH = h - padT - padB;
+      const xStep = plotW / (trendPoints.length - 1);
+      const yFor = (pct) => padT + plotH - (pct / 100) * plotH;
+      const linePts = trendPoints.map((p, i) => `${(padL + i * xStep).toFixed(1)},${yFor(p.pct).toFixed(1)}`).join(' ');
+      const gridLines = [0, 25, 50, 75, 100].map((pct) => `
+        <line x1="${padL}" y1="${yFor(pct)}" x2="${w - 10}" y2="${yFor(pct)}" stroke="#f0f2f8" stroke-width="1"/>
+        <text x="${padL - 6}" y="${yFor(pct) + 3}" font-size="9" fill="#b0bbd6" text-anchor="end" font-family="Inter,sans-serif">${pct}%</text>`).join('');
+      const negMarkers = trendPoints.map((p, i) => negativeDates.has(p.date)
+        ? `<polygon points="${(padL + i * xStep).toFixed(1)},${h - padB + 14} ${(padL + i * xStep - 4).toFixed(1)},${h - padB + 20} ${(padL + i * xStep + 4).toFixed(1)},${h - padB + 20}" fill="var(--orange)"/>`
+        : '').join('');
+      // Show a handful of date labels along the x-axis, not every point
+      const labelEvery = Math.max(1, Math.ceil(trendPoints.length / 6));
+      const dateLabels = trendPoints.map((p, i) => (i % labelEvery === 0 || i === trendPoints.length - 1)
+        ? `<text x="${(padL + i * xStep).toFixed(1)}" y="${h - 4}" font-size="8" fill="#b0bbd6" text-anchor="middle" font-family="Inter,sans-serif">${fmtShort(p.date)}</text>`
+        : '').join('');
+      trendChartHTML = `
+        <svg width="100%" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet">
+          ${gridLines}
+          <polyline points="${linePts}" fill="none" stroke="var(--teal)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          ${trendPoints.map((p, i) => `<circle cx="${(padL + i * xStep).toFixed(1)}" cy="${yFor(p.pct).toFixed(1)}" r="2.5" fill="var(--teal)"/>`).join('')}
+          ${negMarkers}
+          ${dateLabels}
+        </svg>
+        <div style="display:flex;gap:16px;margin-top:6px;">
+          <span style="font-size:10px;font-weight:600;color:var(--text-muted);display:flex;align-items:center;gap:5px;"><span style="width:14px;height:2px;background:var(--teal);display:inline-block;"></span> Attendance Rate</span>
+          <span style="font-size:10px;font-weight:600;color:var(--text-muted);display:flex;align-items:center;gap:5px;"><span style="color:var(--orange);">▲</span> Negative Events</span>
+        </div>`;
+    } else {
+      trendChartHTML = '<div class="pp-empty">Not enough recorded sessions yet for a trend.</div>';
+    }
     const trendHTML = `
       <div class="pp-perf-card">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
           <span class="pp-perf-title" style="margin-bottom:0;">Reliability Trend</span>
         </div>
-        <div class="pp-empty">No historical trend data yet — this will populate once daily attendance snapshots start being recorded.</div>
+        ${trendChartHTML}
       </div>`;
 
     // ── Section 4: Reliability Breakdown — only Ladders has real data ──
@@ -1523,10 +1607,10 @@
           <thead><tr><th>Category</th><th>Attendance</th><th>Late Canc.</th><th>No Shows</th><th>Comp. Rate</th></tr></thead>
           <tbody>
             <tr>
-              <td>Ladders</td>
-              <td>${rel.attendance_pct !== null ? `${rel.attendance_pct}%` : '—'}</td>
-              <td>${rel.late_cancellations}</td>
-              <td>${rel.no_shows}</td>
+              <td style="font-weight:700;">Ladders</td>
+              <td style="color:var(--teal);font-weight:700;">${rel.attendance_pct !== null ? `${rel.attendance_pct}%` : '—'}</td>
+              <td style="color:${rel.late_cancellations > 0 ? 'var(--orange)' : 'var(--text)'};font-weight:700;">${rel.late_cancellations}</td>
+              <td style="color:${rel.no_shows > 0 ? 'var(--danger)' : 'var(--text)'};font-weight:700;">${rel.no_shows}</td>
               <td>—</td>
             </tr>
           </tbody>
@@ -1575,12 +1659,10 @@
 
     el.innerHTML = `
       ${kpiHTML}
-      <div class="pp-2col pp-section-gap" style="align-items:start;">
+      <div class="pp-section-gap" style="display:grid;grid-template-columns:1fr 1.6fr 1fr;gap:24px;align-items:stretch;">
         ${participationHTML}
-        <div style="display:flex;flex-direction:column;gap:24px;">
-          ${trendHTML}
-          ${breakdownHTML}
-        </div>
+        ${trendHTML}
+        ${breakdownHTML}
       </div>
       <div class="pp-2col pp-section-gap" style="align-items:start;">
         ${activityHTML}
