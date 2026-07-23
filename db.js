@@ -196,7 +196,7 @@
 
   // ─── TOAST ────────────────────────────────────────────────
   let _toastTimer = null;
-  function toast(msg, isError = false, duration = 4000) {
+  function toast(msg, isError = false, duration = 6000) {
     const okEl = document.getElementById('success-banner');
     const errEl = document.getElementById('error-banner');
     if (!okEl && !errEl) {
