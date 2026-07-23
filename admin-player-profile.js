@@ -1487,9 +1487,15 @@
 
     const miniSparkline = (points, color) => {
       if (points.length < 2) return '';
-      const w = 90, h = 34;
+      const w = 90, h = 34, pad = 3;
       const step = w / (points.length - 1);
-      const coords = points.map((p, i) => `${(i * step).toFixed(1)},${(h - (p.pct / 100) * h).toFixed(1)}`).join(' ');
+      const rawMin = Math.min(...points.map((p) => p.pct));
+      const rawMax = Math.max(...points.map((p) => p.pct));
+      const rangePad = Math.max(3, (rawMax - rawMin) * 0.25);
+      const yMin = Math.max(0, rawMin - rangePad);
+      const yMax = Math.min(100, rawMax + rangePad);
+      const yRange = (yMax - yMin) || 1;
+      const coords = points.map((p, i) => `${(i * step).toFixed(1)},${(pad + (h - pad * 2) - ((p.pct - yMin) / yRange) * (h - pad * 2)).toFixed(1)}`).join(' ');
       return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
         <polyline points="${coords}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>`;
@@ -1579,9 +1585,20 @@
       const w = 500, h = 180, padL = 34, padB = 24, padT = 8;
       const plotW = w - padL - 10, plotH = h - padT - padB;
       const xStep = plotW / (trendPoints.length - 1);
-      const yFor = (pct) => padT + plotH - (pct / 100) * plotH;
+      // Dynamic Y-axis range — a fixed 0-100% scale makes real variation
+      // (e.g. dipping from 100% to 88%) look almost flat. Zooming to the
+      // actual data's range makes real ups and downs visible.
+      const rawMin = Math.min(...trendPoints.map((p) => p.pct));
+      const rawMax = Math.max(...trendPoints.map((p) => p.pct));
+      const rangePad = Math.max(5, (rawMax - rawMin) * 0.25);
+      const yMin = Math.max(0, Math.floor((rawMin - rangePad) / 5) * 5);
+      const yMax = Math.min(100, Math.ceil((rawMax + rangePad) / 5) * 5);
+      const yRange = (yMax - yMin) || 1;
+      const yFor = (pct) => padT + plotH - ((pct - yMin) / yRange) * plotH;
       const linePts = trendPoints.map((p, i) => `${(padL + i * xStep).toFixed(1)},${yFor(p.pct).toFixed(1)}`).join(' ');
-      const gridLines = [0, 25, 50, 75, 100].map((pct) => `
+      const tickCount = 4;
+      const ticks = Array.from({ length: tickCount + 1 }, (_, i) => Math.round(yMin + (yRange / tickCount) * i));
+      const gridLines = ticks.map((pct) => `
         <line x1="${padL}" y1="${yFor(pct)}" x2="${w - 10}" y2="${yFor(pct)}" stroke="#f0f2f8" stroke-width="1"/>
         <text x="${padL - 6}" y="${yFor(pct) + 3}" font-size="9" fill="#b0bbd6" text-anchor="end" font-family="Inter,sans-serif">${pct}%</text>`).join('');
       const negMarkers = trendPoints.map((p, i) => negativeDates.has(p.date)
@@ -1677,7 +1694,7 @@
 
     el.innerHTML = `
       ${kpiHTML}
-      <div class="pp-section-gap" style="display:grid;grid-template-columns:1fr 1.6fr 1fr;gap:24px;align-items:stretch;">
+      <div class="pp-3col pp-section-gap" style="grid-template-columns:1fr 1.6fr 1fr;">
         ${participationHTML}
         ${trendHTML}
         ${breakdownHTML}
