@@ -196,7 +196,7 @@
 
   // ─── TOAST ────────────────────────────────────────────────
   let _toastTimer = null;
-  function toast(msg, isError = false) {
+  function toast(msg, isError = false, duration = 4000) {
     const okEl = document.getElementById('success-banner');
     const errEl = document.getElementById('error-banner');
     if (!okEl && !errEl) {
@@ -212,7 +212,7 @@
     clearTimeout(_toastTimer);
     _toastTimer = setTimeout(() => {
       if (showEl) showEl.style.display = 'none';
-    }, 4000);
+    }, duration);
   }
 
   // ─── CONFIRM MODAL ────────────────────────────────────────

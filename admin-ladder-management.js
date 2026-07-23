@@ -451,6 +451,15 @@
     const activePlayers = AdminState.allPlayers.filter((p) => p.status !== 'inactive');
     const subCount     = enrolled.filter(r => r.status === 'sub').length;
 
+    // Bulk-fetch which of these players have negative notes (warning/
+    // incident/suspension) — one call for the whole list, not one per
+    // row, so we can show a warning icon proactively next to the name.
+    let flaggedIds = new Set();
+    try {
+      const { data } = await supabase.rpc('get_players_note_alerts', { p_player_ids: activePlayers.map((p) => p.id) });
+      flaggedIds = new Set((data || []).filter((r) => r.has_any_flag).map((r) => r.player_id));
+    } catch (e) { console.warn('[note alerts] bulk fetch failed:', e.message); }
+
     const listEl = document.getElementById('lp-enrolled');
     listEl.dataset.enrolledIds = enrolledIds.join(',');
 
@@ -488,6 +497,9 @@
         </div>` : '';
 
       const gender = (p.gender || '').toLowerCase(); // 'male' or 'female'
+      const flagIcon = flaggedIds.has(p.id)
+        ? `<span title="This player has warning/incident/suspension notes on file" style="display:inline-flex;margin-left:6px;flex-shrink:0;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>`
+        : '';
       return `<div class="lp-player-row-new ${isEnrolled ? 'lp-selected' : ''}"
           data-name="${esc(fullName.toLowerCase())}" data-pid="${p.id}" data-gender="${esc(gender)}"
           onclick="lpRowClick(event,${p.id})">
@@ -495,7 +507,7 @@
           ${isEnrolled ? checkSVG : ''}
         </div>
         <div class="lp-av" style="background:${avColor};">${esc(initials)}</div>
-        <div class="lp-pname ${isEnrolled ? '' : 'lp-unenrolled'}">${esc(fullName)}</div>
+        <div class="lp-pname ${isEnrolled ? '' : 'lp-unenrolled'}" style="display:flex;align-items:center;flex:1;">${esc(fullName)}${flagIcon}</div>
         ${segToggle}
       </div>`;
     }).join('');
@@ -542,7 +554,7 @@
           if (alert.suspension_count > 0) parts.push(`${alert.suspension_count} suspension${alert.suspension_count > 1 ? 's' : ''}`);
           if (alert.incident_count > 0) parts.push(`${alert.incident_count} incident${alert.incident_count > 1 ? 's' : ''}`);
           if (alert.warning_count > 0) parts.push(`${alert.warning_count} warning${alert.warning_count > 1 ? 's' : ''}`);
-          toast(`⚠️ ${name} has ${parts.join(', ')} on file — check their Admin tab before proceeding.`, true);
+          toast(`⚠️ ${name} has ${parts.join(', ')} on file — check their Admin tab before proceeding.`, true, 8000);
         }
       } catch (err) { /* best-effort — never block enrollment over a notes-check failure */ }
     }
