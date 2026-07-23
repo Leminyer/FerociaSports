@@ -1472,10 +1472,16 @@
     const sessionEvents = [...activity]
       .filter((a) => a.activity === 'Attended Session' || a.activity === 'No Show')
       .sort((a, b) => new Date(a.event_date) - new Date(b.event_date));
-    let cumAttended = 0;
+    // Rolling window (not a cumulative all-time average, which naturally
+    // flattens out as more sessions accumulate) — each point reflects
+    // attendance over the trailing WINDOW sessions, so real recent ups
+    // and downs actually show up as a wavy line, not a flat one.
+    const ROLLING_WINDOW = 8;
     const trendPoints = sessionEvents.map((e, idx) => {
-      if (e.activity === 'Attended Session') cumAttended++;
-      return { date: e.event_date, pct: Math.round((cumAttended / (idx + 1)) * 100) };
+      const windowStart = Math.max(0, idx - ROLLING_WINDOW + 1);
+      const window = sessionEvents.slice(windowStart, idx + 1);
+      const attendedInWindow = window.filter((w) => w.activity === 'Attended Session').length;
+      return { date: e.event_date, pct: Math.round((attendedInWindow / window.length) * 100) };
     });
     const negativeDates = new Set(activity.filter((a) => a.impact === 'Negative').map((a) => a.event_date));
 
@@ -1493,33 +1499,43 @@
       <div class="pp-kpi-row pp-section-gap">
         <div class="pp-kpi-card">
           <div class="pp-kpi-lbl">Reliability Status</div>
-          <div style="margin:6px 0 8px;">${ppSVG(statusStyle.icon, statusStyle.color, 34)}</div>
-          <div style="font-size:18px;font-weight:800;color:${statusStyle.color};line-height:1.1;">${esc(rel.overall_label)}</div>
-          <div class="pp-kpi-sub">Based on ${rel.scheduled_sessions} recorded commitment${rel.scheduled_sessions !== 1 ? 's' : ''}.</div>
-        </div>
-        <div class="pp-kpi-card" style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
-          <div>
-            <div class="pp-kpi-lbl">Attendance Rate</div>
-            <div class="pp-kpi-val" style="color:var(--teal);">${rel.attendance_pct !== null ? `${rel.attendance_pct}%` : '—'}</div>
-            <div class="pp-kpi-sub">${rel.sessions_attended} / ${rel.scheduled_sessions} Session${rel.scheduled_sessions !== 1 ? 's' : ''}</div>
+          <div style="display:flex;align-items:center;gap:14px;margin-top:8px;">
+            <span style="flex-shrink:0;">${ppSVG(statusStyle.icon, statusStyle.color, 44)}</span>
+            <div>
+              <div style="font-size:18px;font-weight:800;color:${statusStyle.color};line-height:1.15;">${esc(rel.overall_label)}</div>
+              <div class="pp-kpi-sub" style="margin-top:2px;">Based on ${rel.scheduled_sessions} recorded commitment${rel.scheduled_sessions !== 1 ? 's' : ''}.</div>
+            </div>
           </div>
-          ${miniSparkline(trendPoints.slice(-8), 'var(--teal)')}
         </div>
-        <div class="pp-kpi-card" style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
-          <div>
-            <div class="pp-kpi-lbl">Late Cancellations</div>
-            <div class="pp-kpi-val" style="color:${rel.late_cancellations > 0 ? 'var(--orange)' : 'var(--text)'};">${rel.late_cancellations}</div>
-            <div style="margin-top:4px;"><a class="pp-link" style="font-size:10px;" data-action="ppShowTab" data-pptab="history">View details</a></div>
+        <div class="pp-kpi-card">
+          <div class="pp-kpi-lbl">Attendance Rate</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px;">
+            <div>
+              <div class="pp-kpi-val" style="color:var(--teal);">${rel.attendance_pct !== null ? `${rel.attendance_pct}%` : '—'}</div>
+              <div class="pp-kpi-sub">${rel.sessions_attended} / ${rel.scheduled_sessions} Session${rel.scheduled_sessions !== 1 ? 's' : ''}</div>
+            </div>
+            ${miniSparkline(trendPoints.slice(-8), 'var(--teal)')}
           </div>
-          <span style="width:36px;height:36px;border-radius:10px;background:var(--orange-light);display:flex;align-items:center;justify-content:center;flex-shrink:0;">${ppSVG('<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><circle cx="16" cy="16" r="3"/><path d="M16 15v1.5l1 .5"/>', 'var(--orange)', 18)}</span>
         </div>
-        <div class="pp-kpi-card" style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
-          <div>
-            <div class="pp-kpi-lbl">No Shows</div>
-            <div class="pp-kpi-val" style="color:${rel.no_shows > 0 ? 'var(--orange)' : 'var(--text)'};">${rel.no_shows}</div>
-            <div style="margin-top:4px;"><a class="pp-link" style="font-size:10px;" data-action="ppShowTab" data-pptab="history">View details</a></div>
+        <div class="pp-kpi-card">
+          <div class="pp-kpi-lbl">Late Cancellations</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px;">
+            <div>
+              <div class="pp-kpi-val" style="color:${rel.late_cancellations > 0 ? 'var(--orange)' : 'var(--text)'};">${rel.late_cancellations}</div>
+              <div style="margin-top:4px;"><a class="pp-link" style="font-size:10px;" data-action="ppShowTab" data-pptab="history">View details</a></div>
+            </div>
+            <span style="flex-shrink:0;">${ppSVG('<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><circle cx="16" cy="16" r="3"/><path d="M16 15v1.5l1 .5"/>', 'var(--orange)', 30)}</span>
           </div>
-          <span style="width:36px;height:36px;border-radius:10px;background:var(--orange-light);display:flex;align-items:center;justify-content:center;flex-shrink:0;">${ppSVG('<circle cx="9" cy="7" r="4"/><path d="M2 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 2.3.7"/><circle cx="18" cy="18" r="3"/><line x1="16.5" y1="16.5" x2="19.5" y2="19.5"/><line x1="19.5" y1="16.5" x2="16.5" y2="19.5"/>', 'var(--orange)', 18)}</span>
+        </div>
+        <div class="pp-kpi-card">
+          <div class="pp-kpi-lbl">No Shows</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px;">
+            <div>
+              <div class="pp-kpi-val" style="color:${rel.no_shows > 0 ? 'var(--danger)' : 'var(--text)'};">${rel.no_shows}</div>
+              <div style="margin-top:4px;"><a class="pp-link" style="font-size:10px;" data-action="ppShowTab" data-pptab="history">View details</a></div>
+            </div>
+            <span style="flex-shrink:0;">${ppSVG('<circle cx="9" cy="7" r="4"/><path d="M2 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 2.3.7"/><circle cx="18" cy="18" r="3"/><line x1="16.5" y1="16.5" x2="19.5" y2="19.5"/><line x1="19.5" y1="16.5" x2="16.5" y2="19.5"/>', 'var(--danger)', 30)}</span>
+          </div>
         </div>
       </div>`;
 
@@ -1577,19 +1593,21 @@
         ? `<text x="${(padL + i * xStep).toFixed(1)}" y="${h - 4}" font-size="8" fill="#b0bbd6" text-anchor="middle" font-family="Inter,sans-serif">${fmtShort(p.date)}</text>`
         : '').join('');
       trendChartHTML = `
-        <svg width="100%" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet">
-          ${gridLines}
-          <polyline points="${linePts}" fill="none" stroke="var(--teal)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          ${trendPoints.map((p, i) => `<circle cx="${(padL + i * xStep).toFixed(1)}" cy="${yFor(p.pct).toFixed(1)}" r="2.5" fill="var(--teal)"/>`).join('')}
-          ${negMarkers}
-          ${dateLabels}
-        </svg>
-        <div style="display:flex;gap:16px;margin-top:6px;">
-          <span style="font-size:10px;font-weight:600;color:var(--text-muted);display:flex;align-items:center;gap:5px;"><span style="width:14px;height:2px;background:var(--teal);display:inline-block;"></span> Attendance Rate</span>
-          <span style="font-size:10px;font-weight:600;color:var(--text-muted);display:flex;align-items:center;gap:5px;"><span style="color:var(--orange);">▲</span> Negative Events</span>
+        <div style="flex:1;display:flex;flex-direction:column;justify-content:center;">
+          <svg width="100%" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet">
+            ${gridLines}
+            <polyline points="${linePts}" fill="none" stroke="var(--teal)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            ${trendPoints.map((p, i) => `<circle cx="${(padL + i * xStep).toFixed(1)}" cy="${yFor(p.pct).toFixed(1)}" r="2.5" fill="var(--teal)"/>`).join('')}
+            ${negMarkers}
+            ${dateLabels}
+          </svg>
+          <div style="display:flex;justify-content:center;gap:16px;margin-top:6px;">
+            <span style="font-size:10px;font-weight:600;color:var(--text-muted);display:flex;align-items:center;gap:5px;"><span style="width:14px;height:2px;background:var(--teal);display:inline-block;"></span> Attendance Rate</span>
+            <span style="font-size:10px;font-weight:600;color:var(--text-muted);display:flex;align-items:center;gap:5px;"><span style="color:var(--orange);">▲</span> Negative Events</span>
+          </div>
         </div>`;
     } else {
-      trendChartHTML = '<div class="pp-empty">Not enough recorded sessions yet for a trend.</div>';
+      trendChartHTML = '<div class="pp-empty" style="flex:1;display:flex;align-items:center;justify-content:center;">Not enough recorded sessions yet for a trend.</div>';
     }
     const trendHTML = `
       <div class="pp-perf-card">
@@ -1604,7 +1622,7 @@
       <div class="pp-perf-card">
         <div class="pp-perf-title">Reliability Breakdown</div>
         <table class="pp-timeline-table">
-          <thead><tr><th>Category</th><th>Attendance</th><th>Late Canc.</th><th>No Shows</th><th>Comp. Rate</th></tr></thead>
+          <thead><tr><th></th><th>Attendance</th><th>Late Canc.</th><th>No Shows</th><th>Comp. Rate</th></tr></thead>
           <tbody>
             <tr>
               <td style="font-weight:700;">Ladders</td>
