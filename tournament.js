@@ -564,11 +564,215 @@ async function loadTournamentModule(skipList = false) {
 
 // ─── TOURNAMENT LIST ────────────────────────────────────────
 let _tFilter = 'all';
+let _tTab = 'active'; // 'active' | 'library'
 let _tPanelOpen = false;
 let _tCategories = []; // temp categories for create form
 const _tCatEmojis = ['🏆','🎾','🏅','⚡','🔥','👑','🎯','🥇'];
 
+const TOURNAMENT_LIBRARY_DAYS = 30;
+const isTournamentLibraryEligible = (t) => {
+  if (t.status !== 'completed' || !t.completed_at) return false;
+  const daysSince = (Date.now() - new Date(t.completed_at).getTime()) / 86400000;
+  return daysSince >= TOURNAMENT_LIBRARY_DAYS;
+};
+
+// SVG icons — shared between the active tournament cards and the
+// Library's read-only cards.
+const _tTrophySVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0d1f4a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4a2 2 0 0 1-2-2V5h4"/><path d="M18 9h2a2 2 0 0 0 2-2V5h-4"/><path d="M12 17v4"/><path d="M8 21h8"/><path d="M6 9a6 6 0 0 0 12 0V3H6v6z"/></svg>`;
+const _tCalSVG    = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
+const _tOpenSVG   = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+const _tEditSVG   = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
+const _tCloseSVG  = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="9" x2="15" y2="15"/><line x1="15" y1="9" x2="9" y2="15"/></svg>`;
+const _tTrashSVG  = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>`;
+const _tBoltSVG   = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#F26024" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`;
+const _tCrwnSVG   = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4a5e00" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4a2 2 0 0 1-2-2V5h4"/><path d="M18 9h2a2 2 0 0 0 2-2V5h-4"/><path d="M12 17v4"/><path d="M8 21h8"/><path d="M6 9a6 6 0 0 0 12 0V3H6v6z"/></svg>`;
+const _tTrendSVG  = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#24BC96" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>`;
+const _tOvSVG     = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
+const _tTeamSVG   = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>`;
+const _tBrackSVG  = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4a2 2 0 0 1-2-2V5h4"/><path d="M18 9h2a2 2 0 0 0 2-2V5h-4"/><path d="M12 17v4"/><path d="M8 21h8"/><path d="M6 9a6 6 0 0 0 12 0V3H6v6z"/></svg>`;
+const _tResSVG    = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="5"/><path d="M8.56 13.9l-1.56 6.1 5-3 5 3-1.56-6.1"/></svg>`;
+
+const _tPillClass = (s) => s === 'active' ? 'top-pill-active' : s === 'completed' ? 'top-pill-completed' : 'top-pill-draft';
+const _tPillLabel = (s, t) => {
+  if (s === 'active')    return 'Active';
+  if (s === 'completed') return t?.emergency_closed ? '⚠️ Cancelled' : 'Completed';
+  return 'Draft';
+};
+const _tFmtDate = (d) => d ? new Date(d + 'T12:00:00').toLocaleDateString('en-US', {month:'short',day:'numeric',year:'numeric'}) : 'No date set';
+
+// The exact same rich card used for active tournaments — reused for the
+// Library too. Only the Actions column differs: full management
+// actions, or just "View Details" when readOnly is true. Also, when
+// readOnly, the top tabs are limited to Overview — Teams/Bracket/
+// Results navigate into the full tournament detail view, which is a
+// bigger surface than a single "read-only" screen should expose here;
+// "View Details" already covers that.
+function buildTournamentCardHTML(t, catsByT, teamsByT, rrByT, bracketByT, readOnly) {
+  const isClosed = t.status !== 'active' && t.status !== 'draft';
+  const tCats     = catsByT[t.id]     || [];
+  const catCount  = tCats.length;
+  const tTeams    = teamsByT[t.id]    || [];
+  const tTeamCount = tTeams.length;
+  const tRR       = rrByT[t.id]       || [];
+  const tBracket  = bracketByT[t.id]  || [];
+  const dis = isClosed ? 'disabled style="opacity:0.35;cursor:not-allowed;"' : '';
+  const statusBorder = t.status === 'active' ? '#24BC96' : t.status === 'draft' ? '#b0bbd6' : '#174CCC';
+
+  const tTeamMap = {};
+  tTeams.forEach(tm => { tTeamMap[tm.id] = tm.name; });
+
+  const tRRActive = tRR.filter(m => m.status !== 'bye');
+  const tRounds = tRRActive.length ? [...new Set(tRRActive.map(m => m.round))].sort((a,b)=>a-b) : [];
+  const totalRounds = tRounds.length;
+  const completedRounds = tRounds.filter(r =>
+    tRRActive.filter(m => m.round === r).every(m => m.status === 'completed')
+  ).length;
+
+  const finalMatch = tBracket.find(m => m.round_name === 'Final' && m.status === 'completed');
+  const bracketComplete = !!finalMatch;
+
+  let roundText, roundSub;
+  if (bracketComplete) {
+    roundText = 'Tournament completed';
+    roundSub  = 'Final results available';
+  } else if (totalRounds > 0) {
+    if (completedRounds < totalRounds) {
+      roundText = `Round ${completedRounds + 1} of ${totalRounds} in progress`;
+      roundSub  = `${completedRounds} of ${totalRounds} rounds finished`;
+    } else {
+      roundText = `All ${totalRounds} rounds complete`;
+      roundSub  = 'Moving to finals bracket';
+    }
+  } else if (t.status === 'active') {
+    roundText = 'Tournament in progress';
+    roundSub  = 'Bracket is live';
+  } else if (t.status === 'draft') {
+    roundText = 'Setup in progress';
+    roundSub  = 'Not yet published to players';
+  } else {
+    roundText = 'Tournament completed';
+    roundSub  = 'Season finished';
+  }
+
+  let leaderText, leaderSub;
+  const resolvePlayerNames = (team) => {
+    if (!team) return '';
+    return getTeamPlayerNames(team) || team.name || '';
+  };
+
+  if (bracketComplete && finalMatch.winner_id) {
+    const champTeam = tTeams.find(tm => tm.id === finalMatch.winner_id);
+    const champNames = champTeam ? resolvePlayerNames(champTeam) : '';
+    leaderText = tEsc(champNames || (champTeam && champTeam.name) || 'Champion') + ' 🏆';
+    leaderSub  = 'Tournament champion';
+  } else if (tRR.length > 0 && tTeams.length > 0) {
+    const standings = tCalcStandings(tTeams, tRR);
+    const leaderStanding = standings[0];
+    if (leaderStanding && (leaderStanding.w > 0 || leaderStanding.pts_for > 0)) {
+      const leaderTeam = tTeams.find(tm => tm.id === leaderStanding.id);
+      const leaderNames = leaderTeam ? resolvePlayerNames(leaderTeam) : leaderStanding.name;
+      leaderText = tEsc(leaderNames);
+      leaderSub  = `${leaderStanding.w}W ${leaderStanding.l}L · Leading`;
+    } else {
+      leaderText = tTeamCount > 0 ? `${tTeamCount} team${tTeamCount !== 1 ? 's' : ''} enrolled` : 'No teams yet';
+      leaderSub  = tTeamCount > 0 ? 'Scores not recorded yet' : 'Add teams to start bracket';
+    }
+  } else {
+    leaderText = tTeamCount > 0 ? `${tTeamCount} team${tTeamCount !== 1 ? 's' : ''} enrolled` : 'No teams yet';
+    leaderSub  = tTeamCount > 0 ? 'Add scores to see standings' : 'Add teams to start bracket';
+  }
+
+  const teamsText = tTeamCount > 0
+    ? `${tTeamCount} team${tTeamCount !== 1 ? 's' : ''} registered`
+    : 'No teams registered yet';
+  const teamsSub = tTeamCount > 0
+    ? `${catCount > 0 ? catCount + ' categor' + (catCount !== 1 ? 'ies' : 'y') + ' · ' : ''}Full bracket · All confirmed`
+    : 'Add teams to start bracket';
+  const catPillsHTML = tCats.length
+    ? tCats.map(c => `<span class="t-op-cat-pill">${tEsc(c.name)}</span>`).join('')
+    : '<span style="font-size:11px;font-weight:600;color:#b0bbd6;">No categories yet</span>';
+
+  const actionsHTML = readOnly
+    ? `<button type="button" onclick="viewTournamentLibraryDetails(${t.id})" style="width:100%;padding:9px 14px;border:1px solid #174CCC;border-radius:8px;background:white;color:#174CCC;font-size:12px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">${_tOpenSVG} View Details</button>`
+    : `
+      <button class="t-op-btn" onclick="openTournament(${t.id})">${_tOpenSVG} Open Tournament</button>
+      <button class="t-op-btn" onclick="tEditTournament(${t.id})" ${dis}>${_tEditSVG} Edit</button>
+      <button class="t-op-btn ${t.status === 'active' ? 't-op-btn-warn' : ''}" onclick="tToggleStatus(${t.id},'${t.status}')" ${t.status === 'completed' ? '' : dis}>
+        ${t.status === 'active'
+          ? _tCloseSVG + ' Complete'
+          : t.status === 'draft'
+            ? `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg> Activate`
+            : `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg> Reopen`}
+      </button>
+      ${t.status === 'active' ? `<button class="t-op-btn" style="background:rgba(242,96,36,0.08);color:#F26024;border-color:rgba(242,96,36,0.3);" onclick="openEmergencyClose(${t.id})">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        Emergency Close
+      </button>` : ''}
+      <button class="t-op-btn t-op-btn-danger" onclick="deleteTournament(${t.id})">${_tTrashSVG} Delete</button>`;
+
+  return `
+  <div class="t-op-card" id="t-op-card-${t.id}" style="border-left:4px solid ${statusBorder};">
+    <!-- Tabs -->
+    <div class="t-op-tabs">
+      <button class="t-op-tab active" onclick="tOpTab(event,${t.id},'overview')">${_tOvSVG} Overview</button>
+      ${readOnly ? '' : `
+      <button class="t-op-tab" onclick="tOpTab(event,${t.id},'teams')">${_tTeamSVG} Teams</button>
+      <button class="t-op-tab" onclick="tOpTab(event,${t.id},'bracket')">${_tBrackSVG} Bracket</button>
+      <button class="t-op-tab" onclick="tOpTab(event,${t.id},'results')">${_tResSVG} Results</button>`}
+    </div>
+    <!-- Body -->
+    <div class="t-op-body">
+      <!-- LEFT -->
+      <div class="t-op-left">
+        <div class="t-op-name">${tEsc(t.name)}</div>
+        <div class="t-op-status-row">
+          <span class="${t.emergency_closed ? 'top-pill-cancelled' : _tPillClass(t.status)}">${_tPillLabel(t.status, t)}</span>
+          ${t.date ? `<span class="t-op-date-badge">${_tCalSVG} ${_tFmtDate(t.date)}</span>` : ''}
+        </div>
+        <div class="t-op-meta">${_tTrophySVG} ${catCount} Categor${catCount !== 1 ? 'ies' : 'y'}</div>
+        <div class="t-op-cat-pills">${catPillsHTML}</div>
+        <div class="t-op-stats-row">
+          <div><div class="t-op-stat-val">${tTeamCount}</div><div class="t-op-stat-lbl">Teams</div></div>
+          <div><div class="t-op-stat-val">${catCount}</div><div class="t-op-stat-lbl">Categories</div></div>
+          <div><div class="t-op-stat-val">${totalRounds || '—'}</div><div class="t-op-stat-lbl">Rounds</div></div>
+        </div>
+      </div>
+      <!-- CENTER -->
+      <div class="t-op-center">
+        <div class="t-op-intel-title">Tournament Intelligence</div>
+        <div class="t-op-intel-item">
+          <div class="t-op-intel-icon" style="background:#fde8d8;">${_tBoltSVG}</div>
+          <div>
+            <div class="t-op-intel-text">${roundText}</div>
+            <div class="t-op-intel-sub">${roundSub}</div>
+          </div>
+        </div>
+        <div class="t-op-intel-item">
+          <div class="t-op-intel-icon" style="background:rgba(198,242,33,0.2);">${_tCrwnSVG}</div>
+          <div>
+            <div class="t-op-intel-text">${leaderText}</div>
+            <div class="t-op-intel-sub">${leaderSub}</div>
+          </div>
+        </div>
+        <div class="t-op-intel-item">
+          <div class="t-op-intel-icon" style="background:#d4f5ed;">${_tTrendSVG}</div>
+          <div>
+            <div class="t-op-intel-text">${teamsText}</div>
+            <div class="t-op-intel-sub">${teamsSub}</div>
+          </div>
+        </div>
+      </div>
+      <!-- RIGHT -->
+      <div class="t-op-right">
+        <div class="t-op-action-title">${readOnly ? 'Tournament Completed' : 'Actions'}</div>
+        ${actionsHTML}
+      </div>
+    </div>
+  </div>`;
+}
+
 async function renderTournamentList() {
+  _tTab = 'active'; // always reset — otherwise returning from Library's "View Details" leaves the page stuck there
   const el = document.getElementById('t-content');
   el.innerHTML = `<div class="t-loading">Loading...</div>`;
 
@@ -644,193 +848,9 @@ async function renderTournamentList() {
     return true;
   });
 
-  // SVG icons
-  const trophySVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0d1f4a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4a2 2 0 0 1-2-2V5h4"/><path d="M18 9h2a2 2 0 0 0 2-2V5h-4"/><path d="M12 17v4"/><path d="M8 21h8"/><path d="M6 9a6 6 0 0 0 12 0V3H6v6z"/></svg>`;
-  const calSVG    = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#174CCC" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
-  const openSVG   = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
-  const editSVG   = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
-  const closeSVG  = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="9" x2="15" y2="15"/><line x1="15" y1="9" x2="9" y2="15"/></svg>`;
-  const trashSVG  = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>`;
-  const boltSVG   = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#F26024" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`;
-  const crwnSVG   = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4a5e00" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4a2 2 0 0 1-2-2V5h4"/><path d="M18 9h2a2 2 0 0 0 2-2V5h-4"/><path d="M12 17v4"/><path d="M8 21h8"/><path d="M6 9a6 6 0 0 0 12 0V3H6v6z"/></svg>`;
-  const trendSVG  = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#24BC96" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>`;
-  const ovSVG     = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
-  const teamSVG   = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>`;
-  const brackSVG  = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4a2 2 0 0 1-2-2V5h4"/><path d="M18 9h2a2 2 0 0 0 2-2V5h-4"/><path d="M12 17v4"/><path d="M8 21h8"/><path d="M6 9a6 6 0 0 0 12 0V3H6v6z"/></svg>`;
-  const resSVG    = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="5"/><path d="M8.56 13.9l-1.56 6.1 5-3 5 3-1.56-6.1"/></svg>`;
+  const filteredCards = filtered.filter(t => !isTournamentLibraryEligible(t));
+  const tournamentCards = filteredCards.map(t => buildTournamentCardHTML(t, catsByT, teamsByT, rrByT, bracketByT, false)).join('');
 
-  const pillClass = (s) => s === 'active' ? 'top-pill-active' : s === 'completed' ? 'top-pill-completed' : 'top-pill-draft';
-  const pillLabel = (s, t) => {
-    if (s === 'active')    return 'Active';
-    if (s === 'completed') return t?.emergency_closed ? '⚠️ Cancelled' : 'Completed';
-    return 'Draft';
-  };
-
-  const tournamentCards = filtered.map(t => {
-    const isClosed = t.status !== 'active' && t.status !== 'draft';
-    const tCats     = catsByT[t.id]     || [];
-    const catCount  = tCats.length;
-    const tTeams    = teamsByT[t.id]    || [];
-    const tTeamCount = tTeams.length;
-    const tRR       = rrByT[t.id]       || [];
-    const tBracket  = bracketByT[t.id]  || [];
-    const dis = isClosed ? 'disabled style="opacity:0.35;cursor:not-allowed;"' : '';
-    const statusBorder = t.status === 'active' ? '#24BC96' : t.status === 'draft' ? '#b0bbd6' : '#174CCC';
-
-    // Build team id→name map for this tournament
-    const tTeamMap = {};
-    tTeams.forEach(tm => { tTeamMap[tm.id] = tm.name; });
-
-    // ── Intelligence item 1: Round progress from RR matches ──────────────
-    const tRRActive = tRR.filter(m => m.status !== 'bye');
-    const tRounds = tRRActive.length ? [...new Set(tRRActive.map(m => m.round))].sort((a,b)=>a-b) : [];
-    const totalRounds = tRounds.length;
-    const completedRounds = tRounds.filter(r =>
-      tRRActive.filter(m => m.round === r).every(m => m.status === 'completed')
-    ).length;
-
-    // Check if bracket is complete (has a Final winner)
-    const finalMatch = tBracket.find(m => m.round_name === 'Final' && m.status === 'completed');
-    const bracketComplete = !!finalMatch;
-
-    let roundText, roundSub;
-    if (bracketComplete) {
-      roundText = 'Tournament completed';
-      roundSub  = 'Final results available';
-    } else if (totalRounds > 0) {
-      if (completedRounds < totalRounds) {
-        roundText = `Round ${completedRounds + 1} of ${totalRounds} in progress`;
-        roundSub  = `${completedRounds} of ${totalRounds} rounds finished`;
-      } else {
-        roundText = `All ${totalRounds} rounds complete`;
-        roundSub  = 'Moving to finals bracket';
-      }
-    } else if (t.status === 'active') {
-      roundText = 'Tournament in progress';
-      roundSub  = 'Bracket is live';
-    } else if (t.status === 'draft') {
-      roundText = 'Setup in progress';
-      roundSub  = 'Not yet published to players';
-    } else {
-      roundText = 'Tournament completed';
-      roundSub  = 'Season finished';
-    }
-
-    // ── Intelligence item 2: Champion or leading team ─────────────────────
-    let leaderText, leaderSub;
-    // Helper: resolve player names for a team object
-    const resolvePlayerNames = (team) => {
-      if (!team) return '';
-      return getTeamPlayerNames(team) || team.name || '';
-    };
-
-    if (bracketComplete && finalMatch.winner_id) {
-      // Champion — show player names of winning team
-      const champTeam = tTeams.find(tm => tm.id === finalMatch.winner_id);
-      const champNames = champTeam ? resolvePlayerNames(champTeam) : '';
-      leaderText = tEsc(champNames || (champTeam && champTeam.name) || 'Champion') + ' 🏆';
-      leaderSub  = 'Tournament champion';
-    } else if (tRR.length > 0 && tTeams.length > 0) {
-      // Compute standings from RR matches — show leading team's player names
-      const standings = tCalcStandings(tTeams, tRR);
-      const leaderStanding = standings[0];
-      if (leaderStanding && (leaderStanding.w > 0 || leaderStanding.pts_for > 0)) {
-        const leaderTeam = tTeams.find(tm => tm.id === leaderStanding.id);
-        const leaderNames = leaderTeam ? resolvePlayerNames(leaderTeam) : leaderStanding.name;
-        leaderText = tEsc(leaderNames);
-        leaderSub  = `${leaderStanding.w}W ${leaderStanding.l}L · Leading`;
-      } else {
-        leaderText = tTeamCount > 0 ? `${tTeamCount} team${tTeamCount !== 1 ? 's' : ''} enrolled` : 'No teams yet';
-        leaderSub  = tTeamCount > 0 ? 'Scores not recorded yet' : 'Add teams to start bracket';
-      }
-    } else {
-      leaderText = tTeamCount > 0 ? `${tTeamCount} team${tTeamCount !== 1 ? 's' : ''} enrolled` : 'No teams yet';
-      leaderSub  = tTeamCount > 0 ? 'Add scores to see standings' : 'Add teams to start bracket';
-    }
-
-    // ── Intelligence item 3: Teams registered ────────────────────────────
-    const teamsText = tTeamCount > 0
-      ? `${tTeamCount} team${tTeamCount !== 1 ? 's' : ''} registered`
-      : 'No teams registered yet';
-    const teamsSub = tTeamCount > 0
-      ? `${catCount > 0 ? catCount + ' categor' + (catCount !== 1 ? 'ies' : 'y') + ' · ' : ''}Full bracket · All confirmed`
-      : 'Add teams to start bracket';
-    // Category pills HTML for overview
-    const catPillsHTML = tCats.length
-      ? tCats.map(c => `<span class="t-op-cat-pill">${tEsc(c.name)}</span>`).join('')
-      : '<span style="font-size:11px;font-weight:600;color:#b0bbd6;">No categories yet</span>';
-    return `
-    <div class="t-op-card" id="t-op-card-${t.id}" style="border-left:4px solid ${statusBorder};">
-      <!-- Tabs -->
-      <div class="t-op-tabs">
-        <button class="t-op-tab active" onclick="tOpTab(event,${t.id},'overview')">${ovSVG} Overview</button>
-        <button class="t-op-tab" onclick="tOpTab(event,${t.id},'teams')">${teamSVG} Teams</button>
-        <button class="t-op-tab" onclick="tOpTab(event,${t.id},'bracket')">${brackSVG} Bracket</button>
-        <button class="t-op-tab" onclick="tOpTab(event,${t.id},'results')">${resSVG} Results</button>
-      </div>
-      <!-- Body -->
-      <div class="t-op-body">
-        <!-- LEFT — matches proposal: name, pill+date, meta, cat pills, stats -->
-        <div class="t-op-left">
-          <div class="t-op-name">${tEsc(t.name)}</div>
-          <div class="t-op-status-row">
-            <span class="${t.emergency_closed ? 'top-pill-cancelled' : pillClass(t.status)}">${pillLabel(t.status, t)}</span>
-            ${t.date ? `<span class="t-op-date-badge">${calSVG} ${fmtDate(t.date)}</span>` : ''}
-          </div>
-          <div class="t-op-meta">${trophySVG} ${catCount} Categor${catCount !== 1 ? 'ies' : 'y'}</div>
-          <div class="t-op-cat-pills">${catPillsHTML}</div>
-          <div class="t-op-stats-row">
-            <div><div class="t-op-stat-val">${tTeamCount}</div><div class="t-op-stat-lbl">Teams</div></div>
-            <div><div class="t-op-stat-val">${catCount}</div><div class="t-op-stat-lbl">Categories</div></div>
-            <div><div class="t-op-stat-val">${totalRounds || '—'}</div><div class="t-op-stat-lbl">Rounds</div></div>
-          </div>
-        </div>
-        <!-- CENTER — Tournament Intelligence: EXACTLY as proposal -->
-        <div class="t-op-center">
-          <div class="t-op-intel-title">Tournament Intelligence</div>
-          <div class="t-op-intel-item">
-            <div class="t-op-intel-icon" style="background:#fde8d8;">${boltSVG}</div>
-            <div>
-              <div class="t-op-intel-text">${roundText}</div>
-              <div class="t-op-intel-sub">${roundSub}</div>
-            </div>
-          </div>
-          <div class="t-op-intel-item">
-            <div class="t-op-intel-icon" style="background:rgba(198,242,33,0.2);">${crwnSVG}</div>
-            <div>
-              <div class="t-op-intel-text">${leaderText}</div>
-              <div class="t-op-intel-sub">${leaderSub}</div>
-            </div>
-          </div>
-          <div class="t-op-intel-item">
-            <div class="t-op-intel-icon" style="background:#d4f5ed;">${trendSVG}</div>
-            <div>
-              <div class="t-op-intel-text">${teamsText}</div>
-              <div class="t-op-intel-sub">${teamsSub}</div>
-            </div>
-          </div>
-        </div>
-        <!-- RIGHT -->
-        <div class="t-op-right">
-          <div class="t-op-action-title">Actions</div>
-          <button class="t-op-btn" onclick="openTournament(${t.id})">${openSVG} Open Tournament</button>
-          <button class="t-op-btn" onclick="tEditTournament(${t.id})" ${dis}>${editSVG} Edit</button>
-          <button class="t-op-btn ${t.status === 'active' ? 't-op-btn-warn' : ''}" onclick="tToggleStatus(${t.id},'${t.status}')" ${t.status === 'completed' ? '' : dis}>
-            ${t.status === 'active'
-              ? closeSVG + ' Complete'
-              : t.status === 'draft'
-                ? `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg> Activate`
-                : `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg> Reopen`}
-          </button>
-          ${t.status === 'active' ? `<button class="t-op-btn" style="background:rgba(242,96,36,0.08);color:#F26024;border-color:rgba(242,96,36,0.3);" onclick="openEmergencyClose(${t.id})">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-            Emergency Close
-          </button>` : ''}
-          <button class="t-op-btn t-op-btn-danger" onclick="deleteTournament(${t.id})">${trashSVG} Delete</button>
-        </div>
-      </div>
-    </div>`;
-  }).join('');
 
   // Collapsible panel state
   const panelIcon = _tPanelOpen
@@ -934,25 +954,46 @@ async function renderTournamentList() {
       </div>` : ''}
     </div>
 
-    <!-- Section header + filter -->
+    <!-- Section header + tabs -->
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
       <div style="font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#0d1f4a;display:flex;align-items:center;gap:8px;">
-        ${trophySVG} Tournaments
+        ${_tTrophySVG} Tournaments
       </div>
-      <div style="position:relative;">
-        <select class="t-op-filter-sel" onchange="tFilterChange(this.value)">
-          <option value="all" ${_tFilter==='all'?'selected':''}>All Tournaments</option>
-          <option value="active" ${_tFilter==='active'?'selected':''}>Active Only</option>
-          <option value="draft" ${_tFilter==='draft'?'selected':''}>Draft Only</option>
-          <option value="completed" ${_tFilter==='completed'?'selected':''}>Completed</option>
-        </select>
-        <svg style="position:absolute;right:10px;top:50%;transform:translateY(-50%);pointer-events:none;" width="10" height="6" viewBox="0 0 10 6"><path d="M0 0l5 6 5-6z" fill="#6b7a99"/></svg>
+      <div style="display:flex;gap:4px;border-bottom:1.5px solid #e0e7f5;">
+        <button type="button" onclick="tShowTab('active')" id="t-tab-active" class="pp-tab ${_tTab === 'active' ? 'pp-tab-on' : ''}">Tournaments</button>
+        <button type="button" onclick="tShowTab('library')" id="t-tab-library" class="pp-tab ${_tTab === 'library' ? 'pp-tab-on' : ''}">Library</button>
       </div>
     </div>
 
-    <!-- Tournament cards -->
-    <div id="t-tournament-list">
-      ${filtered.length ? tournamentCards : `<div style="background:white;border:0.5px solid #e0e7f5;border-radius:10px;padding:32px;text-align:center;box-shadow:0 1px 4px rgba(23,76,204,0.06);"><div class="t-empty" style="padding:0;">No tournaments found.</div></div>`}
+    <!-- Active tournaments view -->
+    <div id="t-tab-content-active" style="${_tTab === 'active' ? '' : 'display:none;'}">
+      <div style="display:flex;justify-content:flex-end;margin-bottom:12px;">
+        <div style="position:relative;">
+          <select class="t-op-filter-sel" onchange="tFilterChange(this.value)">
+            <option value="all" ${_tFilter==='all'?'selected':''}>All Tournaments</option>
+            <option value="active" ${_tFilter==='active'?'selected':''}>Active Only</option>
+            <option value="draft" ${_tFilter==='draft'?'selected':''}>Draft Only</option>
+            <option value="completed" ${_tFilter==='completed'?'selected':''}>Completed</option>
+          </select>
+          <svg style="position:absolute;right:10px;top:50%;transform:translateY(-50%);pointer-events:none;" width="10" height="6" viewBox="0 0 10 6"><path d="M0 0l5 6 5-6z" fill="#6b7a99"/></svg>
+        </div>
+      </div>
+      <!-- Tournament cards -->
+      <div id="t-tournament-list">
+        ${filteredCards.length ? tournamentCards : `<div style="background:white;border:0.5px solid #e0e7f5;border-radius:10px;padding:32px;text-align:center;box-shadow:0 1px 4px rgba(23,76,204,0.06);"><div class="t-empty" style="padding:0;">No tournaments found.</div></div>`}
+      </div>
+    </div>
+
+    <!-- Library (completed 30+ days ago — read-only) -->
+    <div id="t-tab-content-library" style="${_tTab === 'library' ? '' : 'display:none;'}">
+      <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+        <input type="text" id="t-lib-search" placeholder="Search by tournament name..." style="flex:1;min-width:200px;padding:9px 14px;border:0.5px solid #e0e7f5;border-radius:99px;font-family:'Inter',sans-serif;font-size:12px;font-weight:600;color:#0d1f4a;outline:none;">
+        <select id="t-lib-year" class="t-op-filter-sel">
+          <option value="all">All Years</option>
+        </select>
+      </div>
+      <div id="t-library-list"><div class="t-loading">Loading library...</div></div>
+      <div id="t-library-pagination" style="display:flex;align-items:center;justify-content:space-between;margin-top:16px;font-size:12px;font-weight:600;color:#6b7a99;"></div>
     </div>`;
 
   // Wire Enter key on category input
@@ -963,6 +1004,113 @@ async function renderTournamentList() {
 }
 
 // ── Helpers ─────────────────────────────────────────────────
+// ── Tournament Library ───────────────────────────────────────────────
+let _tLibPage = 1;
+const T_LIB_PAGE_SIZE = 20;
+
+function tShowTab(tab) {
+  _tTab = tab;
+  document.getElementById('t-tab-active')?.classList.toggle('pp-tab-on', tab === 'active');
+  document.getElementById('t-tab-library')?.classList.toggle('pp-tab-on', tab === 'library');
+  const activeContent = document.getElementById('t-tab-content-active');
+  const libraryContent = document.getElementById('t-tab-content-library');
+  if (activeContent) activeContent.style.display = tab === 'active' ? '' : 'none';
+  if (libraryContent) libraryContent.style.display = tab === 'library' ? '' : 'none';
+  if (tab === 'library') renderTournamentLibrary();
+}
+
+async function renderTournamentLibrary() {
+  const listEl = document.getElementById('t-library-list');
+  const pagEl = document.getElementById('t-library-pagination');
+  if (!listEl) return;
+  listEl.innerHTML = '<div class="t-loading">Loading...</div>';
+
+  let tournaments = [], categories = [], teams = [], rrMatches = [], bracketMatches = [];
+  try {
+    [tournaments, categories, teams, rrMatches, bracketMatches] = await Promise.all([
+      tApi('tournaments?select=*&order=id.desc'),
+      tApi('tournament_categories?select=tournament_id,id,name').catch(() => []),
+      tApi('tournament_teams?select=id,category_id,name,player1_id,player2_id').catch(() => []),
+      tApi('tournament_rr_matches?select=category_id,round,status,team_a_id,team_b_id,score_a,score_b,winner_id,forfeit_team_id').catch(() => []),
+      tApi('tournament_bracket_matches?select=category_id,round_name,status,team_a_id,team_b_id,winner_id').catch(() => []),
+    ]);
+  } catch (e) {
+    listEl.innerHTML = `<div class="t-empty">Error loading library: ${tEsc(e.message)}</div>`;
+    return;
+  }
+
+  const catTourneyMap = {};
+  categories.forEach(c => { catTourneyMap[c.id] = c.tournament_id; });
+  const catsByT = {};
+  categories.forEach(c => { (catsByT[c.tournament_id] = catsByT[c.tournament_id] || []).push({ id: c.id, name: c.name }); });
+  const teamsByT = {};
+  teams.forEach(tm => { const tid = catTourneyMap[tm.category_id]; if (tid) (teamsByT[tid] = teamsByT[tid] || []).push(tm); });
+  const rrByT = {};
+  rrMatches.forEach(m => { const tid = catTourneyMap[m.category_id]; if (tid) (rrByT[tid] = rrByT[tid] || []).push(m); });
+  const bracketByT = {};
+  bracketMatches.forEach(m => { const tid = catTourneyMap[m.category_id]; if (tid) (bracketByT[tid] = bracketByT[tid] || []).push(m); });
+
+  const libTournaments = tournaments.filter(isTournamentLibraryEligible);
+
+  const yearSel = document.getElementById('t-lib-year');
+  if (yearSel && yearSel.options.length <= 1) {
+    const years = [...new Set(libTournaments.map(t => (t.date || t.completed_at || '').slice(0, 4)).filter(Boolean))].sort().reverse();
+    years.forEach(y => { const opt = document.createElement('option'); opt.value = y; opt.textContent = y; yearSel.appendChild(opt); });
+    yearSel.addEventListener('change', () => { _tLibPage = 1; renderTournamentLibrary(); });
+  }
+  const searchEl = document.getElementById('t-lib-search');
+  if (searchEl && !searchEl._wired) {
+    searchEl._wired = true;
+    searchEl.addEventListener('input', () => { _tLibPage = 1; renderTournamentLibrary(); });
+  }
+
+  const query = (searchEl?.value || '').trim().toLowerCase();
+  const yearFilter = yearSel?.value || 'all';
+  let filtered = libTournaments.filter(t => {
+    if (query && !t.name.toLowerCase().includes(query)) return false;
+    if (yearFilter !== 'all' && (t.date || t.completed_at || '').slice(0, 4) !== yearFilter) return false;
+    return true;
+  });
+  filtered.sort((a, b) => new Date(b.completed_at) - new Date(a.completed_at));
+
+  if (!filtered.length) {
+    listEl.innerHTML = '<div style="background:white;border:0.5px solid #e0e7f5;border-radius:10px;padding:32px;text-align:center;"><div class="t-empty" style="padding:0;">No completed tournaments found.</div></div>';
+    pagEl.innerHTML = '';
+    return;
+  }
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / T_LIB_PAGE_SIZE));
+  _tLibPage = Math.min(_tLibPage, totalPages);
+  const pageItems = filtered.slice((_tLibPage - 1) * T_LIB_PAGE_SIZE, _tLibPage * T_LIB_PAGE_SIZE);
+
+  const byYear = {};
+  pageItems.forEach(t => {
+    const y = (t.date || t.completed_at || '').slice(0, 4) || 'Unknown';
+    (byYear[y] = byYear[y] || []).push(t);
+  });
+  listEl.innerHTML = Object.keys(byYear).sort().reverse().map(y => `
+    <div style="font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#6b7a99;margin:16px 0 8px;">${y}</div>
+    ${byYear[y].map(t => buildTournamentCardHTML(t, catsByT, teamsByT, rrByT, bracketByT, true)).join('')}
+  `).join('');
+
+  const from = (_tLibPage - 1) * T_LIB_PAGE_SIZE + 1;
+  const to = Math.min(_tLibPage * T_LIB_PAGE_SIZE, filtered.length);
+  pagEl.innerHTML = `
+    <span>Showing ${from}–${to} of ${filtered.length}</span>
+    <div style="display:flex;gap:8px;">
+      <button type="button" onclick="tLibPrevPage()" ${_tLibPage <= 1 ? 'disabled' : ''} style="padding:6px 14px;border:1px solid #e0e7f5;border-radius:99px;background:white;color:${_tLibPage <= 1 ? '#c5d0e8' : '#0d1f4a'};font-size:11px;font-weight:700;cursor:${_tLibPage <= 1 ? 'default' : 'pointer'};">Previous</button>
+      <button type="button" onclick="tLibNextPage()" ${_tLibPage >= totalPages ? 'disabled' : ''} style="padding:6px 14px;border:1px solid #e0e7f5;border-radius:99px;background:white;color:${_tLibPage >= totalPages ? '#c5d0e8' : '#0d1f4a'};font-size:11px;font-weight:700;cursor:${_tLibPage >= totalPages ? 'default' : 'pointer'};">Next</button>
+    </div>`;
+}
+
+function tLibPrevPage() { _tLibPage--; renderTournamentLibrary(); }
+function tLibNextPage() { _tLibPage++; renderTournamentLibrary(); }
+
+// View Details = the same tournament detail view used everywhere else.
+function viewTournamentLibraryDetails(id) {
+  openTournament(id);
+}
+
 function tTogglePanel() {
   _tPanelOpen = !_tPanelOpen;
   _tCategories = [];
@@ -1001,7 +1149,7 @@ async function tToggleStatus(id, currentStatus) {
     // Completed → Reopen
     const confirmed = await tConfirm({ title: 'Reopen Tournament?', message: 'Reopen this tournament as active?', okLabel: 'Reopen' });
     if (!confirmed) return;
-    await tApi(`tournaments?id=eq.${id}`, 'PATCH', { status: 'active' });
+    await tApi(`tournaments?id=eq.${id}`, 'PATCH', { status: 'active', completed_at: null });
     tToast('Tournament reopened.');
     renderTournamentList();
   }
@@ -1244,6 +1392,7 @@ async function confirmEmergencyClose(id) {
   try {
     await tApi(`tournaments?id=eq.${id}`, 'PATCH', {
       status: 'completed',
+      completed_at: new Date().toISOString(),
       emergency_closed: true,
       close_reason: reason,
     });
@@ -1256,7 +1405,7 @@ async function confirmEmergencyClose(id) {
 }
 
 async function confirmCompleteTournamentFromList(id) {
-  await tApi(`tournaments?id=eq.${id}`, 'PATCH', { status: 'completed' });
+  await tApi(`tournaments?id=eq.${id}`, 'PATCH', { status: 'completed', completed_at: new Date().toISOString() });
   closeTModal();
   tToast('Tournament completed! 🏆');
   renderTournamentList();
@@ -4543,7 +4692,7 @@ async function tCheckFinalizeConfirmHub(id) {
 }
 
 async function confirmCompleteTournament(id) {
-  await tApi(`tournaments?id=eq.${id}`, 'PATCH', { status: 'completed' });
+  await tApi(`tournaments?id=eq.${id}`, 'PATCH', { status: 'completed', completed_at: new Date().toISOString() });
   closeTModal();
   tToast('Tournament completed! 🏆');
   openTournament(id);
