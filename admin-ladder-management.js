@@ -264,6 +264,16 @@
   };
 
   const loadLaddersPage = async () => {
+    // Always reset to the main "Ladders" tab on page entry — otherwise
+    // navigating away (e.g. Library's "View Details" → Standings) and
+    // back leaves the page stuck showing Library.
+    document.getElementById('lop-tab-active')?.classList.add('pp-tab-on');
+    document.getElementById('lop-tab-library')?.classList.remove('pp-tab-on');
+    const activeContent = document.getElementById('lop-tab-content-active');
+    const libraryContent = document.getElementById('lop-tab-content-library');
+    if (activeContent) activeContent.style.display = '';
+    if (libraryContent) libraryContent.style.display = 'none';
+
     try {
       const [ladders, _llpRows, pending] = await Promise.all([
         api('ladders?select=*&order=id.desc'),
