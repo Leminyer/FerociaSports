@@ -949,6 +949,14 @@
   window.mhEnterScore = (id) => { toast('Enter score — coming soon!'); };
 
   // ── Log Match Modal ───────────────────────────────────────────────────
+  // State for the modal — was missing its declaration entirely (same
+  // class of bug as the loadMatchHub incident: assigned but never
+  // declared, which throws "not defined" in strict mode the moment the
+  // modal opens).
+  let _lmType = 'singles';
+  let _lmGameCount = 1;
+  const LM_SEL_IDS = ['lm-a-p1', 'lm-a-p2', 'lm-b-p1', 'lm-b-p2']; // confirmed against the actual <select> ids in admin.html
+
   window.openLogMatchModal = () => {
     // ── Full form reset ───────────────────────────────────────────────
     // Date — always reset to today
