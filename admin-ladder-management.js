@@ -21,17 +21,22 @@
   /* ─── LADDER MANAGEMENT PAGE ───────────────────────────── */
 
   // ── Ladder ops page state ─────────────────────────────────────────────
-  let _lopFilter = 'all';
+
+  const LIBRARY_DAYS = 30;
+  const isLibraryEligible = (l) => {
+    if (l.status !== 'completed' || !l.completed_at) return false;
+    const daysSince = (Date.now() - new Date(l.completed_at).getTime()) / 86400000;
+    return daysSince >= LIBRARY_DAYS;
+  };
 
   const _renderLadderCards = async () => {
     const el = document.getElementById('ladders-list');
     if (!el) return;
 
-    let filtered = AdminState.allLadders.filter(l => {
-      if (_lopFilter === 'active') return l.status === 'active';
-      if (_lopFilter === 'closed') return l.status !== 'active';
-      return true;
-    });
+    // Main view: active + recently-completed ladders. Anything that's
+    // aged into the Library (completed 30+ days ago) is hidden here —
+    // it only shows in the Library tab now.
+    let filtered = AdminState.allLadders.filter(l => !isLibraryEligible(l));
 
     if (!filtered.length) {
       el.innerHTML = `<div class="empty" style="padding:20px;text-align:center;background:white;border-radius:10px;">No ladders found.</div>`;
@@ -210,7 +215,7 @@
             <div class="lop-action-title">Actions</div>
             <button class="lop-btn" data-action="openLadderPlayers" data-lid="${l.id}" data-lname="${esc(l.name)}" ${dis}>${plrsSVG} Manage Players</button>
             <button class="lop-btn" data-action="openEditLadder" data-lid="${l.id}" ${dis}>${editSVG} Edit Ladder</button>
-            <button class="lop-btn warn" data-action="toggleLadderStatus" data-lid="${l.id}" data-lstatus="${esc(l.status)}">${isActive ? closSVG + ' Close Ladder' : reopSVG + ' Reopen Ladder'}</button>
+            <button class="lop-btn warn" data-action="toggleLadderStatus" data-lid="${l.id}" data-lstatus="${esc(l.status)}">${isActive ? closSVG + ' Complete Ladder' : reopSVG + ' Reopen Ladder'}</button>
             <button class="lop-btn danger" data-action="deleteLadder" data-lid="${l.id}" data-lname="${esc(l.name)}">${trshSVG} Delete</button>
           </div>
         </div>
@@ -267,9 +272,12 @@
       ]);
       AdminState.allLadders = ladders;
 
-      // Stat cards
-      const active  = ladders.filter(l => l.status === 'active').length;
-      const closed  = ladders.filter(l => l.status !== 'active').length;
+      // Stat cards — "Completed Ladders" is every ladder with
+      // status='completed', regardless of how long ago (no date
+      // filtering here, per the founder — that's only for the
+      // Library visibility rule, not this count).
+      const active    = ladders.filter(l => l.status === 'active').length;
+      const completed = ladders.filter(l => l.status === 'completed').length;
       // Unique players in active ladders
       const activeLadderIds = new Set(ladders.filter(l => l.status === 'active').map(l => l.id));
       const activePlayers   = new Set(_llpRows.filter(lp => activeLadderIds.has(lp.ladder_id)).map(lp => lp.player_id)).size;
@@ -277,7 +285,7 @@
 
       const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
       setEl('lop-active',  active);
-      setEl('lop-closed',  closed);
+      setEl('lop-closed',  completed);
       setEl('lop-players', activePlayers);
       setEl('lop-pending', pendingCount || '—');
 
@@ -285,16 +293,6 @@
       document.getElementById('ladders-list').innerHTML =
         `<div class="empty">Error: ${esc(e.message)}</div>`;
       return;
-    }
-
-    // Wire filter dropdown
-    const filterSel = document.getElementById('ladder-status-filter');
-    if (filterSel && !filterSel._wired) {
-      filterSel._wired = true;
-      filterSel.addEventListener('change', () => {
-        _lopFilter = filterSel.value;
-        _renderLadderCards();
-      });
     }
 
     await _renderLadderCards();
@@ -324,10 +322,11 @@
   };
 
   const toggleLadderStatus = async (id, current) => {
-    const newStatus = current === 'active' ? 'closed' : 'active';
+    const newStatus = current === 'active' ? 'completed' : 'active';
+    const body = { status: newStatus, completed_at: newStatus === 'completed' ? new Date().toISOString() : null };
     try {
-      await api(`ladders?id=eq.${id}`, 'PATCH', { status: newStatus });
-      toast(`Ladder ${newStatus === 'closed' ? 'closed' : 'reopened'}!`);
+      await api(`ladders?id=eq.${id}`, 'PATCH', body);
+      toast(`Ladder ${newStatus === 'completed' ? 'marked completed' : 'reopened'}!`);
       await window.loadLadderSelector();
       loadLaddersPage();
     } catch (e) {
@@ -704,6 +703,104 @@
   document.getElementById('create-ladder-form')?.addEventListener('submit', createLadder);
   document.querySelector('#edit-ladder-modal form')?.addEventListener('submit', saveEditLadder);
 
+  // ── Ladder Library ───────────────────────────────────────────────────
+  // Read-only historical view — ladders completed 30+ days ago. Reuses
+  // AdminState.allLadders (already fetched by loadLaddersPage) rather
+  // than a separate query.
+  let _lopLibPage = 1;
+  const LIB_PAGE_SIZE = 20;
+
+  const lopShowTab = (btn) => {
+    const tab = btn.dataset.loptab;
+    document.getElementById('lop-tab-active').classList.toggle('pp-tab-on', tab === 'active');
+    document.getElementById('lop-tab-library').classList.toggle('pp-tab-on', tab === 'library');
+    document.getElementById('lop-tab-content-active').style.display = tab === 'active' ? '' : 'none';
+    document.getElementById('lop-tab-content-library').style.display = tab === 'library' ? '' : 'none';
+    if (tab === 'library') renderLadderLibrary();
+  };
+
+  const renderLadderLibrary = () => {
+    const libLadders = (AdminState.allLadders || []).filter(isLibraryEligible);
+
+    // Year filter options (derived from start_date, the season's year)
+    const yearSel = document.getElementById('lop-lib-year');
+    if (yearSel && yearSel.options.length <= 1) {
+      const years = [...new Set(libLadders.map((l) => (l.start_date || l.completed_at || '').slice(0, 4)).filter(Boolean))].sort().reverse();
+      years.forEach((y) => { const opt = document.createElement('option'); opt.value = y; opt.textContent = y; yearSel.appendChild(opt); });
+      yearSel.addEventListener('change', () => { _lopLibPage = 1; renderLadderLibrary(); });
+    }
+    const searchEl = document.getElementById('lop-lib-search');
+    if (searchEl && !searchEl._wired) {
+      searchEl._wired = true;
+      searchEl.addEventListener('input', () => { _lopLibPage = 1; renderLadderLibrary(); });
+    }
+
+    const query = (searchEl?.value || '').trim().toLowerCase();
+    const yearFilter = yearSel?.value || 'all';
+    let filtered = libLadders.filter((l) => {
+      if (query && !l.name.toLowerCase().includes(query)) return false;
+      if (yearFilter !== 'all' && (l.start_date || l.completed_at || '').slice(0, 4) !== yearFilter) return false;
+      return true;
+    });
+    filtered.sort((a, b) => new Date(b.completed_at) - new Date(a.completed_at));
+
+    const listEl = document.getElementById('lop-library-list');
+    const pagEl = document.getElementById('lop-library-pagination');
+    if (!filtered.length) {
+      listEl.innerHTML = '<div class="empty" style="padding:20px;text-align:center;background:white;border-radius:10px;">No completed ladders found.</div>';
+      pagEl.innerHTML = '';
+      return;
+    }
+
+    const totalPages = Math.max(1, Math.ceil(filtered.length / LIB_PAGE_SIZE));
+    _lopLibPage = Math.min(_lopLibPage, totalPages);
+    const pageItems = filtered.slice((_lopLibPage - 1) * LIB_PAGE_SIZE, _lopLibPage * LIB_PAGE_SIZE);
+
+    // Group the current page by year
+    const byYear = {};
+    pageItems.forEach((l) => {
+      const y = (l.start_date || l.completed_at || '').slice(0, 4) || 'Unknown';
+      (byYear[y] = byYear[y] || []).push(l);
+    });
+    listEl.innerHTML = Object.keys(byYear).sort().reverse().map((y) => `
+      <div style="font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);margin:16px 0 8px;">${y}</div>
+      ${byYear[y].map((l) => `
+        <div style="display:flex;align-items:center;justify-content:space-between;background:white;border:0.5px solid var(--divider-color);border-radius:10px;padding:12px 16px;margin-bottom:8px;">
+          <div>
+            <div style="font-size:13px;font-weight:700;color:var(--text);">${esc(l.name)}</div>
+            <div style="font-size:10px;font-weight:600;color:var(--text-muted);">Completed ${fmtDate(l.completed_at?.slice(0, 10))}</div>
+          </div>
+          <button type="button" data-action="viewLadderLibraryDetails" data-lid="${l.id}" style="padding:7px 16px;border:1px solid var(--blue);border-radius:99px;background:white;color:var(--blue);font-size:11px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">View Details</button>
+        </div>`).join('')}
+    `).join('');
+
+    const from = (_lopLibPage - 1) * LIB_PAGE_SIZE + 1;
+    const to = Math.min(_lopLibPage * LIB_PAGE_SIZE, filtered.length);
+    pagEl.innerHTML = `
+      <span>Showing ${from}–${to} of ${filtered.length}</span>
+      <div style="display:flex;gap:8px;">
+        <button type="button" data-action="lopLibPrevPage" ${_lopLibPage <= 1 ? 'disabled' : ''} style="padding:6px 14px;border:1px solid var(--divider-color);border-radius:99px;background:white;color:${_lopLibPage <= 1 ? '#c5d0e8' : 'var(--text)'};font-size:11px;font-weight:700;cursor:${_lopLibPage <= 1 ? 'default' : 'pointer'};">Previous</button>
+        <button type="button" data-action="lopLibNextPage" ${_lopLibPage >= totalPages ? 'disabled' : ''} style="padding:6px 14px;border:1px solid var(--divider-color);border-radius:99px;background:white;color:${_lopLibPage >= totalPages ? '#c5d0e8' : 'var(--text)'};font-size:11px;font-weight:700;cursor:${_lopLibPage >= totalPages ? 'default' : 'pointer'};">Next</button>
+      </div>`;
+  };
+
+  // View Details = the same read-only Standings view used everywhere
+  // else — it has no edit/player-management/session actions on it, so
+  // it satisfies "read-only" without needing a separate screen.
+  const viewLadderLibraryDetails = async (btn) => {
+    const id = parseInt(btn.dataset.lid, 10);
+    const ladder = AdminState.allLadders.find((l) => l.id === id);
+    if (!ladder) return;
+    AdminState.currentLadder = ladder;
+    if (window.loadLadderPlayers) await window.loadLadderPlayers();
+    if (ladder.ladder_type === 'ftc') {
+      window.showPage('ftc-standings', document.getElementById('sb-ftc-standings'));
+    } else {
+      window.showPage('ladder', document.getElementById('sb-standings'));
+    }
+  };
+
+
   // ── Expose / register with the shared infrastructure ──────────────────
   window.loadLaddersPage = loadLaddersPage; // called from the page router
   window.lpChangeStatus  = lpChangeStatus;  // legacy stub, called from app.js's generic click listener
@@ -717,5 +814,9 @@
     lpToggleAll:          (btn) => lpToggleAll(btn),
     lpSaveChanges:        () => lpSaveChanges(),
     closeLpModal:         () => closeLpModal(),
+    lopShowTab:           (btn) => lopShowTab(btn),
+    viewLadderLibraryDetails: (btn) => viewLadderLibraryDetails(btn),
+    lopLibPrevPage:       () => { _lopLibPage--; renderLadderLibrary(); },
+    lopLibNextPage:       () => { _lopLibPage++; renderLadderLibrary(); },
   });
 })();
