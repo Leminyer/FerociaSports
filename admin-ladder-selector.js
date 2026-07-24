@@ -26,7 +26,7 @@
 
   const loadLadderSelector = async () => {
     try {
-      AdminState.allLadders = await api('ladders?select=*&status=neq.closed&order=id.desc');
+      AdminState.allLadders = await api('ladders?select=*&status=neq.completed&order=id.desc');
     } catch (e) {
       toast(`Error loading ladders: ${e.message}`, true);
       return;
