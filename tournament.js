@@ -890,7 +890,7 @@ async function renderTournamentList() {
         </div>
       </div>
       <div class="stat stat-lime" style="display:flex;flex-direction:column;">
-        <div class="stat-label">Completed</div>
+        <div class="stat-label">Completed Tournaments</div>
         <div class="stat-value">${completed}</div>
         <div class="stat-ctx" style="margin-top:auto;display:flex;align-items:center;gap:4px;color:#6b7a99;">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#6b7a99" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
