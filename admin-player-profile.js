@@ -1485,20 +1485,15 @@
     });
     const negativeDates = new Set(activity.filter((a) => a.impact === 'Negative').map((a) => a.event_date));
 
-    const miniSparkline = (points, color) => {
-      if (points.length < 2) return '';
-      const w = 90, h = 34, pad = 3;
-      const step = w / (points.length - 1);
-      const rawMin = Math.min(...points.map((p) => p.pct));
-      const rawMax = Math.max(...points.map((p) => p.pct));
-      const rangePad = Math.max(3, (rawMax - rawMin) * 0.25);
-      const yMin = Math.max(0, rawMin - rangePad);
-      const yMax = Math.min(100, rawMax + rangePad);
-      const yRange = (yMax - yMin) || 1;
-      const coords = points.map((p, i) => `${(i * step).toFixed(1)},${(pad + (h - pad * 2) - ((p.pct - yMin) / yRange) * (h - pad * 2)).toFixed(1)}`).join(' ');
-      return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
-        <polyline points="${coords}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>`;
+    // A line chart looks flat and uninformative for a player sitting at
+    // (or near) 100% — there's no variation to show. A status icon that
+    // changes with the value communicates the same thing at a glance,
+    // for any attendance level.
+    const attendanceStatusIcon = (pct) => {
+      if (pct === null) return ppSVG('<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>', 'var(--text-muted)', 30);
+      if (pct >= 95) return ppSVG('<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>', 'var(--teal)', 30);
+      if (pct >= 85) return ppSVG('<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>', 'var(--blue)', 30);
+      return ppSVG('<polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/>', 'var(--orange)', 30);
     };
 
     const kpiHTML = `
@@ -1520,7 +1515,7 @@
               <div class="pp-kpi-val" style="color:var(--teal);">${rel.attendance_pct !== null ? `${rel.attendance_pct}%` : '—'}</div>
               <div class="pp-kpi-sub">${rel.sessions_attended} / ${rel.scheduled_sessions} Session${rel.scheduled_sessions !== 1 ? 's' : ''}</div>
             </div>
-            ${miniSparkline(trendPoints.slice(-8), 'var(--teal)')}
+            <span style="flex-shrink:0;">${attendanceStatusIcon(rel.attendance_pct)}</span>
           </div>
         </div>
         <div class="pp-kpi-card">
