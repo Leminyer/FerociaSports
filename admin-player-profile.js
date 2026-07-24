@@ -1649,9 +1649,10 @@
       </div>`;
 
     // ── Section 5: Reliability Activity ───────────────────────────────
-    const activityRows = activity.slice(0, 15).map((a) => `
+    const fmtWithYear = (d) => { if (!d) return ''; const dt = new Date(d + 'T00:00:00'); return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); };
+    const activityRows = activity.slice(0, 7).map((a) => `
       <tr>
-        <td>${fmtShort(a.event_date)}</td>
+        <td>${fmtWithYear(a.event_date)}</td>
         <td>${esc(a.activity)}</td>
         <td>${esc(a.competition)}</td>
         <td>${esc(a.status)}</td>
@@ -1661,7 +1662,7 @@
       <div class="pp-perf-card">
         <div class="pp-perf-title">Reliability Activity</div>
         ${activity.length
-          ? `<table class="pp-timeline-table"><thead><tr><th>Date</th><th>Activity</th><th>Competition</th><th>Status</th><th>Impact</th></tr></thead><tbody>${activityRows}</tbody></table>`
+          ? `<table class="pp-timeline-table"><thead><tr style="background:#f4f5f8;"><th>Date</th><th>Activity</th><th>Competition</th><th>Status</th><th>Impact</th></tr></thead><tbody>${activityRows}</tbody></table>`
           : '<div class="pp-empty">No reliability activity recorded yet.</div>'}
         <div style="margin-top:10px;"><a class="pp-link" data-action="ppShowTab" data-pptab="history">View all activity →</a></div>
       </div>`;
@@ -1673,8 +1674,9 @@
         <div class="pp-perf-title">Excluded Events</div>
         <div style="font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:8px;">Events excluded from reliability calculations.</div>
         ${excluded.length
-          ? excluded.map((e) => `<div style="padding:8px 0;border-bottom:0.5px solid #f4f5f8;"><div style="font-size:12px;font-weight:700;color:var(--text);">${esc(e.activity)}</div><div style="font-size:10px;font-weight:600;color:var(--text-muted);">${esc(e.competition)} · ${fmtShort(e.event_date)}</div></div>`).join('')
+          ? excluded.map((e) => `<div style="padding:8px 0;border-bottom:0.5px solid #f4f5f8;"><div style="font-size:12px;font-weight:700;color:var(--text);">${esc(e.activity)}</div><div style="font-size:10px;font-weight:600;color:var(--text-muted);">${esc(e.competition)} · ${fmtWithYear(e.event_date)}</div></div>`).join('')
           : '<div class="pp-empty">No excluded events.</div>'}
+        <div style="margin-top:10px;"><a class="pp-link" data-action="ppShowTab" data-pptab="history">View all excluded events →</a></div>
       </div>`;
 
     // ── Rules footer ───────────────────────────────────────────────────
@@ -1685,6 +1687,12 @@
           <div style="font-size:12px;font-weight:700;color:var(--text);">Reliability Rules</div>
           <div style="font-size:11px;font-weight:600;color:var(--text-muted);">Reliability Status is automatically calculated by the system and can never be manually changed. Incident Reports never affect Reliability automatically. Winning or losing matches has no effect on Reliability.</div>
         </div>
+      </div>`;
+
+    const commitmentNoteHTML = `
+      <div style="display:flex;align-items:center;gap:10px;background:var(--bg);border-radius:12px;padding:16px 20px;margin-top:16px;">
+        ${ppSVG('<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>', 'var(--text-muted)', 16)}
+        <div style="font-size:11px;font-weight:600;color:var(--text-muted);">Reliability measures commitment, not skill. Winning or losing matches does not affect reliability.</div>
       </div>`;
 
     el.innerHTML = `
@@ -1699,6 +1707,7 @@
         ${excludedHTML}
       </div>
       ${rulesHTML}
+      ${commitmentNoteHTML}
     `;
   };
 
