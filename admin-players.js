@@ -589,6 +589,14 @@
   // computes the 5 summary cards, and renders the table (mhRenderTable
   // reads from _mhMatches directly, so it doesn't need the data passed in).
   const loadMatchHub = async () => {
+    // The matches table below resolves player names via AdminState.allPlayers
+    // (see pName() in mhRenderTable) — without this, every row would show
+    // "—" instead of real names if this page loads before anything else
+    // has populated that list.
+    if (!AdminState.allPlayers || !AdminState.allPlayers.length) {
+      try { AdminState.allPlayers = await api('players?select=*&order=first_name'); } catch (_) {}
+    }
+
     const tableEl = document.getElementById('mh-table-body');
     if (tableEl) tableEl.innerHTML = '<div class="loading">Loading matches...</div>';
     try {
@@ -957,7 +965,16 @@
   let _lmGameCount = 1;
   const LM_SEL_IDS = ['lm-a-p1', 'lm-a-p2', 'lm-b-p1', 'lm-b-p2']; // confirmed against the actual <select> ids in admin.html
 
-  window.openLogMatchModal = () => {
+  window.openLogMatchModal = async () => {
+    // Ensure the players list is loaded — loadMatchHub() only fetches
+    // past friendly matches, not the players list, so if this modal is
+    // opened without having visited a page that loads AdminState.allPlayers
+    // first (e.g. navigating straight to Match Hub), the dropdowns would
+    // show nothing but "Select player..." with no real names.
+    if (!AdminState.allPlayers || !AdminState.allPlayers.length) {
+      try { AdminState.allPlayers = await api('players?select=*&order=first_name'); } catch (e) { toast(`Error loading players: ${e.message}`, true); }
+    }
+
     // ── Full form reset ───────────────────────────────────────────────
     // Date — always reset to today
     const d = document.getElementById('lm-date');
