@@ -15,7 +15,7 @@
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="config.js?v=20260526"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="db.js?v=20260804"></script>
+<script src="db.js?v=20260805"></script>
 <script src="auth.js?v=20260526"></script>
 <script src="assets.js?v=20260526"></script>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
@@ -1058,6 +1058,10 @@
   .lm-team-lbl-b{color:var(--teal-dark);}
   .lm-vs{display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#b0bbd6;padding-top:14px;}
   .lm-pfield{margin-bottom:8px;}
+  .lm-player-results{position:absolute;top:100%;left:0;right:0;background:white;border:1px solid var(--divider-color);border-radius:8px;box-shadow:0 8px 24px rgba(8,15,46,.12);max-height:180px;overflow-y:auto;z-index:30;margin-top:2px;}
+  .lm-player-result-row{padding:9px 12px;font-size:12px;font-weight:700;color:var(--text);cursor:pointer;}
+  .lm-player-result-row:hover{background:#f4f7ff;}
+  .lm-player-result-empty{padding:9px 12px;font-size:12px;color:var(--text-muted);}
   .lm-pfield:last-child{margin-bottom:0;}
   .lm-score-row{display:grid;grid-template-columns:80px 1fr auto 1fr;gap:8px;align-items:center;margin-bottom:8px;}
   .lm-score-lbl{font-size:10px;font-weight:700;color:var(--text-muted);white-space:nowrap;}
@@ -4184,7 +4188,7 @@
           <button class="lm-pill lm-on" onclick="lmSetType(this,'singles')">Singles</button>
           <button class="lm-pill" onclick="lmSetType(this,'mens')">Men's Doubles</button>
           <button class="lm-pill" onclick="lmSetType(this,'womens')">Women's Doubles</button>
-          <button class="lm-pill" onclick="lmSetType(this,'mixed')">Mixed Doubles</button>
+          <button class="lm-pill" onclick="lmSetType(this,'mixed')">Mixed Doubles (Co-ed)</button>
         </div>
       </div>
       <!-- 2. Date & Time -->
@@ -4211,14 +4215,34 @@
         <div class="lm-teams">
           <div class="lm-team lm-team-a">
             <div class="lm-team-lbl lm-team-lbl-a">Team A</div>
-            <div class="lm-pfield"><div class="lm-flbl">Player 1</div><select class="lm-input lm-player-sel" id="lm-a-p1" onchange="lmSyncSelects()"><option value="">Select player...</option></select></div>
-            <div class="lm-pfield" id="lm-a-p2-wrap"><div class="lm-flbl">Player 2 <span class="lm-opt">doubles only</span></div><select class="lm-input lm-player-sel" id="lm-a-p2" onchange="lmSyncSelects()"><option value="">Select player...</option></select></div>
+            <div class="lm-pfield" style="position:relative;">
+              <div class="lm-flbl">Player 1</div>
+              <input type="text" class="lm-input" id="lm-a-p1-search" placeholder="Search by name..." autocomplete="off" oninput="lmSearchInput('lm-a-p1')" onfocus="lmSearchInput('lm-a-p1')">
+              <input type="hidden" id="lm-a-p1">
+              <div id="lm-a-p1-results" class="lm-player-results" style="display:none;"></div>
+            </div>
+            <div class="lm-pfield" id="lm-a-p2-wrap" style="position:relative;">
+              <div class="lm-flbl">Player 2 <span class="lm-opt">doubles only</span></div>
+              <input type="text" class="lm-input" id="lm-a-p2-search" placeholder="Search by name..." autocomplete="off" oninput="lmSearchInput('lm-a-p2')" onfocus="lmSearchInput('lm-a-p2')">
+              <input type="hidden" id="lm-a-p2">
+              <div id="lm-a-p2-results" class="lm-player-results" style="display:none;"></div>
+            </div>
           </div>
           <div class="lm-vs">VS</div>
           <div class="lm-team lm-team-b">
             <div class="lm-team-lbl lm-team-lbl-b">Team B</div>
-            <div class="lm-pfield"><div class="lm-flbl">Player 1</div><select class="lm-input lm-player-sel" id="lm-b-p1" onchange="lmSyncSelects()"><option value="">Select player...</option></select></div>
-            <div class="lm-pfield" id="lm-b-p2-wrap"><div class="lm-flbl">Player 2 <span class="lm-opt">doubles only</span></div><select class="lm-input lm-player-sel" id="lm-b-p2" onchange="lmSyncSelects()"><option value="">Select player...</option></select></div>
+            <div class="lm-pfield" style="position:relative;">
+              <div class="lm-flbl">Player 1</div>
+              <input type="text" class="lm-input" id="lm-b-p1-search" placeholder="Search by name..." autocomplete="off" oninput="lmSearchInput('lm-b-p1')" onfocus="lmSearchInput('lm-b-p1')">
+              <input type="hidden" id="lm-b-p1">
+              <div id="lm-b-p1-results" class="lm-player-results" style="display:none;"></div>
+            </div>
+            <div class="lm-pfield" id="lm-b-p2-wrap" style="position:relative;">
+              <div class="lm-flbl">Player 2 <span class="lm-opt">doubles only</span></div>
+              <input type="text" class="lm-input" id="lm-b-p2-search" placeholder="Search by name..." autocomplete="off" oninput="lmSearchInput('lm-b-p2')" onfocus="lmSearchInput('lm-b-p2')">
+              <input type="hidden" id="lm-b-p2">
+              <div id="lm-b-p2-results" class="lm-player-results" style="display:none;"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -4341,27 +4365,27 @@
   </div>
 </div>
 
-<script src="admin-state.js?v=20260804"></script>
-<script src="admin-incident-reports.js?v=20260804"></script>
-<script src="admin-ladder-selector.js?v=20260804"></script>
-<script src="admin-orders.js?v=20260804"></script>
-<script src="admin-email-utils.js?v=20260804"></script>
-<script src="admin-share.js?v=20260804"></script>
-<script src="admin-tournament-notify.js?v=20260804"></script>
-<script src="admin-player-status-history.js?v=20260804"></script>
-<script src="admin-player-profile.js?v=20260804"></script>
-<script src="admin-email-notifications.js?v=20260804"></script>
-<script src="admin-ladder-standings.js?v=20260804"></script>
-<script src="admin-sessions.js?v=20260804"></script>
-<script src="admin-print-roster.js?v=20260804"></script>
-<script src="admin-ladder-management.js?v=20260804"></script>
-<script src="admin-promotions.js?v=20260804"></script>
-<script src="admin-players.js?v=20260804"></script>
-<script src="admin-ftc-standings.js?v=20260804"></script>
-<script src="admin-ftc-playoffs-schedule.js?v=20260804"></script>
-<script src="admin-ftc-teams.js?v=20260804"></script>
-<script src="app.js?v=20260804"></script>
-<script src="tournament.js?v=20260804"></script>
+<script src="admin-state.js?v=20260805"></script>
+<script src="admin-incident-reports.js?v=20260805"></script>
+<script src="admin-ladder-selector.js?v=20260805"></script>
+<script src="admin-orders.js?v=20260805"></script>
+<script src="admin-email-utils.js?v=20260805"></script>
+<script src="admin-share.js?v=20260805"></script>
+<script src="admin-tournament-notify.js?v=20260805"></script>
+<script src="admin-player-status-history.js?v=20260805"></script>
+<script src="admin-player-profile.js?v=20260805"></script>
+<script src="admin-email-notifications.js?v=20260805"></script>
+<script src="admin-ladder-standings.js?v=20260805"></script>
+<script src="admin-sessions.js?v=20260805"></script>
+<script src="admin-print-roster.js?v=20260805"></script>
+<script src="admin-ladder-management.js?v=20260805"></script>
+<script src="admin-promotions.js?v=20260805"></script>
+<script src="admin-players.js?v=20260805"></script>
+<script src="admin-ftc-standings.js?v=20260805"></script>
+<script src="admin-ftc-playoffs-schedule.js?v=20260805"></script>
+<script src="admin-ftc-teams.js?v=20260805"></script>
+<script src="app.js?v=20260805"></script>
+<script src="tournament.js?v=20260805"></script>
 <script>
   // ── Sidebar toggle — persisted in localStorage ──────────────────────
   (function() {

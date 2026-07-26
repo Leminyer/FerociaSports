@@ -1051,10 +1051,12 @@
 
     // Clear all player selects before repopulating (prevents stale values restoring)
     LM_SEL_IDS.forEach(id => {
-      const sel = document.getElementById(id);
-      if (sel) sel.value = '';
+      const hidden = document.getElementById(id);
+      const search = document.getElementById(`${id}-search`);
+      if (hidden) hidden.value = '';
+      if (search) search.value = '';
     });
-    lmPopulateSelects();
+    lmResetFields();
 
     // Open modal
     document.getElementById('log-match-modal').classList.add('open');
@@ -1067,79 +1069,81 @@
     document.body.style.overflow = '';
   };
 
-  const lmPopulateSelects = () => {
-    // Gender filter based on match type
-    const genderFilter = (selId) => {
-      if (_lmType === 'mens')   return 'Male';
-      if (_lmType === 'womens') return 'Female';
-      if (_lmType === 'mixed') {
-        // P1 slots: no restriction; P2 slots: opposite of P1
-        return null; // all players, mixed validation on save
-      }
-      return null; // singles — all players
-    };
-
+  // Renamed from lmPopulateSelects — there's no <select> to populate
+  // anymore (search-as-you-type replaced it), but this still needs to
+  // handle disabling Player 2 for singles and clearing stale values
+  // when the match type changes.
+  const lmResetFields = () => {
     const isP2 = (id) => id === 'lm-a-p2' || id === 'lm-b-p2';
-
-    LM_SEL_IDS.forEach(selId => {
-      const sel = document.getElementById(selId);
-      if (!sel) return;
-      const curVal = sel.value;
-
-      // Disable P2 fields for singles
-      if (_lmType === 'singles' && isP2(selId)) {
-        sel.disabled = true;
-        sel.value = '';
-        return;
+    LM_SEL_IDS.forEach(id => {
+      const search = document.getElementById(`${id}-search`);
+      const hidden = document.getElementById(id);
+      if (!search) return;
+      if (_lmType === 'singles' && isP2(id)) {
+        search.disabled = true;
+        search.value = '';
+        if (hidden) hidden.value = '';
       } else {
-        sel.disabled = false;
+        search.disabled = false;
       }
-
-      // Determine gender filter for this select
-      let gFilter = null;
-      if (_lmType === 'mens')   gFilter = 'Male';
-      if (_lmType === 'womens') gFilter = 'Female';
-
-      sel.innerHTML = '<option value="">Select player...</option>';
-      (AdminState.allPlayers || [])
-        .filter(p => p.status === 'active' && (!gFilter || p.gender === gFilter))
-        .sort((a,b) => a.first_name.localeCompare(b.first_name))
-        .forEach(p => {
-          const opt = document.createElement('option');
-          opt.value = p.id;
-          opt.textContent = `${p.first_name} ${p.last_name}`;
-          sel.appendChild(opt);
-        });
-      // Restore previous value only if still valid
-      if (curVal && sel.querySelector(`option[value="${curVal}"]`)) sel.value = curVal;
     });
-    lmSyncSelects();
   };
 
-  window.lmSyncSelects = () => {
-    const selected = {};
-    LM_SEL_IDS.forEach(id => {
-      const val = document.getElementById(id)?.value;
-      if (val) selected[val] = id;
-    });
-    LM_SEL_IDS.forEach(id => {
-      const sel = document.getElementById(id);
-      if (!sel) return;
-      const curVal = sel.value;
-      Array.from(sel.options).forEach(opt => {
-        if (!opt.value) return;
-        const takenBy = selected[opt.value];
-        opt.disabled  = takenBy && takenBy !== id;
-        opt.textContent = opt.disabled
-          ? (AdminState.allPlayers.find(p => p.id == opt.value)?.first_name || opt.value) + ' (selected)'
-          : (AdminState.allPlayers.find(p => String(p.id) === opt.value)
-              ? `${AdminState.allPlayers.find(p => String(p.id) === opt.value).first_name} ${AdminState.allPlayers.find(p => String(p.id) === opt.value).last_name}`
-              : opt.textContent.replace(' (selected)',''));
+  // Player search — filters AdminState.allPlayers by name, active
+  // status, the gender rule for the current match type, and excludes
+  // whoever is already picked in one of the other 3 fields (so the same
+  // player can't be selected twice in one match).
+  window.lmSearchInput = (baseId) => {
+    const search = document.getElementById(`${baseId}-search`);
+    const hidden = document.getElementById(baseId);
+    const resultsEl = document.getElementById(`${baseId}-results`);
+    if (!search || !resultsEl) return;
+    hidden.value = ''; // typing invalidates whatever was previously picked
+
+    let gFilter = null;
+    if (_lmType === 'mens')   gFilter = 'Male';
+    if (_lmType === 'womens') gFilter = 'Female';
+    // Mixed doubles doesn't restrict the dropdown itself — both genders
+    // are valid candidates for any slot; the 1M+1F-per-team rule is
+    // enforced on save (see lmSaveMatch).
+
+    const selectedElsewhere = new Set(
+      LM_SEL_IDS.filter(id => id !== baseId)
+        .map(id => document.getElementById(id)?.value)
+        .filter(Boolean)
+    );
+
+    const query = search.value.trim().toLowerCase();
+    const matches = (AdminState.allPlayers || [])
+      .filter(p => p.status === 'active')
+      .filter(p => !gFilter || p.gender === gFilter)
+      .filter(p => !selectedElsewhere.has(String(p.id)))
+      .filter(p => !query || `${p.first_name} ${p.last_name}`.toLowerCase().includes(query))
+      .sort((a, b) => a.first_name.localeCompare(b.first_name))
+      .slice(0, 8);
+
+    resultsEl.innerHTML = matches.length
+      ? matches.map(p => `<div class="lm-player-result-row" data-id="${p.id}" data-name="${esc(p.first_name)} ${esc(p.last_name)}">${esc(p.first_name)} ${esc(p.last_name)}</div>`).join('')
+      : '<div class="lm-player-result-empty">No players found</div>';
+    resultsEl.style.display = 'block';
+
+    resultsEl.querySelectorAll('.lm-player-result-row').forEach(row => {
+      row.addEventListener('mouseenter', () => { row.style.background = '#f4f7ff'; });
+      row.addEventListener('mouseleave', () => { row.style.background = 'white'; });
+      row.addEventListener('click', () => {
+        search.value = row.dataset.name;
+        hidden.value = row.dataset.id;
+        resultsEl.style.display = 'none';
+        lmUpdatePreview();
       });
-      sel.value = curVal;
     });
-    lmUpdatePreview();
   };
+
+  // Close any open results dropdown when clicking elsewhere
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('.lm-pfield')) return;
+    document.querySelectorAll('.lm-player-results').forEach(el => { el.style.display = 'none'; });
+  });
 
   window.lmSetType = (btn, type) => {
     document.querySelectorAll('.lm-pill').forEach(p => p.classList.remove('lm-on'));
@@ -1151,7 +1155,7 @@
       if (el) el.style.opacity = isDoubles ? '1' : '0.4';
     });
     // Repopulate with gender filter + disable P2 for singles
-    lmPopulateSelects();
+    lmResetFields();
     lmUpdatePreview();
   };
 
