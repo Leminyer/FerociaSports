@@ -1711,6 +1711,265 @@
     `;
   };
 
+  // ── History tab ──────────────────────────────────────────────────────
+  let _histAll = [];       // full fetched history for the current player
+  let _histCategory = 'all';
+  let _histRange = 'all';
+  let _histSearch = '';
+  let _histSort = 'desc';
+  let _histPage = 1;
+  const HIST_PAGE_SIZE = 25;
+
+  const HIST_CAT_ICON = {
+    competition: { icon: '<path d="M6 9H4a2 2 0 0 1-2-2V5h4"/><path d="M18 9h2a2 2 0 0 0 2-2V5h-4"/><path d="M12 17v4"/><path d="M8 21h8"/><path d="M6 9a6 6 0 0 0 12 0V3H6v6z"/>', color: 'var(--purple)', bg: '#f0e4fa' },
+    attendance:  { icon: '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><polyline points="9 16 11 18 15 14"/>', color: 'var(--teal)', bg: '#d4f5ed' },
+    incident:    { icon: '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>', color: 'var(--danger)', bg: '#fde3e3' },
+  };
+  const HIST_DOT_COLOR = {
+    'Attended Session': 'var(--teal)', 'Completed Ladder': 'var(--teal)', 'Completed Tournament': 'var(--teal)', 'Tournament Champion': 'var(--teal)',
+    'No Show': 'var(--danger)', 'Late Cancellation': 'var(--orange)', 'Incident Report Recorded': 'var(--danger)', 'Withdrew from Tournament': 'var(--orange)',
+  };
+  const HIST_CATEGORY_LABEL = { all: 'All Activity', competition: 'Competition', attendance: 'Attendance', incident: 'Incidents' };
+
+  const renderHistory = async (d) => {
+    const el = document.getElementById('pp-tab-history');
+    if (!el || el.dataset.rendered) return;
+    el.dataset.rendered = '1';
+    el.innerHTML = '<div class="loading" style="padding:40px;">Loading history...</div>';
+    const playerIdAtStart = d.p.id;
+
+    try {
+      const { data } = await supabase.rpc('get_player_history', { p_player_id: d.p.id });
+      _histAll = data || [];
+    } catch (e) {
+      console.warn('[history] failed:', e.message);
+      _histAll = [];
+    }
+    if (!_ppCurrent || _ppCurrent.p.id !== playerIdAtStart) return;
+    _histCategory = 'all'; _histRange = 'all'; _histSearch = ''; _histPage = 1; _histSort = 'desc';
+
+    el.innerHTML = `
+      <div id="hist-summary"></div>
+      <div id="hist-filterbar" class="pp-section-gap"></div>
+      <div class="pp-2col pp-section-gap" style="align-items:start;grid-template-columns:1.6fr 1fr;">
+        <div>
+          <div id="hist-timeline"></div>
+          <div id="hist-pagination" style="display:flex;align-items:center;justify-content:space-between;margin-top:16px;font-size:12px;font-weight:600;color:var(--text-muted);"></div>
+        </div>
+        <div id="hist-detail"></div>
+      </div>`;
+
+    renderHistSummary(d);
+    renderHistFilterbar();
+    renderHistTimeline();
+    renderHistDetail(null);
+  };
+
+  const renderHistSummary = (d) => {
+    const el = document.getElementById('hist-summary');
+    if (!el) return;
+    const sorted = [...(_histAll || [])].sort((a, b) => new Date(b.event_date) - new Date(a.event_date));
+    const firstComp = [..._histAll].filter(e => e.event_type === 'Joined Ladder' || e.event_type === 'Registered for Tournament')
+      .sort((a, b) => new Date(a.event_date) - new Date(b.event_date))[0];
+    const mostRecent = sorted[0];
+    const card = (icon, color, label, val, sub) => `
+      <div class="pp-kpi-card">
+        <div style="display:flex;align-items:center;gap:8px;">
+          ${ppSVG(icon, color, 18)}
+          <div class="pp-kpi-lbl" style="margin:0;">${label}</div>
+        </div>
+        <div style="font-size:16px;font-weight:800;color:var(--text);margin-top:8px;line-height:1.2;">${val}</div>
+        ${sub ? `<div class="pp-kpi-sub">${sub}</div>` : ''}
+      </div>`;
+    el.innerHTML = `<div class="pp-kpi-row">
+      ${card('<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>', 'var(--purple)', 'Member Since',
+        d.p.date_joined ? fmtDate(d.p.date_joined) : '—', memberSinceSub(d.p.date_joined))}
+      ${card('<path d="M6 9H4a2 2 0 0 1-2-2V5h4"/><path d="M18 9h2a2 2 0 0 0 2-2V5h-4"/><path d="M12 17v4"/><path d="M8 21h8"/><path d="M6 9a6 6 0 0 0 12 0V3H6v6z"/>', 'var(--teal)', 'First Competition',
+        firstComp ? esc(firstComp.source_name) : 'No Competition Recorded', firstComp ? `Joined ${fmtDate(firstComp.event_date)}` : '')}
+      ${card('<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>', 'var(--blue)', 'Most Recent Activity',
+        mostRecent ? fmtDate(mostRecent.event_date) : '—', mostRecent ? esc(mostRecent.event_type) : '')}
+      ${card('<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>', 'var(--orange)', 'Total Recorded Events',
+        _histAll.length, 'All time activity')}
+    </div>`;
+  };
+
+  const memberSinceSub = (dateStr) => {
+    if (!dateStr) return '';
+    const months = Math.floor((Date.now() - new Date(dateStr).getTime()) / (30.44 * 86400000));
+    const years = Math.floor(months / 12);
+    const remMonths = months % 12;
+    if (years > 0) return `${years} year${years !== 1 ? 's' : ''}${remMonths ? `, ${remMonths} month${remMonths !== 1 ? 's' : ''}` : ''}`;
+    return `${months} month${months !== 1 ? 's' : ''}`;
+  };
+
+  const renderHistFilterbar = () => {
+    const el = document.getElementById('hist-filterbar');
+    if (!el) return;
+    const pill = (cat) => `<button type="button" data-action="histSetCategory" data-cat="${cat}" style="padding:7px 14px;border-radius:99px;border:1px solid ${_histCategory === cat ? 'var(--blue)' : 'var(--divider-color)'};background:${_histCategory === cat ? '#e8f0ff' : 'white'};color:${_histCategory === cat ? 'var(--blue)' : 'var(--text-muted)'};font-size:11px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">${HIST_CATEGORY_LABEL[cat]}</button>`;
+    const hasFilters = _histCategory !== 'all' || _histRange !== 'all' || _histSearch;
+    el.innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:white;border:0.5px solid var(--divider-color);border-radius:12px;padding:12px 16px;">
+        ${['all','competition','attendance','incident'].map(pill).join('')}
+        <select id="hist-range-sel" style="margin-left:auto;padding:7px 12px;border:0.5px solid var(--divider-color);border-radius:8px;font-size:11px;font-weight:700;color:var(--text);font-family:'Inter',sans-serif;">
+          <option value="all" ${_histRange==='all'?'selected':''}>All Time</option>
+          <option value="30" ${_histRange==='30'?'selected':''}>Last 30 Days</option>
+          <option value="90" ${_histRange==='90'?'selected':''}>Last 90 Days</option>
+          <option value="year" ${_histRange==='year'?'selected':''}>This Year</option>
+        </select>
+        <input type="text" id="hist-search-inp" value="${esc(_histSearch)}" placeholder="Search history..." style="padding:7px 12px;border:0.5px solid var(--divider-color);border-radius:8px;font-size:11px;font-weight:600;color:var(--text);font-family:'Inter',sans-serif;width:160px;">
+        <select id="hist-sort-sel" style="padding:7px 12px;border:0.5px solid var(--divider-color);border-radius:8px;font-size:11px;font-weight:700;color:var(--text);font-family:'Inter',sans-serif;">
+          <option value="desc" ${_histSort==='desc'?'selected':''}>Newest First</option>
+          <option value="asc" ${_histSort==='asc'?'selected':''}>Oldest First</option>
+        </select>
+        ${hasFilters ? `<a href="#" data-action="histClearFilters" class="pp-link">Clear Filters</a>` : ''}
+      </div>`;
+    const rangeSel = document.getElementById('hist-range-sel');
+    if (rangeSel) rangeSel.addEventListener('change', () => { _histRange = rangeSel.value; _histPage = 1; renderHistTimeline(); renderHistFilterbar(); });
+    const searchInp = document.getElementById('hist-search-inp');
+    if (searchInp) searchInp.addEventListener('input', () => { _histSearch = searchInp.value; _histPage = 1; renderHistTimeline(); });
+    const sortSel = document.getElementById('hist-sort-sel');
+    if (sortSel) sortSel.addEventListener('change', () => { _histSort = sortSel.value; renderHistTimeline(); });
+  };
+
+  const histFilteredEvents = () => {
+    let events = [..._histAll];
+    if (_histCategory !== 'all') events = events.filter(e => e.category === _histCategory);
+    if (_histRange !== 'all') {
+      const now = Date.now();
+      const cutoffs = { '30': 30, '90': 90 };
+      if (_histRange === 'year') {
+        const yearStart = new Date(new Date().getFullYear(), 0, 1).getTime();
+        events = events.filter(e => new Date(e.event_date).getTime() >= yearStart);
+      } else {
+        const days = cutoffs[_histRange];
+        events = events.filter(e => (now - new Date(e.event_date).getTime()) / 86400000 <= days);
+      }
+    }
+    if (_histSearch.trim()) {
+      const q = _histSearch.trim().toLowerCase();
+      events = events.filter(e =>
+        (e.source_name || '').toLowerCase().includes(q) ||
+        (e.event_type || '').toLowerCase().includes(q) ||
+        (e.incident_reason || '').toLowerCase().includes(q) ||
+        (e.incident_description || '').toLowerCase().includes(q));
+    }
+    events.sort((a, b) => _histSort === 'desc' ? new Date(b.event_date) - new Date(a.event_date) : new Date(a.event_date) - new Date(b.event_date));
+    return events;
+  };
+
+  const renderHistTimeline = () => {
+    const timelineEl = document.getElementById('hist-timeline');
+    const pagEl = document.getElementById('hist-pagination');
+    if (!timelineEl) return;
+    const filtered = histFilteredEvents();
+
+    if (!filtered.length) {
+      const isFiltered = _histCategory !== 'all' || _histRange !== 'all' || _histSearch;
+      timelineEl.innerHTML = `<div class="pp-empty" style="padding:30px;text-align:center;">${isFiltered
+        ? `No Matching History<br><span style="font-weight:600;">No events match the selected search or filters.</span>`
+        : `No History Recorded<br><span style="font-weight:600;">This player does not have any recorded FEROCIA activity yet.</span>`}</div>`;
+      pagEl.innerHTML = '';
+      return;
+    }
+
+    const totalPages = Math.max(1, Math.ceil(filtered.length / HIST_PAGE_SIZE));
+    _histPage = Math.min(_histPage, totalPages);
+    const pageItems = filtered.slice((_histPage - 1) * HIST_PAGE_SIZE, _histPage * HIST_PAGE_SIZE);
+
+    const byMonth = {};
+    pageItems.forEach((e, idx) => {
+      const key = new Date(e.event_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' }).toUpperCase();
+      (byMonth[key] = byMonth[key] || []).push({ e, idx });
+    });
+
+    timelineEl.innerHTML = Object.keys(byMonth).map(month => `
+      <div style="font-size:11px;font-weight:800;letter-spacing:.5px;color:var(--text-muted);margin:16px 0 8px;">${month}</div>
+      ${byMonth[month].map(({ e, idx }) => histEventRowHTML(e, idx)).join('')}
+    `).join('');
+
+    timelineEl.querySelectorAll('[data-hist-idx]').forEach(row => {
+      row.addEventListener('click', (ev) => {
+        if (ev.target.closest('a')) return; // let View links behave normally
+        const idx = parseInt(row.dataset.histIdx, 10);
+        renderHistDetail(pageItems[idx]);
+        timelineEl.querySelectorAll('.hist-row').forEach(r => r.classList.remove('hist-row-selected'));
+        row.classList.add('hist-row-selected');
+      });
+    });
+
+    const from = (_histPage - 1) * HIST_PAGE_SIZE + 1;
+    const to = Math.min(_histPage * HIST_PAGE_SIZE, filtered.length);
+    pagEl.innerHTML = `
+      <span>Showing ${from}–${to} of ${filtered.length} events</span>
+      <div style="display:flex;gap:8px;">
+        <button type="button" data-action="histPrevPage" ${_histPage <= 1 ? 'disabled' : ''} style="padding:6px 14px;border:1px solid var(--divider-color);border-radius:99px;background:white;color:${_histPage <= 1 ? '#c5d0e8' : 'var(--text)'};font-size:11px;font-weight:700;cursor:${_histPage <= 1 ? 'default' : 'pointer'};">Previous</button>
+        <button type="button" data-action="histNextPage" ${_histPage >= totalPages ? 'disabled' : ''} style="padding:6px 14px;border:1px solid var(--divider-color);border-radius:99px;background:white;color:${_histPage >= totalPages ? '#c5d0e8' : 'var(--text)'};font-size:11px;font-weight:700;cursor:${_histPage >= totalPages ? 'default' : 'pointer'};">Next</button>
+      </div>`;
+  };
+
+  const histEventRowHTML = (e, idx) => {
+    const catStyle = HIST_CAT_ICON[e.category] || HIST_CAT_ICON.competition;
+    const dotColor = HIST_DOT_COLOR[e.event_type] || 'var(--text-muted)';
+    const viewAction = e.source_type === 'ladder' ? `<a class="pp-link" data-action="ppShowTab" data-pptab="overview" style="font-size:11px;">View Ladder →</a>`
+      : e.source_type === 'tournament' ? `<a class="pp-link" style="font-size:11px;">View Tournament →</a>`
+      : '';
+    return `<div class="hist-row" data-hist-idx="${idx}" style="display:flex;align-items:flex-start;gap:12px;padding:10px 8px;border-radius:8px;cursor:pointer;">
+      <div style="display:flex;flex-direction:column;align-items:center;padding-top:4px;min-width:70px;">
+        <div style="font-size:11px;font-weight:700;color:var(--text);">${fmtShort(e.event_date)}</div>
+        ${e.event_time ? `<div style="font-size:10px;font-weight:600;color:var(--text-muted);">${esc(e.event_time)}</div>` : ''}
+        <div style="width:8px;height:8px;border-radius:50%;background:${dotColor};margin-top:6px;"></div>
+      </div>
+      <div style="width:34px;height:34px;border-radius:10px;background:${catStyle.bg};display:flex;align-items:center;justify-content:center;flex-shrink:0;">${ppSVG(catStyle.icon, catStyle.color, 17)}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:13px;font-weight:700;color:var(--text);">${esc(e.event_type)}</div>
+        <div style="font-size:11px;font-weight:600;color:var(--text-muted);">${esc(e.source_name)}${e.detail ? ' · ' + esc(e.detail) : ''}</div>
+        ${e.admin_name ? `<div style="font-size:10px;font-weight:600;color:#b0bbd6;">${esc(e.admin_name)}</div>` : ''}
+      </div>
+      <div style="text-align:right;flex-shrink:0;">
+        <span style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:${catStyle.color};background:${catStyle.bg};padding:3px 8px;border-radius:99px;">${esc(e.category)}</span>
+        <div style="margin-top:4px;">${viewAction}</div>
+      </div>
+    </div>`;
+  };
+
+  const renderHistDetail = (e) => {
+    const el = document.getElementById('hist-detail');
+    if (!el) return;
+    if (!e) {
+      el.innerHTML = `<div class="pp-perf-card" style="text-align:center;color:var(--text-muted);font-size:12px;font-weight:600;">Select an event to see details.</div>`;
+      return;
+    }
+    if (e.category !== 'incident') {
+      el.innerHTML = `<div class="pp-perf-card">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+          ${ppSVG((HIST_CAT_ICON[e.category] || HIST_CAT_ICON.competition).icon, (HIST_CAT_ICON[e.category] || HIST_CAT_ICON.competition).color, 18)}
+          <div style="font-size:13px;font-weight:800;color:var(--text);">${esc(e.event_type)}</div>
+        </div>
+        <div class="pp-perf-row"><span class="pp-perf-lbl">Date</span><span class="pp-perf-val">${fmtDate(e.event_date)}</span></div>
+        <div class="pp-perf-row"><span class="pp-perf-lbl">Source</span><span class="pp-perf-val">${esc(e.source_name)}</span></div>
+        ${e.detail ? `<div class="pp-perf-row"><span class="pp-perf-lbl">Detail</span><span class="pp-perf-val">${esc(e.detail)}</span></div>` : ''}
+      </div>`;
+      return;
+    }
+    el.innerHTML = `<div class="pp-perf-card">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+        ${ppSVG(HIST_CAT_ICON.incident.icon, HIST_CAT_ICON.incident.color, 18)}
+        <div style="font-size:13px;font-weight:800;color:var(--text);">Incident Report Recorded</div>
+      </div>
+      <div class="pp-perf-row"><span class="pp-perf-lbl">Date</span><span class="pp-perf-val">${fmtDate(e.event_date)}</span></div>
+      ${e.event_time ? `<div class="pp-perf-row"><span class="pp-perf-lbl">Time</span><span class="pp-perf-val">${esc(e.event_time)}</span></div>` : ''}
+      <div class="pp-perf-row"><span class="pp-perf-lbl">Source</span><span class="pp-perf-val">${esc(e.source_name)}</span></div>
+      <div class="pp-perf-row"><span class="pp-perf-lbl">Court</span><span class="pp-perf-val">${esc(e.incident_court || '—')}</span></div>
+      <div class="pp-perf-row"><span class="pp-perf-lbl">Reason</span><span class="pp-perf-val">${esc(e.incident_reason || '—')}</span></div>
+      <div style="margin-top:10px;padding-top:10px;border-top:0.5px solid #f4f5f8;">
+        <div class="pp-perf-lbl" style="margin-bottom:4px;">Description</div>
+        <div style="font-size:12px;font-weight:600;color:var(--text);line-height:1.5;">${esc(e.incident_description || '—')}</div>
+      </div>
+      <div class="pp-perf-row" style="margin-top:10px;"><span class="pp-perf-lbl">Recorded By</span><span class="pp-perf-val">${esc(e.admin_name)}</span></div>
+      <div class="pp-perf-row"><span class="pp-perf-lbl">Recorded On</span><span class="pp-perf-val">${e.recorded_at ? new Date(e.recorded_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—'}</span></div>
+    </div>`;
+  };
+
   const renderSoon = (tabId, label) => {
     const el = document.getElementById(`pp-tab-${tabId}`);
     if (!el || el.dataset.rendered) return;
@@ -1732,7 +1991,8 @@
     if (tab === 'competition') { if (_ppCurrent) renderCompetition(_ppCurrent); return; }
     if (tab === 'adminnotes') { if (_ppCurrent) renderAdmin(_ppCurrent); return; }
     if (tab === 'reliability') { if (_ppCurrent) renderReliability(_ppCurrent); return; }
-    const labels = { dna: 'DNA', membership: 'Membership', history: 'History' };
+    if (tab === 'history') { if (_ppCurrent) renderHistory(_ppCurrent); return; }
+    const labels = { dna: 'DNA', membership: 'Membership' };
     if (labels[tab]) renderSoon(tab, labels[tab]);
   };
 
@@ -1946,6 +2206,10 @@
     ppSaveNote: () => ppSaveNote(),
     ppLogLateCancellation: () => ppLogLateCancellation(),
     ppLogOnTimeCancellation: () => ppLogOnTimeCancellation(),
+    histSetCategory: (btn) => { _histCategory = btn.dataset.cat; _histPage = 1; renderHistFilterbar(); renderHistTimeline(); },
+    histClearFilters: () => { _histCategory = 'all'; _histRange = 'all'; _histSearch = ''; _histPage = 1; renderHistFilterbar(); renderHistTimeline(); },
+    histPrevPage: () => { _histPage--; renderHistTimeline(); },
+    histNextPage: () => { _histPage++; renderHistTimeline(); },
     ppToggleTagPicker: () => ppToggleTagPicker(),
     ppAddTag: (btn) => ppAddTag(btn),
     ppRemoveTag: (btn) => ppRemoveTag(btn),
