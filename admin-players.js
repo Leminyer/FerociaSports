@@ -583,7 +583,7 @@
   let _mhTypeFilter = 'all';
   let _mhFilter = 'all';
   let _mhMatches = [];
-  const MH_TYPE_LABELS = { singles: 'Singles', mens: "Men's Doubles", womens: "Women's Doubles", mixed: 'Mixed Doubles' };
+  const MH_TYPE_LABELS = { singles: 'Singles', mens: "Men's Doubles", womens: "Women's Doubles", mixed: 'Mixed Doubles', coed: 'Co-ed' };
 
   // Loads/refreshes the Match Hub page: fetches all friendly matches,
   // computes the 5 summary cards, and renders the table (mhRenderTable
@@ -1226,7 +1226,7 @@
     const g1b = document.getElementById('lm-g1b')?.value;
     if (!g1a || !g1b)  { toast('Please enter Game 1 scores.', true); return; }
 
-    // Fix 5: Mixed doubles validation — each team needs 1M + 1F
+    // Mixed doubles validation — each team needs 1M + 1F
     if (_lmType === 'mixed') {
       const getGender = (pid) => AdminState.allPlayers.find(p => String(p.id) === String(pid))?.gender;
       const gA1 = getGender(ap1), gA2 = getGender(ap2);
@@ -1236,6 +1236,13 @@
       const teamBValid = (gB1 === 'Male' && gB2 === 'Female') || (gB1 === 'Female' && gB2 === 'Male');
       if (!teamAValid) { toast('Team A must have one Male and one Female player.', true); return; }
       if (!teamBValid) { toast('Team B must have one Male and one Female player.', true); return; }
+    }
+
+    // Co-ed — a doubles format like Mixed, but with NO gender
+    // restriction on team composition at all (e.g. two women vs a
+    // man and a woman is valid). Only requires 2 players per team.
+    if (_lmType === 'coed') {
+      if (!ap2 || !bp2) { toast('Co-ed requires 2 players per team.', true); return; }
     }
 
     const body = {
