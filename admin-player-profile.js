@@ -1892,7 +1892,7 @@
     timelineEl.innerHTML = Object.keys(byMonth).map(month => `
       <div style="font-size:11px;font-weight:800;letter-spacing:.5px;color:var(--text-muted);margin:16px 0 8px;">${month}</div>
       <div style="position:relative;">
-        ${byMonth[month].length > 1 ? `<div style="position:absolute;left:96px;top:20px;bottom:20px;width:2px;background:#e0e4ec;z-index:0;"></div>` : ''}
+        ${byMonth[month].length > 1 ? `<div style="position:absolute;left:104px;top:20px;bottom:20px;width:2px;background:#e0e4ec;z-index:0;"></div>` : ''}
         ${byMonth[month].map(({ e, idx }) => histEventRowHTML(e, idx)).join('')}
       </div>
     `).join('');
