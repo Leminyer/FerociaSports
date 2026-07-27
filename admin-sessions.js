@@ -795,8 +795,8 @@
   };
 
   const addCourtPlayer = (id) => {
-    if (AdminState.courtPlayers.length >= 6) {
-      toast('Maximum 6 players per court.', true);
+    if (AdminState.courtPlayers.length >= 8) {
+      toast('Maximum 8 players per court.', true);
       return;
     }
     const p = AdminState.ladderPlayers.find((x) => x.id === id);
@@ -938,6 +938,16 @@
         { teamA: [0, 2], teamB: [1, 4], sit: [3, 5] },
         { teamA: [3, 5], teamB: [1, 2], sit: [0, 4] },
         { teamA: [0, 3], teamB: [4, 5], sit: [1, 2] },
+      ];
+    if (n === 7)
+      return [
+        { teamA: [0, 1], teamB: [2, 3], sit: [4, 5, 6] },
+        { teamA: [4, 5], teamB: [0, 6], sit: [1, 2, 3] },
+        { teamA: [1, 2], teamB: [3, 5], sit: [0, 4, 6] },
+        { teamA: [0, 4], teamB: [1, 6], sit: [2, 3, 5] },
+        { teamA: [2, 5], teamB: [3, 6], sit: [0, 1, 4] },
+        { teamA: [1, 4], teamB: [0, 5], sit: [2, 3, 6] },
+        { teamA: [2, 6], teamB: [3, 4], sit: [0, 1, 5] },
       ];
     return [];
   };
