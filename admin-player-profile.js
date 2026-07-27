@@ -1759,7 +1759,7 @@
       <div style="background:white;border:0.5px solid var(--divider-color);border-radius:16px;box-shadow:var(--shadow-medium);margin-top:24px;padding:20px;">
         <div id="hist-filterbar"></div>
         <div class="pp-2col" style="align-items:start;grid-template-columns:1.6fr 1fr;margin-top:16px;">
-          <div>
+          <div style="border-right:0.5px solid var(--divider-color);padding-right:20px;">
             <div id="hist-timeline"></div>
             <div id="hist-pagination" style="display:flex;align-items:center;justify-content:space-between;margin-top:16px;font-size:12px;font-weight:600;color:var(--text-muted);"></div>
           </div>
@@ -1780,9 +1780,9 @@
     const firstComp = [..._histAll].filter(e => e.event_type === 'Joined Ladder' || e.event_type === 'Registered for Tournament')
       .sort((a, b) => new Date(a.event_date) - new Date(b.event_date))[0];
     const mostRecent = sorted[0];
-    const card = (icon, color, label, val, sub, iconBorder) => `
+    const card = (icon, color, label, val, sub, iconBorder, iconSize) => `
       <div class="pp-kpi-card" style="display:flex;align-items:flex-start;gap:12px;">
-        <div style="flex-shrink:0;width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;${iconBorder ? `border:2px solid ${iconBorder};` : ''}">${ppSVG(icon, color, 26)}</div>
+        <div style="flex-shrink:0;width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;${iconBorder ? `border:2px solid ${iconBorder};` : ''}">${ppSVG(icon, color, iconSize || 26)}</div>
         <div style="min-width:0;">
           <div class="pp-kpi-lbl" style="margin:0;">${label}</div>
           <div style="font-size:15px;font-weight:800;color:var(--text);margin-top:4px;line-height:1.25;">${val}</div>
@@ -1791,11 +1791,11 @@
       </div>`;
     el.innerHTML = `<div class="pp-kpi-row">
       ${card('<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>', 'var(--purple)', 'Member Since',
-        d.p.date_joined ? fmtDate(d.p.date_joined) : '—', memberSinceSub(d.p.date_joined))}
+        d.p.date_joined ? fmtDate(d.p.date_joined) : '—', memberSinceSub(d.p.date_joined), null, 32)}
       ${card('<path d="M6 9H4a2 2 0 0 1-2-2V5h4"/><path d="M18 9h2a2 2 0 0 0 2-2V5h-4"/><path d="M12 17v4"/><path d="M8 21h8"/><path d="M6 9a6 6 0 0 0 12 0V3H6v6z"/>', 'var(--teal)', 'First Competition',
-        firstComp ? esc(firstComp.source_name) : 'No Competition Recorded', firstComp ? `Joined on ${fmtDate(firstComp.event_date)}` : '')}
+        firstComp ? esc(firstComp.source_name) : 'No Competition Recorded', firstComp ? `Joined on ${fmtDate(firstComp.event_date)}` : '', null, 32)}
       ${card('<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>', 'var(--blue)', 'Most Recent Activity',
-        mostRecent ? fmtDate(mostRecent.event_date) : '—', mostRecent ? esc(mostRecent.event_type) : '')}
+        mostRecent ? fmtDate(mostRecent.event_date) : '—', mostRecent ? esc(mostRecent.event_type) : '', null, 32)}
       ${card('<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>', 'var(--orange)', 'Total Recorded Events',
         _histAll.length, 'All time activity', 'var(--orange)')}
     </div>`;
@@ -1890,81 +1890,116 @@
       (byMonth[key] = byMonth[key] || []).push({ e, idx });
     });
 
+    // Each month's events share one connecting line (a plain gray rail —
+    // only the dots are colored per-event) so it's visually clear they
+    // belong to the same group, with a gap between different months.
     timelineEl.innerHTML = Object.keys(byMonth).map(month => `
       <div style="font-size:11px;font-weight:800;letter-spacing:.5px;color:var(--text-muted);margin:16px 0 8px;">${month}</div>
-      ${byMonth[month].map(({ e, idx }) => histEventRowHTML(e, idx)).join('')}
+      <div style="${byMonth[month].length > 1 ? 'border-left:2px dotted #d5dae5;margin-left:37px;' : ''}">
+        ${byMonth[month].map(({ e, idx }) => histEventRowHTML(e, idx)).join('')}
+      </div>
     `).join('');
 
+    // Only Incident rows open the detail panel — the others already show
+    // everything relevant inline, and their own "View Ladder/Tournament"
+    // link handles navigation.
     timelineEl.querySelectorAll('[data-hist-idx]').forEach(row => {
+      const idx = parseInt(row.dataset.histIdx, 10);
+      if (pageItems[idx].category !== 'incident') return;
       row.addEventListener('click', (ev) => {
-        if (ev.target.closest('a')) return; // let View links behave normally
-        const idx = parseInt(row.dataset.histIdx, 10);
+        if (ev.target.closest('a')) return;
         renderHistDetail(pageItems[idx]);
         timelineEl.querySelectorAll('.hist-row').forEach(r => r.classList.remove('hist-row-selected'));
         row.classList.add('hist-row-selected');
       });
     });
 
+    // Real page-number pagination (not just Previous/Next)
     const from = (_histPage - 1) * HIST_PAGE_SIZE + 1;
     const to = Math.min(_histPage * HIST_PAGE_SIZE, filtered.length);
+    const pageBtn = (p) => `<button type="button" data-action="histGoToPage" data-page="${p}" style="min-width:28px;padding:6px 8px;border:1px solid ${p === _histPage ? 'var(--blue)' : 'var(--divider-color)'};border-radius:8px;background:${p === _histPage ? 'var(--blue)' : 'white'};color:${p === _histPage ? 'white' : 'var(--text)'};font-size:11px;font-weight:700;cursor:pointer;">${p}</button>`;
+    let pageNums = [];
+    for (let p = 1; p <= totalPages; p++) {
+      if (p === 1 || p === totalPages || Math.abs(p - _histPage) <= 1) pageNums.push(p);
+      else if (pageNums[pageNums.length - 1] !== '…') pageNums.push('…');
+    }
     pagEl.innerHTML = `
       <span>Showing ${from}–${to} of ${filtered.length} events</span>
-      <div style="display:flex;gap:8px;">
-        <button type="button" data-action="histPrevPage" ${_histPage <= 1 ? 'disabled' : ''} style="padding:6px 14px;border:1px solid var(--divider-color);border-radius:99px;background:white;color:${_histPage <= 1 ? '#c5d0e8' : 'var(--text)'};font-size:11px;font-weight:700;cursor:${_histPage <= 1 ? 'default' : 'pointer'};">Previous</button>
-        <button type="button" data-action="histNextPage" ${_histPage >= totalPages ? 'disabled' : ''} style="padding:6px 14px;border:1px solid var(--divider-color);border-radius:99px;background:white;color:${_histPage >= totalPages ? '#c5d0e8' : 'var(--text)'};font-size:11px;font-weight:700;cursor:${_histPage >= totalPages ? 'default' : 'pointer'};">Next</button>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <button type="button" data-action="histPrevPage" ${_histPage <= 1 ? 'disabled' : ''} style="padding:6px 12px;border:1px solid var(--divider-color);border-radius:8px;background:white;color:${_histPage <= 1 ? '#c5d0e8' : 'var(--text)'};font-size:11px;font-weight:700;cursor:${_histPage <= 1 ? 'default' : 'pointer'};">‹</button>
+        ${pageNums.map(p => p === '…' ? `<span style="padding:0 4px;color:var(--text-muted);">…</span>` : pageBtn(p)).join('')}
+        <button type="button" data-action="histNextPage" ${_histPage >= totalPages ? 'disabled' : ''} style="padding:6px 12px;border:1px solid var(--divider-color);border-radius:8px;background:white;color:${_histPage >= totalPages ? '#c5d0e8' : 'var(--text)'};font-size:11px;font-weight:700;cursor:${_histPage >= totalPages ? 'default' : 'pointer'};">›</button>
       </div>`;
+  };
+
+  // Navigate to the real ladder/tournament — the old link just switched
+  // to Player Profile's own Overview tab, which wasn't the actual ladder.
+  window.histViewLadder = async (ladderId) => {
+    const ladder = AdminState.allLadders?.find(l => l.id === ladderId);
+    if (!ladder) { toast('Could not find that ladder.', true); return; }
+    AdminState.currentLadder = ladder;
+    if (window.loadLadderPlayers) await window.loadLadderPlayers();
+    window.showPage(ladder.ladder_type === 'ftc' ? 'ftc-standings' : 'ladder', document.getElementById(ladder.ladder_type === 'ftc' ? 'sb-ftc-standings' : 'sb-standings'));
+  };
+  window.histViewTournament = (tournamentId) => {
+    if (typeof openTournament === 'function') openTournament(tournamentId);
+    else toast('Could not open that tournament.', true);
   };
 
   const histEventRowHTML = (e, idx) => {
     const catStyle = HIST_CAT_ICON[e.category] || HIST_CAT_ICON.competition;
     const dotColor = HIST_DOT_COLOR[e.event_type] || 'var(--text-muted)';
-    const viewAction = e.source_type === 'ladder' ? `<a class="pp-link" data-action="ppShowTab" data-pptab="overview" style="font-size:11px;">View Ladder →</a>`
-      : e.source_type === 'tournament' ? `<a class="pp-link" style="font-size:11px;">View Tournament →</a>`
+    const viewAction = e.source_type === 'ladder' ? `<a href="#" class="pp-link" onclick="event.preventDefault();histViewLadder(${e.source_id})" style="font-size:11px;">View Ladder →</a>`
+      : e.source_type === 'tournament' ? `<a href="#" class="pp-link" onclick="event.preventDefault();histViewTournament(${e.source_id})" style="font-size:11px;">View Tournament →</a>`
       : '';
-    return `<div class="hist-row" data-hist-idx="${idx}" style="display:flex;align-items:flex-start;gap:12px;padding:10px 8px;border-radius:8px;cursor:pointer;">
-      <div style="display:flex;flex-direction:column;align-items:center;padding-top:4px;min-width:70px;">
-        <div style="font-size:11px;font-weight:700;color:var(--text);">${fmtShort(e.event_date)}</div>
+    const sourceBadge = e.source_type === 'ladder' ? { label: 'LADDER', color: 'var(--purple)', bg: '#f0e4fa' }
+      : e.source_type === 'tournament' ? { label: 'TOURNAMENT', color: 'var(--blue)', bg: '#e8f0ff' }
+      : { label: e.category.toUpperCase(), color: catStyle.color, bg: catStyle.bg };
+    return `<div class="hist-row" data-hist-idx="${idx}" style="display:flex;align-items:flex-start;gap:12px;padding:10px 8px;border-radius:8px;${e.category === 'incident' ? 'cursor:pointer;' : ''}">
+      <div style="display:flex;flex-direction:column;align-items:center;padding-top:4px;min-width:70px;background:white;">
+        <div style="font-size:11px;font-weight:700;color:var(--text);">${fmtHistDate(e.event_date)}</div>
         ${e.event_time ? `<div style="font-size:10px;font-weight:600;color:var(--text-muted);">${esc(e.event_time)}</div>` : ''}
-        <div style="width:8px;height:8px;border-radius:50%;background:${dotColor};margin-top:6px;"></div>
+        <div style="width:9px;height:9px;border-radius:50%;background:${dotColor};margin-top:6px;border:2px solid white;"></div>
       </div>
       <div style="width:34px;height:34px;border-radius:10px;background:${catStyle.bg};display:flex;align-items:center;justify-content:center;flex-shrink:0;">${ppSVG(catStyle.icon, catStyle.color, 17)}</div>
       <div style="flex:1;min-width:0;">
         <div style="font-size:13px;font-weight:700;color:var(--text);">${esc(e.event_type)}</div>
-        <div style="font-size:11px;font-weight:600;color:var(--text-muted);">${esc(e.source_name)}${e.detail ? ' · ' + esc(e.detail) : ''}</div>
-        ${e.admin_name ? `<div style="font-size:10px;font-weight:600;color:#b0bbd6;">${esc(e.admin_name)}</div>` : ''}
+        <div style="font-size:11px;font-weight:600;color:var(--text-muted);margin-top:2px;">${esc(e.source_name)}</div>
+        ${e.detail ? `<div style="font-size:11px;font-weight:600;color:var(--text-muted);">${esc(e.detail)}</div>` : ''}
+        ${e.admin_name ? `<div style="font-size:10px;font-weight:600;color:#b0bbd6;margin-top:2px;">${esc(e.admin_name)}</div>` : ''}
       </div>
       <div style="text-align:right;flex-shrink:0;">
-        <span style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:${catStyle.color};background:${catStyle.bg};padding:3px 8px;border-radius:99px;">${esc(e.category)}</span>
+        <span style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:${sourceBadge.color};background:${sourceBadge.bg};padding:3px 8px;border-radius:99px;">${sourceBadge.label}</span>
         <div style="margin-top:4px;">${viewAction}</div>
       </div>
     </div>`;
   };
 
+  // Date format WITH year — the plain fmtShort() (used elsewhere) omits
+  // it, but History needs the year visible since it will keep growing
+  // across multiple years.
+  const fmtHistDate = (d) => { if (!d) return ''; const dt = new Date(d + 'T00:00:00'); return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); };
+
   const renderHistDetail = (e) => {
     const el = document.getElementById('hist-detail');
     if (!el) return;
+    // The header is always the same — this panel is specifically for
+    // Incident Reports (the only clickable row type), not a generic
+    // "selected event" panel.
+    const header = `<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+      ${ppSVG(HIST_CAT_ICON.incident.icon, 'var(--orange)', 18)}
+      <div style="font-size:13px;font-weight:800;color:var(--text);">Incident Report Recorded</div>
+    </div>`;
     if (!e) {
-      el.innerHTML = `<div class="pp-perf-card" style="text-align:center;color:var(--text-muted);font-size:12px;font-weight:600;">Select an event to see details.</div>`;
-      return;
-    }
-    if (e.category !== 'incident') {
       el.innerHTML = `<div class="pp-perf-card">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-          ${ppSVG((HIST_CAT_ICON[e.category] || HIST_CAT_ICON.competition).icon, (HIST_CAT_ICON[e.category] || HIST_CAT_ICON.competition).color, 18)}
-          <div style="font-size:13px;font-weight:800;color:var(--text);">${esc(e.event_type)}</div>
-        </div>
-        <div class="pp-perf-row"><span class="pp-perf-lbl">Date</span><span class="pp-perf-val">${fmtDate(e.event_date)}</span></div>
-        <div class="pp-perf-row"><span class="pp-perf-lbl">Source</span><span class="pp-perf-val">${esc(e.source_name)}</span></div>
-        ${e.detail ? `<div class="pp-perf-row"><span class="pp-perf-lbl">Detail</span><span class="pp-perf-val">${esc(e.detail)}</span></div>` : ''}
+        ${header}
+        <div class="pp-empty" style="padding:16px 0;text-align:center;">No incident reported yet.</div>
       </div>`;
       return;
     }
     el.innerHTML = `<div class="pp-perf-card">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-        ${ppSVG(HIST_CAT_ICON.incident.icon, HIST_CAT_ICON.incident.color, 18)}
-        <div style="font-size:13px;font-weight:800;color:var(--text);">Incident Report Recorded</div>
-      </div>
-      <div class="pp-perf-row"><span class="pp-perf-lbl">Date</span><span class="pp-perf-val">${fmtDate(e.event_date)}</span></div>
+      ${header}
+      <div class="pp-perf-row"><span class="pp-perf-lbl">Date</span><span class="pp-perf-val">${fmtHistDate(e.event_date)}</span></div>
       ${e.event_time ? `<div class="pp-perf-row"><span class="pp-perf-lbl">Time</span><span class="pp-perf-val">${esc(e.event_time)}</span></div>` : ''}
       <div class="pp-perf-row"><span class="pp-perf-lbl">Source</span><span class="pp-perf-val">${esc(e.source_name)}</span></div>
       <div class="pp-perf-row"><span class="pp-perf-lbl">Court</span><span class="pp-perf-val">${esc(e.incident_court || '—')}</span></div>
@@ -2218,6 +2253,7 @@
     histClearFilters: () => { _histCategory = 'all'; _histRange = 'all'; _histSearch = ''; _histPage = 1; renderHistFilterbar(); renderHistTimeline(); },
     histPrevPage: () => { _histPage--; renderHistTimeline(); },
     histNextPage: () => { _histPage++; renderHistTimeline(); },
+    histGoToPage: (btn) => { _histPage = parseInt(btn.dataset.page, 10); renderHistTimeline(); },
     ppToggleTagPicker: () => ppToggleTagPicker(),
     ppAddTag: (btn) => ppAddTag(btn),
     ppRemoveTag: (btn) => ppRemoveTag(btn),
