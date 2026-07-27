@@ -1718,7 +1718,7 @@
   let _histSearch = '';
   let _histSort = 'desc';
   let _histPage = 1;
-  const HIST_PAGE_SIZE = 25;
+  const HIST_PAGE_SIZE = 7;
 
   const HIST_CAT_ICON = {
     competition: { icon: '<path d="M6 9H4a2 2 0 0 1-2-2V5h4"/><path d="M18 9h2a2 2 0 0 0 2-2V5h-4"/><path d="M12 17v4"/><path d="M8 21h8"/><path d="M6 9a6 6 0 0 0 12 0V3H6v6z"/>', color: 'var(--purple)', bg: '#f0e4fa' },
@@ -1892,7 +1892,7 @@
     timelineEl.innerHTML = Object.keys(byMonth).map(month => `
       <div style="font-size:11px;font-weight:800;letter-spacing:.5px;color:var(--text-muted);margin:16px 0 8px;">${month}</div>
       <div style="position:relative;">
-        ${byMonth[month].length > 1 ? `<div style="position:absolute;left:72px;top:20px;bottom:20px;width:2px;background:#e0e4ec;"></div>` : ''}
+        ${byMonth[month].length > 1 ? `<div style="position:absolute;left:96px;top:20px;bottom:20px;width:2px;background:#e0e4ec;z-index:0;"></div>` : ''}
         ${byMonth[month].map(({ e, idx }) => histEventRowHTML(e, idx)).join('')}
       </div>
     `).join('');
@@ -1980,12 +1980,12 @@
       : e.source_type === 'tournament' ? { label: 'TOURNAMENT', color: 'var(--blue)', bg: '#e8f0ff' }
       : { label: e.category.toUpperCase(), color: catStyle.color, bg: catStyle.bg };
     return `<div class="hist-row" data-hist-idx="${idx}" style="display:flex;align-items:flex-start;gap:0;padding:10px 8px;border-radius:8px;${e.category === 'incident' ? 'cursor:pointer;' : ''}">
-      <div style="min-width:64px;flex-shrink:0;padding-top:8px;">
-        <div style="font-size:11px;font-weight:700;color:var(--text);">${fmtHistDate(e.event_date)}</div>
+      <div style="width:88px;flex-shrink:0;padding-top:8px;">
+        <div style="font-size:11px;font-weight:700;color:var(--text);white-space:nowrap;">${fmtHistDate(e.event_date)}</div>
         ${e.event_time ? `<div style="font-size:10px;font-weight:600;color:var(--text-muted);">${esc(e.event_time)}</div>` : ''}
       </div>
       <div style="width:16px;flex-shrink:0;display:flex;justify-content:center;padding-top:16px;position:relative;z-index:1;">
-        <div style="width:9px;height:9px;border-radius:50%;background:${catStyle.color};border:2px solid white;box-shadow:0 0 0 1px #e0e4ec;"></div>
+        <div style="width:13px;height:13px;border-radius:50%;background:${catStyle.color};border:2px solid white;"></div>
       </div>
       <div style="width:34px;height:34px;border-radius:10px;background:${catStyle.bg};display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-left:8px;">${ppSVG(catStyle.icon, catStyle.color, 17)}</div>
       <div style="flex:1;min-width:0;margin-left:12px;">
