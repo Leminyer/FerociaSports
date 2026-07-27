@@ -1725,10 +1725,6 @@
     attendance:  { icon: '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><polyline points="9 16 11 18 15 14"/>', color: 'var(--teal)', bg: '#d4f5ed' },
     incident:    { icon: '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>', color: 'var(--danger)', bg: '#fde3e3' },
   };
-  const HIST_DOT_COLOR = {
-    'Attended Session': 'var(--teal)', 'Completed Ladder': 'var(--teal)', 'Completed Tournament': 'var(--teal)', 'Tournament Champion': 'var(--teal)',
-    'No Show': 'var(--danger)', 'Late Cancellation': 'var(--orange)', 'Incident Report Recorded': 'var(--danger)', 'Withdrew from Tournament': 'var(--orange)',
-  };
   const HIST_CATEGORY_LABEL = { all: 'All Activity', competition: 'Competition', attendance: 'Attendance', incident: 'Incidents' };
   const HIST_CATEGORY_PILL_ICON = {
     all: '<line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>',
@@ -1890,12 +1886,13 @@
       (byMonth[key] = byMonth[key] || []).push({ e, idx });
     });
 
-    // Each month's events share one connecting line (a plain gray rail —
-    // only the dots are colored per-event) so it's visually clear they
-    // belong to the same group, with a gap between different months.
+    // Connecting line sits in its own column (between the date and the
+    // icon), not stacked under the date — and it's a solid line, not a
+    // series of small dots.
     timelineEl.innerHTML = Object.keys(byMonth).map(month => `
       <div style="font-size:11px;font-weight:800;letter-spacing:.5px;color:var(--text-muted);margin:16px 0 8px;">${month}</div>
-      <div style="${byMonth[month].length > 1 ? 'border-left:2px dotted #d5dae5;margin-left:37px;' : ''}">
+      <div style="position:relative;">
+        ${byMonth[month].length > 1 ? `<div style="position:absolute;left:72px;top:20px;bottom:20px;width:2px;background:#e0e4ec;"></div>` : ''}
         ${byMonth[month].map(({ e, idx }) => histEventRowHTML(e, idx)).join('')}
       </div>
     `).join('');
@@ -1934,12 +1931,33 @@
 
   // Navigate to the real ladder/tournament — the old link just switched
   // to Player Profile's own Overview tab, which wasn't the actual ladder.
+  const histGetLadder = async (ladderId) => {
+    // AdminState.allLadders isn't guaranteed to be loaded when navigating
+    // here from Player Profile (same class of gap as Match Hub's player
+    // list) — fetch directly if it's not already cached.
+    let ladder = AdminState.allLadders?.find(l => l.id === ladderId);
+    if (!ladder) {
+      try {
+        const rows = await api(`ladders?id=eq.${ladderId}&select=*`);
+        ladder = rows?.[0] || null;
+      } catch (_) { ladder = null; }
+    }
+    return ladder;
+  };
+
   window.histViewLadder = async (ladderId) => {
-    const ladder = AdminState.allLadders?.find(l => l.id === ladderId);
+    const ladder = await histGetLadder(ladderId);
     if (!ladder) { toast('Could not find that ladder.', true); return; }
     AdminState.currentLadder = ladder;
     if (window.loadLadderPlayers) await window.loadLadderPlayers();
     window.showPage(ladder.ladder_type === 'ftc' ? 'ftc-standings' : 'ladder', document.getElementById(ladder.ladder_type === 'ftc' ? 'sb-ftc-standings' : 'sb-standings'));
+  };
+  window.histViewSession = async (ladderId) => {
+    const ladder = await histGetLadder(ladderId);
+    if (!ladder) { toast('Could not find that ladder.', true); return; }
+    AdminState.currentLadder = ladder;
+    if (window.loadLadderPlayers) await window.loadLadderPlayers();
+    window.showPage('sessions', document.getElementById('sb-sessions'));
   };
   window.histViewTournament = (tournamentId) => {
     if (typeof openTournament === 'function') openTournament(tournamentId);
@@ -1948,21 +1966,29 @@
 
   const histEventRowHTML = (e, idx) => {
     const catStyle = HIST_CAT_ICON[e.category] || HIST_CAT_ICON.competition;
-    const dotColor = HIST_DOT_COLOR[e.event_type] || 'var(--text-muted)';
-    const viewAction = e.source_type === 'ladder' ? `<a href="#" class="pp-link" onclick="event.preventDefault();histViewLadder(${e.source_id})" style="font-size:11px;">View Ladder →</a>`
+    const isAttendanceEvent = e.category === 'attendance';
+    const viewAction = isAttendanceEvent && e.source_type === 'ladder'
+      ? `<a href="#" class="pp-link" onclick="event.preventDefault();histViewSession(${e.source_id})" style="font-size:11px;">View Session →</a>`
+      : e.source_type === 'ladder' ? `<a href="#" class="pp-link" onclick="event.preventDefault();histViewLadder(${e.source_id})" style="font-size:11px;">View Ladder →</a>`
       : e.source_type === 'tournament' ? `<a href="#" class="pp-link" onclick="event.preventDefault();histViewTournament(${e.source_id})" style="font-size:11px;">View Tournament →</a>`
       : '';
-    const sourceBadge = e.source_type === 'ladder' ? { label: 'LADDER', color: 'var(--purple)', bg: '#f0e4fa' }
+    // Attendance/Incident events show their own category as the badge;
+    // Competition events distinguish Ladder vs Tournament instead.
+    const sourceBadge = e.category === 'attendance' ? { label: 'ATTENDANCE', color: catStyle.color, bg: catStyle.bg }
+      : e.category === 'incident' ? { label: 'INCIDENT', color: catStyle.color, bg: catStyle.bg }
+      : e.source_type === 'ladder' ? { label: 'LADDER', color: 'var(--purple)', bg: '#f0e4fa' }
       : e.source_type === 'tournament' ? { label: 'TOURNAMENT', color: 'var(--blue)', bg: '#e8f0ff' }
       : { label: e.category.toUpperCase(), color: catStyle.color, bg: catStyle.bg };
-    return `<div class="hist-row" data-hist-idx="${idx}" style="display:flex;align-items:flex-start;gap:12px;padding:10px 8px;border-radius:8px;${e.category === 'incident' ? 'cursor:pointer;' : ''}">
-      <div style="display:flex;flex-direction:column;align-items:center;padding-top:4px;min-width:70px;background:white;">
+    return `<div class="hist-row" data-hist-idx="${idx}" style="display:flex;align-items:flex-start;gap:0;padding:10px 8px;border-radius:8px;${e.category === 'incident' ? 'cursor:pointer;' : ''}">
+      <div style="min-width:64px;flex-shrink:0;padding-top:8px;">
         <div style="font-size:11px;font-weight:700;color:var(--text);">${fmtHistDate(e.event_date)}</div>
         ${e.event_time ? `<div style="font-size:10px;font-weight:600;color:var(--text-muted);">${esc(e.event_time)}</div>` : ''}
-        <div style="width:9px;height:9px;border-radius:50%;background:${dotColor};margin-top:6px;border:2px solid white;"></div>
       </div>
-      <div style="width:34px;height:34px;border-radius:10px;background:${catStyle.bg};display:flex;align-items:center;justify-content:center;flex-shrink:0;">${ppSVG(catStyle.icon, catStyle.color, 17)}</div>
-      <div style="flex:1;min-width:0;">
+      <div style="width:16px;flex-shrink:0;display:flex;justify-content:center;padding-top:16px;position:relative;z-index:1;">
+        <div style="width:9px;height:9px;border-radius:50%;background:${catStyle.color};border:2px solid white;box-shadow:0 0 0 1px #e0e4ec;"></div>
+      </div>
+      <div style="width:34px;height:34px;border-radius:10px;background:${catStyle.bg};display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-left:8px;">${ppSVG(catStyle.icon, catStyle.color, 17)}</div>
+      <div style="flex:1;min-width:0;margin-left:12px;">
         <div style="font-size:13px;font-weight:700;color:var(--text);">${esc(e.event_type)}</div>
         <div style="font-size:11px;font-weight:600;color:var(--text-muted);margin-top:2px;">${esc(e.source_name)}</div>
         ${e.detail ? `<div style="font-size:11px;font-weight:600;color:var(--text-muted);">${esc(e.detail)}</div>` : ''}
@@ -1986,7 +2012,7 @@
     // The header is always the same — this panel is specifically for
     // Incident Reports (the only clickable row type), not a generic
     // "selected event" panel.
-    const header = `<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+    const header = `<div style="display:flex;align-items:center;gap:8px;background:#f4f5f8;padding:10px 12px;border-radius:8px;margin-bottom:12px;">
       ${ppSVG(HIST_CAT_ICON.incident.icon, 'var(--orange)', 18)}
       <div style="font-size:13px;font-weight:800;color:var(--text);">Incident Report Recorded</div>
     </div>`;
