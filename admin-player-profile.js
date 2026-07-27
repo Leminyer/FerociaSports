@@ -1730,6 +1730,12 @@
     'No Show': 'var(--danger)', 'Late Cancellation': 'var(--orange)', 'Incident Report Recorded': 'var(--danger)', 'Withdrew from Tournament': 'var(--orange)',
   };
   const HIST_CATEGORY_LABEL = { all: 'All Activity', competition: 'Competition', attendance: 'Attendance', incident: 'Incidents' };
+  const HIST_CATEGORY_PILL_ICON = {
+    all: '<line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>',
+    competition: '<path d="M6 9H4a2 2 0 0 1-2-2V5h4"/><path d="M18 9h2a2 2 0 0 0 2-2V5h-4"/><path d="M12 17v4"/><path d="M8 21h8"/><path d="M6 9a6 6 0 0 0 12 0V3H6v6z"/>',
+    attendance: '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+    incident: '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
+  };
 
   const renderHistory = async (d) => {
     const el = document.getElementById('pp-tab-history');
@@ -1750,13 +1756,15 @@
 
     el.innerHTML = `
       <div id="hist-summary"></div>
-      <div id="hist-filterbar" class="pp-section-gap"></div>
-      <div class="pp-2col pp-section-gap" style="align-items:start;grid-template-columns:1.6fr 1fr;">
-        <div>
-          <div id="hist-timeline"></div>
-          <div id="hist-pagination" style="display:flex;align-items:center;justify-content:space-between;margin-top:16px;font-size:12px;font-weight:600;color:var(--text-muted);"></div>
+      <div style="background:white;border:0.5px solid var(--divider-color);border-radius:16px;box-shadow:var(--shadow-medium);margin-top:24px;padding:20px;">
+        <div id="hist-filterbar"></div>
+        <div class="pp-2col" style="align-items:start;grid-template-columns:1.6fr 1fr;margin-top:16px;">
+          <div>
+            <div id="hist-timeline"></div>
+            <div id="hist-pagination" style="display:flex;align-items:center;justify-content:space-between;margin-top:16px;font-size:12px;font-weight:600;color:var(--text-muted);"></div>
+          </div>
+          <div id="hist-detail"></div>
         </div>
-        <div id="hist-detail"></div>
       </div>`;
 
     renderHistSummary(d);
@@ -1772,24 +1780,24 @@
     const firstComp = [..._histAll].filter(e => e.event_type === 'Joined Ladder' || e.event_type === 'Registered for Tournament')
       .sort((a, b) => new Date(a.event_date) - new Date(b.event_date))[0];
     const mostRecent = sorted[0];
-    const card = (icon, color, label, val, sub) => `
-      <div class="pp-kpi-card">
-        <div style="display:flex;align-items:center;gap:8px;">
-          ${ppSVG(icon, color, 18)}
+    const card = (icon, color, label, val, sub, iconBorder) => `
+      <div class="pp-kpi-card" style="display:flex;align-items:flex-start;gap:12px;">
+        <div style="flex-shrink:0;width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;${iconBorder ? `border:2px solid ${iconBorder};` : ''}">${ppSVG(icon, color, 26)}</div>
+        <div style="min-width:0;">
           <div class="pp-kpi-lbl" style="margin:0;">${label}</div>
+          <div style="font-size:15px;font-weight:800;color:var(--text);margin-top:4px;line-height:1.25;">${val}</div>
+          ${sub ? `<div class="pp-kpi-sub" style="margin-top:2px;">${sub}</div>` : ''}
         </div>
-        <div style="font-size:16px;font-weight:800;color:var(--text);margin-top:8px;line-height:1.2;">${val}</div>
-        ${sub ? `<div class="pp-kpi-sub">${sub}</div>` : ''}
       </div>`;
     el.innerHTML = `<div class="pp-kpi-row">
       ${card('<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>', 'var(--purple)', 'Member Since',
         d.p.date_joined ? fmtDate(d.p.date_joined) : '—', memberSinceSub(d.p.date_joined))}
       ${card('<path d="M6 9H4a2 2 0 0 1-2-2V5h4"/><path d="M18 9h2a2 2 0 0 0 2-2V5h-4"/><path d="M12 17v4"/><path d="M8 21h8"/><path d="M6 9a6 6 0 0 0 12 0V3H6v6z"/>', 'var(--teal)', 'First Competition',
-        firstComp ? esc(firstComp.source_name) : 'No Competition Recorded', firstComp ? `Joined ${fmtDate(firstComp.event_date)}` : '')}
+        firstComp ? esc(firstComp.source_name) : 'No Competition Recorded', firstComp ? `Joined on ${fmtDate(firstComp.event_date)}` : '')}
       ${card('<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>', 'var(--blue)', 'Most Recent Activity',
         mostRecent ? fmtDate(mostRecent.event_date) : '—', mostRecent ? esc(mostRecent.event_type) : '')}
       ${card('<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>', 'var(--orange)', 'Total Recorded Events',
-        _histAll.length, 'All time activity')}
+        _histAll.length, 'All time activity', 'var(--orange)')}
     </div>`;
   };
 
@@ -1805,10 +1813,10 @@
   const renderHistFilterbar = () => {
     const el = document.getElementById('hist-filterbar');
     if (!el) return;
-    const pill = (cat) => `<button type="button" data-action="histSetCategory" data-cat="${cat}" style="padding:7px 14px;border-radius:99px;border:1px solid ${_histCategory === cat ? 'var(--blue)' : 'var(--divider-color)'};background:${_histCategory === cat ? '#e8f0ff' : 'white'};color:${_histCategory === cat ? 'var(--blue)' : 'var(--text-muted)'};font-size:11px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">${HIST_CATEGORY_LABEL[cat]}</button>`;
+    const pill = (cat) => `<button type="button" data-action="histSetCategory" data-cat="${cat}" style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:99px;border:1px solid ${_histCategory === cat ? 'var(--blue)' : 'var(--divider-color)'};background:${_histCategory === cat ? '#e8f0ff' : 'white'};color:${_histCategory === cat ? 'var(--blue)' : 'var(--text-muted)'};font-size:11px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">${ppSVG(HIST_CATEGORY_PILL_ICON[cat], _histCategory === cat ? 'var(--blue)' : 'var(--text-muted)', 13)} ${HIST_CATEGORY_LABEL[cat]}</button>`;
     const hasFilters = _histCategory !== 'all' || _histRange !== 'all' || _histSearch;
     el.innerHTML = `
-      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:white;border:0.5px solid var(--divider-color);border-radius:12px;padding:12px 16px;">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding-bottom:16px;border-bottom:0.5px solid var(--divider-color);">
         ${['all','competition','attendance','incident'].map(pill).join('')}
         <select id="hist-range-sel" style="margin-left:auto;padding:7px 12px;border:0.5px solid var(--divider-color);border-radius:8px;font-size:11px;font-weight:700;color:var(--text);font-family:'Inter',sans-serif;">
           <option value="all" ${_histRange==='all'?'selected':''}>All Time</option>
