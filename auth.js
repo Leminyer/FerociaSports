@@ -123,6 +123,51 @@
     if (modal) modal.hidden = true;
   }
 
+  // ─── DOM: UNAUTHORIZED SCREEN ──────────────────────────────
+  // Shown when someone has a genuinely valid Supabase Auth session
+  // but is NOT an active FEROCIA administrator. Deliberately separate
+  // from the login modal — this person did sign in successfully, so
+  // "wrong password" messaging would be misleading. This is an
+  // authorization failure, not an authentication failure.
+
+  function ensureUnauthorizedScreen() {
+    let el = document.getElementById('auth-unauthorized-screen');
+    if (el) return el;
+
+    el = document.createElement('div');
+    el.id = 'auth-unauthorized-screen';
+    el.hidden = true;
+    el.style.cssText = `
+      position: fixed; inset: 0; z-index: 10000;
+      background: var(--blue, #174CCC);
+      display: flex; align-items: center; justify-content: center;
+      padding: 24px; font-family: 'Montserrat', sans-serif;
+    `;
+    el.innerHTML = `
+      <div style="background:white;border-radius:16px;padding:36px 32px;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,0.3);text-align:center;">
+        <h2 style="font-size:18px;font-weight:800;color:#0d1f4a;margin:0 0 4px 0;">Ferocia Sports Center</h2>
+        <div style="font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#6b7a99;margin-bottom:20px;">Admin Portal</div>
+        <div style="font-size:13px;font-weight:600;color:#0d1f4a;line-height:1.5;margin-bottom:20px;">
+          This account is not authorized to access the FEROCIA Admin Portal.
+        </div>
+        <button id="auth-unauthorized-signout-btn" style="width:100%;padding:12px;background:#174CCC;color:white;border:none;border-radius:8px;font-size:13px;font-weight:800;letter-spacing:1px;text-transform:uppercase;cursor:pointer;font-family:'Montserrat',sans-serif;">Sign Out</button>
+      </div>
+    `;
+    document.body.appendChild(el);
+    el.querySelector('#auth-unauthorized-signout-btn').addEventListener('click', signOut);
+    return el;
+  }
+
+  function showUnauthorizedScreen() {
+    hideLoginModal();
+    ensureUnauthorizedScreen().hidden = false;
+  }
+
+  function hideUnauthorizedScreen() {
+    const el = document.getElementById('auth-unauthorized-screen');
+    if (el) el.hidden = true;
+  }
+
   async function handleLogin(e) {
     e.preventDefault();
     const emailEl = document.getElementById('auth-email');
@@ -199,13 +244,46 @@
     window.location.reload();
   }
 
+  // ─── ADMIN AUTHORIZATION ────────────────────────────────────
+  // Authentication (a valid Supabase session) is NOT the same thing
+  // as authorization (being an active FEROCIA administrator). This
+  // checks the latter against the admins table's is_active column.
+  // Fails closed: any error, missing row, or unexpected shape is
+  // treated as "not authorized" — never assume access on ambiguity.
+  async function checkIsActiveAdmin(session) {
+    if (!session || !session.user) return false;
+    try {
+      const { data, error } = await sb
+        .from('admins')
+        .select('is_active')
+        .eq('id', session.user.id)
+        .maybeSingle();
+      if (error) {
+        console.error('[Ferocia auth] admin check error:', error);
+        return false;
+      }
+      return data?.is_active === true;
+    } catch (err) {
+      console.error('[Ferocia auth] admin check threw:', err);
+      return false;
+    }
+  }
+
   // High-level helper used by app.js / tournament.js.
-  // Calls onAuthed() when a session is available; otherwise shows the
-  // login modal and waits. Once login succeeds, fires onAuthed().
+  // Calls onAuthed() only once a session AND active-admin status are
+  // both confirmed. A valid session with no active admin record shows
+  // the unauthorized screen instead — not the login modal, since this
+  // person did authenticate successfully; they're just not authorized
+  // for this app.
   async function requireAuth(onAuthed) {
     const session = await waitForAuth();
     if (session) {
-      onAuthed(session);
+      const isAdmin = await checkIsActiveAdmin(session);
+      if (isAdmin) {
+        onAuthed(session);
+      } else {
+        showUnauthorizedScreen();
+      }
     } else {
       showLoginModal();
     }
@@ -215,12 +293,28 @@
     // Supabase fires when the user returns to the tab after a period away.
     // Firing onAuthed on every token refresh resets app state (e.g. the
     // ladder dropdown) which is the bug we are fixing here.
+    //
+    // TOKEN_REFRESHED is still checked, though — separately, and only for
+    // authorization, not to re-boot the app. This is what catches an admin
+    // being deactivated while their tab stays open for a long session.
     let booted = !!session; // already booted if we had a session above
-    onAuthStateChange((newSession, event) => {
+    onAuthStateChange(async (newSession, event) => {
       if (event === 'SIGNED_IN' && newSession && !booted) {
-        booted = true;
-        hideLoginModal();
-        onAuthed(newSession);
+        const isAdmin = await checkIsActiveAdmin(newSession);
+        if (isAdmin) {
+          booted = true;
+          hideLoginModal();
+          onAuthed(newSession);
+        } else {
+          showUnauthorizedScreen();
+        }
+      } else if (event === 'TOKEN_REFRESHED' && newSession && booted) {
+        const stillAdmin = await checkIsActiveAdmin(newSession);
+        if (!stillAdmin) {
+          // Access was revoked while this tab was open. Fail closed —
+          // sign out rather than let a stale "authorized" state persist.
+          await signOut();
+        }
       } else if (event === 'SIGNED_OUT') {
         window.location.reload();
       }
@@ -237,5 +331,7 @@
     signOut,
     onAuthStateChange,
     requireAuth,
+    checkIsActiveAdmin,
+    hideUnauthorizedScreen,
   };
 })();
