@@ -1766,7 +1766,13 @@
     renderHistSummary(d);
     renderHistFilterbar();
     renderHistTimeline();
-    renderHistDetail(null);
+    // Auto-show the most recent incident's detail on load — falls back
+    // to the existing "no incident reported yet" message only when this
+    // player genuinely has none.
+    const mostRecentIncident = [..._histAll]
+      .filter(e => e.category === 'incident')
+      .sort((a, b) => new Date(b.event_date) - new Date(a.event_date))[0] || null;
+    renderHistDetail(mostRecentIncident);
   };
 
   const renderHistSummary = (d) => {
