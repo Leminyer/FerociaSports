@@ -256,7 +256,7 @@
       const { data, error } = await sb
         .from('admins')
         .select('is_active')
-        .eq('id', session.user.id)
+        .eq('user_id', session.user.id)
         .maybeSingle();
       if (error) {
         console.error('[Ferocia auth] admin check error:', error);
