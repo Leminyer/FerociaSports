@@ -224,8 +224,7 @@
               <div id="pp-more-menu" style="display:none;position:absolute;top:calc(100% + 6px);right:0;background:white;border:0.5px solid var(--divider-color);border-radius:10px;box-shadow:0 8px 24px rgba(8,15,46,.12);min-width:210px;z-index:60;overflow:hidden;">
                 <button data-action="ppEditPlayer" style="width:100%;text-align:left;padding:10px 14px;font-size:12px;font-weight:700;color:var(--text);background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:8px;font-family:'Inter',sans-serif;">${ppSVG(ICONS.edit, 'var(--text-muted)')} Edit Player</button>
                 <button data-action="ppViewHistory" style="width:100%;text-align:left;padding:10px 14px;font-size:12px;font-weight:700;color:var(--text);background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:8px;font-family:'Inter',sans-serif;">${ppSVG(ICONS.history, 'var(--text-muted)')} Status History</button>
-                ${p.portal_token ? `<button data-action="ppCopyDnaLink" style="width:100%;text-align:left;padding:10px 14px;font-size:12px;font-weight:700;color:var(--text);background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:8px;font-family:'Inter',sans-serif;border-top:0.5px solid #f4f5f8;">${ppSVG(ICONS.link, 'var(--text-muted)')} Copy Player DNA Link</button>` : ''}
-                ${(p.email && !p.email_verified) ? `<button data-action="ppResendEmailVerification" style="width:100%;text-align:left;padding:10px 14px;font-size:12px;font-weight:700;color:var(--text);background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:8px;font-family:'Inter',sans-serif;border-top:0.5px solid #f4f5f8;">${ppSVG(ICONS.mail, 'var(--text-muted)')} Resend Email Verification</button>` : ''}
+                ${p.email && !p.email_verified ? `<button data-action="ppResendEmailVerification" style="width:100%;text-align:left;padding:10px 14px;font-size:12px;font-weight:700;color:var(--text);background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:8px;font-family:'Inter',sans-serif;border-top:0.5px solid #f4f5f8;">${ppSVG(ICONS.mail, 'var(--text-muted)')} Resend Email Verification</button>` : ''}
                 ${(p.phone && !p.phone_verified) ? `<button data-action="ppResendSmsVerification" style="width:100%;text-align:left;padding:10px 14px;font-size:12px;font-weight:700;color:var(--text);background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:8px;font-family:'Inter',sans-serif;${(p.email && !p.email_verified) ? '' : 'border-top:0.5px solid #f4f5f8;'}">${ppSVG(ICONS.phone, 'var(--text-muted)')} Resend SMS Verification</button>` : ''}
                 <button data-action="ppResetPlayerDna" style="width:100%;text-align:left;padding:10px 14px;font-size:12px;font-weight:700;color:var(--orange);background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:8px;font-family:'Inter',sans-serif;border-top:0.5px solid #f4f5f8;">${ppSVG('<polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>', 'var(--orange)')} Reset Player DNA</button>
               </div>
@@ -2154,16 +2153,6 @@
     document.getElementById('edit-id').value = _ppCurrent.p.id;
     window.openPlayerHistory();
   };
-  const ppCopyDnaLink = () => {
-    if (!_ppCurrent?.p?.portal_token) return;
-    const base = window.location.origin + window.location.pathname.replace(/admin\.html$/, '');
-    const url  = `${base}portal/player-dna.html?t=${_ppCurrent.p.portal_token}`;
-    if (navigator.clipboard?.writeText) {
-      navigator.clipboard.writeText(url).then(() => toast('Player DNA link copied!'), () => toast(url));
-    } else {
-      toast(url);
-    }
-  };
   // Opens a simple subject+message modal and sends a single email to the
   // current player — same underlying send mechanism as Notify Players
   // (sendOneEmail), just scoped to one recipient instead of a ladder roster.
@@ -2271,7 +2260,6 @@
     ppToggleMore:   () => ppToggleMore(),
     ppEditPlayer:   () => ppEditPlayer(),
     ppViewHistory:  () => ppViewHistory(),
-    ppCopyDnaLink:  () => ppCopyDnaLink(),
     ppResendEmailVerification: () => ppResendEmailVerification(),
     ppResendSmsVerification:   () => ppResendSmsVerification(),
     ppResetPlayerDna:          () => ppResetPlayerDna(),
