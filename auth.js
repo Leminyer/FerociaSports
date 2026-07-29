@@ -109,7 +109,16 @@
     return modal;
   }
 
+  // Hides the plain-markup boot overlay from admin.html (present before
+  // any JS runs, to avoid a dashboard flash). Safe to call even if it
+  // was already hidden or never existed on a page that doesn't have it.
+  function hideBootOverlay() {
+    const el = document.getElementById('auth-boot-overlay');
+    if (el) el.style.display = 'none';
+  }
+
   function showLoginModal() {
+    hideBootOverlay();
     const modal = ensureLoginModal();
     modal.hidden = false;
     setTimeout(() => {
@@ -159,6 +168,7 @@
   }
 
   function showUnauthorizedScreen() {
+    hideBootOverlay();
     hideLoginModal();
     hideCheckFailedScreen();
     ensureUnauthorizedScreen().hidden = false;
@@ -212,6 +222,7 @@
   }
 
   function showCheckFailedScreen(onRetry) {
+    hideBootOverlay();
     hideLoginModal();
     hideUnauthorizedScreen();
     ensureCheckFailedScreen(onRetry).hidden = false;
@@ -339,7 +350,7 @@
   async function requireAuth(onAuthed) {
     const runCheck = async (session) => {
       const { isAdmin, checkFailed } = await checkIsActiveAdmin(session);
-      if (isAdmin) return onAuthed(session);
+      if (isAdmin) { hideBootOverlay(); return onAuthed(session); }
       if (checkFailed) {
         showCheckFailedScreen(() => runCheck(session));
       } else {
@@ -369,6 +380,7 @@
         const { isAdmin, checkFailed } = await checkIsActiveAdmin(newSession);
         if (isAdmin) {
           booted = true;
+          hideBootOverlay();
           hideLoginModal();
           onAuthed(newSession);
         } else if (checkFailed) {
