@@ -160,11 +160,65 @@
 
   function showUnauthorizedScreen() {
     hideLoginModal();
+    hideCheckFailedScreen();
     ensureUnauthorizedScreen().hidden = false;
   }
 
   function hideUnauthorizedScreen() {
     const el = document.getElementById('auth-unauthorized-screen');
+    if (el) el.hidden = true;
+  }
+
+  // ─── DOM: AUTHORIZATION CHECK FAILED SCREEN ─────────────────
+  // Distinct from the unauthorized screen above. That one means "we
+  // confirmed you are not an active admin." This one means "we
+  // couldn't confirm either way" (network error, service issue) —
+  // per the plan, this must NOT default to granting access, but it
+  // should offer a retry rather than a flat rejection, since the
+  // person may genuinely be an authorized admin and this may just be
+  // a transient failure.
+  function ensureCheckFailedScreen(onRetry) {
+    let el = document.getElementById('auth-checkfailed-screen');
+    if (el) {
+      const btn = el.querySelector('#auth-checkfailed-retry-btn');
+      if (btn) btn.onclick = onRetry;
+      return el;
+    }
+
+    el = document.createElement('div');
+    el.id = 'auth-checkfailed-screen';
+    el.hidden = true;
+    el.style.cssText = `
+      position: fixed; inset: 0; z-index: 10000;
+      background: var(--blue, #174CCC);
+      display: flex; align-items: center; justify-content: center;
+      padding: 24px; font-family: 'Montserrat', sans-serif;
+    `;
+    el.innerHTML = `
+      <div style="background:white;border-radius:16px;padding:36px 32px;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,0.3);text-align:center;">
+        <h2 style="font-size:18px;font-weight:800;color:#0d1f4a;margin:0 0 4px 0;">Ferocia Sports Center</h2>
+        <div style="font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#6b7a99;margin-bottom:20px;">Admin Portal</div>
+        <div style="font-size:13px;font-weight:600;color:#0d1f4a;line-height:1.5;margin-bottom:20px;">
+          We couldn't verify your administrator access right now. This may be a temporary connection issue.
+        </div>
+        <button id="auth-checkfailed-retry-btn" style="width:100%;padding:12px;background:#174CCC;color:white;border:none;border-radius:8px;font-size:13px;font-weight:800;letter-spacing:1px;text-transform:uppercase;cursor:pointer;font-family:'Montserrat',sans-serif;margin-bottom:10px;">Retry</button>
+        <button id="auth-checkfailed-signout-btn" style="width:100%;padding:12px;background:white;color:#6b7a99;border:1px solid #d6dff5;border-radius:8px;font-size:13px;font-weight:800;letter-spacing:1px;text-transform:uppercase;cursor:pointer;font-family:'Montserrat',sans-serif;">Sign Out</button>
+      </div>
+    `;
+    document.body.appendChild(el);
+    el.querySelector('#auth-checkfailed-retry-btn').onclick = onRetry;
+    el.querySelector('#auth-checkfailed-signout-btn').addEventListener('click', signOut);
+    return el;
+  }
+
+  function showCheckFailedScreen(onRetry) {
+    hideLoginModal();
+    hideUnauthorizedScreen();
+    ensureCheckFailedScreen(onRetry).hidden = false;
+  }
+
+  function hideCheckFailedScreen() {
+    const el = document.getElementById('auth-checkfailed-screen');
     if (el) el.hidden = true;
   }
 
@@ -248,10 +302,15 @@
   // Authentication (a valid Supabase session) is NOT the same thing
   // as authorization (being an active FEROCIA administrator). This
   // checks the latter against the admins table's is_active column.
-  // Fails closed: any error, missing row, or unexpected shape is
-  // treated as "not authorized" — never assume access on ambiguity.
+  //
+  // Returns { isAdmin, checkFailed }. Fails closed in both senses —
+  // isAdmin is false whenever we can't positively confirm active-admin
+  // status — but checkFailed distinguishes "we confirmed you're not
+  // an admin" (checkFailed: false) from "we couldn't tell" (checkFailed:
+  // true, e.g. a network/service error), since the plan calls for
+  // different messaging (and a retry option) for the latter.
   async function checkIsActiveAdmin(session) {
-    if (!session || !session.user) return false;
+    if (!session || !session.user) return { isAdmin: false, checkFailed: false };
     try {
       const { data, error } = await sb
         .from('admins')
@@ -260,12 +319,12 @@
         .maybeSingle();
       if (error) {
         console.error('[Ferocia auth] admin check error:', error);
-        return false;
+        return { isAdmin: false, checkFailed: true };
       }
-      return data?.is_active === true;
+      return { isAdmin: data?.is_active === true, checkFailed: false };
     } catch (err) {
       console.error('[Ferocia auth] admin check threw:', err);
-      return false;
+      return { isAdmin: false, checkFailed: true };
     }
   }
 
@@ -274,16 +333,23 @@
   // both confirmed. A valid session with no active admin record shows
   // the unauthorized screen instead — not the login modal, since this
   // person did authenticate successfully; they're just not authorized
-  // for this app.
+  // for this app. A session where the check itself failed (network,
+  // service error) shows a separate retry-able screen instead, since
+  // that's not a confirmed rejection.
   async function requireAuth(onAuthed) {
-    const session = await waitForAuth();
-    if (session) {
-      const isAdmin = await checkIsActiveAdmin(session);
-      if (isAdmin) {
-        onAuthed(session);
+    const runCheck = async (session) => {
+      const { isAdmin, checkFailed } = await checkIsActiveAdmin(session);
+      if (isAdmin) return onAuthed(session);
+      if (checkFailed) {
+        showCheckFailedScreen(() => runCheck(session));
       } else {
         showUnauthorizedScreen();
       }
+    };
+
+    const session = await waitForAuth();
+    if (session) {
+      await runCheck(session);
     } else {
       showLoginModal();
     }
@@ -300,17 +366,19 @@
     let booted = !!session; // already booted if we had a session above
     onAuthStateChange(async (newSession, event) => {
       if (event === 'SIGNED_IN' && newSession && !booted) {
-        const isAdmin = await checkIsActiveAdmin(newSession);
+        const { isAdmin, checkFailed } = await checkIsActiveAdmin(newSession);
         if (isAdmin) {
           booted = true;
           hideLoginModal();
           onAuthed(newSession);
+        } else if (checkFailed) {
+          showCheckFailedScreen(() => requireAuth(onAuthed));
         } else {
           showUnauthorizedScreen();
         }
       } else if (event === 'TOKEN_REFRESHED' && newSession && booted) {
-        const stillAdmin = await checkIsActiveAdmin(newSession);
-        if (!stillAdmin) {
+        const { isAdmin, checkFailed } = await checkIsActiveAdmin(newSession);
+        if (!isAdmin && !checkFailed) {
           // Access was revoked while this tab was open. Fail closed —
           // sign out rather than let a stale "authorized" state persist.
           await signOut();
@@ -333,5 +401,6 @@
     requireAuth,
     checkIsActiveAdmin,
     hideUnauthorizedScreen,
+    hideCheckFailedScreen,
   };
 })();
