@@ -475,6 +475,98 @@
     }, 600);
   };
 
+  /* ─── SHARED SUBSCRIBER HELPERS ─────────────────────────────────────────
+     Used by BOTH the Add Player form and the CSV bulk import, which used
+     to each carry their own copy of this logic — and had already drifted
+     apart (the import saved fewer columns, and its insert never actually
+     ran because it depended on a return value db.js does not provide).
+
+     MATCHING RULE — a subscriber is "the same person" only when email AND
+     first name AND last name all match, case-insensitively. Matching on
+     email alone would be wrong here: FEROCIA legitimately has different
+     people sharing one email address (e.g. a parent and their child), and
+     email-only matching would permanently lock the second person out of
+     the mailing list.
+
+     WHY THE MATCH IS VERIFIED IN JAVASCRIPT — PostgREST's `ilike` treats
+     %, _ and * as wildcards. Real emails contain underscores often enough
+     (john_smith@…) that an `ilike` filter alone would produce false
+     matches. So the query is used only as a coarse, deliberately WIDE
+     pre-filter (wildcards can only ever return MORE candidate rows, never
+     fewer, so nothing is missed), and the authoritative comparison is the
+     exact lowercase one below.
+     ──────────────────────────────────────────────────────────────────── */
+
+  // True when a subscriber row refers to the same person as the given details.
+  const _sameSubscriber = (row, firstName, lastName, email) =>
+    (row.email      || '').trim().toLowerCase() === email.trim().toLowerCase() &&
+    (row.first_name || '').trim().toLowerCase() === firstName.trim().toLowerCase() &&
+    (row.last_name  || '').trim().toLowerCase() === lastName.trim().toLowerCase();
+
+  // Looks up an existing subscriber row for this exact person, or null.
+  // Pass `pool` (an already-fetched array of subscriber rows) to search in
+  // memory instead of hitting the API — the CSV import does this so a
+  // 200-row file makes one request, not 200.
+  const findSubscriber = async (firstName, lastName, email, pool = null) => {
+    if (pool) {
+      return pool.find(s => _sameSubscriber(s, firstName, lastName, email)) || null;
+    }
+    const candidates = await api(
+      `subscribers?email=ilike.${encodeURIComponent(email)}` +
+      `&select=id,first_name,last_name,email,status&limit=25`
+    );
+    return candidates.find(s => _sameSubscriber(s, firstName, lastName, email)) || null;
+  };
+
+  /**
+   * Creates this person's subscriber record, or reactivates it if they
+   * previously unsubscribed.
+   *
+   * Never throws. A failure here must not surface as an error to the admin,
+   * because by the time this runs the player has already been saved — that
+   * is the operation that mattered. Failures are logged to the console.
+   *
+   * @param {object}   opts
+   * @param {string}   opts.firstName
+   * @param {string}   opts.lastName
+   * @param {string}   opts.email       Required — no email, no subscriber.
+   * @param {string?}  opts.phone
+   * @param {string?}  opts.gender
+   * @param {string?}  opts.skillLevel
+   * @param {Array?}   opts.pool        Pre-fetched subscriber rows (see findSubscriber).
+   * @returns {Promise<'created'|'reactivated'|'skipped'|'failed'>}
+   */
+  const ensureSubscriber = async ({ firstName, lastName, email, phone, gender, skillLevel, pool = null }) => {
+    if (!email) return 'skipped';
+    try {
+      const existing = await findSubscriber(firstName, lastName, email, pool);
+
+      if (existing) {
+        // Already on the list and still receiving mail — nothing to do.
+        if (existing.status !== 'unsubscribed') return 'skipped';
+        // Previously unsubscribed — reactivate (approved behaviour).
+        await api(`subscribers?id=eq.${existing.id}`, 'PATCH', { status: 'active' });
+        if (pool) existing.status = 'active'; // keep the in-memory pool consistent
+        return 'reactivated';
+      }
+
+      await api('subscribers', 'POST', {
+        first_name:    firstName,
+        last_name:     lastName,
+        email:         email,
+        phone:         phone || null,
+        gender:        gender || null,
+        skill_level:   skillLevel || null,
+        status:        'active',
+        subscribed_at: todayISO(), // column is DATE, not timestamp
+      });
+      return 'created';
+    } catch (err) {
+      console.warn('[ensureSubscriber] could not subscribe', email, '—', err.message);
+      return 'failed';
+    }
+  };
+
   const initAddPlayer = () => {
     const form = document.getElementById('add-player-form');
     if (form) form.reset();
@@ -501,12 +593,41 @@
     if (saveBtn) { saveBtn.disabled = true; saveBtn.innerHTML = 'Saving...'; }
 
     try {
-      // Hard duplicate check on submit (by name + email if provided)
-      let dupQuery = `players?first_name=ilike.${encodeURIComponent(firstName)}&last_name=ilike.${encodeURIComponent(lastName)}&select=id&limit=1`;
-      const duplicate = await api(dupQuery);
-      if (duplicate.length) {
-        toast(`A player named ${firstName} ${lastName} already exists in the system.`, true);
-        return;
+      // Same-name check on submit. This is a WARNING, not a block: a real
+      // sports club has genuine namesakes, and hard-blocking them left the
+      // admin with no way to add the second person at all.
+      //
+      // As in findSubscriber(), the ilike filter is only a wide pre-filter
+      // (wildcards can add candidates, never remove them) and the exact
+      // comparison happens in JavaScript.
+      const candidates = await api(
+        `players?last_name=ilike.${encodeURIComponent(lastName)}` +
+        `&select=id,first_name,last_name,email&limit=50`
+      );
+      const namesakes = candidates.filter(p =>
+        (p.first_name || '').trim().toLowerCase() === firstName.toLowerCase() &&
+        (p.last_name  || '').trim().toLowerCase() === lastName.toLowerCase()
+      );
+
+      if (namesakes.length) {
+        const emails = namesakes
+          .map(p => p.email || 'no email on file')
+          .join(', ');
+        // NOTE: confirmModal() renders `message` with textContent and no
+        // white-space:pre-line, so newlines would collapse into spaces.
+        // Keep this as one flowing sentence rather than a formatted block.
+        const proceed = await confirmModal({
+          title: 'A player with this name already exists',
+          message:
+            `${namesakes.length} player${namesakes.length !== 1 ? 's' : ''} named ` +
+            `${firstName} ${lastName} ${namesakes.length !== 1 ? 'are' : 'is'} already ` +
+            `in the system (${emails}). ` +
+            `If this is the same person, cancel and edit the existing record instead. ` +
+            `If it is a different person who happens to share the name, continue.`,
+          okLabel: 'Add anyway',
+          cancelLabel: 'Cancel',
+        });
+        if (!proceed) return;
       }
 
       const body = {
@@ -523,27 +644,21 @@
 
       await api('players', 'POST', body);
 
-      // Auto-subscribe: save to subscribers table if email provided and not already subscribed
-      if (email) {
-        try {
-          const existingSub = await api(`subscribers?email=ilike.${encodeURIComponent(email)}&first_name=ilike.${encodeURIComponent(firstName)}&last_name=ilike.${encodeURIComponent(lastName)}&select=id&limit=1`);
-          if (!existingSub.length) {
-            await api('subscribers', 'POST', {
-              first_name:    firstName,
-              last_name:     lastName,
-              email:         email,
-              phone:         body.phone || null,
-              skill_level:   body.skill_level || null,
-              status:        'active',
-              subscribed_at: new Date().toISOString(),
-            });
-          }
-        } catch (_) {
-          // Non-critical — player was saved, subscriber insert failed silently
-        }
-      }
+      // Auto-subscribe. Shared with the CSV import — see ensureSubscriber above.
+      const subResult = await ensureSubscriber({
+        firstName,
+        lastName,
+        email,
+        phone:      body.phone,
+        gender:     body.gender,
+        skillLevel: body.skill_level,
+      });
 
-      toast(`${body.first_name} ${body.last_name} added successfully!`);
+      const subNote = subResult === 'created'     ? ' Added to subscribers.'
+                    : subResult === 'reactivated' ? ' Subscription reactivated.'
+                    : subResult === 'failed'      ? ' (Could not update subscribers — check the console.)'
+                    : '';
+      toast(`${body.first_name} ${body.last_name} added successfully!${subNote}`);
       const form = document.getElementById('add-player-form');
       if (form) form.reset();
       document.getElementById('p-joined').value = todayISO();
@@ -1291,6 +1406,10 @@
   // ── BULK PLAYER IMPORT ────────────────────────────────────────────────────
 
   let _importRows = []; // parsed and validated rows
+  // Subscriber rows fetched once per file, so the preview can show what will
+  // happen to each row's subscription and importConfirm() can reuse the same
+  // data instead of making one lookup per imported player.
+  let _importSubs = [];
 
   // ── Download CSV template ──────────────────────────────────────────────
   window.importDownloadTemplate = () => {
@@ -1315,6 +1434,7 @@
   // ── Reset import state ─────────────────────────────────────────────────
   window.importReset = () => {
     _importRows = [];
+    _importSubs = [];
     document.getElementById('import-preview-area').style.display = 'none';
     document.getElementById('import-file-input').value = '';
   };
@@ -1327,6 +1447,20 @@
     // Ensure players are loaded for dedup check
     if (!AdminState.allPlayers.length) {
       try { AdminState.allPlayers = await api('players?select=first_name,last_name,email&order=id'); } catch(_) {}
+    }
+
+    // Fetch subscribers ONCE for this file. The preview needs them to show
+    // whether each row will create, skip, or reactivate a subscription, and
+    // importConfirm() reuses the same array — so a 200-row CSV costs one
+    // request here rather than 200 lookups during the import.
+    try {
+      _importSubs = await api('subscribers?select=id,first_name,last_name,email,status');
+    } catch (err) {
+      // Non-fatal: the player import itself does not depend on this. Rows
+      // will simply show an unknown subscription outcome, and each one will
+      // fall back to its own lookup at import time.
+      console.warn('[import] could not preload subscribers —', err.message);
+      _importSubs = [];
     }
 
     const text = await file.text();
@@ -1351,6 +1485,13 @@
     const today = new Date().toISOString().split('T')[0];
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+    // Tracks people already seen EARLIER IN THIS SAME FILE, so a CSV that
+    // lists the same person twice imports them once instead of twice. Keyed
+    // on the same three fields used everywhere else (name + email).
+    const seenInFile = new Set();
+    const fileKey = (r) =>
+      `${r.first_name.toLowerCase()}|${r.last_name.toLowerCase()}|${r.email.toLowerCase()}`;
+
     _importRows = lines.slice(1).map((line, i) => {
       // Handle quoted CSV fields
       const cols = line.match(/(".*?"|[^,]+|(?<=,)(?=,)|^(?=,)|(?<=,)$)/g) || line.split(',');
@@ -1365,7 +1506,14 @@
         gender:     get(colIdx.gender),
         date_joined: today,
         status:     'active',
-        _state:     'new', // new | duplicate | error
+        // new        -> will be imported
+        // duplicate  -> this player already exists in the database
+        // dupfile    -> this person appears earlier in THIS file
+        // error      -> failed validation
+        _state:     'new',
+        // What will happen to this person's subscription if the row imports:
+        // 'create' | 'skip' (already subscribed) | 'reactivate' (was unsubscribed)
+        _subState:  'create',
         _errors:    [],
       };
 
@@ -1383,13 +1531,27 @@
 
       if (row._errors.length) { row._state = 'error'; return row; }
 
-      // Dedup check: all 3 must match (case-insensitive)
+      // Dedup check against the database: all 3 must match (case-insensitive)
       const isDup = AdminState.allPlayers.some(p =>
         p.first_name?.toLowerCase() === row.first_name.toLowerCase() &&
         p.last_name?.toLowerCase()  === row.last_name.toLowerCase()  &&
         p.email?.toLowerCase()      === row.email.toLowerCase()
       );
       if (isDup) { row._state = 'duplicate'; return row; }
+
+      // Dedup check against EARLIER ROWS OF THIS FILE. Without this, a CSV
+      // that lists the same person twice created two identical players —
+      // neither row is a duplicate of the database, so both passed.
+      const key = fileKey(row);
+      if (seenInFile.has(key)) { row._state = 'dupfile'; return row; }
+      seenInFile.add(key);
+
+      // Work out what will happen to this person's subscription, so the
+      // preview can show it before the admin commits.
+      const existingSub = _importSubs.find(s => _sameSubscriber(s, row.first_name, row.last_name, row.email));
+      row._subState = !existingSub ? 'create'
+                    : existingSub.status === 'unsubscribed' ? 'reactivate'
+                    : 'skip';
 
       return row;
     }).filter(r => r.first_name || r.last_name || r.email); // skip completely empty rows
@@ -1399,33 +1561,54 @@
 
   // ── Render preview table ───────────────────────────────────────────────
   const importRenderPreview = () => {
-    const newRows  = _importRows.filter(r => r._state === 'new');
-    const dupRows  = _importRows.filter(r => r._state === 'duplicate');
-    const errRows  = _importRows.filter(r => r._state === 'error');
+    const newRows    = _importRows.filter(r => r._state === 'new');
+    const dupRows    = _importRows.filter(r => r._state === 'duplicate');
+    const dupFileRows= _importRows.filter(r => r._state === 'dupfile');
+    const errRows    = _importRows.filter(r => r._state === 'error');
+    const reactRows  = newRows.filter(r => r._subState === 'reactivate');
 
-    // Summary cards
+    // Summary cards. The reactivation card only appears when there is
+    // something to reactivate — it is the one outcome that reverses a
+    // choice the subscriber made themselves, so it must not be buried.
     document.getElementById('import-summary').innerHTML = `
       <div class="import-sum-card" style="background:rgba(36,188,150,0.04);border-color:rgba(36,188,150,0.2);">
         <div class="import-sum-val" style="color:var(--teal);">${newRows.length}</div>
         <div class="import-sum-lbl">Ready to Import</div>
       </div>
       <div class="import-sum-card" style="background:#fff8e6;border-color:#f5d78e;">
-        <div class="import-sum-val" style="color:#9a6200;">${dupRows.length}</div>
+        <div class="import-sum-val" style="color:#9a6200;">${dupRows.length + dupFileRows.length}</div>
         <div class="import-sum-lbl">Duplicates (skipped)</div>
       </div>
       <div class="import-sum-card" style="background:#fee2e2;border-color:#fca5a5;">
         <div class="import-sum-val" style="color:#e53935;">${errRows.length}</div>
         <div class="import-sum-lbl">Errors (skipped)</div>
-      </div>`;
+      </div>
+      ${reactRows.length ? `
+      <div class="import-sum-card" style="background:rgba(23,76,204,0.04);border-color:rgba(23,76,204,0.25);">
+        <div class="import-sum-val" style="color:var(--blue);">${reactRows.length}</div>
+        <div class="import-sum-lbl">Subscriptions Reactivated</div>
+      </div>` : ''}`;
 
     // Table rows — show all, color-coded
     document.getElementById('import-table-body').innerHTML = _importRows.map(r => {
       const badge = r._state === 'new'
         ? '<span class="import-badge import-b-new">✓ New</span>'
         : r._state === 'duplicate'
-          ? '<span class="import-badge import-b-dup">⚠ Duplicate</span>'
-          : `<span class="import-badge import-b-err" title="${esc(r._errors.join(', '))}">✕ Error</span>`;
-      const rowStyle = r._state === 'error' ? 'background:#fff8f8;' : r._state === 'duplicate' ? 'background:#fffdf0;' : '';
+          ? '<span class="import-badge import-b-dup" title="This player already exists in the database">⚠ Duplicate</span>'
+          : r._state === 'dupfile'
+            ? '<span class="import-badge import-b-dup" title="This person appears earlier in this same CSV file">⚠ Repeated in file</span>'
+            : `<span class="import-badge import-b-err" title="${esc(r._errors.join(', '))}">✕ Error</span>`;
+
+      // Reactivation flag — shown next to the main badge so the admin sees,
+      // BEFORE confirming, that importing this row will put someone who
+      // unsubscribed back onto the mailing list.
+      const subBadge = (r._state === 'new' && r._subState === 'reactivate')
+        ? '<span class="import-badge" title="This person previously unsubscribed. Importing this row will reactivate their subscription." style="background:rgba(23,76,204,0.08);color:var(--blue);border:0.5px solid rgba(23,76,204,0.3);margin-left:4px;">↻ Reactivate</span>'
+        : '';
+
+      const rowStyle = r._state === 'error' ? 'background:#fff8f8;'
+                     : (r._state === 'duplicate' || r._state === 'dupfile') ? 'background:#fffdf0;'
+                     : '';
       return `<tr style="${rowStyle}">
         <td style="color:var(--text-muted);">${r.rowNum}</td>
         <td>${esc(r.first_name)}</td>
@@ -1433,7 +1616,7 @@
         <td>${esc(r.email)}</td>
         <td>${esc(r.phone||'—')}</td>
         <td>${esc(r.gender||'—')}</td>
-        <td>${badge}</td>
+        <td style="white-space:nowrap;">${badge}${subBadge}</td>
       </tr>`;
     }).join('');
 
@@ -1459,6 +1642,9 @@
 
     let successCount = 0;
     let failCount    = 0;
+    let subCreated   = 0;
+    let subReactivated = 0;
+    let subFailed    = 0;
 
     for (const row of toInsert) {
       try {
@@ -1471,29 +1657,46 @@
           date_joined: row.date_joined,
           status:      'active',
         };
-        const [newPlayer] = await api('players', 'POST', playerBody);
 
-        // Sync to subscribers
-        if (newPlayer?.id) {
-          try {
-            await api('subscribers', 'POST', {
-              first_name: row.first_name,
-              last_name:  row.last_name,
-              email:      row.email,
-              status:     'active',
-            });
-          } catch(_) {}
-        }
+        // db.js's POST deliberately does not chain .select(), so it never
+        // returns the inserted row. The previous code destructured that
+        // (always empty) result and gated the subscriber insert on it —
+        // which meant the subscriber insert NEVER ran, silently. Reaching
+        // the next line without an exception is what tells us the player
+        // was created.
+        await api('players', 'POST', playerBody);
         successCount++;
+
+        // Sync to subscribers, reusing the pool fetched when the file was
+        // parsed so this does not fire one lookup per row.
+        const subResult = await ensureSubscriber({
+          firstName:  row.first_name,
+          lastName:   row.last_name,
+          email:      row.email,
+          phone:      row.phone,
+          gender:     row.gender,
+          pool:       _importSubs.length ? _importSubs : null,
+        });
+        if (subResult === 'created')          subCreated++;
+        else if (subResult === 'reactivated') subReactivated++;
+        else if (subResult === 'failed')      subFailed++;
       } catch(e) {
         failCount++;
+        console.warn(`[import] row ${row.rowNum} failed —`, e.message);
       }
     }
 
     // Reload players cache
     try { AdminState.allPlayers = await api('players?select=*&order=first_name'); } catch(_) {}
 
-    toast(`✓ ${successCount} player${successCount !== 1 ? 's' : ''} imported successfully${failCount ? ` · ${failCount} failed` : ''}.`);
+    // Report what actually happened on BOTH tables. The old message only
+    // mentioned players, so a silent subscriber failure was invisible.
+    const parts = [`✓ ${successCount} player${successCount !== 1 ? 's' : ''} imported`];
+    if (failCount)       parts.push(`${failCount} failed`);
+    if (subCreated)      parts.push(`${subCreated} added to subscribers`);
+    if (subReactivated)  parts.push(`${subReactivated} subscription${subReactivated !== 1 ? 's' : ''} reactivated`);
+    if (subFailed)       parts.push(`${subFailed} subscriber sync${subFailed !== 1 ? 's' : ''} failed`);
+    toast(parts.join(' · '), failCount > 0 || subFailed > 0);
     importReset();
     if (typeof loadPlayers === 'function') loadPlayers();
   };
