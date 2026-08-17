@@ -1816,22 +1816,55 @@
       await api(`players?id=eq.${id}`, 'PATCH', body);
       window.logAuditAction(id, 'player_edited', 'Edited player information');
 
-      // Sync subscriber record if exists — match by original name + email
+      // Sync this person's subscriber record so a name/email change here
+      // does not leave the mailing list pointing at the old details.
+      //
+      // The lookup uses ilike ONLY as a wide pre-filter. PostgREST treats
+      // %, _ and * as wildcards, and underscores are common in real email
+      // addresses (john_smith@…). The previous version took the first ilike
+      // match and UPDATED it, which meant editing a player whose email
+      // contained "_" could overwrite a DIFFERENT person's subscriber row.
+      // Wildcards can only ever widen the candidate set, never narrow it,
+      // so the exact comparison below is what decides which row is touched.
+      //
+      // This also handles the shared-email case correctly: a parent and
+      // child on one address have separate subscriber rows, and matching on
+      // all three fields picks the right one.
       try {
-        const { data: matchingSubs } = await supabase
-          .from('subscribers')
-          .select('id')
-          .ilike('first_name', _origFirst)
-          .ilike('last_name',  _origLast)
-          .ilike('email',      _origEmail)
-          .limit(1);
-        if (matchingSubs && matchingSubs.length) {
-          await supabase
+        if (!_origFirst || !_origLast || !_origEmail) {
+          // Nothing reliable to match on — skip rather than guess. Happens
+          // when the player was not in the cache (see _origPlayer above).
+          console.warn('[saveEditPlayer] original details unavailable — skipping subscriber sync');
+        } else {
+          const { data: candidates, error: findErr } = await supabase
             .from('subscribers')
-            .update({ first_name: body.first_name, last_name: body.last_name, email: body.email })
-            .eq('id', matchingSubs[0].id);
+            .select('id,first_name,last_name,email')
+            .ilike('email', _origEmail)
+            .limit(25);
+          if (findErr) throw new Error(findErr.message);
+
+          const match = (candidates || []).find(s =>
+            _sameSubscriber(s, _origFirst, _origLast, _origEmail)
+          );
+
+          if (match) {
+            const { error: updErr } = await supabase
+              .from('subscribers')
+              .update({
+                first_name: body.first_name,
+                last_name:  body.last_name,
+                email:      body.email,
+              })
+              .eq('id', match.id);
+            if (updErr) throw new Error(updErr.message);
+          }
         }
-      } catch(_e) {}
+      } catch (e) {
+        // Non-critical: the player edit itself already succeeded, so this
+        // must not surface as a failure. Logged rather than swallowed —
+        // the old empty catch made a recurring sync failure invisible.
+        console.warn('[saveEditPlayer] subscriber sync failed:', e.message);
+      }
 
       // Record history if needed. We do this AFTER the player update so
       // we don't end up with an orphan history row if the update fails.
