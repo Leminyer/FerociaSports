@@ -17,11 +17,11 @@
   <meta name="twitter:description"content="Subscribe to get event invites, tournament news, ladder updates and member-only promos from Ferocia Sports Center.">
   <meta name="twitter:image"      content="https://ferociasports.com/og-preview.png">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="design-tokens.css">
-<script src="config.js"></script>
+<link rel="stylesheet" href="design-tokens.css?v=20260817e">
+<script src="config.js?v=20260817e"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="db.js"></script>
-<script src="assets.js"></script>
+<script src="db.js?v=20260817e"></script>
+<script src="assets.js?v=20260817e"></script>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <style>
   /* Color/typography/radius tokens now come from design-tokens.css. */
@@ -321,6 +321,12 @@
           showFieldError('s-email', 'err-email', 'You are already subscribed! Check your inbox for updates.');
         } else if (status === 'pending') {
           showFieldError('s-email', 'err-email', 'You have a pending subscription. Please check your email and click the confirmation link.');
+        } else if (status === 'limit_reached') {
+          // subscribe_signup allows several people to share one email address
+          // (a parent and their children), capped at 4 to stop the form being
+          // used to inflate the list. Without this branch the visitor would
+          // fall through to "already registered", which is not what happened.
+          showFieldError('s-email', 'err-email', 'This email address has reached the maximum number of subscriptions. Please contact us at contact@ferociasports.com.');
         } else {
           showFieldError('s-email', 'err-email', 'This name and email are already registered.');
         }
