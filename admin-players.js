@@ -1444,9 +1444,32 @@
     if (!file) return;
     if (!file.name.endsWith('.csv')) { toast('Please upload a CSV file.', true); return; }
 
-    // Ensure players are loaded for dedup check
-    if (!AdminState.allPlayers.length) {
-      try { AdminState.allPlayers = await api('players?select=first_name,last_name,email&order=id'); } catch(_) {}
+    // Always re-fetch the player list used for the duplicate check, into a
+    // LOCAL array. Two separate reasons for this shape:
+    //
+    // 1. FRESHNESS — this used to reuse AdminState.allPlayers whenever it
+    //    was non-empty. That array is a long-lived cache and goes stale in
+    //    normal use (a player added via the Add Player form, or deleted in
+    //    the database, is not reflected until something clears it), which
+    //    produced both false duplicates that blocked legitimate imports and
+    //    missed duplicates that created a second copy of an existing person.
+    //
+    // 2. ISOLATION — this query selects only three columns, so its rows do
+    //    NOT carry id, gender, status, etc. Writing them into the shared
+    //    AdminState.allPlayers would hand truncated rows to every other
+    //    module that reads it: Sessions and Match Hub look players up by
+    //    .id, Log Match reads .gender, Status History looks up by .id. Those
+    //    would all silently fail to find anyone. Keeping this local means
+    //    the shared cache is never degraded.
+    let importPlayers = [];
+    try {
+      importPlayers = await api('players?select=first_name,last_name,email&order=id');
+    } catch (err) {
+      // Fall back to the shared cache rather than an empty list: stale data
+      // is still a better duplicate check than none, which would pass every
+      // row through as new.
+      console.warn('[import] could not refresh players, falling back to cached list:', err.message);
+      importPlayers = AdminState.allPlayers || [];
     }
 
     // Fetch subscribers ONCE for this file. The preview needs them to show
@@ -1531,8 +1554,10 @@
 
       if (row._errors.length) { row._state = 'error'; return row; }
 
-      // Dedup check against the database: all 3 must match (case-insensitive)
-      const isDup = AdminState.allPlayers.some(p =>
+      // Dedup check against the database: all 3 must match (case-insensitive).
+      // Uses the freshly-fetched local list, not the shared cache — see the
+      // comment where importPlayers is loaded.
+      const isDup = importPlayers.some(p =>
         p.first_name?.toLowerCase() === row.first_name.toLowerCase() &&
         p.last_name?.toLowerCase()  === row.last_name.toLowerCase()  &&
         p.email?.toLowerCase()      === row.email.toLowerCase()
