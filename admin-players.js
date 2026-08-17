@@ -481,50 +481,44 @@
      apart (the import saved fewer columns, and its insert never actually
      ran because it depended on a return value db.js does not provide).
 
-     MATCHING RULE — a subscriber is "the same person" only when email AND
-     first name AND last name all match, case-insensitively. Matching on
-     email alone would be wrong here: FEROCIA legitimately has different
-     people sharing one email address (e.g. a parent and their child), and
-     email-only matching would permanently lock the second person out of
-     the mailing list.
+     THE WRITE PATH IS THE admin_ensure_subscriber RPC, not a direct table
+     write. Three reasons this has to happen server-side:
 
-     WHY THE MATCH IS VERIFIED IN JAVASCRIPT — PostgREST's `ilike` treats
-     %, _ and * as wildcards. Real emails contain underscores often enough
-     (john_smith@…) that an `ilike` filter alone would produce false
-     matches. So the query is used only as a coarse, deliberately WIDE
-     pre-filter (wildcards can only ever return MORE candidate rows, never
-     fewer, so nothing is missed), and the authoritative comparison is the
-     exact lowercase one below.
+       1. unsubscribe_token — every subscriber needs one or their unsubscribe
+          link lands on "Invalid Link". Generating it in the browser would
+          work, but it belongs next to the same generation the public signup
+          flow (subscribe_signup) already does, so there is one definition of
+          what a valid token looks like instead of two that can drift.
+       2. Atomicity — check-then-insert across two round trips can race with
+          another admin doing the same thing. Inside the function it is one
+          statement against one snapshot.
+       3. Authorization — the function verifies the caller is an active admin.
+          Players signing in through the mobile app are `authenticated` too,
+          so table-level grants alone would not be enough.
+
+     MATCHING RULE (enforced inside the RPC, mirrored here for the preview) —
+     a subscriber is "the same person" only when email AND first name AND
+     last name all match, case-insensitively. Matching on email alone would
+     be wrong: FEROCIA legitimately has different people sharing one email
+     (e.g. a parent and their child), and email-only matching would
+     permanently lock the second person out of the mailing list.
      ──────────────────────────────────────────────────────────────────── */
 
   // True when a subscriber row refers to the same person as the given details.
+  // Mirrors the RPC's matching rule. Used ONLY to predict the outcome in the
+  // CSV preview — the RPC itself is what actually decides at import time.
   const _sameSubscriber = (row, firstName, lastName, email) =>
     (row.email      || '').trim().toLowerCase() === email.trim().toLowerCase() &&
     (row.first_name || '').trim().toLowerCase() === firstName.trim().toLowerCase() &&
     (row.last_name  || '').trim().toLowerCase() === lastName.trim().toLowerCase();
 
-  // Looks up an existing subscriber row for this exact person, or null.
-  // Pass `pool` (an already-fetched array of subscriber rows) to search in
-  // memory instead of hitting the API — the CSV import does this so a
-  // 200-row file makes one request, not 200.
-  const findSubscriber = async (firstName, lastName, email, pool = null) => {
-    if (pool) {
-      return pool.find(s => _sameSubscriber(s, firstName, lastName, email)) || null;
-    }
-    const candidates = await api(
-      `subscribers?email=ilike.${encodeURIComponent(email)}` +
-      `&select=id,first_name,last_name,email,status&limit=25`
-    );
-    return candidates.find(s => _sameSubscriber(s, firstName, lastName, email)) || null;
-  };
-
   /**
    * Creates this person's subscriber record, or reactivates it if they
-   * previously unsubscribed.
+   * previously unsubscribed. Delegates to the admin_ensure_subscriber RPC.
    *
-   * Never throws. A failure here must not surface as an error to the admin,
-   * because by the time this runs the player has already been saved — that
-   * is the operation that mattered. Failures are logged to the console.
+   * Never throws. By the time this runs the player has already been saved —
+   * that is the operation that mattered — so a subscriber failure must not
+   * surface as an error. It is logged and reported in the summary instead.
    *
    * @param {object}   opts
    * @param {string}   opts.firstName
@@ -533,34 +527,22 @@
    * @param {string?}  opts.phone
    * @param {string?}  opts.gender
    * @param {string?}  opts.skillLevel
-   * @param {Array?}   opts.pool        Pre-fetched subscriber rows (see findSubscriber).
    * @returns {Promise<'created'|'reactivated'|'skipped'|'failed'>}
    */
-  const ensureSubscriber = async ({ firstName, lastName, email, phone, gender, skillLevel, pool = null }) => {
+  const ensureSubscriber = async ({ firstName, lastName, email, phone, gender, skillLevel }) => {
     if (!email) return 'skipped';
     try {
-      const existing = await findSubscriber(firstName, lastName, email, pool);
-
-      if (existing) {
-        // Already on the list and still receiving mail — nothing to do.
-        if (existing.status !== 'unsubscribed') return 'skipped';
-        // Previously unsubscribed — reactivate (approved behaviour).
-        await api(`subscribers?id=eq.${existing.id}`, 'PATCH', { status: 'active' });
-        if (pool) existing.status = 'active'; // keep the in-memory pool consistent
-        return 'reactivated';
-      }
-
-      await api('subscribers', 'POST', {
-        first_name:    firstName,
-        last_name:     lastName,
-        email:         email,
-        phone:         phone || null,
-        gender:        gender || null,
-        skill_level:   skillLevel || null,
-        status:        'active',
-        subscribed_at: todayISO(), // column is DATE, not timestamp
+      const { data, error } = await supabase.rpc('admin_ensure_subscriber', {
+        p_first:  firstName,
+        p_last:   lastName,
+        p_email:  email,
+        p_phone:  phone      || null,
+        p_gender: gender     || null,
+        p_skill:  skillLevel || null,
       });
-      return 'created';
+      if (error) throw new Error(error.message);
+      // The function returns { action: 'created' | 'reactivated' | 'skipped' }.
+      return data?.action || 'skipped';
     } catch (err) {
       console.warn('[ensureSubscriber] could not subscribe', email, '—', err.message);
       return 'failed';
@@ -597,9 +579,10 @@
       // sports club has genuine namesakes, and hard-blocking them left the
       // admin with no way to add the second person at all.
       //
-      // As in findSubscriber(), the ilike filter is only a wide pre-filter
-      // (wildcards can add candidates, never remove them) and the exact
-      // comparison happens in JavaScript.
+      // The ilike filter is only a wide pre-filter — PostgREST treats %, _
+      // and * as wildcards, which can only ever return MORE candidates,
+      // never fewer, so nothing is missed. The exact comparison below is
+      // what actually decides.
       const candidates = await api(
         `players?last_name=ilike.${encodeURIComponent(lastName)}` +
         `&select=id,first_name,last_name,email&limit=50`
@@ -1406,9 +1389,12 @@
   // ── BULK PLAYER IMPORT ────────────────────────────────────────────────────
 
   let _importRows = []; // parsed and validated rows
-  // Subscriber rows fetched once per file, so the preview can show what will
-  // happen to each row's subscription and importConfirm() can reuse the same
-  // data instead of making one lookup per imported player.
+  // Subscriber rows fetched once per file, used ONLY to predict in the
+  // preview what will happen to each row's subscription (create / skip /
+  // reactivate). The actual decision at import time is made server-side by
+  // the admin_ensure_subscriber RPC, which is authoritative — this is a
+  // best-effort hint so the admin can see the reactivations before
+  // committing, not the thing that drives the write.
   let _importSubs = [];
 
   // ── Download CSV template ──────────────────────────────────────────────
@@ -1692,15 +1678,15 @@
         await api('players', 'POST', playerBody);
         successCount++;
 
-        // Sync to subscribers, reusing the pool fetched when the file was
-        // parsed so this does not fire one lookup per row.
+        // Sync to subscribers. The RPC does its own authoritative dedup
+        // server-side, so no pre-fetched list is passed here — _importSubs
+        // exists only to predict the outcome in the preview.
         const subResult = await ensureSubscriber({
           firstName:  row.first_name,
           lastName:   row.last_name,
           email:      row.email,
           phone:      row.phone,
           gender:     row.gender,
-          pool:       _importSubs.length ? _importSubs : null,
         });
         if (subResult === 'created')          subCreated++;
         else if (subResult === 'reactivated') subReactivated++;
