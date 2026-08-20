@@ -1411,33 +1411,101 @@ async function confirmCompleteTournamentFromList(id) {
   renderTournamentList();
 }
 
-async function tEditTournament(id) {
-  const [t] = await tApi(`tournaments?id=eq.${id}&select=*`);
-  const cats = await tApi(`tournament_categories?tournament_id=eq.${id}&select=id,name&order=id`);
-  const isActive = t.status === 'active';
-  const catEmojis = ['🏆','🎾','🏅','⚡','🔥','👑','🎯','🥇'];
-  const editSVGsm = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
-  const trashSVGsm = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>`;
-  // Store edit state
-  window._tEditId = id;
-  window._tEditCats = cats.map(c => ({ id: c.id, name: c.name, isNew: false }));
+// ─── TOURNAMENT SETTINGS (edit name, date, categories) ──────
+//
+// STATE vs RENDER — why these are separate functions.
+//
+// tEditTournament() used to both fetch from the database AND draw the
+// modal. Every path that needed to redraw called it again, which meant
+// every redraw silently re-read the database and threw away whatever the
+// admin had changed. Renaming a category was therefore impossible: the
+// new name was written to the in-memory list and overwritten by the old
+// one milliseconds later, so the PATCH at save time never saw a
+// difference. The same reset also discarded a typed tournament name, a
+// changed date, and any categories added or removed beforehand — all
+// without a word to the user.
+//
+// So: tEditTournament() fetches (once, on open). _tRenderEditTournament()
+// draws from _tEditState. Anything that redraws calls the renderer.
 
-  const renderEditCats = () => {
-    const listEl = document.getElementById('t-edit-cat-list');
-    const badge  = document.getElementById('t-edit-cat-count');
-    if (!listEl) return;
-    if (badge) badge.textContent = `${window._tEditCats.length} Added`;
-    listEl.innerHTML = window._tEditCats.map((c, i) => `
-      <div class="t-cat-card">
-        <div class="t-cat-card-icon">${catEmojis[i % catEmojis.length]}</div>
-        <div class="t-cat-card-name">${tEsc(c.name)}</div>
-        ${isActive ? '' : `
-          <button type="button" class="t-cat-ghost-btn" onclick="tEditExistingCat(${i})">${editSVGsm} Edit</button>
-          <div class="t-cat-ghost-sep"></div>
-          <button type="button" class="t-cat-ghost-btn remove" onclick="tRemoveExistingCat(${i})">${trashSVGsm} Remove</button>`}
-      </div>`).join('');
-    window._renderEditCats = renderEditCats;
+const _T_CAT_EMOJIS = ['🏆','🎾','🏅','⚡','🔥','👑','🎯','🥇'];
+const _T_EDIT_SVG   = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
+const _T_TRASH_SVG  = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>`;
+
+// The single source of truth while the Settings modal is open.
+// { id, name, date, status, cats: [{id, name, isNew}], counts: {catId: {teams, matches}} }
+window._tEditState = null;
+
+async function tEditTournament(id) {
+  const [t]  = await tApi(`tournaments?id=eq.${id}&select=*`);
+  const cats = await tApi(`tournament_categories?tournament_id=eq.${id}&select=id,name&order=id`);
+
+  // Team/match counts per category, fetched once here so that removing a
+  // category can warn about what goes with it without another round trip.
+  const counts = {};
+  cats.forEach(c => { counts[c.id] = { teams: 0, matches: 0 }; });
+  if (cats.length) {
+    const catIds = cats.map(c => c.id).join(',');
+    const [teams, rr, bracket] = await Promise.all([
+      tApi(`tournament_teams?category_id=in.(${catIds})&select=category_id`).catch(() => []),
+      tApi(`tournament_rr_matches?category_id=in.(${catIds})&select=category_id`).catch(() => []),
+      tApi(`tournament_bracket_matches?category_id=in.(${catIds})&select=category_id`).catch(() => []),
+    ]);
+    teams.forEach(r   => { if (counts[r.category_id]) counts[r.category_id].teams++; });
+    rr.forEach(r      => { if (counts[r.category_id]) counts[r.category_id].matches++; });
+    bracket.forEach(r => { if (counts[r.category_id]) counts[r.category_id].matches++; });
+  }
+
+  window._tEditState = {
+    id,
+    name:   t.name,
+    date:   t.date || '',
+    status: t.status,
+    cats:   cats.map(c => ({ id: c.id, name: c.name, isNew: false })),
+    counts,
   };
+
+  _tRenderEditTournament();
+}
+
+// Reads whatever is currently typed in the name/date inputs back into the
+// state. Called before any redraw that replaces the modal body, so the
+// admin's unsaved typing survives a trip into the category sub-modal.
+function _tCaptureEditInputs() {
+  const st = window._tEditState;
+  if (!st) return;
+  const nameEl = document.getElementById('t-edit-name');
+  const dateEl = document.getElementById('t-edit-date');
+  if (nameEl) st.name = nameEl.value;
+  if (dateEl) st.date = dateEl.value;
+}
+
+// Redraws just the category list. Used by add/remove, which must not
+// disturb the name and date inputs the admin may be editing.
+function _tRenderEditCatList() {
+  const st = window._tEditState;
+  if (!st) return;
+  const listEl = document.getElementById('t-edit-cat-list');
+  const badge  = document.getElementById('t-edit-cat-count');
+  if (!listEl) return;
+  if (badge) badge.textContent = `${st.cats.length} Added`;
+  const isActive = st.status === 'active';
+  listEl.innerHTML = st.cats.map((c, i) => `
+    <div class="t-cat-card">
+      <div class="t-cat-card-icon">${_T_CAT_EMOJIS[i % _T_CAT_EMOJIS.length]}</div>
+      <div class="t-cat-card-name">${tEsc(c.name)}</div>
+      ${isActive ? '' : `
+        <button type="button" class="t-cat-ghost-btn" onclick="tEditExistingCat(${i})">${_T_EDIT_SVG} Edit</button>
+        <div class="t-cat-ghost-sep"></div>
+        <button type="button" class="t-cat-ghost-btn remove" onclick="tRemoveExistingCat(${i})">${_T_TRASH_SVG} Remove</button>`}
+    </div>`).join('');
+}
+
+// Draws the whole Settings modal from state. No database reads.
+function _tRenderEditTournament() {
+  const st = window._tEditState;
+  if (!st) return;
+  const isActive = st.status === 'active';
 
   document.getElementById('t-modal-title').textContent = 'Tournament Settings';
   document.getElementById('t-modal-body').innerHTML = `
@@ -1452,18 +1520,18 @@ async function tEditTournament(id) {
     <div style="display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-bottom:10px;">
       <div>
         <div class="t-new-field-lbl">Tournament Name</div>
-        <input id="t-edit-name" class="t-new-input" type="text" value="${tEsc(t.name)}" required>
+        <input id="t-edit-name" class="t-new-input" type="text" value="${tEsc(st.name)}" required>
       </div>
       <div>
         <div class="t-new-field-lbl">Date</div>
-        <input id="t-edit-date" class="t-new-input" type="date" value="${t.date || ''}">
+        <input id="t-edit-date" class="t-new-input" type="date" value="${st.date || ''}">
       </div>
     </div>
     <div class="t-new-divider" style="margin:10px 0;"></div>
     <div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
         <div class="t-new-field-lbl" style="margin:0;">Tournament Categories</div>
-        <span class="t-cat-count-badge" id="t-edit-cat-count">${cats.length} Added</span>
+        <span class="t-cat-count-badge" id="t-edit-cat-count">${st.cats.length} Added</span>
       </div>
       <div id="t-edit-cat-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px;"></div>
       ${isActive ? '' : `
@@ -1483,7 +1551,7 @@ async function tEditTournament(id) {
       </button>
     </div>`;
   openTModal();
-  renderEditCats();
+  _tRenderEditCatList();
 
   // Wire Enter key on cat input
   const catIn = document.getElementById('t-edit-cat-input');
@@ -1491,23 +1559,58 @@ async function tEditTournament(id) {
 }
 
 function tAddEditCat() {
+  const st = window._tEditState;
+  if (!st) return;
   const input = document.getElementById('t-edit-cat-input');
   if (!input) return;
   const name = input.value.trim();
   if (!name) return;
-  window._tEditCats.push({ id: null, name, isNew: true });
+  st.cats.push({ id: null, name, isNew: true });
   input.value = '';
   input.focus();
-  if (window._renderEditCats) window._renderEditCats();
+  _tRenderEditCatList();
 }
 
-function tRemoveExistingCat(idx) {
-  window._tEditCats.splice(idx, 1);
-  if (window._renderEditCats) window._renderEditCats();
+async function tRemoveExistingCat(idx) {
+  const st = window._tEditState;
+  if (!st) return;
+  const cat = st.cats[idx];
+  if (!cat) return;
+
+  // A category that only exists in this unsaved form has nothing behind it.
+  // One that exists in the database takes its teams and matches with it, and
+  // that used to happen with no warning at all — the admin clicked Remove,
+  // then Apply Updates, and the data was gone.
+  if (!cat.isNew && cat.id) {
+    const c = st.counts[cat.id] || { teams: 0, matches: 0 };
+    const parts = [];
+    if (c.teams)   parts.push(`${c.teams} team${c.teams !== 1 ? 's' : ''}`);
+    if (c.matches) parts.push(`${c.matches} match${c.matches !== 1 ? 'es' : ''}`);
+
+    // confirmModal() renders the message with textContent and no
+    // white-space:pre-line, so this has to be one flowing sentence.
+    const ok = await tConfirm({
+      title: 'Remove this category?',
+      message: parts.length
+        ? `"${cat.name}" has ${parts.join(' and ')}. Removing it will permanently delete them when you click Apply Updates. This cannot be undone.`
+        : `"${cat.name}" will be permanently removed when you click Apply Updates.`,
+      okLabel: 'Remove',
+      cancelLabel: 'Keep it',
+    });
+    if (!ok) return;
+  }
+
+  st.cats.splice(idx, 1);
+  _tRenderEditCatList();
 }
 
 function tEditExistingCat(idx) {
-  const current = window._tEditCats[idx].name;
+  const st = window._tEditState;
+  if (!st || !st.cats[idx]) return;
+  // Preserve anything typed into name/date before the body is replaced.
+  _tCaptureEditInputs();
+  const current = st.cats[idx].name;
+
   document.getElementById('t-modal-title').textContent = 'Edit Category';
   document.getElementById('t-modal-body').innerHTML = `
     <div style="padding:8px 0 16px;">
@@ -1515,64 +1618,87 @@ function tEditExistingCat(idx) {
       <input id="t-edit-cat-name-input" class="t-new-input" type="text" value="${tEsc(current)}" style="width:100%;">
     </div>
     <div style="display:flex;gap:8px;justify-content:flex-end;">
-      <button type="button" class="t-op-btn" onclick="tEditTournament(window._tEditId)" style="width:auto;padding:8px 16px;">Cancel</button>
+      <button type="button" class="t-op-btn" onclick="_tRenderEditTournament()" style="width:auto;padding:8px 16px;">Cancel</button>
       <button type="button" class="t-new-submit-btn" style="padding:8px 20px;" onclick="tSaveExistingCatName(${idx})">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
         Apply
       </button>
     </div>`;
+
+  // Enter saves, Escape cancels — the sub-modal is a single field.
+  const input = document.getElementById('t-edit-cat-name-input');
+  if (input) {
+    input.focus();
+    input.select();
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter')  { e.preventDefault(); tSaveExistingCatName(idx); }
+      if (e.key === 'Escape') { e.preventDefault(); _tRenderEditTournament(); }
+    });
+  }
 }
 
 function tSaveExistingCatName(idx) {
+  const st = window._tEditState;
+  if (!st || !st.cats[idx]) return;
   const input = document.getElementById('t-edit-cat-name-input');
   const val = input ? input.value.trim() : '';
   if (!val) return;
-  window._tEditCats[idx].name = val;
-  tEditTournament(window._tEditId); // reopen modal with updated data
+  st.cats[idx].name = val;
+  // Redraw from state. This used to call tEditTournament(), which re-read
+  // the database and wiped the rename that had just been made.
+  _tRenderEditTournament();
 }
 
 async function tSaveEditTournament() {
-  const name = document.getElementById('t-edit-name')?.value.trim();
-  const date = document.getElementById('t-edit-date')?.value || null;
-  const id = window._tEditId;
+  const st = window._tEditState;
+  if (!st) return;
+  _tCaptureEditInputs();
+
+  const name = (st.name || '').trim();
   if (!name) { tToast('Tournament name is required.', true); return; }
+
   try {
-    // Update tournament name + date
-    await tApi(`tournaments?id=eq.${id}`, 'PATCH', { name, date });
-    // Handle categories (skip if active — locked)
-    const [t] = await tApi(`tournaments?id=eq.${id}&select=status`);
-    if (t.status !== 'active') {
-      const existing = await tApi(`tournament_categories?tournament_id=eq.${id}&select=id,name&order=id`);
-      const keepIds  = window._tEditCats.filter(c => !c.isNew && c.id).map(c => c.id);
-      // Delete removed categories
-      for (const ec of existing) {
-        if (!keepIds.includes(ec.id)) {
-          await tApi(`tournament_teams?category_id=eq.${ec.id}`, 'DELETE').catch(()=>{});
-          await tApi(`tournament_rr_matches?category_id=eq.${ec.id}`, 'DELETE').catch(()=>{});
-          await tApi(`tournament_bracket_matches?category_id=eq.${ec.id}`, 'DELETE').catch(()=>{});
-          await tApi(`tournament_groups?category_id=eq.${ec.id}`, 'DELETE').catch(()=>{});
-          await tApi(`tournament_categories?id=eq.${ec.id}`, 'DELETE');
-        }
-      }
-      // Update renamed existing cats
-      for (const c of window._tEditCats.filter(c => !c.isNew && c.id)) {
-        const orig = existing.find(e => e.id === c.id);
-        if (orig && orig.name !== c.name) {
-          await tApi(`tournament_categories?id=eq.${c.id}`, 'PATCH', { name: c.name });
-        }
-      }
-      // Add new categories
-      const newCats = window._tEditCats.filter(c => c.isNew);
-      if (newCats.length) {
-        await tApi('tournament_categories', 'POST',
-          newCats.map(c => ({ tournament_id: id, name: c.name, status: 'setup' }))
-        );
-      }
-    }
+    // Single atomic call. This used to be a chain of separate requests —
+    // a PATCH for the tournament, then up to five DELETEs per removed
+    // category, then a PATCH per rename, then a POST for new ones. Each
+    // was its own transaction, so a failure part way through left the
+    // tournament in a half-updated state with no way back.
+    //
+    // Categories are sent as null while the tournament is active, which
+    // tells the function to leave them alone (they are locked in the UI).
+    const { data, error } = await window.supabase.rpc('update_tournament_settings', {
+      p_id:         st.id,
+      p_name:       name,
+      p_date:       st.date || null,
+      p_categories: st.status === 'active'
+        ? null
+        : st.cats.map(c => ({ id: c.isNew ? null : c.id, name: c.name })),
+    });
+    if (error) throw error;
+
     closeTModal();
-    tToast('Tournament updated!');
+    window._tEditState = null;
+
+    // Report what actually changed rather than a generic message.
+    const bits = [];
+    if (data?.categories_added)   bits.push(`${data.categories_added} added`);
+    if (data?.categories_renamed) bits.push(`${data.categories_renamed} renamed`);
+    if (data?.categories_deleted) bits.push(`${data.categories_deleted} removed`);
+    tToast(bits.length
+      ? `Tournament updated — categories: ${bits.join(', ')}.`
+      : 'Tournament updated!');
+
     renderTournamentList();
-  } catch(err) { tToast(`Error: ${err.message}`, true); }
+  } catch (err) {
+    const raw = err?.message || String(err);
+    const friendly =
+      raw.includes('tournament_not_found') ? 'This tournament no longer exists.'
+    : raw.includes('not_authorized')       ? 'You do not have permission to edit tournaments.'
+    : raw.includes('name_required')        ? 'Tournament name is required.'
+    : raw.includes('category_name_required') ? 'Category names cannot be empty.'
+    : `Error: ${raw}`;
+    tToast(friendly, true);
+  }
 }
 
 function tAddCategory() {
