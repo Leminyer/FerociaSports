@@ -17,11 +17,13 @@
   <meta name="twitter:description"content="Subscribe to get event invites, tournament news, ladder updates and member-only promos from Ferocia Sports Center.">
   <meta name="twitter:image"      content="https://ferociasports.com/og-preview.png">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="design-tokens.css?v=20260820b">
-<script src="config.js?v=20260820b"></script>
+<link rel="stylesheet" href="design-tokens.css?v=20260820c">
+<link rel="stylesheet" href="country-codes.css?v=20260820c">
+<script src="config.js?v=20260820c"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="db.js?v=20260820b"></script>
-<script src="assets.js?v=20260820b"></script>
+<script src="db.js?v=20260820c"></script>
+<script src="assets.js?v=20260820c"></script>
+<script src="country-codes.js?v=20260820c"></script>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <style>
   /* Color/typography/radius tokens now come from design-tokens.css. */
@@ -186,7 +188,8 @@
         </div>
         <div class="form-group">
           <label>Phone number</label>
-          <input type="tel" id="s-phone" placeholder="555-000-0000">
+          <!-- Mounted by FerociaPhone (country-codes.js). -->
+          <div id="s-phone-field"></div>
           <div class="error-msg" id="err-phone">Please enter a valid phone number.</div>
         </div>
         <div class="form-row">
@@ -262,13 +265,17 @@
     document.getElementById(errId).style.display = 'none';
   };
 
+  // Mount the phone field. Defaults to +1 with no number typed.
+  FerociaPhone.mount({ container: 's-phone-field' });
+
   document.getElementById('subscribe-form').addEventListener('submit', async (e) => {
     e.preventDefault();
 
     const first  = document.getElementById('s-first').value.trim();
     const last   = document.getElementById('s-last').value.trim();
     const email  = document.getElementById('s-email').value.trim();
-    const phone  = document.getElementById('s-phone').value.trim();
+    // { country_code: '+1', phone: '5613026946' } — both null when empty.
+    const phoneVal = FerociaPhone.getValue('s-phone-field');
     const gender = document.getElementById('s-gender').value;
     const skill  = document.getElementById('s-skill').value;
 
@@ -295,11 +302,17 @@
     if (!email || !validateEmail(email)) { showFieldError('s-email', 'err-email', 'Please enter a valid email address.'); valid = false; }
     else { clearFieldError('s-email', 'err-email'); }
 
-    if (phone) {
-      const phoneDigits = phone.replace(/\D/g, '');
-      const phoneValid = /^[\d\s\-\.+\(\)]{7,20}$/.test(phone) && phoneDigits.length >= 7;
-      if (!phoneValid) { showFieldError('s-phone', 'err-phone', 'Please enter a valid phone number.'); valid = false; }
-      else { clearFieldError('s-phone', 'err-phone'); }
+    // Phone stays optional. The component knows the expected length for the
+    // selected country, so its message is specific ("US numbers need 10
+    // digits") instead of the old generic "invalid phone number".
+    if (phoneVal.phone) {
+      const phoneCheck = FerociaPhone.validate('s-phone-field');
+      if (!phoneCheck.ok) {
+        showFieldError('s-phone-field', 'err-phone', phoneCheck.error);
+        valid = false;
+      } else {
+        clearFieldError('s-phone-field', 'err-phone');
+      }
     }
 
     if (!valid) return;
@@ -311,7 +324,8 @@
     try {
       const { data: result, error: rpcError } = await supabase.rpc('subscribe_signup', {
         p_first: first, p_last: last, p_email: email,
-        p_phone: phone || null, p_gender: gender || null, p_skill: skill || null,
+        p_phone: phoneVal.phone, p_country_code: phoneVal.country_code,
+        p_gender: gender || null, p_skill: skill || null,
       });
       if (rpcError) throw new Error(rpcError.message);
 

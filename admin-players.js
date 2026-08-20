@@ -402,7 +402,10 @@
     const gender = document.getElementById('p-gender')?.value || '';
     const skill  = document.getElementById('p-skill')?.value || '';
     const email  = (document.getElementById('p-email')?.value || '').trim();
-    const phone  = (document.getElementById('p-phone')?.value || '').trim();
+    // Preview only — show the number the way the admin sees it, dial code
+    // included, even though the two parts are stored separately.
+    const ph     = FerociaPhone.getValue('p-phone-field');
+    const phone  = ph.phone ? `${ph.country_code} ${ph.phone}` : '';
     const status = document.getElementById('p-status')?.value || 'active';
     const joined = document.getElementById('p-joined')?.value || '';
     const fullName = [fn, ln].filter(Boolean).join(' ');
@@ -529,16 +532,17 @@
    * @param {string?}  opts.skillLevel
    * @returns {Promise<'created'|'reactivated'|'skipped'|'failed'>}
    */
-  const ensureSubscriber = async ({ firstName, lastName, email, phone, gender, skillLevel }) => {
+  const ensureSubscriber = async ({ firstName, lastName, email, phone, countryCode, gender, skillLevel }) => {
     if (!email) return 'skipped';
     try {
       const { data, error } = await supabase.rpc('admin_ensure_subscriber', {
-        p_first:  firstName,
-        p_last:   lastName,
-        p_email:  email,
-        p_phone:  phone      || null,
-        p_gender: gender     || null,
-        p_skill:  skillLevel || null,
+        p_first:        firstName,
+        p_last:         lastName,
+        p_email:        email,
+        p_phone:        phone       || null,
+        p_country_code: countryCode || null,
+        p_gender:       gender      || null,
+        p_skill:        skillLevel  || null,
       });
       if (error) throw new Error(error.message);
       // The function returns { action: 'created' | 'reactivated' | 'skipped' }.
@@ -552,6 +556,16 @@
   const initAddPlayer = () => {
     const form = document.getElementById('add-player-form');
     if (form) form.reset();
+
+    // Mount the phone field fresh. form.reset() cannot clear it — the
+    // component keeps its own state and renders its own markup — so it is
+    // remounted empty every time the page is opened.
+    FerociaPhone.mount({
+      container:  'p-phone-field',
+      inputClass: 'ap-input',
+      onChange:   apUpdatePreview,
+    });
+
     document.getElementById('p-joined').value = todayISO();
     // Hide dup warning on reset
     const warn = document.getElementById('p-dup-warn');
@@ -570,6 +584,17 @@
       toast('First name and last name are required.', true);
       return;
     }
+
+    // Phone is optional, but if one was typed it has to look plausible.
+    // validate() also paints the hint under the field, so the admin sees
+    // what is wrong without hunting for it.
+    const _phoneCheck = FerociaPhone.validate('p-phone-field');
+    if (!_phoneCheck.ok) {
+      toast(_phoneCheck.error, true);
+      return;
+    }
+    // { country_code: '+1', phone: '5613026946' } — or both null when empty.
+    const _phone = FerociaPhone.getValue('p-phone-field');
 
     const saveBtn = document.getElementById('add-player-btn');
     if (saveBtn) { saveBtn.disabled = true; saveBtn.innerHTML = 'Saving...'; }
@@ -617,7 +642,8 @@
         first_name: firstName,
         last_name:  lastName,
         email:      email || null,
-        phone:      document.getElementById('p-phone').value.trim() || null,
+        phone:        _phone.phone,
+        country_code: _phone.country_code,
         gender:     document.getElementById('p-gender').value || null,
         skill_level:document.getElementById('p-skill').value || null,
         status:     document.getElementById('p-status').value,
@@ -633,6 +659,7 @@
         lastName,
         email,
         phone:      body.phone,
+        countryCode: body.country_code,
         gender:     body.gender,
         skillLevel: body.skill_level,
       });
@@ -1663,7 +1690,12 @@
           first_name:  row.first_name,
           last_name:   row.last_name,
           email:       row.email,
-          phone:       row.phone || null,
+          // Digits only, dial code assumed +1 (approved: the CSV template has
+          // no country column, and 99.7% of records on file are US numbers).
+          // A number that is not 10 digits is left with no dial code rather
+          // than mislabelled, so it can be found and fixed later.
+          phone:        FerociaPhone.normalize(row.phone) || null,
+          country_code: FerociaPhone.normalize(row.phone).length === 10 ? '+1' : null,
           gender:      row.gender || null,
           date_joined: row.date_joined,
           status:      'active',
@@ -1685,7 +1717,8 @@
           firstName:  row.first_name,
           lastName:   row.last_name,
           email:      row.email,
-          phone:      row.phone,
+          phone:       FerociaPhone.normalize(row.phone) || null,
+          countryCode: FerociaPhone.normalize(row.phone).length === 10 ? '+1' : null,
           gender:     row.gender,
         });
         if (subResult === 'created')          subCreated++;
@@ -1729,7 +1762,13 @@
     document.getElementById('edit-first').value = p.first_name;
     document.getElementById('edit-last').value = p.last_name;
     document.getElementById('edit-email').value = p.email || '';
-    document.getElementById('edit-phone').value = p.phone || '';
+    // Tolerates both formats on purpose. Until the data migration runs,
+    // phone still holds free text like "(561) 302-6946"; the component
+    // strips it down to digits either way, so this works before and after.
+    FerociaPhone.mount({
+      container:  'edit-phone-field',
+      value:      { country_code: p.country_code, phone: p.phone },
+    });
     document.getElementById('edit-gender').value = p.gender || '';
     document.getElementById('edit-status').value = p.status || 'active';
 
@@ -1797,11 +1836,19 @@
       return;
     }
 
+    const _editCheck = FerociaPhone.validate('edit-phone-field');
+    if (!_editCheck.ok) {
+      toast(_editCheck.error, true);
+      return;
+    }
+    const _editPhone = FerociaPhone.getValue('edit-phone-field');
+
     const body = {
       first_name: document.getElementById('edit-first').value.trim(),
       last_name: document.getElementById('edit-last').value.trim(),
       email: editEmail,
-      phone: document.getElementById('edit-phone').value.trim() || null,
+      phone:        _editPhone.phone,
+      country_code: _editPhone.country_code,
       gender: document.getElementById('edit-gender').value || null,
       status: newStatus,
     };

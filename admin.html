@@ -9,15 +9,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Ferocia Pickleball Ladder</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="design-tokens.css?v=20260820b">
-<link rel="stylesheet" href="tournament.css?v=20260820b">
-<link rel="stylesheet" href="app.css?v=20260820b">
+<link rel="stylesheet" href="design-tokens.css?v=20260820c">
+<link rel="stylesheet" href="tournament.css?v=20260820c">
+<link rel="stylesheet" href="app.css?v=20260820c">
+<link rel="stylesheet" href="country-codes.css?v=20260820c">
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-<script src="config.js?v=20260820b"></script>
+<script src="config.js?v=20260820c"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="db.js?v=20260820b"></script>
-<script src="auth.js?v=20260820b"></script>
-<script src="assets.js?v=20260820b"></script>
+<script src="db.js?v=20260820c"></script>
+<script src="auth.js?v=20260820c"></script>
+<script src="assets.js?v=20260820c"></script>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <style>
@@ -2757,7 +2758,9 @@
               </div>
               <div class="ap-group">
                 <label class="ap-label">Phone</label>
-                <input type="text" id="p-phone" class="ap-input" placeholder="+1 (561) 555-0100" oninput="apUpdatePreview()">
+                <!-- Mounted by FerociaPhone (country-codes.js). Stores a
+                     dial code and digits separately; see initAddPlayer(). -->
+                <div id="p-phone-field"></div>
               </div>
             </div>
           </div>
@@ -3538,7 +3541,7 @@
       </div>
       <div class="form-row">
         <div class="form-group"><label>Email *</label><input type="email" id="edit-email" required></div>
-        <div class="form-group"><label>Phone</label><input type="text" id="edit-phone"></div>
+        <div class="form-group"><label>Phone</label><div id="edit-phone-field"></div></div>
       </div>
       <div class="form-row">
         <div class="form-group">
@@ -4380,27 +4383,28 @@
   </div>
 </div>
 
-<script src="admin-state.js?v=20260820b"></script>
-<script src="admin-incident-reports.js?v=20260820b"></script>
-<script src="admin-ladder-selector.js?v=20260820b"></script>
-<script src="admin-orders.js?v=20260820b"></script>
-<script src="admin-email-utils.js?v=20260820b"></script>
-<script src="admin-share.js?v=20260820b"></script>
-<script src="admin-tournament-notify.js?v=20260820b"></script>
-<script src="admin-player-status-history.js?v=20260820b"></script>
-<script src="admin-player-profile.js?v=20260820b"></script>
-<script src="admin-email-notifications.js?v=20260820b"></script>
-<script src="admin-ladder-standings.js?v=20260820b"></script>
-<script src="admin-sessions.js?v=20260820b"></script>
-<script src="admin-print-roster.js?v=20260820b"></script>
-<script src="admin-ladder-management.js?v=20260820b"></script>
-<script src="admin-promotions.js?v=20260820b"></script>
-<script src="admin-players.js?v=20260820b"></script>
-<script src="admin-ftc-standings.js?v=20260820b"></script>
-<script src="admin-ftc-playoffs-schedule.js?v=20260820b"></script>
-<script src="admin-ftc-teams.js?v=20260820b"></script>
-<script src="app.js?v=20260820b"></script>
-<script src="tournament.js?v=20260820b"></script>
+<script src="admin-state.js?v=20260820c"></script>
+<script src="admin-incident-reports.js?v=20260820c"></script>
+<script src="admin-ladder-selector.js?v=20260820c"></script>
+<script src="admin-orders.js?v=20260820c"></script>
+<script src="admin-email-utils.js?v=20260820c"></script>
+<script src="admin-share.js?v=20260820c"></script>
+<script src="admin-tournament-notify.js?v=20260820c"></script>
+<script src="admin-player-status-history.js?v=20260820c"></script>
+<script src="admin-player-profile.js?v=20260820c"></script>
+<script src="admin-email-notifications.js?v=20260820c"></script>
+<script src="admin-ladder-standings.js?v=20260820c"></script>
+<script src="admin-sessions.js?v=20260820c"></script>
+<script src="admin-print-roster.js?v=20260820c"></script>
+<script src="admin-ladder-management.js?v=20260820c"></script>
+<script src="admin-promotions.js?v=20260820c"></script>
+<script src="country-codes.js?v=20260820c"></script>
+<script src="admin-players.js?v=20260820c"></script>
+<script src="admin-ftc-standings.js?v=20260820c"></script>
+<script src="admin-ftc-playoffs-schedule.js?v=20260820c"></script>
+<script src="admin-ftc-teams.js?v=20260820c"></script>
+<script src="app.js?v=20260820c"></script>
+<script src="tournament.js?v=20260820c"></script>
 <script>
   // ── Sidebar toggle — persisted in localStorage ──────────────────────
   (function() {
