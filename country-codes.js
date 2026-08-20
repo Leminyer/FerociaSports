@@ -450,5 +450,36 @@
     // Digits only, no dial code — for CSV import and other bulk paths
     // that never touch the UI.
     normalize(raw) { return digitsOnly(raw); },
+
+    /**
+     * Turns the two stored columns into something readable for lists,
+     * tables and profiles. The single place any part of the admin should
+     * render a phone number, so a change of style lands everywhere at once.
+     *
+     *   format('+1', '5613026946')  ->  '+1 (561) 302-6946'
+     *   format(null, '5613026946')  ->  '(561) 302-6946'
+     *   format('+58', '4141234567') ->  '+58 4141234567'
+     *   format(null, null)          ->  ''
+     *
+     * A row with no country_code has not been migrated yet — it still
+     * holds free text like "(561) 302-6946". Those are formatted but get
+     * NO dial code, because assuming +1 would invent information the
+     * database does not have. Once migrated the prefix appears on its own.
+     */
+    format(countryCode, phone) {
+      const d = digitsOnly(phone);
+      if (!d) return '';
+      const c = countryCode ? findByDial(countryCode) : null;
+      if (c) return `${c.dial} ${formatForDisplay(d, c)}`;
+      // Not migrated: US-style grouping for 10 digits, raw otherwise.
+      return d.length === 10 ? formatForDisplay(d, findByIso('US')) : d;
+    },
+
+    /** Digits for searching, so a query works against any stored format. */
+    searchable(countryCode, phone) {
+      const d = digitsOnly(phone);
+      if (!d) return '';
+      return `${d} ${digitsOnly(countryCode)}${d}`.trim();
+    },
   };
 })();

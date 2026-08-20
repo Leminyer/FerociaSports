@@ -99,7 +99,7 @@
               <div class="player-expand-div"></div>
               <div class="player-expand-field">
                 <div class="player-expand-label">Phone</div>
-                ${p.phone ? `<div class="player-expand-value">${esc(p.phone)}</div>` : `<div class="player-expand-empty">Not registered</div>`}
+                ${p.phone ? `<div class="player-expand-value">${esc(FerociaPhone.format(p.country_code, p.phone))}</div>` : `<div class="player-expand-empty">Not registered</div>`}
               </div>
               <div class="player-expand-div"></div>
               <div class="player-expand-field">
@@ -209,7 +209,9 @@
     _playersShown = 25; // reset to first page on filter change
     _playersFiltered = _playersData.filter(d => {
       const p = d.player;
-      const nameMatch = (`${p.first_name} ${p.last_name} ${p.email || ''} ${p.phone || ''}`).toLowerCase().includes(q);
+      // Include the bare digits so a search for "5613026946" matches a row
+      // displayed as "+1 (561) 302-6946", and vice versa.
+      const nameMatch = (`${p.first_name} ${p.last_name} ${p.email || ''} ${p.phone || ''} ${FerociaPhone.searchable(p.country_code, p.phone)}`).toLowerCase().includes(q);
       let statusMatch = true;
       switch (statusFilter) {
         case 'active':     statusMatch = p.status === 'active'; break;
@@ -1652,7 +1654,7 @@
         <td>${esc(r.first_name)}</td>
         <td>${esc(r.last_name)}</td>
         <td>${esc(r.email)}</td>
-        <td>${esc(r.phone||'—')}</td>
+        <td>${r.phone ? esc(FerociaPhone.format(FerociaPhone.normalize(r.phone).length === 10 ? '+1' : null, r.phone)) : '—'}</td>
         <td>${esc(r.gender||'—')}</td>
         <td style="white-space:nowrap;">${badge}${subBadge}</td>
       </tr>`;

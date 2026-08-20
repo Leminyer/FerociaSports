@@ -35,7 +35,7 @@
     const search = (document.getElementById('sub-search')?.value || '').toLowerCase().trim();
     const filter = document.getElementById('sub-status-filter')?.value || 'all';
     const filtered = _allSubs.filter(s => {
-      const nameMatch = `${s.first_name} ${s.last_name} ${s.email} ${s.phone || ''}`.toLowerCase().includes(search);
+      const nameMatch = `${s.first_name} ${s.last_name} ${s.email} ${s.phone || ''} ${FerociaPhone.searchable(s.country_code, s.phone)}`.toLowerCase().includes(search);
       const statusMatch = filter === 'all' || s.status === filter;
       return nameMatch && statusMatch;
     });
@@ -76,7 +76,7 @@
                 </div>
               </td>
               <td style="padding:11px 16px;border-bottom:0.5px solid #f4f5f8;font-size:12px;color:var(--text-muted);">${esc(s.email || '—')}</td>
-              <td style="padding:11px 16px;border-bottom:0.5px solid #f4f5f8;font-size:12px;color:var(--text-muted);">${esc(s.phone || '—')}</td>
+              <td style="padding:11px 16px;border-bottom:0.5px solid #f4f5f8;font-size:12px;color:var(--text-muted);">${s.phone ? esc(FerociaPhone.format(s.country_code, s.phone)) : '—'}</td>
               <td style="padding:11px 16px;border-bottom:0.5px solid #f4f5f8;font-size:12px;color:var(--text-muted);text-transform:capitalize;">${esc(s.skill_level || '—')}</td>
               <td style="padding:11px 16px;border-bottom:0.5px solid #f4f5f8;">
                 <span style="font-size:9px;font-weight:800;padding:3px 9px;border-radius:99px;letter-spacing:.5px;text-transform:uppercase;${pillCSS(s.status)}">${esc(s.status || '—')}</span>
