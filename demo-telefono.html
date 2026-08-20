@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FEROCIA — Demo del campo de teléfono</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="design-tokens.css">
+<link rel="stylesheet" href="country-codes.css">
+<style>
+  /* Solo para esta demo — no forma parte del componente. */
+  body{font-family:'Inter',sans-serif;background:var(--neutral-bg);margin:0;padding:32px;color:var(--text-primary);}
+  .demo{max-width:620px;margin:0 auto;}
+  h1{font-size:20px;font-weight:800;margin:0 0 4px;}
+  .sub{font-size:12.5px;font-weight:600;color:var(--text-secondary);margin-bottom:26px;}
+  .card{background:white;border:1px solid var(--divider-color);border-radius:12px;padding:20px;margin-bottom:16px;box-shadow:var(--shadow-small);}
+  .card h2{font-size:13px;font-weight:700;margin:0 0 14px;text-transform:uppercase;letter-spacing:.4px;color:var(--text-secondary);}
+  .lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text-secondary);margin-bottom:6px;}
+  /* Réplica de .ap-input de admin.html, para ver el componente en su contexto real. */
+  .ap-input{font-family:'Inter',sans-serif;font-size:13px;font-weight:600;padding:9px 12px;border:1px solid var(--divider-color);border-radius:8px;color:var(--text-primary);background:white;outline:none;transition:border-color .15s,background .15s,box-shadow .15s;width:100%;box-sizing:border-box;}
+  .ap-input:hover{background:rgba(23,76,204,0.015);border-color:#c5d6f5;}
+  .ap-input:focus{border-color:var(--primary);box-shadow:0 0 0 4px rgba(23,76,204,0.08);}
+  .out{margin-top:14px;padding:11px 13px;background:#0f172a;border-radius:8px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:#a5f3d0;white-space:pre;overflow-x:auto;}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .btn{font-family:'Inter',sans-serif;font-size:12px;font-weight:700;padding:8px 14px;border-radius:8px;border:1px solid var(--divider-color);background:white;cursor:pointer;margin-right:6px;margin-top:10px;}
+  .btn:hover{border-color:var(--primary);color:var(--primary);}
+  .note{font-size:12px;font-weight:600;color:var(--text-secondary);line-height:1.6;background:var(--primary-light);border-radius:8px;padding:12px 14px;margin-bottom:16px;}
+</style>
+</head>
+<body>
+<div class="demo">
+  <h1>Campo de teléfono con selector de país</h1>
+  <div class="sub">Demostración aislada · no toca ningún archivo en producción</div>
+
+  <div class="note">
+    Escribe un número y observa el recuadro oscuro: <strong>lo que se ve</strong> está formateado,
+    <strong>lo que se guarda</strong> son solo dígitos. Esa separación es la que hace uniformes los datos.
+  </div>
+
+  <div class="card">
+    <h2>1 · Campo vacío (como en Add Player)</h2>
+    <div class="lbl">Phone</div>
+    <div id="phone-nuevo"></div>
+    <div class="out" id="out-nuevo">—</div>
+    <button class="btn" onclick="validar('phone-nuevo','out-nuevo')">Validar</button>
+    <button class="btn" onclick="FerociaPhone.clear('phone-nuevo');pintar('phone-nuevo','out-nuevo')">Limpiar</button>
+  </div>
+
+  <div class="card">
+    <h2>2 · Con valor cargado (como en Edit Player)</h2>
+    <div class="lbl">Phone</div>
+    <div id="phone-edit"></div>
+    <div class="out" id="out-edit">—</div>
+    <button class="btn" onclick="validar('phone-edit','out-edit')">Validar</button>
+    <button class="btn" onclick="FerociaPhone.setValue('phone-edit','+58','4141234567');pintar('phone-edit','out-edit')">Cargar uno de Venezuela</button>
+  </div>
+
+  <div class="card">
+    <h2>3 · Dentro de una cuadrícula estrecha</h2>
+    <div class="row">
+      <div>
+        <div class="lbl">Email</div>
+        <input class="ap-input" type="email" placeholder="jugador@ejemplo.com">
+      </div>
+      <div>
+        <div class="lbl">Phone</div>
+        <div id="phone-grid"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>4 · Qué probar</h2>
+    <div style="font-size:12.5px;font-weight:600;line-height:1.9;color:var(--text-secondary);">
+      • Escribe <code>5613026946</code> → debe verse <code>(561) 302-6946</code><br>
+      • Escribe solo 9 dígitos y sal del campo → aviso de longitud<br>
+      • Abre el selector → EE.UU. arriba, separador, resto alfabético<br>
+      • Busca <code>venez</code> o <code>+58</code> → filtra<br>
+      • Elige Venezuela → el formato de paréntesis desaparece<br>
+      • Con Venezuela elegida, vuelve a EE.UU. → se recorta al máximo<br>
+      • Presiona <code>Escape</code> en la búsqueda → cierra<br>
+      • Haz clic fuera → cierra
+    </div>
+  </div>
+</div>
+
+<script src="country-codes.js"></script>
+<script>
+  function pintar(id, outId) {
+    const v = FerociaPhone.getValue(id);
+    const e164 = v.phone ? v.country_code + v.phone : null;
+    document.getElementById(outId).textContent =
+      'SE GUARDA EN LA BASE:\n' +
+      '  country_code : ' + JSON.stringify(v.country_code) + '\n' +
+      '  phone        : ' + JSON.stringify(v.phone) + '\n\n' +
+      'NÚMERO COMPLETO (E.164):\n  ' + (e164 || '—');
+  }
+
+  function validar(id, outId) {
+    const r = FerociaPhone.validate(id);
+    pintar(id, outId);
+    document.getElementById(outId).textContent +=
+      '\n\nVALIDACIÓN: ' + (r.ok ? 'OK' : r.error);
+  }
+
+  FerociaPhone.mount({
+    container: 'phone-nuevo',
+    inputClass: 'ap-input',
+    onChange: () => pintar('phone-nuevo', 'out-nuevo'),
+  });
+
+  FerociaPhone.mount({
+    container: 'phone-edit',
+    inputClass: 'ap-input',
+    value: { country_code: '+1', phone: '5613026946' },
+    onChange: () => pintar('phone-edit', 'out-edit'),
+  });
+
+  FerociaPhone.mount({ container: 'phone-grid', inputClass: 'ap-input' });
+
+  pintar('phone-nuevo', 'out-nuevo');
+  pintar('phone-edit', 'out-edit');
+</script>
+</body>
+</html>
