@@ -1792,29 +1792,56 @@ async function deleteTournament(id) {
 
 async function confirmDeleteTournament(id) {
   try {
-    const categories = await tApi(`tournament_categories?tournament_id=eq.${id}&select=id`);
-    if (categories.length) {
-      const catIds = categories.map(c => c.id).join(',');
-      // Delete child tables in parallel. tournament_groups must go after teams + rr
-      // because teams.group_id and rr.group_id reference it (ON DELETE SET NULL,
-      // so it would technically also work in any order, but cleanest to do it
-      // after the things that reference it).
-      await Promise.all([
-        tApi(`tournament_rr_matches?category_id=in.(${catIds})`, 'DELETE'),
-        tApi(`tournament_bracket_matches?category_id=in.(${catIds})`, 'DELETE'),
-        tApi(`tournament_teams?category_id=in.(${catIds})`, 'DELETE'),
-      ]);
-      // Now safe to delete the groups themselves
-      await tApi(`tournament_groups?category_id=in.(${catIds})`, 'DELETE');
-    }
-    await tApi(`tournament_categories?tournament_id=eq.${id}`, 'DELETE');
-    await tApi(`tournaments?id=eq.${id}`, 'DELETE');
+    // Single atomic call. Everything below used to be six chained DELETE
+    // requests — categories, groups, teams, RR matches, bracket matches,
+    // then the tournament — each one its own transaction. A failure part
+    // way through left the tournament half-deleted with no way back, which
+    // is exactly what happened to "Mamba Day 2026": its categories (and by
+    // cascade its teams and matches) were gone, the final DELETE failed on
+    // a link_visits constraint, and an empty tournament was left behind.
+    //
+    // delete_tournament() runs in one transaction, so it either removes
+    // everything or nothing. It also enforces the "cannot delete an active
+    // tournament" rule server-side — until now that rule lived only in this
+    // file, so anyone calling the API directly could bypass it.
+    // window.supabase (not bare `supabase`) to match how this file already
+    // calls RPCs: db.js replaces the CDN namespace with the client instance,
+    // and the explicit window. prefix makes it clear which one is meant.
+    const { data, error } = await window.supabase.rpc('delete_tournament', { p_id: id });
+    if (error) throw error;
+
     const m = document.querySelector('.t-modal');
     if (m) m.style.borderTop = '';
     closeTModal();
-    tToast('Tournament deleted.');
+
+    // Report what was actually removed instead of a generic message.
+    const parts = [];
+    if (data?.categories) parts.push(`${data.categories} categor${data.categories !== 1 ? 'ies' : 'y'}`);
+    if (data?.teams)      parts.push(`${data.teams} team${data.teams !== 1 ? 's' : ''}`);
+    if (data?.matches)    parts.push(`${data.matches} match${data.matches !== 1 ? 'es' : ''}`);
+    tToast(parts.length
+      ? `Tournament deleted — ${parts.join(', ')} removed.`
+      : 'Tournament deleted.');
+
     renderTournamentList();
-  } catch(err) { tToast(`Error: ${err.message}`, true); }
+  } catch (err) {
+    // The function raises named exceptions; translate them into something
+    // a non-technical admin can act on. Anything else falls through with
+    // its raw message so real failures stay visible.
+    const raw = err?.message || String(err);
+    const friendly =
+      raw.includes('tournament_is_active')  ? 'This tournament is active and cannot be deleted. Close it first.'
+    : raw.includes('tournament_not_found')  ? 'This tournament no longer exists. Refreshing the list.'
+    : raw.includes('not_authorized')        ? 'You do not have permission to delete tournaments.'
+    : `Error: ${raw}`;
+    tToast(friendly, true);
+
+    // If it was already gone, the list on screen is stale — refresh it.
+    if (raw.includes('tournament_not_found')) {
+      closeTModal();
+      renderTournamentList();
+    }
+  }
 }
 
 // ─── OPEN TOURNAMENT ────────────────────────────────────────
