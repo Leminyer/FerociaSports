@@ -163,6 +163,10 @@
   const maxDigitsFor = (country) => country.len || 15; // E.164 ceiling
 
   function render(inst) {
+    // The previous markup is about to be thrown away; drop any viewport
+    // listeners still bound to it first.
+    if (inst._detachViewport) inst._detachViewport();
+
     const { root, inputClass } = inst;
     const c = inst.country;
 
@@ -237,19 +241,68 @@
     const search = root.querySelector('[data-fp-search]');
     const number = root.querySelector('[data-fp-number]');
 
+    /* The menu is position:fixed, so its coordinates have to be worked out
+       here rather than left to CSS. That is deliberate — see the note on
+       .fp-menu in country-codes.css. Fixed coordinates are viewport-based,
+       which is exactly what getBoundingClientRect() returns. */
+    const placeMenu = () => {
+      const r    = toggle.getBoundingClientRect();
+      const mw   = menu.offsetWidth  || 280;
+      const mh   = menu.offsetHeight || 300;
+      const gap  = 5;
+      const edge = 8;   // keep this far from the viewport edge
+
+      // Flip above the field when there is not enough room below.
+      const below = window.innerHeight - r.bottom;
+      const top   = (below < mh + gap && r.top > mh + gap)
+        ? r.top - mh - gap
+        : r.bottom + gap;
+
+      // Clamp horizontally so the menu never runs off screen.
+      const left = Math.max(edge, Math.min(r.left, window.innerWidth - mw - edge));
+
+      menu.style.top  = `${Math.max(edge, top)}px`;
+      menu.style.left = `${left}px`;
+    };
+
     const closeMenu = () => {
+      if (menu.hidden) return;
       menu.hidden = true;
       toggle.setAttribute('aria-expanded', 'false');
       search.value = '';
       renderList(inst, '');
+      detachViewport();
+    };
+
+    // Kept on the instance so render() can also call it. Picking a country
+    // re-renders the whole component, which destroys this menu — without
+    // this the scroll and resize listeners would keep firing against
+    // detached DOM nodes, one extra pair every time.
+    const detachViewport = () => {
+      window.removeEventListener('resize', onViewportChange);
+      // `true` = capture phase, so scrolling inside a modal is caught too,
+      // not just scrolling on the window.
+      window.removeEventListener('scroll', onViewportChange, true);
+      inst._detachViewport = null;
+    };
+
+    // Reposition rather than close: closing on any scroll makes the field
+    // feel broken when the page moves slightly under the cursor.
+    const onViewportChange = () => { if (!menu.hidden) placeMenu(); };
+
+    const openMenu = () => {
+      menu.hidden = false;
+      toggle.setAttribute('aria-expanded', 'true');
+      placeMenu();          // measure only once it is rendered
+      search.focus();
+      window.addEventListener('resize', onViewportChange);
+      window.addEventListener('scroll', onViewportChange, true);
+      inst._detachViewport = detachViewport;
     };
 
     toggle.addEventListener('click', (e) => {
       e.stopPropagation();
-      const willOpen = menu.hidden;
-      menu.hidden = !willOpen;
-      toggle.setAttribute('aria-expanded', String(willOpen));
-      if (willOpen) search.focus();
+      if (menu.hidden) openMenu(); else closeMenu();
     });
 
     search.addEventListener('input', () => renderList(inst, search.value));
@@ -295,10 +348,11 @@
     });
 
     // Close when clicking anywhere else on the page.
-    if (!inst._docHandler) {
-      inst._docHandler = (e) => { if (!root.contains(e.target)) closeMenu(); };
-      document.addEventListener('click', inst._docHandler);
-    }
+    // The menu is fixed-positioned but still a DOM child of `root`, so
+    // root.contains() correctly treats clicks inside it as inside.
+    if (inst._docHandler) document.removeEventListener('click', inst._docHandler);
+    inst._docHandler = (e) => { if (!root.contains(e.target)) closeMenu(); };
+    document.addEventListener('click', inst._docHandler);
   }
 
   function emit(inst) {

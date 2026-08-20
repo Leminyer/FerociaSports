@@ -19,6 +19,10 @@
   align-items: stretch;
   gap: 6px;
   position: relative;
+  /* Grid items default to min-width:auto, so a two-column .form-row will
+     not let this shrink below its content and the modal overflows
+     sideways. Both this and .fp-number need min-width:0 to opt out. */
+  min-width: 0;
 }
 
 /* ─── Country button ───────────────────────────────────────── */
@@ -78,8 +82,14 @@
    would override the host form. */
 
 .fp-number {
-  flex: 1 1 auto;
+  /* basis 0, NOT auto. With `auto` the input claims its intrinsic width
+     (~177px by default) as its base size, which together with the country
+     button exceeded the column and pushed a horizontal scrollbar into the
+     Edit Player modal. */
+  flex: 1 1 0;
+  width: 100%;
   min-width: 0;
+  box-sizing: border-box;
   font-variant-numeric: tabular-nums;
 }
 
@@ -124,12 +134,19 @@
 /* ─── Dropdown ─────────────────────────────────────────────── */
 
 .fp-menu {
-  position: absolute;
-  top: calc(100% + 5px);
+  /* FIXED, not absolute, and positioned from JavaScript.
+     Absolute positioning resolves against the nearest positioned
+     ancestor. This markup sits inside modals and scroll containers that
+     do not always provide one, so the menu was landing at the bottom of
+     the page — and where an ancestor had overflow:hidden it was clipped
+     or painted underneath the sidebar. Fixed positioning escapes every
+     ancestor's stacking and clipping context. openMenu() sets top/left. */
+  position: fixed;
+  top: 0;
   left: 0;
-  z-index: 60;          /* above form content, below app modals */
+  /* Above the highest z-index in admin.html (10001). */
+  z-index: 10050;
   width: 280px;
-  max-width: 100%;
   background: white;
   border: 1px solid var(--divider-color, #ECECEC);
   border-radius: 10px;
