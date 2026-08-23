@@ -1,0 +1,180 @@
+/* ============================================================
+   FEROCIA — Ferocia Team Challenge
+   ------------------------------------------------------------
+   Extracted verbatim from the <style> block that used to live inside
+   admin.html. Rules are byte-for-byte identical and in their original
+   order; only the container changed.
+
+   ⚠️  ORDER MATTERS. These files must stay linked in this sequence,
+   after design-tokens.css / tournament.css / app.css / country-codes.css:
+
+       admin-layout.css  →  admin-components.css
+                         →  admin-pages.css
+                         →  admin-ftc.css
+
+   Later rules of equal specificity override earlier ones, so
+   reordering the <link> tags would change how the app looks.
+
+   Covers: FTC hero, teams, standings, review rows, schedule generator
+   and matchup rows.
+
+   Merged from the two <style> blocks that sat in the FTC sections of
+   admin.html, in their original order.
+   ============================================================ */
+
+/* FTC Teams Page */
+.ftc-hero{border-radius:14px;background:white;border:0.5px solid var(--divider-color);padding:24px 28px 20px;margin-bottom:16px;position:relative;overflow:hidden;box-shadow:0 2px 8px rgba(23,76,204,0.06);}
+.ftc-hero::before{content:'';position:absolute;top:-20px;right:-20px;width:160px;height:160px;border-radius:50%;background:rgba(23,76,204,0.04);pointer-events:none;}
+.ftc-hero::after{display:none;}
+.ftc-hero-eyebrow{font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--blue);margin-bottom:6px;display:flex;align-items:center;gap:6px;}
+.ftc-hero-title{font-family:'Inter',sans-serif;font-size:26px;color:var(--text);letter-spacing:1px;line-height:1;margin-bottom:4px;}
+.ftc-hero-sub{font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:16px;}
+.ftc-hero-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px;}
+.ftc-hero-stat{background:#f8f9ff;border:0.5px solid var(--divider-color);border-radius:8px;padding:10px 12px;}
+.ftc-hero-stat-label{font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;}
+.ftc-hero-stat-val{font-family:'Inter',sans-serif;font-size:22px;color:var(--text);line-height:1;}
+.ftc-hero-stat-sub{font-size:9px;font-weight:600;color:#b0bbd6;margin-top:2px;}
+.ftc-register-btn{display:inline-flex;align-items:center;gap:7px;padding:10px 20px;border:none;border-radius:99px;background:linear-gradient(135deg,#C6F221,#a8d400);color:#080f2e;font-family:'Inter',sans-serif;font-size:12px;font-weight:800;cursor:pointer;box-shadow:0 4px 16px rgba(198,242,33,0.3);transition:all .15s;letter-spacing:.3px;}
+.ftc-register-btn:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(198,242,33,0.4);}
+/* Team Cards */
+.ftc-search-wrap{position:relative;margin-bottom:14px;}
+.ftc-search-input{width:100%;padding:9px 12px 9px 34px;border:0.5px solid var(--divider-color);border-radius:8px;font-family:'Inter',sans-serif;font-size:12px;font-weight:600;color:var(--text);outline:none;background:white;}
+.ftc-search-input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(23,76,204,0.08);}
+.ftc-search-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#b0bbd6;pointer-events:none;}
+.ftc-teams-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;}
+.ftc-team-card{background:white;border:0.5px solid var(--divider-color);border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(23,76,204,0.06);transition:box-shadow .15s,transform .15s;}
+.ftc-team-card:hover{box-shadow:0 6px 20px rgba(23,76,204,0.1);transform:translateY(-2px);}
+.ftc-card-header{padding:14px 16px 10px;border-bottom:0.5px solid var(--bg);display:flex;align-items:flex-start;gap:10px;}
+.ftc-card-avatar{width:38px;height:38px;border-radius:8px;background:linear-gradient(135deg,var(--blue),#2456d3);color:white;font-family:'Inter',sans-serif;font-size:18px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.ftc-card-name{font-size:13px;font-weight:800;color:var(--text);line-height:1.2;margin-bottom:3px;}
+.ftc-card-captain{font-size:10px;font-weight:700;color:var(--blue);}
+.ftc-card-body{padding:10px 16px;}
+.ftc-card-row{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:5px;}
+.ftc-card-row:last-child{margin-bottom:0;}
+.ftc-card-actions{padding:10px 16px;border-top:0.5px solid var(--bg);display:flex;gap:6px;}
+.ftc-card-btn{flex:1;padding:5px 0;border-radius:99px;font-family:'Inter',sans-serif;font-size:10px;font-weight:700;cursor:pointer;border:0.5px solid var(--divider-color);background:white;color:var(--blue);transition:all .15s;}
+.ftc-card-btn:hover{background:#e8f0ff;border-color:var(--blue);}
+.ftc-card-btn.danger{color:#e53935;border-color:rgba(229,57,53,0.2);}
+.ftc-card-btn.danger:hover{background:var(--orange-light);border-color:#e53935;}
+/* Empty state */
+.ftc-empty{text-align:center;padding:56px 32px;}
+.ftc-empty-icon{font-size:48px;margin-bottom:16px;}
+.ftc-empty-title{font-size:16px;font-weight:800;color:var(--text);margin-bottom:8px;}
+.ftc-empty-sub{font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:24px;line-height:1.6;}
+/* Wizard Modal */
+.ftc-wizard-sidebar{width:180px;flex-shrink:0;background:#fafbff;border-right:0.5px solid var(--divider-color);padding:24px 0;}
+.ftc-wizard-step{display:flex;align-items:flex-start;gap:12px;padding:10px 20px;cursor:default;position:relative;}
+.ftc-wizard-step::before{content:'';position:absolute;left:31px;top:38px;width:1px;height:calc(100% - 8px);background:var(--divider-color);}
+.ftc-wizard-step:last-child::before{display:none;}
+.ftc-step-num{width:22px;height:22px;border-radius:50%;border:1.5px solid var(--divider-color);background:white;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#b0bbd6;flex-shrink:0;z-index:1;transition:all .2s;}
+.ftc-step-num.active{background:var(--blue);border-color:var(--blue);color:white;}
+.ftc-step-num.done{background:var(--teal);border-color:var(--teal);color:white;}
+.ftc-step-info{padding-top:1px;}
+.ftc-step-label{font-size:12px;font-weight:800;color:#b0bbd6;transition:color .2s;}
+.ftc-step-label.active{color:var(--text);}
+.ftc-step-label.done{color:var(--teal);}
+.ftc-step-desc{font-size:10px;font-weight:600;color:#b0bbd6;line-height:1.4;margin-top:1px;}
+.ftc-step-icon{font-size:14px;margin-bottom:2px;}
+/* Wizard panels */
+.ftc-panel{display:none;} .ftc-panel.active{display:block;}
+.ftc-panel-title{font-size:16px;font-weight:800;color:var(--text);margin-bottom:4px;display:flex;align-items:center;gap:8px;}
+.ftc-panel-sub{font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:20px;}
+/* Field label */
+.ftc-label{font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:5px;}
+.ftc-input{width:100%;padding:9px 12px;border:1px solid var(--divider-color);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;color:var(--text);outline:none;}
+.ftc-input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(23,76,204,0.08);}
+.ftc-select{width:100%;padding:9px 12px;border:1px solid var(--divider-color);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;color:var(--text);outline:none;background:white;cursor:pointer;}
+.ftc-select:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(23,76,204,0.08);}
+.ftc-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.ftc-field{margin-bottom:16px;}
+.ftc-req{color:#e53935;margin-left:2px;}
+/* Captain pills */
+.ftc-cap-pill{display:inline-flex;align-items:center;gap:5px;padding:6px 13px;border-radius:99px;border:1px solid var(--divider-color);background:white;cursor:pointer;font-family:'Inter',sans-serif;font-size:11px;font-weight:700;color:var(--text-muted);transition:all .15s;}
+.ftc-cap-pill:hover{border-color:var(--blue);color:var(--blue);}
+.ftc-cap-pill.selected{background:var(--blue);border-color:var(--blue);color:white;}
+/* Color swatches */
+.ftc-swatch{width:32px;height:32px;border-radius:50%;cursor:pointer;border:2px solid transparent;display:flex;align-items:center;justify-content:center;transition:all .15s;}
+.ftc-swatch.selected{border-color:#080f2e;transform:scale(1.1);}
+/* Nav buttons */
+.ftc-nav-btn{padding:9px 20px;border-radius:99px;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;}
+.ftc-nav-back{border:1px solid var(--divider-color);background:white;color:var(--text-muted);}
+.ftc-nav-next{border:none;background:linear-gradient(180deg,#2456d3,var(--blue));color:white;box-shadow:0 4px 12px rgba(23,76,204,0.2);}
+.ftc-nav-save{border:none;background:linear-gradient(135deg,var(--teal),#1a9b7a);color:white;box-shadow:0 4px 12px rgba(36,188,150,0.2);}
+/* Mixed validation */
+.ftc-validation-err{font-size:11px;font-weight:700;color:var(--orange);padding:8px 12px;background:var(--orange-light);border-radius:8px;margin-top:8px;}
+/* Review section */
+.ftc-review-section{margin-bottom:16px;}
+.ftc-review-label{font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--blue);margin-bottom:8px;}
+.ftc-review-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:0.5px solid #f4f5f8;font-size:12px;}
+.ftc-review-row:last-child{border-bottom:none;}
+.ftc-review-key{font-weight:700;color:var(--text-muted);}
+.ftc-review-val{font-weight:700;color:var(--text);text-align:right;}
+
+
+/* ── SCHEDULE GENERATOR & MATCHUPS ───────────────────────────
+   Second FTC <style> block from admin.html. */
+
+/* ── FTC Schedule Page ─────────────────── */
+.ftc-sch-gen-card{background:white;border:0.5px solid var(--divider-color);border-radius:12px;padding:20px 24px;margin-bottom:14px;box-shadow:0 1px 4px rgba(23,76,204,0.06);}
+.ftc-gen-label{font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--blue);margin-bottom:4px;display:flex;align-items:center;gap:6px;}
+.ftc-gen-sub{font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:16px;}
+.ftc-gen-field{display:flex;flex-direction:column;gap:4px;}
+.ftc-gen-flabel{font-size:10px;font-weight:800;color:var(--text);letter-spacing:.1px;}
+.ftc-gen-flabel-req{color:#e53935;}
+.ftc-gen-input{padding:8px 10px;border:1px solid var(--divider-color);border-radius:8px;font-family:'Inter',sans-serif;font-size:12px;font-weight:600;color:var(--text);outline:none;width:100%;}
+.ftc-gen-input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(23,76,204,0.08);}
+.ftc-gen-select{padding:8px 10px;border:1px solid var(--divider-color);border-radius:8px;font-family:'Inter',sans-serif;font-size:12px;font-weight:600;color:var(--text);outline:none;background:white;width:100%;}
+.ftc-gen-hint{font-size:9px;font-weight:600;color:#b0bbd6;margin-top:1px;}
+.ftc-stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;}
+.ftc-stat-box{background:white;border:0.5px solid var(--divider-color);border-radius:10px;padding:12px 14px;display:flex;align-items:center;gap:10px;box-shadow:0 1px 4px rgba(23,76,204,0.04);}
+.ftc-stat-ibox{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.ftc-stat-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text-muted);margin-bottom:2px;}
+.ftc-stat-val{font-size:13px;font-weight:800;color:var(--text);line-height:1.2;}
+.ftc-stat-sub{font-size:9px;font-weight:600;color:#b0bbd6;margin-top:1px;}
+.ftc-info-bar{display:flex;align-items:center;gap:8px;padding:9px 12px;background:#f0f4ff;border-radius:8px;border-left:3px solid var(--blue);font-size:11px;font-weight:600;color:var(--blue);margin-bottom:14px;}
+/* Preview card */
+.ftc-preview-card{background:white;border:0.5px solid var(--divider-color);border-radius:12px;padding:20px 24px;margin-bottom:14px;box-shadow:0 1px 4px rgba(23,76,204,0.06);display:none;}
+.ftc-preview-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;}
+.ftc-preview-title{font-size:12px;font-weight:800;color:var(--text);display:flex;align-items:center;gap:8px;}
+.ftc-bal-badge{font-size:9px;font-weight:800;padding:2px 8px;border-radius:99px;background:rgba(36,188,150,0.12);color:var(--teal-dark);letter-spacing:.3px;text-transform:uppercase;}
+.ftc-preview-sub{font-size:10px;font-weight:600;color:var(--text-muted);margin-bottom:14px;}
+.ftc-legend{display:flex;gap:12px;}
+.ftc-legend-item{display:flex;align-items:center;gap:5px;font-size:10px;font-weight:700;color:var(--text);}
+.ftc-ldot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+/* Week rows */
+.ftc-wk-row{display:flex;align-items:flex-start;padding:12px 0;border-bottom:0.5px solid var(--bg);}
+.ftc-wk-row:last-child{border-bottom:none;}
+.ftc-wk-left{width:110px;flex-shrink:0;padding-top:2px;}
+.ftc-wk-badge{display:inline-flex;padding:3px 10px;border-radius:99px;background:#e8f0ff;font-size:9px;font-weight:800;color:var(--blue);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;}
+.ftc-wk-date{font-size:10px;font-weight:600;color:var(--text-muted);}
+.ftc-wk-courts{display:flex;flex:1;}
+.ftc-court-block{flex:1;padding:0 14px;border-right:0.5px solid var(--bg);}
+.ftc-court-block:first-child{padding-left:0;}
+.ftc-court-block:last-child{border-right:none;}
+.ftc-court-lbl{display:flex;align-items:center;gap:5px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px;}
+.ftc-matchup-teams{display:flex;align-items:center;gap:8px;}
+.ftc-team-side{display:flex;align-items:center;gap:6px;}
+.ftc-team-shield{width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:10px;font-weight:800;color:white;}
+.ftc-team-name{font-size:12px;font-weight:800;color:var(--text);line-height:1.2;}
+.ftc-vs-sep{font-size:9px;font-weight:800;color:#b0bbd6;flex-shrink:0;}
+.ftc-bye-block{flex:0.6;padding:0 14px;display:flex;align-items:center;}
+.ftc-bye-txt{font-size:10px;font-weight:700;color:#b0bbd6;padding-top:14px;}
+/* Status pills (reused in schedule list) */
+.ftc-status-pill{font-size:9px;font-weight:800;letter-spacing:.3px;text-transform:uppercase;padding:2px 8px;border-radius:99px;}
+.ftc-status-scheduled{background:#e8f0ff;color:var(--blue);}
+.ftc-status-completed{background:rgba(36,188,150,0.12);color:var(--teal-dark);}
+.ftc-edit-mini{display:inline-flex;align-items:center;gap:4px;padding:5px 12px;border:1px solid var(--blue);border-radius:99px;background:white;font-family:'Inter',sans-serif;font-size:10px;font-weight:700;color:var(--blue);cursor:pointer;white-space:nowrap;transition:background .15s,color .15s;}
+.ftc-edit-mini:hover{background:var(--blue);color:white;}
+.ftc-edit-mini.danger{border-color:#e53935;color:#e53935;}
+.ftc-edit-mini.danger:hover{background:#e53935;color:white;}
+/* Schedule list week cards */
+.ftc-week-card{background:white;border:0.5px solid var(--divider-color);border-radius:10px;margin-bottom:10px;overflow:hidden;box-shadow:0 1px 4px rgba(23,76,204,0.04);}
+.ftc-week-hdr{display:flex;align-items:center;justify-content:space-between;padding:11px 16px;background:#f8f9ff;border-bottom:0.5px solid var(--divider-color);cursor:pointer;}
+.ftc-week-label{font-size:12px;font-weight:800;color:var(--text);display:flex;align-items:center;gap:8px;}
+.ftc-week-meta{font-size:10px;font-weight:600;color:var(--text-muted);}
+.ftc-week-body{padding:12px 16px;}
+.ftc-matchup-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:0.5px solid #f4f5f8;}
+.ftc-matchup-row:last-child{border-bottom:none;}
+.ftc-matchup-block{flex:1;display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;color:var(--text);}
+.ftc-matchup-vs{font-size:9px;font-weight:800;color:#b0bbd6;background:var(--bg);padding:2px 6px;border-radius:99px;}
+.ftc-bye-badge{font-size:10px;font-weight:700;color:var(--text-muted);background:#f4f5f8;padding:3px 8px;border-radius:99px;}

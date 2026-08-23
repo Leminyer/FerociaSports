@@ -1,0 +1,251 @@
+/* ============================================================
+   FEROCIA — Layout: shell, top bar, sidebar, main area, bottom nav
+   ------------------------------------------------------------
+   Extracted verbatim from the <style> block that used to live inside
+   admin.html. Rules are byte-for-byte identical and in their original
+   order; only the container changed.
+
+   ⚠️  ORDER MATTERS. These files must stay linked in this sequence,
+   after design-tokens.css / tournament.css / app.css / country-codes.css:
+
+       admin-layout.css  →  admin-components.css
+                         →  admin-pages.css
+                         →  admin-ftc.css
+
+   Later rules of equal specificity override earlier ones, so
+   reordering the <link> tags would change how the app looks.
+
+   Covers: .app-shell, .top-bar, .sidebar, main content area,
+   mobile bottom nav and the responsive breakpoints.
+   ============================================================ */
+
+/* Color/typography/radius tokens now come from design-tokens.css
+     (linked in <head>) — this used to duplicate them here with a
+     navy-blue tint; now the neutral gray spec applies everywhere. */
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-size:14px;}
+
+  /* ── SIDEBAR LAYOUT ─────────────────────────────────── */
+  :root { --sb-width:220px; --sb-icon:64px; --top-bar:56px; }
+
+  .app-shell { display:flex; min-height:100vh; }
+
+  /* ── TOP BAR ─────────────────────────────────────────── */
+  .top-bar{
+    position:fixed;top:0;left:64px;right:0;z-index:200;
+    background:var(--dark);height:56px;
+    border-bottom:3px solid var(--lime);
+    display:flex;align-items:center;justify-content:space-between;
+    padding:0 24px;transition:left .25s;
+  }
+
+  .top-bar-left{display:flex;align-items:center;gap:12px;}
+  .date-tag{font-size:11px;color:var(--blue-light);font-weight:600;}
+  .top-bar-title{font-size:13px;font-weight:800;color:var(--white);}
+  /* sign-out is an .sb-item — no extra CSS needed, just hidden via inline style until auth */
+
+  /* ── SIDEBAR ─────────────────────────────────────────── */
+  .sidebar{
+    position:fixed;top:0;left:0;bottom:0;z-index:300;
+    width:64px;background:var(--dark);
+    display:flex;flex-direction:column;
+    border-right:1px solid rgba(255,255,255,0.06);
+    overflow-y:auto;overflow-x:hidden;
+    transition:width .25s;
+  }
+  body.sidebar-open .sidebar{width:220px;}
+  .sidebar::-webkit-scrollbar{width:4px;}
+  .sidebar::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:99px;}
+
+  /* Logo header */
+  .sb-header{
+    display:flex;align-items:center;justify-content:center;
+    padding:0 12px;height:56px;flex-shrink:0;
+    border-bottom:3px solid var(--lime);overflow:hidden;
+  }
+
+
+  /* Section groups */
+  .sb-section{padding:8px 0;}
+  .sb-section-label{
+    font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;
+    color:rgba(255,255,255,0.25);padding:10px 16px 4px;white-space:nowrap;
+    display:none;
+  }
+  body.sidebar-open .sb-section-label{display:block;}
+  .sb-divider{height:1px;background:rgba(255,255,255,0.06);margin:4px 0;}
+
+  /* Nav items — collapsed (icon only) */
+  .sb-item{
+    display:flex;align-items:center;gap:11px;
+    padding:10px;justify-content:center;cursor:pointer;
+    font-size:12px;font-weight:700;color:rgba(255,255,255,0.5);
+    transition:background .15s,color .15s;
+    border:none;background:none;width:100%;text-align:left;
+    font-family:'Inter',sans-serif;white-space:nowrap;
+    border-left:3px solid transparent;outline:none;
+  }
+  /* Nav items — open state */
+  body.sidebar-open .sb-item{padding:9px 16px;justify-content:flex-start;}
+  .sb-item:hover{background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.85);}
+
+  /* Active item — collapsed: blue rounded square */
+  .sb-item.active{
+    color:var(--white);background:var(--blue);
+    border-radius:var(--radius-sm);
+    margin:2px 6px;width:calc(100% - 12px);
+    border-left-color:transparent;
+  }
+  /* Active item — open: full width, lime left border */
+  body.sidebar-open .sb-item.active{
+    border-radius:0;margin:0;width:100%;
+    border-left-color:var(--lime);
+    background:rgba(23,76,204,0.3);
+  }
+
+  .sb-item-icon{width:20px;text-align:center;flex-shrink:0;line-height:1;display:flex;align-items:center;justify-content:center;color:currentColor;}
+  .sb-item-label{flex:1;display:none;overflow:hidden;}
+  body.sidebar-open .sb-item-label{display:block;}
+
+  .sb-item-badge{
+    background:var(--orange);color:white;border-radius:99px;
+    font-size:9px;font-weight:800;padding:1px 6px;display:none;
+  }
+  body.sidebar-open .sb-item-badge{display:inline;}
+
+  /* Ladder/tournament inline select */
+  .sb-select-wrap{padding:4px 12px 8px 48px;display:none;}
+  body.sidebar-open .sb-select-wrap{display:block;}
+  .sb-select{
+    width:100%;background:rgba(255,255,255,0.06);
+    border:0.5px solid rgba(255,255,255,0.12);
+    color:rgba(255,255,255,0.7);padding:6px 10px;border-radius:var(--radius-sm);
+    font-size:11px;font-family:'Inter',sans-serif;font-weight:600;
+    outline:none;cursor:pointer;
+  }
+  .sb-select:focus{border-color:var(--lime);}
+  .sb-select option{background:var(--dark);color:var(--white);}
+
+  /* Sub-items — only visible when sidebar is open */
+  .sb-sub-item{
+    display:none;align-items:center;gap:8px;
+    padding:7px 16px 7px 48px;cursor:pointer;
+    font-size:11px;font-weight:600;color:rgba(255,255,255,0.4);
+    transition:background .15s,color .15s;
+    border:none;background:none;width:100%;text-align:left;
+    font-family:'Inter',sans-serif;white-space:nowrap;
+    border-left:3px solid transparent;
+  }
+  body.sidebar-open .sb-sub-item{display:flex;}
+  .sb-sub-item:hover{background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.8);}
+  .sb-sub-item.active{color:var(--lime);border-left-color:var(--lime);background:rgba(198,242,33,0.06);}
+  .sb-sub-item:disabled{opacity:0.3;cursor:not-allowed;pointer-events:none;}
+
+  /* Sidebar footer */
+  .sb-footer{margin-top:auto;padding:12px 0;border-top:1px solid rgba(255,255,255,0.06);flex-shrink:0;}
+
+  /* Toggle button */
+  .sb-toggle{
+    display:flex;align-items:center;gap:11px;
+    padding:10px;justify-content:center;cursor:pointer;
+    font-size:12px;font-weight:700;color:rgba(255,255,255,0.4);
+    background:none;border:none;width:100%;
+    font-family:'Inter',sans-serif;white-space:nowrap;
+    transition:color .15s;border-left:3px solid transparent;
+  }
+  body.sidebar-open .sb-toggle{padding:9px 16px;justify-content:flex-start;}
+  .sb-toggle:hover{color:rgba(255,255,255,0.8);background:rgba(255,255,255,0.05);}
+  .sb-toggle-icon{font-size:16px;width:20px;text-align:center;flex-shrink:0;transition:transform .25s;}
+  body.sidebar-open .sb-toggle-icon{transform:rotate(180deg);}
+  .sb-toggle-label{display:none;}
+  body.sidebar-open .sb-toggle-label{display:block;}
+
+  /* ── MAIN CONTENT AREA ───────────────────────────────── */
+  /* ── BODY CLASSES control layout ────────────────────── */
+  /* Default: sidebar collapsed (64px) */
+  /* .sidebar-open: sidebar pinned open (220px) */
+
+  .main-content{
+    flex:1;
+    min-width:0;
+    margin-left:64px;
+    margin-top:56px;
+    min-height:calc(100vh - 56px);
+    transition:margin-left .25s;
+  }
+  body.sidebar-open .main-content{margin-left:220px;}
+  body.sidebar-open .top-bar{left:220px;}
+  main{padding:28px 32px 100px;}
+  .page{display:none;}.page.active{display:block;}
+  .page-disabled{pointer-events:none;opacity:0.4;user-select:none;}
+
+  /* ── BOTTOM NAV (mobile only) ────────────────────────── */
+  .bottom-nav{
+    display:none;position:fixed;bottom:0;left:0;right:0;z-index:300;
+    background:var(--dark);border-top:3px solid var(--lime);
+    padding:6px 0 max(6px, env(safe-area-inset-bottom));
+  }
+  .bottom-nav-inner{display:flex;}
+  .bn-item{
+    flex:1;display:flex;flex-direction:column;align-items:center;
+    gap:3px;padding:4px 0;cursor:pointer;
+    border:none;background:none;font-family:'Inter',sans-serif;
+    transition:opacity .15s;
+  }
+  .bn-item:active{opacity:.7;}
+  .bn-icon{font-size:18px;line-height:1;}
+  .bn-label{font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:rgba(255,255,255,0.45);}
+  .bn-item.active .bn-label{color:var(--lime);}
+  .bn-dot{width:4px;height:4px;border-radius:50%;background:transparent;margin-bottom:1px;}
+  .bn-item.active .bn-dot{background:var(--lime);}
+
+  /* More drawer */
+  .more-drawer{
+    position:fixed;bottom:calc(56px + 3px + max(6px, env(safe-area-inset-bottom)));
+    left:0;right:0;z-index:299;
+    background:var(--dark);border-top:1px solid rgba(255,255,255,0.08);
+    transform:translateY(100%);opacity:0;
+    transition:transform .25s,opacity .25s;pointer-events:none;
+  }
+  .more-drawer.open{transform:translateY(0);opacity:1;pointer-events:all;}
+  .more-drawer-item{
+    display:flex;align-items:center;gap:14px;
+    padding:14px 24px;cursor:pointer;
+    border:none;background:none;width:100%;text-align:left;
+    font-size:13px;font-weight:700;color:rgba(255,255,255,0.7);
+    font-family:'Inter',sans-serif;
+    border-bottom:0.5px solid rgba(255,255,255,0.06);
+    transition:background .15s;
+  }
+  .more-drawer-item:last-child{border-bottom:none;}
+  .more-drawer-item:hover{background:rgba(255,255,255,0.05);}
+  .more-drawer-item.active{color:var(--lime);}
+  .more-drawer-icon{font-size:18px;width:24px;text-align:center;}
+
+  /* Drawer backdrop */
+  .drawer-backdrop{
+    display:none;position:fixed;inset:0;z-index:298;
+    background:rgba(0,0,0,0.4);
+  }
+  .drawer-backdrop.open{display:block;}
+
+  /* ── RESPONSIVE ──────────────────────────────────────── */
+  @media(max-width:1024px) and (min-width:601px){
+    /* Sidebar already 64px by default — nothing extra needed for tablet */
+  }
+  @media(max-width:600px){
+    .sidebar{display:none;}
+    .top-bar{left:0;}
+    .main-content{margin-left:0;margin-top:56px;}
+    .bottom-nav{display:block;}
+    main{padding:20px 14px 90px;}
+    .form-row{grid-template-columns:1fr;}
+    .stats-grid{grid-template-columns:1fr 1fr;}
+  }
+
+
+/* ── AUTH BOOT SPINNER ───────────────────────────────────────
+   Was its own one-line <style> further down admin.html. Position is
+   irrelevant for a uniquely-named @keyframes — it is matched by name,
+   not by cascade order — so it lives here with the rest of the shell. */
+@keyframes auth-boot-spin{to{transform:rotate(360deg);}}
