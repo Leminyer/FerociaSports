@@ -193,13 +193,34 @@
 
   // ── Shared list renderer — used by Ladder Sessions, Tournament Detail,
   //    and (read-only, no create) Player Profile's Admin tab. ───────────
+  /**
+   * Label for the ladder or tournament an incident came from.
+   *
+   * incident_reports.tournament_id and .ladder_id are ON DELETE SET NULL,
+   * so deleting a tournament keeps the incident report but empties the
+   * link — deliberately: an incident is a record worth keeping even once
+   * the event is gone. The consequence is a row whose source_type still
+   * says 'tournament' but that can no longer say WHICH tournament, and
+   * the RPCs that join for the name return nothing for it.
+   *
+   * Without this the list printed an empty name or the literal
+   * "undefined", which looks like a bug rather than what it is.
+   */
+  const incidentSourceLabel = (r) => {
+    const name = (r.source_name || '').trim();
+    if (name && name.toLowerCase() !== 'undefined' && name !== 'null') return name;
+    return r.source_type === 'ladder' ? 'Deleted ladder' : 'Deleted tournament';
+  };
+  // Exposed so any other module rendering incidents uses the same wording.
+  window.incidentSourceLabel = incidentSourceLabel;
+
   window.renderIncidentReportsList = (incidents, opts) => {
     opts = opts || {};
     if (!incidents.length) return '';
     const rows = incidents.map((r) => `
       <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:0.5px solid #f4f5f8;">
         <div style="flex:1;min-width:0;">
-          <div style="font-size:12px;font-weight:700;color:var(--text);">${esc(opts.showPlayer !== false ? r.player_name : r.source_name)}${opts.showPlayer !== false ? '' : ` <span style="color:var(--text-muted);font-weight:600;">· ${r.source_type === 'ladder' ? 'Ladder' : 'Tournament'}</span>`}</div>
+          <div style="font-size:12px;font-weight:700;color:var(--text);">${esc(opts.showPlayer !== false ? r.player_name : incidentSourceLabel(r))}${opts.showPlayer !== false ? '' : ` <span style="color:var(--text-muted);font-weight:600;">· ${r.source_type === 'ladder' ? 'Ladder' : 'Tournament'}</span>`}</div>
           <div style="font-size:10px;font-weight:600;color:var(--text-muted);">${esc(r.court)} · ${esc(r.incident_reason === 'Other' ? r.other_reason : r.incident_reason)} · ${fmtDate(r.created_at?.slice(0, 10))}</div>
         </div>
         <button type="button" data-action="viewIncidentDetail" data-description="${esc(r.description)}" data-admin="${esc(r.admin_name)}"
