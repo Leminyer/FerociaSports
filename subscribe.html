@@ -17,13 +17,13 @@
   <meta name="twitter:description"content="Subscribe to get event invites, tournament news, ladder updates and member-only promos from Ferocia Sports Center.">
   <meta name="twitter:image"      content="https://ferociasports.com/og-preview.png">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="design-tokens.css?v=20260820e">
-<link rel="stylesheet" href="country-codes.css?v=20260820e">
-<script src="config.js?v=20260820e"></script>
+<link rel="stylesheet" href="design-tokens.css?v=20260824">
+<link rel="stylesheet" href="country-codes.css?v=20260824">
+<script src="config.js?v=20260824"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="db.js?v=20260820e"></script>
-<script src="assets.js?v=20260820e"></script>
-<script src="country-codes.js?v=20260820e"></script>
+<script src="db.js?v=20260824"></script>
+<script src="assets.js?v=20260824"></script>
+<script src="country-codes.js?v=20260824"></script>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <style>
   /* Color/typography/radius tokens now come from design-tokens.css. */
@@ -187,7 +187,7 @@
           <div class="error-msg" id="err-email">Please enter a valid email address.</div>
         </div>
         <div class="form-group">
-          <label>Phone number</label>
+          <label>Phone number *</label>
           <!-- Mounted by FerociaPhone (country-codes.js). -->
           <div id="s-phone-field"></div>
           <div class="error-msg" id="err-phone">Please enter a valid phone number.</div>
@@ -266,7 +266,10 @@
   };
 
   // Mount the phone field. Defaults to +1 with no number typed.
-  FerociaPhone.mount({ container: 's-phone-field' });
+  // Phone is a required field here too (approved decision), even though
+  // subscribers.phone still allows NULL in the database for the 13 legacy
+  // rows that predate this rule.
+  FerociaPhone.mount({ container: 's-phone-field', required: true });
 
   document.getElementById('subscribe-form').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -302,17 +305,15 @@
     if (!email || !validateEmail(email)) { showFieldError('s-email', 'err-email', 'Please enter a valid email address.'); valid = false; }
     else { clearFieldError('s-email', 'err-email'); }
 
-    // Phone stays optional. The component knows the expected length for the
-    // selected country, so its message is specific ("US numbers need 10
-    // digits") instead of the old generic "invalid phone number".
-    if (phoneVal.phone) {
-      const phoneCheck = FerociaPhone.validate('s-phone-field');
-      if (!phoneCheck.ok) {
-        showFieldError('s-phone-field', 'err-phone', phoneCheck.error);
-        valid = false;
-      } else {
-        clearFieldError('s-phone-field', 'err-phone');
-      }
+    // Phone is required. The component knows the expected length for the
+    // selected country, so the message is specific ("US numbers need 10
+    // digits") rather than the old generic "invalid phone number".
+    const phoneCheck = FerociaPhone.validate('s-phone-field', { required: true });
+    if (!phoneCheck.ok) {
+      showFieldError('s-phone-field', 'err-phone', phoneCheck.error);
+      valid = false;
+    } else {
+      clearFieldError('s-phone-field', 'err-phone');
     }
 
     if (!valid) return;

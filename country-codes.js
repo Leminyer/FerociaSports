@@ -343,7 +343,9 @@
     });
 
     number.addEventListener('blur', () => {
-      const r = validateInstance(inst);
+      // Uses the same `required` the field was mounted with, so the hint
+      // on blur matches what will happen at save time.
+      const r = validateInstance(inst, { required: inst.required });
       setHint(inst, r.ok ? '' : r.error, 'warn');
     });
 
@@ -367,12 +369,20 @@
       : { country_code: null, phone: null };
   }
 
-  /* Validation is advisory. An empty field is valid — plenty of players
-     have no phone on record, and forcing one would push admins to type
-     junk to get past the form. */
-  function validateInstance(inst) {
+  /* Phone is now a required field everywhere (approved decision), so an
+     empty value fails when `required` is set. The country's expected
+     length is enforced too: with the US selected a number MUST be 10
+     digits — no warning-and-continue. Countries whose `len` is null fall
+     back to the E.164 range, since guessing a length we are not sure of
+     would reject valid numbers. */
+  function validateInstance(inst, opts) {
+    const required = !!(opts && opts.required);
     const d = inst.digits;
-    if (!d) return { ok: true };
+    if (!d) {
+      return required
+        ? { ok: false, error: 'Phone number is required.' }
+        : { ok: true };
+    }
     if (d.length < 4) {
       return { ok: false, error: 'That looks too short to be a phone number.' };
     }
@@ -409,6 +419,7 @@
         root,
         id:         root.id,
         inputClass: opts.inputClass || '',
+        required:   !!opts.required,
         country,
         digits:     digitsOnly(val.phone).slice(0, maxDigitsFor(country)),
         onChange:   opts.onChange,
@@ -439,10 +450,16 @@
 
     clear(id) { this.setValue(id, null, ''); },
 
-    validate(id) {
+    /**
+     * @param {string}  id
+     * @param {object?} opts  { required: true } to reject an empty field.
+     * Also paints the message under the field, so the admin sees what is
+     * wrong without hunting for it.
+     */
+    validate(id, opts) {
       const inst = instances[id];
       if (!inst) return { ok: true };
-      const r = validateInstance(inst);
+      const r = validateInstance(inst, opts);
       setHint(inst, r.ok ? '' : r.error, 'warn');
       return r;
     },

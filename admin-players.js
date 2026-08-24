@@ -565,6 +565,7 @@
     FerociaPhone.mount({
       container:  'p-phone-field',
       inputClass: 'ap-input',
+      required:   true,
       onChange:   apUpdatePreview,
     });
 
@@ -587,10 +588,10 @@
       return;
     }
 
-    // Phone is optional, but if one was typed it has to look plausible.
-    // validate() also paints the hint under the field, so the admin sees
-    // what is wrong without hunting for it.
-    const _phoneCheck = FerociaPhone.validate('p-phone-field');
+    // Phone is required (approved decision). With the US selected the
+    // component also enforces exactly 10 digits. validate() paints the
+    // hint under the field as well as returning the error.
+    const _phoneCheck = FerociaPhone.validate('p-phone-field', { required: true });
     if (!_phoneCheck.ok) {
       toast(_phoneCheck.error, true);
       return;
@@ -1560,6 +1561,15 @@
       if (!row.last_name)  row._errors.push('Missing last name');
       if (!row.email)      row._errors.push('Missing email');
       else if (!emailRegex.test(row.email)) row._errors.push('Invalid email format');
+
+      // Phone is required (approved decision). Every number on file is a
+      // US number, so the CSV — which carries no country column and always
+      // assumes +1 — must contain exactly 10 digits. A row with 9 or 11 is
+      // a typing error, not a foreign number.
+      const _rowDigits = FerociaPhone.normalize(row.phone);
+      if (!_rowDigits)                 row._errors.push('Missing phone');
+      else if (_rowDigits.length !== 10)
+        row._errors.push(`Phone must be 10 digits (has ${_rowDigits.length})`);
       if (row.gender && !['male','female'].includes(row.gender.toLowerCase())) {
         row._errors.push('Gender must be Male or Female');
       } else if (row.gender) {
@@ -1769,6 +1779,7 @@
     // strips it down to digits either way, so this works before and after.
     FerociaPhone.mount({
       container:  'edit-phone-field',
+      required:   true,
       value:      { country_code: p.country_code, phone: p.phone },
     });
     document.getElementById('edit-gender').value = p.gender || '';
@@ -1838,7 +1849,7 @@
       return;
     }
 
-    const _editCheck = FerociaPhone.validate('edit-phone-field');
+    const _editCheck = FerociaPhone.validate('edit-phone-field', { required: true });
     if (!_editCheck.ok) {
       toast(_editCheck.error, true);
       return;
@@ -1900,9 +1911,14 @@
             const { error: updErr } = await supabase
               .from('subscribers')
               .update({
-                first_name: body.first_name,
-                last_name:  body.last_name,
-                email:      body.email,
+                first_name:   body.first_name,
+                last_name:    body.last_name,
+                email:        body.email,
+                // Phone was NOT synced here before — editing a player's
+                // number left the subscriber holding the old one forever.
+                // players is the source of truth, so it overwrites.
+                phone:        body.phone,
+                country_code: body.country_code,
               })
               .eq('id', match.id);
             if (updErr) throw new Error(updErr.message);
