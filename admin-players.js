@@ -509,13 +509,81 @@
      permanently lock the second person out of the mailing list.
      ──────────────────────────────────────────────────────────────────── */
 
+  /* Normalises a name the same way the database does, so the browser and
+     the server never disagree about who is "the same person".
+     Mirrors public.normalize_name_for_matching():
+         lower → strip accents → collapse whitespace → trim
+
+     NFD splits an accented letter into base + combining mark, and the
+     regex then removes the marks: "Rodríguez" → "rodriguez". Without
+     this, registering as "Rodríguez" when "Rodriguez" already existed
+     created a second subscriber who received every campaign twice. */
+  const _normName = (s) =>
+    String(s ?? '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/\s+/g, ' ')
+      .trim();
+
   // True when a subscriber row refers to the same person as the given details.
   // Mirrors the RPC's matching rule. Used ONLY to predict the outcome in the
   // CSV preview — the RPC itself is what actually decides at import time.
   const _sameSubscriber = (row, firstName, lastName, email) =>
-    (row.email      || '').trim().toLowerCase() === email.trim().toLowerCase() &&
-    (row.first_name || '').trim().toLowerCase() === firstName.trim().toLowerCase() &&
-    (row.last_name  || '').trim().toLowerCase() === lastName.trim().toLowerCase();
+    (row.email || '').trim().toLowerCase() === email.trim().toLowerCase() &&
+    _normName(row.first_name) === _normName(firstName) &&
+    _normName(row.last_name)  === _normName(lastName);
+
+  /* Levenshtein distance, capped for speed. Only ever runs on names, so
+     the strings are short and the cost is irrelevant. */
+  const _editDistance = (a, b) => {
+    if (a === b) return 0;
+    const m = a.length, n = b.length;
+    if (!m) return n;
+    if (!n) return m;
+    let prev = Array.from({ length: n + 1 }, (_, i) => i);
+    for (let i = 1; i <= m; i++) {
+      const cur = [i];
+      for (let j = 1; j <= n; j++) {
+        cur[j] = Math.min(
+          prev[j] + 1,
+          cur[j - 1] + 1,
+          prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)
+        );
+      }
+      prev = cur;
+    }
+    return prev[n];
+  };
+
+  /* Is this probably the SAME person typed slightly differently, rather
+     than a family member sharing an inbox?
+     
+     Exact matches are already caught by the dedup, so this only sees
+     names that differ. Two signals, tuned against the real data:
+
+       · Same first name, different last  → "Luciana Garcia" vs
+         "Luciana SK Garcia". A relative would not share a first name.
+       · Same last name, and the first names are one a prefix of the
+         other or within 2 edits → "Yonayli"/"Yonaylin" (1 edit),
+         "Chris"/"Christopher" (prefix).
+
+     Checked against every shared-email pair on file: it flags the real
+     variants and stays quiet for the genuine families — Sammy/Salome
+     Mosquera (4 edits), Dirk/Dean Hall (3), William/Aiden Romanelli,
+     Andy/Henry Thomson. Zak/Jack Shimony (2 edits) is the one false
+     positive, which is why this warns instead of blocking. */
+  const _looksLikeSamePerson = (aFirst, aLast, bFirst, bLast) => {
+    const f1 = _normName(aFirst), l1 = _normName(aLast);
+    const f2 = _normName(bFirst), l2 = _normName(bLast);
+    if (f1 === f2 && l1 === l2) return false;   // handled by the dedup
+    if (f1 === f2) return true;                 // same first name
+    if (l1 === l2) {
+      if (f1.startsWith(f2) || f2.startsWith(f1)) return true;
+      if (_editDistance(f1, f2) <= 2) return true;
+    }
+    return false;
+  };
 
   /**
    * Creates this person's subscriber record, or reactivates it if they
@@ -616,8 +684,8 @@
         `&select=id,first_name,last_name,email&limit=50`
       );
       const namesakes = candidates.filter(p =>
-        (p.first_name || '').trim().toLowerCase() === firstName.toLowerCase() &&
-        (p.last_name  || '').trim().toLowerCase() === lastName.toLowerCase()
+        _normName(p.first_name) === _normName(firstName) &&
+        _normName(p.last_name)  === _normName(lastName)
       );
 
       if (namesakes.length) {
@@ -639,6 +707,35 @@
           cancelLabel: 'Cancel',
         });
         if (!proceed) return;
+      }
+
+      // Same email already on the mailing list under a SIMILAR name?
+      // A typo of one letter used to create a second subscriber silently,
+      // and that person then received every campaign twice. This is a
+      // warning, not a block: families legitimately share one inbox.
+      if (email) {
+        const sameEmailSubs = await api(
+          `subscribers?email=ilike.${encodeURIComponent(email)}` +
+          `&select=first_name,last_name,email&limit=25`
+        );
+        const lookalikes = (sameEmailSubs || [])
+          .filter(sub => (sub.email || '').trim().toLowerCase() === email.toLowerCase())
+          .filter(sub => _looksLikeSamePerson(sub.first_name, sub.last_name, firstName, lastName));
+
+        if (lookalikes.length) {
+          const names = lookalikes.map(x => `${x.first_name} ${x.last_name}`).join(', ');
+          const proceedEmail = await confirmModal({
+            title: 'This email is already on the mailing list',
+            message:
+              `${email} is already registered for ${names}. ` +
+              `That name is very close to "${firstName} ${lastName}", so this may be ` +
+              `the same person entered twice — which would send them every campaign ` +
+              `twice. If it is a family member sharing the inbox, continue.`,
+            okLabel: 'Different person — continue',
+            cancelLabel: 'Cancel',
+          });
+          if (!proceedEmail) return;
+        }
       }
 
       const body = {
@@ -1529,7 +1626,7 @@
     // on the same three fields used everywhere else (name + email).
     const seenInFile = new Set();
     const fileKey = (r) =>
-      `${r.first_name.toLowerCase()}|${r.last_name.toLowerCase()}|${r.email.toLowerCase()}`;
+      `${_normName(r.first_name)}|${_normName(r.last_name)}|${r.email.toLowerCase()}`;
 
     _importRows = lines.slice(1).map((line, i) => {
       // Handle quoted CSV fields
@@ -1583,9 +1680,9 @@
       // Uses the freshly-fetched local list, not the shared cache — see the
       // comment where importPlayers is loaded.
       const isDup = importPlayers.some(p =>
-        p.first_name?.toLowerCase() === row.first_name.toLowerCase() &&
-        p.last_name?.toLowerCase()  === row.last_name.toLowerCase()  &&
-        p.email?.toLowerCase()      === row.email.toLowerCase()
+        _normName(p.first_name) === _normName(row.first_name) &&
+        _normName(p.last_name)  === _normName(row.last_name)  &&
+        (p.email || '').toLowerCase() === row.email.toLowerCase()
       );
       if (isDup) { row._state = 'duplicate'; return row; }
 
@@ -1903,6 +2000,9 @@
             .limit(25);
           if (findErr) throw new Error(findErr.message);
 
+          // _sameSubscriber now normalises accents too, so editing a
+          // player whose subscriber row spells the name with a tilde
+          // finds it instead of silently skipping the sync.
           const match = (candidates || []).find(s =>
             _sameSubscriber(s, _origFirst, _origLast, _origEmail)
           );
