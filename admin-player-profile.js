@@ -406,7 +406,7 @@
       <div class="pp-quick-row"><div class="pp-quick-lbl">${ppSVG(ICONS.mail)} Email</div><div class="pp-quick-val">${p.email ? esc(p.email) : '—'} ${p.email ? `<span class="${p.email_verified ? 'pp-pill-verified' : 'pp-pill-unverified'}">${p.email_verified ? 'Verified' : 'Unverified'}</span>` : ''}</div></div>
       <div class="pp-quick-row"><div class="pp-quick-lbl">${ppSVG(ICONS.phone)} Phone</div><div class="pp-quick-val">${p.phone ? esc(FerociaPhone.format(p.country_code, p.phone)) : '—'} ${p.phone ? `<span class="${p.phone_verified ? 'pp-pill-verified' : 'pp-pill-unverified'}">${p.phone_verified ? 'Verified' : 'Unverified'}</span>` : ''}</div></div>
       <div class="pp-quick-row"><div class="pp-quick-lbl">${ppSVG(ICONS.skill)} Skill Level</div><div class="pp-quick-val">${p.skill_level ? esc(p.skill_level) : '—'}</div></div>
-      <div class="pp-quick-row"><div class="pp-quick-lbl">${ppSVG(ICONS.calendar)} Date of Birth</div><div class="pp-quick-val">${p.date_of_birth ? `${fmtDate(p.date_of_birth)}${age !== null ? ` (${age})` : ''}` : '—'}</div></div>
+      <div class="pp-quick-row"><div class="pp-quick-lbl">${ppSVG(ICONS.calendar)} Date of Birth</div><div class="pp-quick-val">${p.date_of_birth ? `${fmtDate(p.date_of_birth, { month:'2-digit', day:'2-digit', year:'numeric' })}${age !== null ? ` (${age})` : ''}` : '—'}</div></div>
       <div class="pp-quick-row"><div class="pp-quick-lbl">${ppSVG(ICONS.pin)} Location</div><div class="pp-quick-val">${p.location ? esc(p.location) : '—'}</div></div>`;
 
     el.innerHTML = `

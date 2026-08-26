@@ -408,6 +408,12 @@
     // included, even though the two parts are stored separately.
     const ph     = FerociaPhone.getValue('p-phone-field');
     const phone  = ph.phone ? `${ph.country_code} ${ph.phone}` : '';
+    // Shown as MM/DD/YYYY with the age, matching how the player profile
+    // presents it — so what the admin previews is what they will see later.
+    const dobVal = document.getElementById('p-dob')?.value || '';
+    const dobTxt = dobVal
+      ? `${dobDisplay(dobVal)}${dobAge(dobVal) !== null ? ` (${dobAge(dobVal)})` : ''}`
+      : '';
     const status = document.getElementById('p-status')?.value || 'active';
     const joined = document.getElementById('p-joined')?.value || '';
     const fullName = [fn, ln].filter(Boolean).join(' ');
@@ -449,6 +455,7 @@
       ${row(genI,   'Gender',  gender ? esc(gender) : '', 'Not set')}
       ${row(mailI,  'Email',   email  ? esc(email)  : '', 'Not provided')}
       ${row(phoneI, 'Phone',   phone  ? esc(phone)  : '', 'Not provided')}
+      ${row(calI,   'Born',    dobTxt ? esc(dobTxt) : '', 'Not set')}
       ${row(calI,   'Joined',  joined ? _apFmt(joined) : '', 'Not set')}
       ${row(gameI,  'Games',   '0', '')}
       <div class="ap-preview-divider"></div>
@@ -478,6 +485,114 @@
         }
       } catch(_) { warn.style.display = 'none'; }
     }, 600);
+  };
+
+  /* ─── DATE OF BIRTH ──────────────────────────────────────────
+     players.date_of_birth is a real `date` column, so what gets stored
+     is a day, not a string. YYYY-MM-DD is simply how PostgreSQL and
+     <input type="date"> exchange that value — the admin never sees it.
+     Everything shown on screen goes through dobDisplay() and comes out
+     as MM/DD/YYYY.
+
+     The column also matters beyond the admin: find_player_match() uses
+     the date of birth to confirm a player's identity in the mobile
+     app's account-claim flow. A wrong date there means a real person
+     fails verification, which is why the checks below are strict about
+     impossible values and merely cautious about unusual ones.
+     ──────────────────────────────────────────────────────────── */
+
+  const DOB_MIN_AGE      = 5;    // below this → rejected
+  const DOB_MAX_AGE      = 100;  // above this → rejected
+  const DOB_WARN_MIN_AGE = 10;   // below this → confirm
+  const DOB_WARN_MAX_AGE = 90;   // above this → confirm
+
+  // Age in whole years on today's date. Same arithmetic the player
+  // profile already uses, kept identical so both agree.
+  const dobAge = (iso) => {
+    if (!iso) return null;
+    const b = new Date(iso + 'T00:00:00');
+    if (isNaN(b.getTime())) return null;
+    const now = new Date();
+    let age = now.getFullYear() - b.getFullYear();
+    if (now.getMonth() < b.getMonth() ||
+       (now.getMonth() === b.getMonth() && now.getDate() < b.getDate())) age--;
+    return age;
+  };
+
+  // YYYY-MM-DD (storage) → MM/DD/YYYY (display). Built by hand rather
+  // than through Date, which would shift the day in western timezones.
+  const dobDisplay = (iso) => {
+    if (!iso) return '';
+    const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    return m ? `${m[2]}/${m[3]}/${m[1]}` : String(iso);
+  };
+
+  // The oldest and youngest dates the field will accept, as YYYY-MM-DD.
+  // Used for the <input type="date"> min/max so the browser greys out
+  // the impossible range before any validation runs.
+  const dobBound = (yearsAgo) => {
+    const d = new Date();
+    d.setFullYear(d.getFullYear() - yearsAgo);
+    return d.toISOString().split('T')[0];
+  };
+
+  /**
+   * Accepts MM/DD/YYYY (the CSV template's format) and YYYY-MM-DD
+   * (what Excel sometimes writes when it reformats a date column).
+   * The two are told apart by shape, so there is no ambiguity.
+   *
+   * A European 25/12/1980 fails on its own: month 25 does not exist.
+   * That is the right outcome — rejecting it is safer than guessing.
+   *
+   * @returns {string|null} YYYY-MM-DD, or null when unparseable.
+   */
+  const dobParse = (raw) => {
+    const v = String(raw ?? '').trim();
+    if (!v) return null;
+
+    let y, mo, d;
+    let m = v.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})$/);   // MM/DD/YYYY
+    if (m) { mo = +m[1]; d = +m[2]; y = +m[3]; }
+    else {
+      m = v.match(/^(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})$/);      // YYYY-MM-DD
+      if (!m) return null;
+      y = +m[1]; mo = +m[2]; d = +m[3];
+    }
+
+    if (mo < 1 || mo > 12 || d < 1 || d > 31) return null;
+
+    // Round-trip through Date to reject days that do not exist in that
+    // month — 02/30/1985 parses as numbers but is not a real day.
+    const dt = new Date(y, mo - 1, d);
+    if (dt.getFullYear() !== y || dt.getMonth() !== mo - 1 || dt.getDate() !== d) return null;
+
+    return `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+  };
+
+  /**
+   * @param {string?} iso  YYYY-MM-DD, or empty.
+   * @param {object?} opts { required: true }
+   * @returns {{ok:boolean, error?:string, warn?:string}}
+   *   `error` blocks the save. `warn` asks the admin to confirm — an
+   *   8-year-old is unusual but possible, while a mistyped year is not.
+   */
+  const dobCheck = (iso, opts) => {
+    const required = !!(opts && opts.required);
+    if (!iso) {
+      return required
+        ? { ok: false, error: 'Date of birth is required.' }
+        : { ok: true };
+    }
+    const age = dobAge(iso);
+    if (age === null) return { ok: false, error: 'That date of birth is not valid.' };
+    if (age < 0)      return { ok: false, error: 'Date of birth cannot be in the future.' };
+    if (age < DOB_MIN_AGE)
+      return { ok: false, error: `That date gives an age of ${age}. Please check the year.` };
+    if (age > DOB_MAX_AGE)
+      return { ok: false, error: `That date gives an age of ${age}. Please check the year.` };
+    if (age < DOB_WARN_MIN_AGE || age > DOB_WARN_MAX_AGE)
+      return { ok: true, warn: `That date of birth makes this player ${age} years old.` };
+    return { ok: true };
   };
 
   /* ─── SHARED SUBSCRIBER HELPERS ─────────────────────────────────────────
@@ -637,6 +752,16 @@
       onChange:   apUpdatePreview,
     });
 
+    // Bound the calendar itself, so the browser greys out the years that
+    // would be rejected anyway. Cheaper than letting the admin pick a
+    // date and only then telling them it is wrong.
+    const dobEl = document.getElementById('p-dob');
+    if (dobEl) {
+      dobEl.min = dobBound(DOB_MAX_AGE);
+      dobEl.max = dobBound(DOB_MIN_AGE);
+      dobEl.value = '';
+    }
+
     document.getElementById('p-joined').value = todayISO();
     // Hide dup warning on reset
     const warn = document.getElementById('p-dup-warn');
@@ -666,6 +791,24 @@
     }
     // { country_code: '+1', phone: '5613026946' } — or both null when empty.
     const _phone = FerociaPhone.getValue('p-phone-field');
+
+    // Date of birth is required here and in the CSV, but NOT in Edit
+    // Player: all 279 existing players have it empty, and blocking every
+    // edit until someone tracks down a birthday would push admins to
+    // invent dates — worse than a null, because an invented date looks
+    // valid and breaks identity verification in the claim flow.
+    const _dob = document.getElementById('p-dob')?.value || '';
+    const _dobCheck = dobCheck(_dob, { required: true });
+    if (!_dobCheck.ok) { toast(_dobCheck.error, true); return; }
+    if (_dobCheck.warn) {
+      const okDob = await confirmModal({
+        title: 'Check the date of birth',
+        message: `${_dobCheck.warn} Please confirm the year is correct before saving.`,
+        okLabel: 'Yes, that is correct',
+        cancelLabel: 'Let me fix it',
+      });
+      if (!okDob) return;
+    }
 
     const saveBtn = document.getElementById('add-player-btn');
     if (saveBtn) { saveBtn.disabled = true; saveBtn.innerHTML = 'Saving...'; }
@@ -742,8 +885,9 @@
         first_name: firstName,
         last_name:  lastName,
         email:      email || null,
-        phone:        _phone.phone,
-        country_code: _phone.country_code,
+        phone:         _phone.phone,
+        country_code:  _phone.country_code,
+        date_of_birth: _dob || null,
         gender:     document.getElementById('p-gender').value || null,
         skill_level:document.getElementById('p-skill').value || null,
         status:     document.getElementById('p-status').value,
@@ -1526,7 +1670,12 @@
 
   // ── Download CSV template ──────────────────────────────────────────────
   window.importDownloadTemplate = () => {
-    const csv = 'first_name,last_name,email,phone,gender\nJohn,Smith,john@email.com,561-555-1234,Male\nJane,Doe,jane@email.com,954-555-5678,Female';
+    // date_of_birth uses MM/DD/YYYY in the template. The importer also
+    // accepts YYYY-MM-DD, because Excel sometimes rewrites a date column
+    // into that shape when the file is saved.
+    const csv = 'first_name,last_name,email,phone,gender,date_of_birth\n'
+              + 'John,Smith,john@email.com,561-555-1234,Male,03/15/1985\n'
+              + 'Jane,Doe,jane@email.com,954-555-5678,Female,11/02/1990';
     const blob = new Blob([csv], { type: 'text/csv' });
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement('a');
@@ -1606,6 +1755,7 @@
     // Parse header
     const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/^"|"$/g,''));
     const colIdx = {
+      date_of_birth: headers.indexOf('date_of_birth'),
       first_name: headers.indexOf('first_name'),
       last_name:  headers.indexOf('last_name'),
       email:      headers.indexOf('email'),
@@ -1639,6 +1789,8 @@
         last_name:  get(colIdx.last_name),
         email:      get(colIdx.email),
         phone:      get(colIdx.phone),
+        dob_raw:    get(colIdx.date_of_birth),
+        dob:        null,   // rellenado por dobParse() más abajo
         gender:     get(colIdx.gender),
         date_joined: today,
         status:     'active',
@@ -1667,6 +1819,24 @@
       if (!_rowDigits)                 row._errors.push('Missing phone');
       else if (_rowDigits.length !== 10)
         row._errors.push(`Phone must be 10 digits (has ${_rowDigits.length})`);
+
+      // Date of birth is required in the CSV (approved decision).
+      // dobParse() accepts MM/DD/YYYY and YYYY-MM-DD and rejects days
+      // that do not exist, so 02/30/1985 fails here rather than silently
+      // becoming March 2nd.
+      if (!row.dob_raw) row._errors.push('Missing date of birth');
+      else {
+        row.dob = dobParse(row.dob_raw);
+        if (!row.dob) {
+          row._errors.push(`Invalid date of birth "${row.dob_raw}" — use MM/DD/YYYY`);
+        } else {
+          const c = dobCheck(row.dob, { required: true });
+          // Only hard errors stop a row. The "unusual age" warning has no
+          // one to ask during a bulk import, so it is not applied here —
+          // the age bounds already reject the impossible values.
+          if (!c.ok) row._errors.push(c.error);
+        }
+      }
       if (row.gender && !['male','female'].includes(row.gender.toLowerCase())) {
         row._errors.push('Gender must be Male or Female');
       } else if (row.gender) {
@@ -1763,6 +1933,7 @@
         <td>${esc(r.email)}</td>
         <td>${r.phone ? esc(FerociaPhone.format(FerociaPhone.normalize(r.phone).length === 10 ? '+1' : null, r.phone)) : '—'}</td>
         <td>${esc(r.gender||'—')}</td>
+        <td>${r.dob ? esc(dobDisplay(r.dob)) : (r.dob_raw ? `<span style="color:#e53935;">${esc(r.dob_raw)}</span>` : '—')}</td>
         <td style="white-space:nowrap;">${badge}${subBadge}</td>
       </tr>`;
     }).join('');
@@ -1803,6 +1974,7 @@
           // no country column, and 99.7% of records on file are US numbers).
           // A number that is not 10 digits is left with no dial code rather
           // than mislabelled, so it can be found and fixed later.
+          date_of_birth: row.dob,
           phone:        FerociaPhone.normalize(row.phone) || null,
           country_code: FerociaPhone.normalize(row.phone).length === 10 ? '+1' : null,
           gender:      row.gender || null,
@@ -1879,6 +2051,15 @@
       required:   true,
       value:      { country_code: p.country_code, phone: p.phone },
     });
+
+    // Optional in Edit Player for now (approved). The bounds still apply
+    // so a typo cannot be picked from the calendar.
+    const editDob = document.getElementById('edit-dob');
+    if (editDob) {
+      editDob.min   = dobBound(DOB_MAX_AGE);
+      editDob.max   = dobBound(DOB_MIN_AGE);
+      editDob.value = p.date_of_birth || '';
+    }
     document.getElementById('edit-gender').value = p.gender || '';
     document.getElementById('edit-status').value = p.status || 'active';
 
@@ -1953,12 +2134,26 @@
     }
     const _editPhone = FerociaPhone.getValue('edit-phone-field');
 
+    const _editDob = document.getElementById('edit-dob')?.value || '';
+    const _editDobCheck = dobCheck(_editDob, { required: false });
+    if (!_editDobCheck.ok) { toast(_editDobCheck.error, true); return; }
+    if (_editDobCheck.warn) {
+      const okDob = await confirmModal({
+        title: 'Check the date of birth',
+        message: `${_editDobCheck.warn} Please confirm the year is correct before saving.`,
+        okLabel: 'Yes, that is correct',
+        cancelLabel: 'Let me fix it',
+      });
+      if (!okDob) return;
+    }
+
     const body = {
       first_name: document.getElementById('edit-first').value.trim(),
       last_name: document.getElementById('edit-last').value.trim(),
       email: editEmail,
-      phone:        _editPhone.phone,
-      country_code: _editPhone.country_code,
+      phone:         _editPhone.phone,
+      country_code:  _editPhone.country_code,
+      date_of_birth: _editDob || null,
       gender: document.getElementById('edit-gender').value || null,
       status: newStatus,
     };
