@@ -621,11 +621,15 @@ window.selectLadderType = (type) => {
       }
 
       const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      // fmtTime12() already lives in this file (admin-sessions.js uses it too),
+      // so the "09:00:00" Postgres returns becomes "9:00 AM" through the same
+      // formatter as the rest of the admin.
+      const clockSVG = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`;
       const editSVG  = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
       const delSVG   = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#e53935" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>`;
       const linkSVG  = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`;
 
-      el.innerHTML = events.map((ev) => {
+      el.innerHTML = `<div class="ev-grid">` + events.map((ev) => {
         const d      = new Date(ev.event_date + 'T00:00:00');
         const day    = d.getDate();
         const mon    = months[d.getMonth()];
@@ -648,7 +652,14 @@ window.selectLadderType = (type) => {
                 <div class="ev-date-day">${day}</div>
                 <div class="ev-date-mon">${mon}</div>
               </div>
-              <div class="ev-card-title">${esc(ev.title)}</div>
+              <div style="min-width:0;">
+                <div class="ev-card-title">${esc(ev.title)}</div>
+                ${(ev.event_time || ev.end_time) ? `<div class="ev-card-time">${clockSVG}${
+                  ev.event_time && ev.end_time
+                    ? `${fmtTime12(ev.event_time)} – ${fmtTime12(ev.end_time)}`
+                    : fmtTime12(ev.event_time || ev.end_time)
+                }</div>` : ''}
+              </div>
             </div>
             ${ev.description ? `<div class="ev-card-desc">${esc(ev.description)}</div>` : ''}
             <div class="ev-card-actions">
@@ -673,7 +684,7 @@ window.selectLadderType = (type) => {
             </div>
           </div>
         </div>`;
-      }).join('');
+      }).join('') + `</div>`;
     } catch (err) {
       el.innerHTML = `<div class="empty">Error: ${esc(err.message)}</div>`;
     }
