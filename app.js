@@ -604,7 +604,9 @@ window.selectLadderType = (type) => {
     if (!el) return;
     try {
       const today = new Date().toISOString().split('T')[0];
-      const events = await api(`events?event_date=gte.${today}&select=*&order=event_date.asc`);
+      // Same ordering as the public page, so both lists agree: by date, then
+      // by start time, with events that have no time last within their day.
+      const events = await api(`events?event_date=gte.${today}&select=*&order=event_date.asc,event_time.asc.nullslast`);
       // Update count badge
       const badge = document.getElementById('events-count-badge');
       if (badge) badge.textContent = events.length || '';

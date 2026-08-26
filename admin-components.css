@@ -102,13 +102,20 @@
      the cards now flow into as many columns as fit. auto-fill with a
      minimum of 240px means the browser decides the count — no breakpoints
      to maintain, and it collapses to one column on a phone by itself. */
-  .ev-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;align-items:start;}
-  .ev-card{border:0.5px solid var(--divider-color);border-radius:8px;overflow:hidden;display:flex;flex-direction:column;}
+  /* No align-items:start — the default `stretch` is what makes every card
+     in a row share the tallest one's height. With `start` each card sized
+     to its own content and the row looked ragged. */
+  .ev-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;}
+  .ev-card{border:0.5px solid var(--divider-color);border-radius:8px;overflow:hidden;display:flex;flex-direction:column;height:100%;}
+  .ev-card-actions{margin-top:auto;}
   /* Time range under the title. Muted so the title still leads. */
   .ev-card-time{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:var(--text-muted);margin-top:4px;}
   .ev-card-time svg{flex:0 0 auto;}
   .ev-card:last-child{margin-bottom:0;}
-  .ev-card-body{padding:10px 12px;}
+  /* flex:1 makes the body fill the card, and .ev-card-actions{margin-top:auto}
+     then pushes the buttons to the bottom edge — so they line up across a
+     row no matter how long each title or description is. */
+  .ev-card-body{padding:10px 12px;flex:1 1 auto;display:flex;flex-direction:column;}
   .ev-card-flyer{width:100%;height:100px;object-fit:cover;border-bottom:0.5px solid var(--divider-color);display:block;}
   .ev-card-flyer-placeholder{width:100%;height:80px;background:var(--bg);display:flex;align-items:center;justify-content:center;border-bottom:0.5px solid var(--divider-color);}
   .ev-date-block{display:flex;align-items:center;gap:10px;margin-bottom:6px;}
