@@ -854,6 +854,13 @@ window.selectLadderType = (type) => {
     // Show modal
     const modal = document.getElementById('edit-event-modal');
     modal.style.display = 'flex';
+
+    // The modal card scrolls (overflow-y:auto, max-height:90vh) and the
+    // element is reused, so it keeps whatever scroll position it had last
+    // time — reopening it landed the admin down by the buttons instead of
+    // at the title. Reset it to the top on every open.
+    const card = modal.querySelector('.card');
+    if (card) card.scrollTop = 0;
   };
 
   /* ─── EVENT TYPE → WHICH FIELDS APPLY ────────────────────────
