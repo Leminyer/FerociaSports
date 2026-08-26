@@ -13,23 +13,23 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Ferocia Pickleball Ladder</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="design-tokens.css?v=20260826d">
-<link rel="stylesheet" href="tournament.css?v=20260826d">
-<link rel="stylesheet" href="app.css?v=20260826d">
-<link rel="stylesheet" href="country-codes.css?v=20260826d">
+<link rel="stylesheet" href="design-tokens.css?v=20260826e">
+<link rel="stylesheet" href="tournament.css?v=20260826e">
+<link rel="stylesheet" href="app.css?v=20260826e">
+<link rel="stylesheet" href="country-codes.css?v=20260826e">
 <!-- Extracted from the four embedded CSS blocks that used to live in this
      file. ORDER MATTERS: later rules of equal specificity win, so these
      four must stay in this sequence. See the header of admin-layout.css. -->
-<link rel="stylesheet" href="admin-layout.css?v=20260826d">
-<link rel="stylesheet" href="admin-components.css?v=20260826d">
-<link rel="stylesheet" href="admin-pages.css?v=20260826d">
-<link rel="stylesheet" href="admin-ftc.css?v=20260826d">
+<link rel="stylesheet" href="admin-layout.css?v=20260826e">
+<link rel="stylesheet" href="admin-components.css?v=20260826e">
+<link rel="stylesheet" href="admin-pages.css?v=20260826e">
+<link rel="stylesheet" href="admin-ftc.css?v=20260826e">
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-<script src="config.js?v=20260826d"></script>
+<script src="config.js?v=20260826e"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="db.js?v=20260826d"></script>
-<script src="auth.js?v=20260826d"></script>
-<script src="assets.js?v=20260826d"></script>
+<script src="db.js?v=20260826e"></script>
+<script src="auth.js?v=20260826e"></script>
+<script src="assets.js?v=20260826e"></script>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 </head>
@@ -1639,23 +1639,39 @@
             </div>
             <div class="ap-group" style="margin-bottom:12px;">
               <label class="ap-label">Event Type <span style="color:var(--orange);">*</span></label>
-              <select id="event-type" class="ap-input" onchange="applyEventTypeFields('create', this.value)" required>
-                <option value="">Select type...</option>
-                <option value="tournament">Tournament</option>
-                <option value="ladder">Ladder</option>
-                <option value="clinic">Clinic</option>
-                <option value="private_session">Private Session</option>
-                <option value="other">Other</option>
-              </select>
+              <!-- Pills instead of a dropdown: five options are few enough to
+                   show at once, and the choice drives which fields appear
+                   below — worth seeing without opening a menu.
+                   The value lives in the hidden input so every existing
+                   reader (document.getElementById('event-type').value) keeps
+                   working untouched. -->
+              <div class="ev-type-pills" id="event-type-pills">
+                <button type="button" class="ev-type-pill" data-evtype="tournament"      onclick="setEventType('create','tournament')">Tournament</button>
+                <button type="button" class="ev-type-pill" data-evtype="ladder"          onclick="setEventType('create','ladder')">Ladder</button>
+                <button type="button" class="ev-type-pill" data-evtype="clinic"          onclick="setEventType('create','clinic')">Clinic</button>
+                <button type="button" class="ev-type-pill" data-evtype="private_session" onclick="setEventType('create','private_session')">Private Session</button>
+                <button type="button" class="ev-type-pill" data-evtype="other"           onclick="setEventType('create','other')">Other</button>
+              </div>
+              <input type="hidden" id="event-type">
             </div>
-            <div class="ap-grid">
+            <!-- Row 1: the two dates side by side. The grid drops to a single
+                 column when End Date is hidden (class ev-dates-single, set by
+                 applyEventTypeFields) so the start date does not sit alone in
+                 half the width. -->
+            <div class="ap-grid ev-dates-single" id="event-dates-row">
               <div class="ap-group">
-                <!-- The wording changes with the event type (see
-                     applyEventTypeFields): a ladder or clinic runs for weeks,
-                     so its date is a START date, not the date of the event. -->
+                <!-- The wording changes with the event type: a ladder or clinic
+                     runs for weeks, so its date is a START date. -->
                 <label class="ap-label" id="event-date-label">Event Date <span style="color:var(--orange);">*</span></label>
                 <input type="date" id="event-date" class="ap-input" required>
               </div>
+              <div class="ap-group" id="event-end-date-wrap" style="display:none;">
+                <label class="ap-label">End Date <span style="color:var(--orange);">*</span></label>
+                <input type="date" id="event-end-date" class="ap-input">
+              </div>
+            </div>
+            <!-- Row 2: both times together. -->
+            <div class="ap-grid" style="margin-top:12px;">
               <div class="ap-group">
                 <label class="ap-label">Start Time <span style="font-size:9px;font-weight:600;color:#b0bbd6;text-transform:none;letter-spacing:0;">(optional)</span></label>
                 <input type="time" id="event-time" class="ap-input">
@@ -1663,12 +1679,6 @@
               <div class="ap-group">
                 <label class="ap-label">End Time <span style="font-size:9px;font-weight:600;color:#b0bbd6;text-transform:none;letter-spacing:0;">(optional)</span></label>
                 <input type="time" id="event-end-time" class="ap-input">
-              </div>
-            </div>
-            <div id="event-end-date-wrap" style="display:none;margin-top:12px;">
-              <div class="ap-group">
-                <label class="ap-label">End Date <span style="color:var(--orange);">*</span> <span style="font-size:9px;font-weight:600;color:#b0bbd6;text-transform:none;letter-spacing:0;">Ladder only — informational</span></label>
-                <input type="date" id="event-end-date" class="ap-input">
               </div>
             </div>
           </div>
@@ -1761,20 +1771,26 @@
           </div>
           <div class="ap-group" style="margin-bottom:12px;">
             <label class="ap-label">Event Type <span style="color:var(--orange);">*</span></label>
-            <select id="edit-event-type" class="ap-input" onchange="applyEventTypeFields('edit', this.value)">
-              <option value="">Select type...</option>
-              <option value="tournament">Tournament</option>
-              <option value="ladder">Ladder</option>
-              <option value="clinic">Clinic</option>
-              <option value="private_session">Private Session</option>
-              <option value="other">Other</option>
-            </select>
+            <div class="ev-type-pills" id="edit-event-type-pills">
+              <button type="button" class="ev-type-pill" data-evtype="tournament"      onclick="setEventType('edit','tournament')">Tournament</button>
+              <button type="button" class="ev-type-pill" data-evtype="ladder"          onclick="setEventType('edit','ladder')">Ladder</button>
+              <button type="button" class="ev-type-pill" data-evtype="clinic"          onclick="setEventType('edit','clinic')">Clinic</button>
+              <button type="button" class="ev-type-pill" data-evtype="private_session" onclick="setEventType('edit','private_session')">Private Session</button>
+              <button type="button" class="ev-type-pill" data-evtype="other"           onclick="setEventType('edit','other')">Other</button>
+            </div>
+            <input type="hidden" id="edit-event-type">
           </div>
-          <div class="ap-grid" style="margin-bottom:12px;">
+          <div class="ap-grid ev-dates-single" id="edit-event-dates-row" style="margin-bottom:12px;">
             <div class="ap-group">
               <label class="ap-label" id="edit-event-date-label">Event Date <span style="color:var(--orange);">*</span></label>
               <input type="date" id="edit-event-date" class="ap-input" required>
             </div>
+            <div class="ap-group" id="edit-event-end-date-wrap" style="display:none;">
+              <label class="ap-label">End Date <span style="color:var(--orange);">*</span></label>
+              <input type="date" id="edit-event-end-date" class="ap-input">
+            </div>
+          </div>
+          <div class="ap-grid" style="margin-bottom:12px;">
             <div class="ap-group">
               <label class="ap-label">Start Time <span style="font-size:9px;font-weight:600;color:#b0bbd6;text-transform:none;letter-spacing:0;">(optional)</span></label>
               <input type="time" id="edit-event-time" class="ap-input">
@@ -1782,12 +1798,6 @@
             <div class="ap-group">
               <label class="ap-label">End Time <span style="font-size:9px;font-weight:600;color:#b0bbd6;text-transform:none;letter-spacing:0;">(optional)</span></label>
               <input type="time" id="edit-event-end-time" class="ap-input">
-            </div>
-          </div>
-          <div id="edit-event-end-date-wrap" style="display:none;margin-bottom:12px;">
-            <div class="ap-group">
-              <label class="ap-label">End Date <span style="color:var(--orange);">*</span> <span style="font-size:9px;font-weight:600;color:#b0bbd6;text-transform:none;letter-spacing:0;">Ladder only — informational</span></label>
-              <input type="date" id="edit-event-end-date" class="ap-input">
             </div>
           </div>
           <div class="ap-group">
@@ -3158,28 +3168,28 @@
 
 <!-- Loaded before every admin-* module: three of them call
      FerociaPhone.format() when rendering. -->
-<script src="country-codes.js?v=20260826d"></script>
-<script src="admin-state.js?v=20260826d"></script>
-<script src="admin-incident-reports.js?v=20260826d"></script>
-<script src="admin-ladder-selector.js?v=20260826d"></script>
-<script src="admin-orders.js?v=20260826d"></script>
-<script src="admin-email-utils.js?v=20260826d"></script>
-<script src="admin-share.js?v=20260826d"></script>
-<script src="admin-tournament-notify.js?v=20260826d"></script>
-<script src="admin-player-status-history.js?v=20260826d"></script>
-<script src="admin-player-profile.js?v=20260826d"></script>
-<script src="admin-email-notifications.js?v=20260826d"></script>
-<script src="admin-ladder-standings.js?v=20260826d"></script>
-<script src="admin-sessions.js?v=20260826d"></script>
-<script src="admin-print-roster.js?v=20260826d"></script>
-<script src="admin-ladder-management.js?v=20260826d"></script>
-<script src="admin-promotions.js?v=20260826d"></script>
-<script src="admin-players.js?v=20260826d"></script>
-<script src="admin-ftc-standings.js?v=20260826d"></script>
-<script src="admin-ftc-playoffs-schedule.js?v=20260826d"></script>
-<script src="admin-ftc-teams.js?v=20260826d"></script>
-<script src="app.js?v=20260826d"></script>
-<script src="tournament.js?v=20260826d"></script>
+<script src="country-codes.js?v=20260826e"></script>
+<script src="admin-state.js?v=20260826e"></script>
+<script src="admin-incident-reports.js?v=20260826e"></script>
+<script src="admin-ladder-selector.js?v=20260826e"></script>
+<script src="admin-orders.js?v=20260826e"></script>
+<script src="admin-email-utils.js?v=20260826e"></script>
+<script src="admin-share.js?v=20260826e"></script>
+<script src="admin-tournament-notify.js?v=20260826e"></script>
+<script src="admin-player-status-history.js?v=20260826e"></script>
+<script src="admin-player-profile.js?v=20260826e"></script>
+<script src="admin-email-notifications.js?v=20260826e"></script>
+<script src="admin-ladder-standings.js?v=20260826e"></script>
+<script src="admin-sessions.js?v=20260826e"></script>
+<script src="admin-print-roster.js?v=20260826e"></script>
+<script src="admin-ladder-management.js?v=20260826e"></script>
+<script src="admin-promotions.js?v=20260826e"></script>
+<script src="admin-players.js?v=20260826e"></script>
+<script src="admin-ftc-standings.js?v=20260826e"></script>
+<script src="admin-ftc-playoffs-schedule.js?v=20260826e"></script>
+<script src="admin-ftc-teams.js?v=20260826e"></script>
+<script src="app.js?v=20260826e"></script>
+<script src="tournament.js?v=20260826e"></script>
 <script>
   // ── Sidebar toggle — persisted in localStorage ──────────────────────
   (function() {

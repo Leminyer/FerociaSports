@@ -51,6 +51,32 @@
   .ap-section-title{font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--blue);margin-bottom:14px;display:flex;align-items:center;gap:8px;}
   .ap-section-title::after{content:'';flex:1;height:1px;background:#e8f0ff;}
   .ap-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  /* Date row collapses to one column when End Date is hidden, so the start
+     date fills the width instead of sitting in half of it. Toggled from
+     applyEventTypeFields(). */
+  .ap-grid.ev-dates-single{grid-template-columns:1fr;}
+
+  /* ── EVENT TYPE PILLS ────────────────────────────────────────
+     Replaces the dropdown. Five options fit on one line and the choice
+     drives which fields appear below, so it is worth seeing at a glance
+     rather than behind a menu. */
+  .ev-type-pills{display:flex;flex-wrap:wrap;gap:6px;}
+  .ev-type-pill{
+    font-family:'Inter',sans-serif;font-size:12px;font-weight:600;
+    padding:8px 14px;border-radius:99px;
+    border:1px solid var(--divider-color);background:white;color:var(--text-muted);
+    cursor:pointer;transition:background .15s,border-color .15s,color .15s;
+    white-space:nowrap;
+  }
+  .ev-type-pill:hover{border-color:#c5d6f5;background:rgba(23,76,204,0.03);color:var(--text);}
+  .ev-type-pill.is-active{
+    background:var(--blue);border-color:var(--blue);color:white;
+    box-shadow:0 2px 6px rgba(23,76,204,0.22);
+  }
+  .ev-type-pill:focus-visible{outline:none;box-shadow:0 0 0 4px rgba(23,76,204,0.14);}
+  @media(max-width:520px){
+    .ev-type-pill{padding:7px 11px;font-size:11.5px;}
+  }
   .ap-group{display:flex;flex-direction:column;gap:5px;}
   .ap-label{font-size:10px;font-weight:700;letter-spacing:.3px;text-transform:uppercase;color:var(--text-muted);}
   .ap-input{font-family:'Inter',sans-serif;font-size:13px;font-weight:600;padding:9px 12px;border:1px solid var(--divider-color);border-radius:8px;color:var(--text);background:white;outline:none;transition:border-color .15s,background .15s,box-shadow .15s;width:100%;}

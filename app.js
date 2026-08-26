@@ -756,7 +756,7 @@ window.selectLadderType = (type) => {
       });
       toast(`Event "${title}" created!`);
       document.getElementById('create-event-form').reset();
-      applyEventTypeFields('create', '');   // relabel + hide End Date again
+      setEventType('create', '');   // clear pills, relabel, hide End Date
       document.getElementById('event-flyer-preview').style.display = 'none';
       const lbl = document.getElementById('ev-flyer-label-text');
       if (lbl) lbl.textContent = 'Click to upload flyer — 800×1000px recommended, max 5MB';
@@ -812,14 +812,17 @@ window.selectLadderType = (type) => {
     document.getElementById('edit-event-description').value = btn.dataset.evdesc;
     document.getElementById('edit-event-reg-url').value   = btn.dataset.evreg;
     document.getElementById('edit-event-old-flyer').value = btn.dataset.evflyer;
-    const editTypeEl = document.getElementById('edit-event-type');
-    if (editTypeEl) editTypeEl.value = btn.dataset.evtype || '';
+    // setEventType() is called after the End Date value is set, further
+    // down, so it is not applied here — doing both would clear the field.
     // Set the End Date value BEFORE relabelling: applyEventTypeFields()
     // clears the field for types that do not use it, and doing it the other
     // way round would blank a ladder's saved end date.
+    // Set the End Date value BEFORE selecting the type: setEventType()
+    // clears that field for types that do not use it, and the other order
+    // would blank a ladder's saved end date.
     const editEndEl = document.getElementById('edit-event-end-date');
     if (editEndEl) editEndEl.value = btn.dataset.evend || '';
-    applyEventTypeFields('edit', btn.dataset.evtype || '');
+    setEventType('edit', btn.dataset.evtype || '');
 
     // Wire styled file label to hidden input (once only)
     const editFlyerInput   = document.getElementById('edit-event-flyer');
@@ -874,6 +877,30 @@ window.selectLadderType = (type) => {
   };
 
   /**
+   * Picks an event type from the pill buttons.
+   *
+   * The value lives in a hidden input with the same id the dropdown used
+   * to have, so createEvent(), editEvent() and every other reader keeps
+   * working with no change: they still call .value on 'event-type'.
+   *
+   * @param {'create'|'edit'} form
+   * @param {string} type   '' clears the selection.
+   */
+  window.setEventType = (form, type) => {
+    const p     = form === 'edit' ? 'edit-' : '';
+    const input = document.getElementById(`${p}event-type`);
+    if (input) input.value = type || '';
+
+    const pills = document.getElementById(`${p}event-type-pills`);
+    if (pills) {
+      pills.querySelectorAll('.ev-type-pill').forEach((btn) => {
+        btn.classList.toggle('is-active', btn.dataset.evtype === type);
+      });
+    }
+    window.applyEventTypeFields(form, type || '');
+  };
+
+  /**
    * @param {'create'|'edit'} form  Which of the two event forms to adjust.
    * @param {string} type           The selected event_type.
    */
@@ -895,6 +922,12 @@ window.selectLadderType = (type) => {
       if (inp) inp.required = rules.endDate;
       if (!rules.endDate && inp) inp.value = '';
     }
+
+    // End Date is a cell of the dates row now, so the row itself has to
+    // drop to a single column when that cell is hidden — otherwise the
+    // start date would sit in half the width with an empty gap beside it.
+    const row = document.getElementById(`${p}event-dates-row`);
+    if (row) row.classList.toggle('ev-dates-single', !rules.endDate);
   };
 
   /* Kept for backwards compatibility: any inline handler still calling the
