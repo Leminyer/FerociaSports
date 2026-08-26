@@ -661,6 +661,7 @@ window.selectLadderType = (type) => {
                 data-evreg="${esc(ev.registration_url || '')}"
                 data-evflyer="${esc(ev.flyer_url || '')}"
                 data-evtime="${esc(ev.event_time || '')}"
+                data-evendtime="${esc(ev.end_time || '')}"
                 data-evtype="${esc(ev.event_type || '')}"
                 data-evend="${esc(ev.end_date || '')}"
                 title="Edit event">${editSVG}</button>
@@ -684,6 +685,11 @@ window.selectLadderType = (type) => {
     const date      = document.getElementById('event-date').value;
     const eventType = document.getElementById('event-type').value;
     const endDate   = document.getElementById('event-end-date').value;
+    // event_time was read nowhere before, in EITHER form: the field existed,
+    // the admin filled it in, and the value was dropped on save without a
+    // word. Both times are now read and stored.
+    const startTime = document.getElementById('event-time').value;
+    const endTime   = document.getElementById('event-end-time').value;
     const desc      = document.getElementById('event-description').value.trim();
     const regUrl    = document.getElementById('event-reg-url').value.trim();
     const file      = document.getElementById('event-flyer').files[0];
@@ -691,6 +697,10 @@ window.selectLadderType = (type) => {
     if (!title || !date) { toast('Title and date are required.', true); return; }
     if (!eventType)      { toast('Please select an event type.', true); return; }
     if (eventType === 'ladder' && !endDate) { toast('End date is required for ladder events.', true); return; }
+    const _timeErr = checkEventTimes(startTime, endTime);
+    if (_timeErr) { toast(_timeErr, true); return; }
+    const _dateErr = checkEventDates(date, endDate);
+    if (_dateErr) { toast(_dateErr, true); return; }
     if (file && file.size > 5 * 1024 * 1024) { toast('Flyer must be under 5MB.', true); return; }
 
     const btn = document.getElementById('create-event-btn');
@@ -726,6 +736,8 @@ window.selectLadderType = (type) => {
         title,
         event_date: date,
         end_date: (eventType === 'ladder' && endDate) ? endDate : null,
+        event_time: startTime || null,
+        end_time:   endTime   || null,
         event_type: eventType,
         description: desc || null,
         registration_url: regUrl || null,
@@ -733,7 +745,7 @@ window.selectLadderType = (type) => {
       });
       toast(`Event "${title}" created!`);
       document.getElementById('create-event-form').reset();
-      document.getElementById('event-end-date-wrap').style.display = 'none';
+      applyEventTypeFields('create', '');   // relabel + hide End Date again
       document.getElementById('event-flyer-preview').style.display = 'none';
       const lbl = document.getElementById('ev-flyer-label-text');
       if (lbl) lbl.textContent = 'Click to upload flyer — 800×1000px recommended, max 5MB';
@@ -784,17 +796,19 @@ window.selectLadderType = (type) => {
     document.getElementById('edit-event-date').value      = btn.dataset.evdate;
     const timeEl = document.getElementById('edit-event-time');
     if (timeEl) timeEl.value = btn.dataset.evtime || '';
+    const endTimeEl = document.getElementById('edit-event-end-time');
+    if (endTimeEl) endTimeEl.value = btn.dataset.evendtime || '';
     document.getElementById('edit-event-description').value = btn.dataset.evdesc;
     document.getElementById('edit-event-reg-url').value   = btn.dataset.evreg;
     document.getElementById('edit-event-old-flyer').value = btn.dataset.evflyer;
     const editTypeEl = document.getElementById('edit-event-type');
     if (editTypeEl) editTypeEl.value = btn.dataset.evtype || '';
-    const editEndWrap = document.getElementById('edit-event-end-date-wrap');
-    const editEndEl   = document.getElementById('edit-event-end-date');
-    if (editEndWrap && editEndEl) {
-      editEndWrap.style.display = btn.dataset.evtype === 'ladder' ? 'block' : 'none';
-      editEndEl.value = btn.dataset.evend || '';
-    }
+    // Set the End Date value BEFORE relabelling: applyEventTypeFields()
+    // clears the field for types that do not use it, and doing it the other
+    // way round would blank a ladder's saved end date.
+    const editEndEl = document.getElementById('edit-event-end-date');
+    if (editEndEl) editEndEl.value = btn.dataset.evend || '';
+    applyEventTypeFields('edit', btn.dataset.evtype || '');
 
     // Wire styled file label to hidden input (once only)
     const editFlyerInput   = document.getElementById('edit-event-flyer');
@@ -828,14 +842,74 @@ window.selectLadderType = (type) => {
     modal.style.display = 'flex';
   };
 
-  window.toggleEventEndDate = (wrapId, type) => {
-    const wrap = document.getElementById(wrapId);
+  /* ─── EVENT TYPE → WHICH FIELDS APPLY ────────────────────────
+     Not every event type means the same thing by "date". A tournament
+     happens on a day; a ladder or a clinic runs for weeks, so its date
+     is when it STARTS. Private sessions are an ongoing offering, so
+     theirs is when they became available.
+
+     events.event_date is NOT NULL, so every type still stores one — only
+     the wording on screen changes. No extra column, no migration.
+
+     End Date appears for ladders only. Clinics recur without a defined
+     finish (approved decision), and the other types do not need it. */
+  const EVENT_TYPE_RULES = {
+    tournament:      { dateLabel: 'Event Date',     endDate: false },
+    ladder:          { dateLabel: 'Start Date',     endDate: true  },
+    clinic:          { dateLabel: 'Start Date',     endDate: false },
+    private_session: { dateLabel: 'Available From', endDate: false },
+    other:           { dateLabel: 'Event Date',     endDate: false },
+    '':              { dateLabel: 'Event Date',     endDate: false },
+  };
+
+  /**
+   * @param {'create'|'edit'} form  Which of the two event forms to adjust.
+   * @param {string} type           The selected event_type.
+   */
+  window.applyEventTypeFields = (form, type) => {
+    const p     = form === 'edit' ? 'edit-' : '';
+    const rules = EVENT_TYPE_RULES[type] || EVENT_TYPE_RULES[''];
+
+    // Relabel the date field. The red asterisk is rebuilt because the
+    // field stays required for every type.
+    const lbl = document.getElementById(`${p}event-date-label`);
+    if (lbl) lbl.innerHTML = `${rules.dateLabel} <span style="color:var(--orange);">*</span>`;
+
+    // Show or hide End Date, and clear it when hidden so a value left
+    // over from another type does not get saved.
+    const wrap = document.getElementById(`${p}event-end-date-wrap`);
     const inp  = wrap ? wrap.querySelector('input[type="date"]') : null;
-    if (!wrap) return;
-    const show = type === 'ladder';
-    wrap.style.display = show ? 'block' : 'none';
-    if (inp) inp.required = show;
-    if (!show && inp) inp.value = '';
+    if (wrap) {
+      wrap.style.display = rules.endDate ? 'block' : 'none';
+      if (inp) inp.required = rules.endDate;
+      if (!rules.endDate && inp) inp.value = '';
+    }
+  };
+
+  /* Kept for backwards compatibility: any inline handler still calling the
+     old name keeps working. New code should call applyEventTypeFields. */
+  window.toggleEventEndDate = (wrapId, type) =>
+    window.applyEventTypeFields(wrapId.startsWith('edit-') ? 'edit' : 'create', type);
+
+  /**
+   * End time must come after start time. Only checked when BOTH are set:
+   * either alone is legitimate, and an event that finishes before it
+   * begins is always a typing error.
+   * @returns {string|null} The error message, or null when valid.
+   */
+  window.checkEventTimes = (startTime, endTime) => {
+    if (!startTime || !endTime) return null;
+    return endTime <= startTime
+      ? 'End time must be later than the start time.'
+      : null;
+  };
+
+  /** Same idea for the ladder date range. */
+  window.checkEventDates = (startDate, endDate) => {
+    if (!startDate || !endDate) return null;
+    return endDate < startDate
+      ? 'End date cannot be earlier than the start date.'
+      : null;
   };
 
   const closeEditEventModal = () => {
@@ -849,6 +923,8 @@ window.selectLadderType = (type) => {
     const date      = document.getElementById('edit-event-date').value;
     const eventType = document.getElementById('edit-event-type').value;
     const endDate   = document.getElementById('edit-event-end-date').value;
+    const startTime = document.getElementById('edit-event-time').value;
+    const endTime   = document.getElementById('edit-event-end-time').value;
     const desc      = document.getElementById('edit-event-description').value.trim();
     const regUrl    = document.getElementById('edit-event-reg-url').value.trim();
     const file      = document.getElementById('edit-event-flyer').files[0];
@@ -857,6 +933,10 @@ window.selectLadderType = (type) => {
     if (!title || !date)  { toast('Title and date are required.', true); return; }
     if (!eventType)       { toast('Please select an event type.', true); return; }
     if (eventType === 'ladder' && !endDate) { toast('End date is required for ladder events.', true); return; }
+    const _timeErr = checkEventTimes(startTime, endTime);
+    if (_timeErr) { toast(_timeErr, true); return; }
+    const _dateErr = checkEventDates(date, endDate);
+    if (_dateErr) { toast(_dateErr, true); return; }
     if (file && file.size > 5 * 1024 * 1024) { toast('Flyer must be under 5MB.', true); return; }
 
     const btn = document.getElementById('edit-event-btn');
@@ -907,6 +987,8 @@ window.selectLadderType = (type) => {
         title,
         event_date: date,
         end_date: (eventType === 'ladder' && endDate) ? endDate : null,
+        event_time: startTime || null,
+        end_time:   endTime   || null,
         event_type: eventType,
         description: desc || null,
         registration_url: regUrl || null,
