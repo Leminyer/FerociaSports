@@ -5199,7 +5199,7 @@ async function printTournamentRoster(btn) {
           doc.setTextColor(...(isTop3 && seed !== 2 ? WHITE : seed === 2 ? [85,85,85] : WHITE));
           doc.text(String(seed), cx, cy + 0.8, { align: 'center' });
           doc.setFont('helvetica', 'bold');
-          doc.setFontSize(8);
+          doc.setFontSize(8 * NAME_SIZE);
           doc.setTextColor(...DARK);
           doc.text(team.name, ML + 11, ty + 4, { maxWidth: LEFT_W - 14 });
           const pIds = [team.player1_id, team.player2_id, team.player3_id, team.player4_id].filter(Boolean);
@@ -5209,7 +5209,7 @@ async function printTournamentRoster(btn) {
           }).filter(Boolean).join(' & ');
           if (pNames) {
             doc.setFont('helvetica', 'normal');
-            doc.setFontSize(6.5);
+            doc.setFontSize(6.5 * NAME_SIZE);
             doc.setTextColor(...MUTED);
             doc.text(pNames, ML + 11, ty + 7.2, { maxWidth: LEFT_W - 14 });
           }
@@ -5229,6 +5229,18 @@ async function printTournamentRoster(btn) {
       ry += 5;
 
       const MATCH_H = 9;
+
+      /* ── PLAYER NAME SIZE ────────────────────────────────────────
+         Players could not read the printed roster. Only the NAMES grow —
+         table headers, seed badges, score boxes and MATCH_H are left
+         alone, so the layout and the column widths stay exactly as they
+         are (an explicit requirement).
+
+         Every name is drawn with maxWidth, so jsPDF fits or wraps
+         anything longer rather than spilling out of its column.
+
+         To tune after seeing it printed, change this one number. */
+      const NAME_SIZE = 1.35;
 
       // Add a new page — repeat teams list on left, schedule continues on right
       // so both columns always match page 1 layout exactly.
@@ -5288,7 +5300,7 @@ async function printTournamentRoster(btn) {
             }
 
             doc.setFont('helvetica', 'bold');
-            doc.setFontSize(8);
+            doc.setFontSize(8 * NAME_SIZE);
             doc.setTextColor(...DARK);
             doc.text(matchLabel, schedX() + 13, ry + MATCH_H / 2 + 1.5, { maxWidth: schedW() - 30 });
 
