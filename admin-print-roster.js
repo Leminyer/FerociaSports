@@ -146,6 +146,12 @@
       const ROW_H_SUM   = 6;          // player name row height
       const COURT_GAP   = 5;          // vertical gap between courts
 
+      /* Summary page type size. Same idea as TEXT on the court pages:
+         multiplies FONT SIZES ONLY, never COURT_HDR_H or ROW_H_SUM, so
+         the grid keeps its exact dimensions and still fits on one page.
+         A 6mm row held 8pt (~2.8mm); at 1.35 it holds ~10.8pt (~3.8mm). */
+      const SUM_TEXT = 1.35;
+
       // Split courts into two halves: left column first half, right column second half
       // This ensures reading top-to-bottom left then right gives sequential court order
       const half = Math.ceil(courtNums.length / 2);
@@ -170,7 +176,7 @@
         doc.setFillColor(...BLUE);
         doc.rect(startX, startY, COL_W, COURT_HDR_H, 'F');
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(8.5);
+        doc.setFontSize(8.5 * SUM_TEXT);
         doc.setTextColor(...WHITE);
         doc.text(`Court ${courtNum} · ${window.fmtTime12(time)}`, startX + COL_W / 2, startY + 5, { align: 'center' });
 
@@ -185,7 +191,7 @@
             doc.rect(startX, ry, COL_W, ROW_H_SUM, 'F');
           }
           doc.setFont('helvetica', 'normal');
-          doc.setFontSize(8);
+          doc.setFontSize(8 * SUM_TEXT);
           doc.setTextColor(...DARK);
           doc.text(name, startX + 3, ry + 4.2);
           ry += ROW_H_SUM;
@@ -196,7 +202,7 @@
           doc.setFillColor(255, 245, 240);
           doc.rect(startX, ry, COL_W, ROW_H_SUM, 'F');
           doc.setFont('helvetica', 'italic');
-          doc.setFontSize(8);
+          doc.setFontSize(8 * SUM_TEXT);
           doc.setTextColor(...ORANGE);
           doc.text(`${noShowName} (No show)`, startX + 3, ry + 4.2);
           ry += ROW_H_SUM;
@@ -387,7 +393,12 @@
            with maxWidth so jsPDF handles anything longer.
 
            To tune after seeing it printed, change this one number. */
-        const TEXT = 1.35;
+        const TEXT = 1.5;
+
+        /* "Sits out" is the smallest thing on the page (6.5pt base) and the
+           one people complained about most, so it gets an extra nudge on
+           top of TEXT rather than staying the runt of the layout. */
+        const SITS_OUT_TEXT = 1.25;
 
         // Scaled measurements — all drawing uses these
         const LINE_H  = LINE_H_BASE  * scale;
@@ -516,7 +527,7 @@
           // Sits out
           if (sittingOut.length) {
             doc.setFont('helvetica', 'italic');
-            doc.setFontSize(6.5 * TEXT * scale);
+            doc.setFontSize(6.5 * TEXT * SITS_OUT_TEXT * scale);
             doc.setTextColor(...ORANGE);
             doc.text(`Sits out: ${sittingOut.join(', ')}`, ML + 5, ly + 4 * scale);
           }
