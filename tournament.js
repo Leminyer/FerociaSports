@@ -5085,6 +5085,23 @@ function calcBestOfWinner(bestOf, teamAId, teamBId, gameScores) {
 
 /* ─── PRINT TOURNAMENT ROSTER ─────────────────────────── */
 async function printTournamentRoster(btn) {
+  /* ── PLAYER NAME SIZE ──────────────────────────────────────────
+     Players could not read the printed roster. Only the NAMES grow —
+     table headers, seed badges, score boxes and MATCH_H are left alone,
+     so the layout and column widths stay exactly as they are (an
+     explicit requirement).
+
+     Every name is drawn with maxWidth, so jsPDF fits or wraps anything
+     longer rather than spilling out of its column.
+
+     Declared HERE, at the top of the function, because the team list is
+     drawn by a helper defined further up than the constant used to sit —
+     a `const` cannot be read before its declaration is reached, which
+     threw "Cannot access 'NAME_SIZE' before initialization".
+
+     To tune after seeing it printed, change this one number. */
+  const NAME_SIZE = 1.35;
+
   const printBtnOrigHTML = btn ? btn.innerHTML : '';
   if (btn) { btn.disabled = true; btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>'; }
 
@@ -5229,18 +5246,6 @@ async function printTournamentRoster(btn) {
       ry += 5;
 
       const MATCH_H = 9;
-
-      /* ── PLAYER NAME SIZE ────────────────────────────────────────
-         Players could not read the printed roster. Only the NAMES grow —
-         table headers, seed badges, score boxes and MATCH_H are left
-         alone, so the layout and the column widths stay exactly as they
-         are (an explicit requirement).
-
-         Every name is drawn with maxWidth, so jsPDF fits or wraps
-         anything longer rather than spilling out of its column.
-
-         To tune after seeing it printed, change this one number. */
-      const NAME_SIZE = 1.35;
 
       // Add a new page — repeat teams list on left, schedule continues on right
       // so both columns always match page 1 layout exactly.
