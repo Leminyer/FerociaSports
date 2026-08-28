@@ -78,7 +78,9 @@
     document.getElementById('pe-subject').value = '';
     document.getElementById('pe-message').value = '';
 
-    const btn = document.getElementById('pe-send-btn');
+    const btn     = document.getElementById('pe-send-btn');
+    const testBtn = document.getElementById('pe-test-btn');
+    if (testBtn) testBtn.disabled = false;
     btn.disabled = false;
     btn.style.background = 'linear-gradient(180deg,#2456d3,var(--blue))';
     btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Send to All Players`;
@@ -92,6 +94,45 @@
       return;
     }
     document.getElementById('players-email-modal').classList.remove('open');
+  };
+
+  /**
+   * Sends one copy to the admin so they can see how the message actually
+   * lands in an inbox — line breaks, the subject in the blue header, the
+   * whole thing — before committing to a send that cannot be recalled.
+   *
+   * Uses the SAME template and the SAME parameters as the real run, so
+   * what arrives is what everyone else will get. Only two things differ:
+   * "[TEST]" on the subject line, and {{player_name}} resolved to the
+   * admin's own name rather than a player's.
+   */
+  const sendTestPlayersEmail = async () => {
+    const subject = document.getElementById('pe-subject').value.trim();
+    const message = document.getElementById('pe-message').value.trim();
+    if (!subject || !message) { toast('Write a subject and message first.', true); return; }
+
+    const testBtn  = document.getElementById('pe-test-btn');
+    const origHTML = testBtn.innerHTML;
+    testBtn.disabled  = true;
+    testBtn.innerHTML = 'Sending test...';
+
+    try {
+      emailjs.init({ publicKey: CFG.EMAILJS.PUBLIC_KEY });
+      const ok = await window.sendOneEmail(CFG.EMAILJS.SERVICE, CFG.EMAILJS.TEMPLATES.MESSAGE, {
+        player_name:  'Ferocia Admin',
+        player_email: CFG.ADMIN_EMAIL,
+        email_title:  subject,
+        subject:      `[TEST] ${subject}`,
+        message:      message.replace(/\{\{player_name\}\}/g, 'Ferocia Admin'),
+      });
+      if (ok) toast(`✅ Test email sent to ${CFG.ADMIN_EMAIL}`);
+      else    toast('Test email failed. Check your EmailJS config.', true);
+    } catch (err) {
+      toast(`Error: ${err.message}`, true);
+    } finally {
+      testBtn.disabled  = false;
+      testBtn.innerHTML = origHTML;
+    }
   };
 
   const sendPlayersEmail = async (e) => {
@@ -118,8 +159,12 @@
     if (!ok) return;
 
     const sendBtn = document.getElementById('pe-send-btn');
+    const testBtn = document.getElementById('pe-test-btn');
     sendBtn.disabled = true;
     sendBtn.textContent = 'Sending...';
+    // Lock the test button too: firing a test mid-run would interleave an
+    // extra request into a throttle that is deliberately paced.
+    if (testBtn) testBtn.disabled = true;
     window.AdminState.emailInFlight = true;
 
     emailjs.init({ publicKey: CFG.EMAILJS.PUBLIC_KEY });
@@ -167,6 +212,7 @@
       // Failures are named, not just counted: the admin can resend to those
       // few individually from each player's profile.
       sendBtn.disabled = false;
+      if (testBtn) testBtn.disabled = false;
       sendBtn.style.background = 'linear-gradient(180deg,#2456d3,var(--blue))';
       sendBtn.innerHTML = 'Send to All Players';
       console.warn('[players-email] failed recipients:', failedRecipients);
@@ -178,7 +224,8 @@
     ?.addEventListener('submit', sendPlayersEmail);
 
   Object.assign(window.CLICK_HANDLERS, {
-    openPlayersEmail:  () => window.openPlayersEmail(),
-    closePlayersEmail: () => window.closePlayersEmail(),
+    openPlayersEmail:     () => window.openPlayersEmail(),
+    closePlayersEmail:    () => window.closePlayersEmail(),
+    sendTestPlayersEmail: () => sendTestPlayersEmail(),
   });
 })();
