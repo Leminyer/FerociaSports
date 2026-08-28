@@ -35,6 +35,11 @@ window.FEROCIA_CONFIG = Object.freeze({
       LADDER_NOTIFY: 'template_whqzhfb',
       PROMO:         'template_bi5i16p',
       CONFIRM:       'template_zr9ihxl',
+      // Plain message with no leaderboard button — used by the per-player
+      // "Send Message" action and by Email All Players. LADDER_NOTIFY was
+      // being reused for those, which sent people a "View Leaderboard"
+      // button that made no sense outside a ladder.
+      MESSAGE:       'template_ferocia_message',
     }),
   }),
 

@@ -2184,12 +2184,19 @@
 
     try {
       emailjs.init({ publicKey: CFG.EMAILJS.PUBLIC_KEY });
-      const ok = await window.sendOneEmail(CFG.EMAILJS.SERVICE, CFG.EMAILJS.TEMPLATES.LADDER_NOTIFY, {
+      // MESSAGE, not LADDER_NOTIFY: this is a plain note to one player, and
+      // the ladder template ends with a "View Leaderboard" button that has
+      // nothing to do with it.
+      const ok = await window.sendOneEmail(CFG.EMAILJS.SERVICE, CFG.EMAILJS.TEMPLATES.MESSAGE, {
         player_name: `${p.first_name} ${p.last_name}`,
         player_email: p.email,
-        email_title: 'Ferocia Sports Center',
+        // The subject, not a fixed string: {{email_title}} is the big heading
+        // in the blue header, so "Rained out — session cancelled" reads far
+        // better there than "Ferocia Sports Center" on every single email.
+        email_title: subject,
         subject, message,
-        leaderboard_url: window.location.origin + window.location.pathname.replace('admin.html', '') + 'players.html',
+        // leaderboard_url removed with the template switch — the new one
+        // has no leaderboard button, so the variable had nothing to fill.
       });
       if (ok) {
         window.logAuditAction(p.id, 'email_sent', `Sent email: ${subject}`);
