@@ -13,23 +13,23 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Ferocia Pickleball Ladder</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="design-tokens.css?v=20260829c">
-<link rel="stylesheet" href="tournament.css?v=20260829c">
-<link rel="stylesheet" href="app.css?v=20260829c">
-<link rel="stylesheet" href="country-codes.css?v=20260829c">
+<link rel="stylesheet" href="design-tokens.css?v=20260830">
+<link rel="stylesheet" href="tournament.css?v=20260830">
+<link rel="stylesheet" href="app.css?v=20260830">
+<link rel="stylesheet" href="country-codes.css?v=20260830">
 <!-- Extracted from the four embedded CSS blocks that used to live in this
      file. ORDER MATTERS: later rules of equal specificity win, so these
      four must stay in this sequence. See the header of admin-layout.css. -->
-<link rel="stylesheet" href="admin-layout.css?v=20260829c">
-<link rel="stylesheet" href="admin-components.css?v=20260829c">
-<link rel="stylesheet" href="admin-pages.css?v=20260829c">
-<link rel="stylesheet" href="admin-ftc.css?v=20260829c">
+<link rel="stylesheet" href="admin-layout.css?v=20260830">
+<link rel="stylesheet" href="admin-components.css?v=20260830">
+<link rel="stylesheet" href="admin-pages.css?v=20260830">
+<link rel="stylesheet" href="admin-ftc.css?v=20260830">
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-<script src="config.js?v=20260829c"></script>
+<script src="config.js?v=20260830"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="db.js?v=20260829c"></script>
-<script src="auth.js?v=20260829c"></script>
-<script src="assets.js?v=20260829c"></script>
+<script src="db.js?v=20260830"></script>
+<script src="auth.js?v=20260830"></script>
+<script src="assets.js?v=20260830"></script>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 </head>
@@ -1428,7 +1428,7 @@
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           Download Template
         </button>
-        <span style="font-size:11px;font-weight:600;color:var(--text-muted);">CSV format: first_name, last_name, email, phone, gender, date_of_birth, coach_rating · phone 10 digits · date MM/DD/YYYY · rating 1-8</span>
+        <span style="font-size:11px;font-weight:600;color:var(--text-muted);">CSV format: first_name, last_name, email, phone, gender, date_of_birth, coach_rating, city, state · date MM/DD/YYYY · rating 1-8 · state 2 letters</span>
       </div>
       <!-- Drop zone -->
       <div class="import-drop-zone" id="import-drop-zone" onclick="document.getElementById('import-file-input').click()" ondragover="importDragOver(event)" ondragleave="importDragLeave(event)" ondrop="importDrop(event)">
@@ -1446,7 +1446,7 @@
           <div style="overflow-x:auto;max-height:320px;overflow-y:auto;">
             <table class="import-table">
               <thead><tr>
-                <th title="Line number in your CSV file (line 1 is the header row), so you can find any flagged row in the original file">CSV Line</th><th>First Name</th><th>Last Name</th><th>Email</th><th>Phone</th><th>Gender</th><th>Date of Birth</th><th>Rating</th><th>Status</th>
+                <th title="Line number in your CSV file (line 1 is the header row), so you can find any flagged row in the original file">CSV Line</th><th>First Name</th><th>Last Name</th><th>Email</th><th>Phone</th><th>Gender</th><th>Date of Birth</th><th>Rating</th><th>Location</th><th>Status</th>
               </tr></thead>
               <tbody id="import-table-body"></tbody>
             </table>
@@ -1507,6 +1507,21 @@
                      machine displays MM/DD/YYYY. min/max are set from
                      JavaScript (see initAddPlayer) to the 5-100 year window. -->
                 <input type="date" id="p-dob" class="ap-input" onchange="apUpdatePreview()">
+              </div>
+              <div class="ap-group">
+                <label class="ap-label">City <span style="color:#e53935;">*</span></label>
+                <!-- Free text with a datalist of the cities already on file:
+                     the next person from Fort Lauderdale picks the existing
+                     spelling instead of inventing a new one. -->
+                <input type="text" id="p-city" class="ap-input" list="city-suggestions"
+                       placeholder="Boca Raton" oninput="apUpdatePreview()">
+                <datalist id="city-suggestions"></datalist>
+              </div>
+              <div class="ap-group">
+                <label class="ap-label">State <span style="color:#e53935;">*</span></label>
+                <div class="ap-select-wrap">
+                  <select id="p-state" class="ap-select" onchange="apUpdatePreview()"></select>
+                </div>
               </div>
             </div>
           </div>
@@ -2346,6 +2361,8 @@
         <div class="form-group"><label>Phone <span style="color:#e53935;">*</span></label><div id="edit-phone-field"></div></div>
         <div class="form-group"><label>Date of Birth</label><input type="date" id="edit-dob"></div>
         <div class="form-group"><label>Coach Rating</label><input type="number" id="edit-coach-rating" min="1" max="8" step="0.001" placeholder="3.500"></div>
+        <div class="form-group"><label>City</label><input type="text" id="edit-city" list="city-suggestions" placeholder="Boca Raton"></div>
+        <div class="form-group"><label>State</label><select id="edit-state"></select></div>
         <!-- Skill Level was missing from this modal: it could be set when
              creating a player but never changed afterwards. -->
         <div class="form-group"><label>Skill Level</label>
@@ -3255,29 +3272,30 @@
 
 <!-- Loaded before every admin-* module: three of them call
      FerociaPhone.format() when rendering. -->
-<script src="country-codes.js?v=20260829c"></script>
-<script src="admin-state.js?v=20260829c"></script>
-<script src="admin-incident-reports.js?v=20260829c"></script>
-<script src="admin-ladder-selector.js?v=20260829c"></script>
-<script src="admin-orders.js?v=20260829c"></script>
-<script src="admin-email-utils.js?v=20260829c"></script>
-<script src="admin-share.js?v=20260829c"></script>
-<script src="admin-tournament-notify.js?v=20260829c"></script>
-<script src="admin-player-status-history.js?v=20260829c"></script>
-<script src="admin-player-profile.js?v=20260829c"></script>
-<script src="admin-email-notifications.js?v=20260829c"></script>
-<script src="admin-ladder-standings.js?v=20260829c"></script>
-<script src="admin-sessions.js?v=20260829c"></script>
-<script src="admin-print-roster.js?v=20260829c"></script>
-<script src="admin-ladder-management.js?v=20260829c"></script>
-<script src="admin-promotions.js?v=20260829c"></script>
-<script src="admin-players.js?v=20260829c"></script>
-<script src="admin-players-email.js?v=20260829c"></script>
-<script src="admin-ftc-standings.js?v=20260829c"></script>
-<script src="admin-ftc-playoffs-schedule.js?v=20260829c"></script>
-<script src="admin-ftc-teams.js?v=20260829c"></script>
-<script src="app.js?v=20260829c"></script>
-<script src="tournament.js?v=20260829c"></script>
+<script src="country-codes.js?v=20260830"></script>
+<script src="location-fields.js?v=20260830"></script>
+<script src="admin-state.js?v=20260830"></script>
+<script src="admin-incident-reports.js?v=20260830"></script>
+<script src="admin-ladder-selector.js?v=20260830"></script>
+<script src="admin-orders.js?v=20260830"></script>
+<script src="admin-email-utils.js?v=20260830"></script>
+<script src="admin-share.js?v=20260830"></script>
+<script src="admin-tournament-notify.js?v=20260830"></script>
+<script src="admin-player-status-history.js?v=20260830"></script>
+<script src="admin-player-profile.js?v=20260830"></script>
+<script src="admin-email-notifications.js?v=20260830"></script>
+<script src="admin-ladder-standings.js?v=20260830"></script>
+<script src="admin-sessions.js?v=20260830"></script>
+<script src="admin-print-roster.js?v=20260830"></script>
+<script src="admin-ladder-management.js?v=20260830"></script>
+<script src="admin-promotions.js?v=20260830"></script>
+<script src="admin-players.js?v=20260830"></script>
+<script src="admin-players-email.js?v=20260830"></script>
+<script src="admin-ftc-standings.js?v=20260830"></script>
+<script src="admin-ftc-playoffs-schedule.js?v=20260830"></script>
+<script src="admin-ftc-teams.js?v=20260830"></script>
+<script src="app.js?v=20260830"></script>
+<script src="tournament.js?v=20260830"></script>
 <script>
   // ── Sidebar toggle — persisted in localStorage ──────────────────────
   (function() {

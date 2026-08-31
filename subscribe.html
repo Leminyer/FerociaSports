@@ -17,13 +17,14 @@
   <meta name="twitter:description"content="Subscribe to get event invites, tournament news, ladder updates and member-only promos from Ferocia Sports Center.">
   <meta name="twitter:image"      content="https://ferociasports.com/og-preview.png">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="design-tokens.css?v=20260824">
-<link rel="stylesheet" href="country-codes.css?v=20260824">
-<script src="config.js?v=20260824"></script>
+<link rel="stylesheet" href="design-tokens.css?v=20260830">
+<link rel="stylesheet" href="country-codes.css?v=20260830">
+<script src="config.js?v=20260830"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="db.js?v=20260824"></script>
-<script src="assets.js?v=20260824"></script>
-<script src="country-codes.js?v=20260824"></script>
+<script src="db.js?v=20260830"></script>
+<script src="assets.js?v=20260830"></script>
+<script src="country-codes.js?v=20260830"></script>
+<script src="location-fields.js?v=20260830"></script>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <style>
   /* Color/typography/radius tokens now come from design-tokens.css. */
@@ -192,6 +193,23 @@
           <div id="s-phone-field"></div>
           <div class="error-msg" id="err-phone">Please enter a valid phone number.</div>
         </div>
+        <div class="form-group">
+          <label>Date of birth *</label>
+          <input type="date" id="s-dob" required>
+          <div class="error-msg" id="err-dob">Please enter a valid date of birth.</div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>City *</label>
+            <input type="text" id="s-city" placeholder="Boca Raton" required>
+            <div class="error-msg" id="err-city">Please enter your city.</div>
+          </div>
+          <div class="form-group">
+            <label>State *</label>
+            <select id="s-state" required></select>
+            <div class="error-msg" id="err-state">Please select your state.</div>
+          </div>
+        </div>
         <div class="form-row">
           <div class="form-group">
             <label>Gender</label>
@@ -271,6 +289,23 @@
   // rows that predate this rule.
   FerociaPhone.mount({ container: 's-phone-field', required: true });
 
+  // State dropdown, Florida first.
+  const stateSel = document.getElementById('s-state');
+  if (stateSel) stateSel.innerHTML = FerociaLocation.stateOptions('');
+
+  // Bound the calendar to the same 5-100 year window the admin uses, so the
+  // browser greys out impossible years before any validation runs.
+  const dobEl = document.getElementById('s-dob');
+  if (dobEl) {
+    const bound = (yearsAgo) => {
+      const d = new Date();
+      d.setFullYear(d.getFullYear() - yearsAgo);
+      return d.toISOString().split('T')[0];
+    };
+    dobEl.min = bound(100);
+    dobEl.max = bound(5);
+  }
+
   document.getElementById('subscribe-form').addEventListener('submit', async (e) => {
     e.preventDefault();
 
@@ -279,6 +314,9 @@
     const email  = document.getElementById('s-email').value.trim();
     // { country_code: '+1', phone: '5613026946' } — both null when empty.
     const phoneVal = FerociaPhone.getValue('s-phone-field');
+    const dobVal   = document.getElementById('s-dob').value;
+    const cityVal  = FerociaLocation.validateCity(document.getElementById('s-city').value, { required: true });
+    const stateVal = FerociaLocation.validateState(document.getElementById('s-state').value, { required: true });
     const gender = document.getElementById('s-gender').value;
     const skill  = document.getElementById('s-skill').value;
 
@@ -308,6 +346,31 @@
     // Phone is required. The component knows the expected length for the
     // selected country, so the message is specific ("US numbers need 10
     // digits") rather than the old generic "invalid phone number".
+    // Date of birth: same 5-100 year window as the admin. An impossible
+    // year is almost always a typo, not a real birthday.
+    if (!dobVal) {
+      showFieldError('s-dob', 'err-dob', 'Please enter your date of birth.');
+      valid = false;
+    } else {
+      const b = new Date(dobVal + 'T00:00:00');
+      const now = new Date();
+      let age = now.getFullYear() - b.getFullYear();
+      if (now.getMonth() < b.getMonth() ||
+         (now.getMonth() === b.getMonth() && now.getDate() < b.getDate())) age--;
+      if (isNaN(age) || age < 5 || age > 100) {
+        showFieldError('s-dob', 'err-dob', 'Please check the year of your date of birth.');
+        valid = false;
+      } else {
+        clearFieldError('s-dob', 'err-dob');
+      }
+    }
+
+    if (!cityVal.ok) { showFieldError('s-city', 'err-city', cityVal.error); valid = false; }
+    else { clearFieldError('s-city', 'err-city'); }
+
+    if (!stateVal.ok) { showFieldError('s-state', 'err-state', stateVal.error); valid = false; }
+    else { clearFieldError('s-state', 'err-state'); }
+
     const phoneCheck = FerociaPhone.validate('s-phone-field', { required: true });
     if (!phoneCheck.ok) {
       showFieldError('s-phone-field', 'err-phone', phoneCheck.error);
@@ -326,6 +389,10 @@
       const { data: result, error: rpcError } = await supabase.rpc('subscribe_signup', {
         p_first: first, p_last: last, p_email: email,
         p_phone: phoneVal.phone, p_country_code: phoneVal.country_code,
+        p_date_of_birth: dobVal || null,
+        // City is stored normalised — accents stripped, symbols dropped,
+        // title cased — so the same place is always spelled one way.
+        p_city: cityVal.value || null, p_state: stateVal.value || null,
         p_gender: gender || null, p_skill: skill || null,
       });
       if (rpcError) throw new Error(rpcError.message);

@@ -212,7 +212,8 @@
               ${p.gender ? `<span class="pp-meta">${ppSVG(ICONS.gender)} ${esc(p.gender)}</span>` : ''}
               ${p.date_joined ? `<span class="pp-meta">${ppSVG(ICONS.calendar)} Joined ${fmtDate(p.date_joined)}</span>` : ''}
               <span class="pp-meta">${ppSVG(ICONS.ladder)} ${d.myLadders.length} Ladder${d.myLadders.length !== 1 ? 's' : ''}</span>
-              <span class="pp-meta">${ppSVG(ICONS.pin)} ${p.location ? esc(p.location) : '—'}</span>
+              <span class="pp-meta">${ppSVG(ICONS.pin)} ${
+                FerociaLocation.formatLocation(p.city, p.state) || '—'}</span>
             </div>
           </div>
         </div>
@@ -413,7 +414,11 @@
           : '—'
       }</div></div>
       <div class="pp-quick-row"><div class="pp-quick-lbl">${ppSVG(ICONS.calendar)} Date of Birth</div><div class="pp-quick-val">${p.date_of_birth ? `${fmtDate(p.date_of_birth, { month:'2-digit', day:'2-digit', year:'numeric' })}${age !== null ? ` (${age} ${age === 1 ? 'year' : 'years'})` : ''}` : '—'}</div></div>
-      <div class="pp-quick-row"><div class="pp-quick-lbl">${ppSVG(ICONS.pin)} Location</div><div class="pp-quick-val">${p.location ? esc(p.location) : '—'}</div></div>`;
+      <div class="pp-quick-row"><div class="pp-quick-lbl">${ppSVG(ICONS.pin)} Location</div><div class="pp-quick-val">${
+        // players.location is empty on all 289 rows; city + state are the
+        // real source. The column is left in place for now so removing it
+        // is a separate, deliberate step.
+        esc(FerociaLocation.formatLocation(p.city, p.state)) || '—'}</div></div>`;
 
     el.innerHTML = `
       <div class="pp-grid">
