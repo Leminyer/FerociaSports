@@ -25,6 +25,41 @@
 
   const AdminState = window.AdminState;
 
+  /* Age in whole years on today's date. Same arithmetic the player profile
+     uses, kept identical so both agree.
+
+     Grouped at the top with the other display formatters because the
+     players table, the CSV preview and the profile all read through them.
+     Position is not a correctness requirement — every call happens inside
+     a function body, long after the module has finished loading — it just
+     keeps the three formatters together instead of scattered. */
+  const dobAge = (iso) => {
+    if (!iso) return null;
+    const b = new Date(iso + 'T00:00:00');
+    if (isNaN(b.getTime())) return null;
+    const now = new Date();
+    let age = now.getFullYear() - b.getFullYear();
+    if (now.getMonth() < b.getMonth() ||
+       (now.getMonth() === b.getMonth() && now.getDate() < b.getDate())) age--;
+    return age;
+  };
+
+  /* These two live up here for the same reason as dobAge: the players table
+     and the CSV preview both render values through them, and that code runs
+     above the sections where the rest of the date and rating helpers sit. */
+
+  // YYYY-MM-DD (storage) → MM/DD/YYYY (display). Built by hand rather than
+  // through Date, which would shift the day in western timezones.
+  const dobDisplay = (iso) => {
+    if (!iso) return '';
+    const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    return m ? `${m[2]}/${m[3]}/${m[1]}` : String(iso);
+  };
+
+  /** Always three decimals: 3.5 → "3.500". */
+  const ratingDisplay = (v) =>
+    (v === null || v === undefined || v === '') ? '' : Number(v).toFixed(3);
+
   /* ─── PLAYERS ──────────────────────────────────────────── */
 
   // ── Players page state ────────────────────────────────────────────────
@@ -68,6 +103,20 @@
             </div>
           </td>
           <td class="players-td" style="text-align:center;">
+            ${p.coach_rating !== null && p.coach_rating !== undefined
+              ? `<span style="font-family:'Inter',sans-serif;font-size:15px;font-weight:700;color:var(--blue);line-height:1;display:block;">${Number(p.coach_rating).toFixed(3)}</span>`
+              : `<span style="font-size:12px;font-weight:600;color:var(--text-muted);">—</span>`}
+          </td>
+          <td class="players-td" style="text-align:center;">
+            ${(() => {
+              const a = dobAge(p.date_of_birth);
+              return a !== null
+                ? `<span style="font-family:'Inter',sans-serif;font-size:15px;font-weight:700;color:var(--text);line-height:1;display:block;">${a}</span>
+                   <span style="font-size:10px;font-weight:600;color:var(--text-muted);display:block;">years</span>`
+                : `<span style="font-size:12px;font-weight:600;color:var(--text-muted);">—</span>`;
+            })()}
+          </td>
+          <td class="players-td" style="text-align:center;">
             <span style="font-family:'Inter',sans-serif;font-size:20px;color:var(--text);line-height:1;display:block;">${stats.played}</span>
             <span style="font-size:10px;font-weight:600;color:var(--text-muted);display:block;">games</span>
           </td>
@@ -90,7 +139,7 @@
           </td>
         </tr>
         <tr id="${expandId}" class="player-expand-row" style="display:none;">
-          <td colspan="7">
+          <td colspan="9">
             <div class="player-expand-panel">
               <div class="player-expand-field">
                 <div class="player-expand-label">Email</div>
@@ -138,6 +187,8 @@
         <thead>
           <tr>
             <th class="players-th sortable-th" data-sort="name" style="cursor:pointer;">Player ${sortArrow('name')}</th>
+            <th class="players-th sortable-th" data-sort="rating" style="text-align:center;cursor:pointer;">Rating ${sortArrow('rating')}</th>
+            <th class="players-th sortable-th" data-sort="age" style="text-align:center;cursor:pointer;">Age ${sortArrow('age')}</th>
             <th class="players-th sortable-th" data-sort="played" style="text-align:center;cursor:pointer;">Games Played ${sortArrow('played')}</th>
             <th class="players-th sortable-th" data-sort="wr" style="text-align:center;cursor:pointer;">Win Rate ${sortArrow('wr')}</th>
             <th class="players-th sortable-th" data-sort="ind" style="text-align:center;cursor:pointer;">Player Tags ${sortArrow('ind')}</th>
@@ -190,6 +241,25 @@
       switch (col) {
         case 'name':   return mult * (`${a.player.first_name} ${a.player.last_name}`).localeCompare(`${b.player.first_name} ${b.player.last_name}`);
         case 'played': return mult * ((a.stats.played || 0) - (b.stats.played || 0));
+        // Players with no rating or no date of birth sort to the BOTTOM in
+        // both directions. Treating a missing value as 0 would rank an
+        // unrated player as the weakest, which is not what a null means.
+        case 'rating': {
+          const ra = a.player.coach_rating != null ? Number(a.player.coach_rating) : null;
+          const rb = b.player.coach_rating != null ? Number(b.player.coach_rating) : null;
+          if (ra === null && rb === null) return 0;
+          if (ra === null) return 1;
+          if (rb === null) return -1;
+          return mult * (ra - rb);
+        }
+        case 'age': {
+          const aa = dobAge(a.player.date_of_birth);
+          const ab = dobAge(b.player.date_of_birth);
+          if (aa === null && ab === null) return 0;
+          if (aa === null) return 1;
+          if (ab === null) return -1;
+          return mult * (aa - ab);
+        }
         case 'wr': {
           const wa = a.stats.played > 0 ? a.stats.wins / a.stats.played : -1;
           const wb = b.stats.played > 0 ? b.stats.wins / b.stats.played : -1;
@@ -510,27 +580,6 @@
   const DOB_WARN_MIN_AGE = 10;   // below this → confirm
   const DOB_WARN_MAX_AGE = 90;   // above this → confirm
 
-  // Age in whole years on today's date. Same arithmetic the player
-  // profile already uses, kept identical so both agree.
-  const dobAge = (iso) => {
-    if (!iso) return null;
-    const b = new Date(iso + 'T00:00:00');
-    if (isNaN(b.getTime())) return null;
-    const now = new Date();
-    let age = now.getFullYear() - b.getFullYear();
-    if (now.getMonth() < b.getMonth() ||
-       (now.getMonth() === b.getMonth() && now.getDate() < b.getDate())) age--;
-    return age;
-  };
-
-  // YYYY-MM-DD (storage) → MM/DD/YYYY (display). Built by hand rather
-  // than through Date, which would shift the day in western timezones.
-  const dobDisplay = (iso) => {
-    if (!iso) return '';
-    const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/);
-    return m ? `${m[2]}/${m[3]}/${m[1]}` : String(iso);
-  };
-
   // The oldest and youngest dates the field will accept, as YYYY-MM-DD.
   // Used for the <input type="date"> min/max so the browser greys out
   // the impossible range before any validation runs.
@@ -613,10 +662,6 @@
 
   const RATING_MIN = 1;
   const RATING_MAX = 8;
-
-  /** Always three decimals: 3.5 → "3.500". */
-  const ratingDisplay = (v) =>
-    (v === null || v === undefined || v === '') ? '' : Number(v).toFixed(3);
 
   /**
    * @param {string|number|null} raw
@@ -2122,6 +2167,9 @@
 
     // Optional in Edit Player for now (approved). The bounds still apply
     // so a typo cannot be picked from the calendar.
+    const editSkill = document.getElementById('edit-skill');
+    if (editSkill) editSkill.value = p.skill_level || '';
+
     const editRating = document.getElementById('edit-coach-rating');
     if (editRating) editRating.value = p.coach_rating !== null && p.coach_rating !== undefined
       ? ratingDisplay(p.coach_rating) : '';
@@ -2239,6 +2287,7 @@
       country_code:  _editPhone.country_code,
       date_of_birth: _editDob || null,
       coach_rating:  _editRating.value,
+      skill_level:   document.getElementById('edit-skill')?.value || null,
       // Only re-stamp when the value actually CHANGED. Touching it on every
       // save would make the date mean "last edited", not "last assessed" —
       // and then it would tell you nothing about how current the rating is.
