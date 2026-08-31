@@ -266,7 +266,11 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     await sleep(2000);
     sendBtn.disabled = false;
     sendBtn.innerHTML = sendBtnOrigText;
-    sendBtn.style.background = '';
+    // Restore the blue gradient explicitly. Clearing style.background wiped
+    // the inline gradient the button is declared with in admin.html, leaving
+    // it transparent — which is why it only looked coloured while showing
+    // the green "sent" or orange "failed" state.
+    sendBtn.style.background = 'linear-gradient(180deg,#2456d3,var(--blue))';
     document.getElementById('notify-modal').classList.remove('open');
 
     if (!failedRecipients.length) {

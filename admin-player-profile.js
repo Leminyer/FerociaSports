@@ -48,6 +48,7 @@
     `<svg width="${w}" height="${w}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
   const ICONS = {
     gender:   '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+    star:     '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>',
     calendar: '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
     ladder:   '<rect x="2" y="7" width="20" height="14" rx="2"/><polyline points="16 3 12 7 8 3"/>',
     pin:      '<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>',
@@ -406,6 +407,11 @@
       <div class="pp-quick-row"><div class="pp-quick-lbl">${ppSVG(ICONS.mail)} Email</div><div class="pp-quick-val">${p.email ? esc(p.email) : '—'} ${p.email ? `<span class="${p.email_verified ? 'pp-pill-verified' : 'pp-pill-unverified'}">${p.email_verified ? 'Verified' : 'Unverified'}</span>` : ''}</div></div>
       <div class="pp-quick-row"><div class="pp-quick-lbl">${ppSVG(ICONS.phone)} Phone</div><div class="pp-quick-val">${p.phone ? esc(FerociaPhone.format(p.country_code, p.phone)) : '—'} ${p.phone ? `<span class="${p.phone_verified ? 'pp-pill-verified' : 'pp-pill-unverified'}">${p.phone_verified ? 'Verified' : 'Unverified'}</span>` : ''}</div></div>
       <div class="pp-quick-row"><div class="pp-quick-lbl">${ppSVG(ICONS.skill)} Skill Level</div><div class="pp-quick-val">${p.skill_level ? esc(p.skill_level) : '—'}</div></div>
+      <div class="pp-quick-row"><div class="pp-quick-lbl">${ppSVG(ICONS.star)} Coach Rating</div><div class="pp-quick-val">${
+        p.coach_rating !== null && p.coach_rating !== undefined
+          ? Number(p.coach_rating).toFixed(3)
+          : '—'
+      }</div></div>
       <div class="pp-quick-row"><div class="pp-quick-lbl">${ppSVG(ICONS.calendar)} Date of Birth</div><div class="pp-quick-val">${p.date_of_birth ? `${fmtDate(p.date_of_birth, { month:'2-digit', day:'2-digit', year:'numeric' })}${age !== null ? ` (${age} ${age === 1 ? 'year' : 'years'})` : ''}` : '—'}</div></div>
       <div class="pp-quick-row"><div class="pp-quick-lbl">${ppSVG(ICONS.pin)} Location</div><div class="pp-quick-val">${p.location ? esc(p.location) : '—'}</div></div>`;
 

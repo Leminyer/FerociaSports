@@ -221,7 +221,10 @@
     await sleep(2000);
     sendBtn.disabled = false;
     sendBtn.innerHTML = sendBtnOrigText;
-    sendBtn.style.background = '';
+    // Same bug as in admin-email-notifications.js: clearing style.background
+    // wipes the inline gradient declared in admin.html and leaves the button
+    // transparent. Restore it explicitly.
+    sendBtn.style.background = 'linear-gradient(180deg,#2456d3,var(--blue))';
     closeTournamentNotifyModal();
 
     if (!failedRecipients.length) {

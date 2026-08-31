@@ -414,6 +414,8 @@
     const dobTxt = dobVal
       ? `${dobDisplay(dobVal)}${dobAge(dobVal) !== null ? ` (${dobAge(dobVal)})` : ''}`
       : '';
+    const ratingVal = document.getElementById('p-coach-rating')?.value || '';
+    const ratingTxt = ratingVal ? ratingDisplay(ratingVal) : '';
     const status = document.getElementById('p-status')?.value || 'active';
     const joined = document.getElementById('p-joined')?.value || '';
     const fullName = [fn, ln].filter(Boolean).join(' ');
@@ -443,6 +445,7 @@
         ${val ? `<div class="ap-preview-val">${val}</div>` : `<div class="ap-preview-empty">${emptyText}</div>`}
       </div>`;
     const calI   = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
+    const starI  = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
     const mailI  = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>`;
     const phoneI = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.15 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.06 1.21l3 .01a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7a2 2 0 0 1 1.72 2.02z"/></svg>`;
     const genI   = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>`;
@@ -456,6 +459,7 @@
       ${row(mailI,  'Email',   email  ? esc(email)  : '', 'Not provided')}
       ${row(phoneI, 'Phone',   phone  ? esc(phone)  : '', 'Not provided')}
       ${row(calI,   'Born',    dobTxt ? esc(dobTxt) : '', 'Not set')}
+      ${row(starI,  'Rating',  ratingTxt ? esc(ratingTxt) : '', 'Not set')}
       ${row(calI,   'Joined',  joined ? _apFmt(joined) : '', 'Not set')}
       ${row(gameI,  'Games',   '0', '')}
       <div class="ap-preview-divider"></div>
@@ -593,6 +597,52 @@
     if (age < DOB_WARN_MIN_AGE || age > DOB_WARN_MAX_AGE)
       return { ok: true, warn: `That date of birth makes this player ${age} years old.` };
     return { ok: true };
+  };
+
+  /* ─── COACH RATING ───────────────────────────────────────────
+     A coach's estimate of a player's level, distinct from skill_level
+     (which the player declares about themselves).
+
+     Stored as numeric(4,3) with a database CHECK of 1 to 8 inclusive.
+     Nullable on purpose — all 279 existing players have none, so the
+     rule lives in the app: required when creating a player and in the
+     CSV, optional when editing. Blocking every edit until someone
+     tracks down a rating would push admins to invent numbers, and an
+     invented rating is worse than a missing one because it looks real.
+     ──────────────────────────────────────────────────────────── */
+
+  const RATING_MIN = 1;
+  const RATING_MAX = 8;
+
+  /** Always three decimals: 3.5 → "3.500". */
+  const ratingDisplay = (v) =>
+    (v === null || v === undefined || v === '') ? '' : Number(v).toFixed(3);
+
+  /**
+   * @param {string|number|null} raw
+   * @param {object?} opts { required: true }
+   * @returns {{ok:boolean, value:number|null, error?:string}}
+   */
+  const ratingCheck = (raw, opts) => {
+    const required = !!(opts && opts.required);
+    const v = String(raw ?? '').trim();
+    if (!v) {
+      return required
+        ? { ok: false, value: null, error: 'Coach rating is required.' }
+        : { ok: true, value: null };
+    }
+    const n = Number(v);
+    if (!Number.isFinite(n)) {
+      return { ok: false, value: null, error: `"${v}" is not a valid rating.` };
+    }
+    if (n < RATING_MIN || n > RATING_MAX) {
+      return { ok: false, value: null,
+               error: `Coach rating must be between ${RATING_MIN} and ${RATING_MAX} (you entered ${n}).` };
+    }
+    // Round to three decimals before sending: the column is numeric(4,3)
+    // and would round anyway — doing it here means what the admin sees
+    // saved is exactly what was stored.
+    return { ok: true, value: Number(n.toFixed(3)) };
   };
 
   /* ─── SHARED SUBSCRIBER HELPERS ─────────────────────────────────────────
@@ -797,6 +847,9 @@
     // edit until someone tracks down a birthday would push admins to
     // invent dates — worse than a null, because an invented date looks
     // valid and breaks identity verification in the claim flow.
+    const _rating = ratingCheck(document.getElementById('p-coach-rating')?.value, { required: true });
+    if (!_rating.ok) { toast(_rating.error, true); return; }
+
     const _dob = document.getElementById('p-dob')?.value || '';
     const _dobCheck = dobCheck(_dob, { required: true });
     if (!_dobCheck.ok) { toast(_dobCheck.error, true); return; }
@@ -888,6 +941,10 @@
         phone:         _phone.phone,
         country_code:  _phone.country_code,
         date_of_birth: _dob || null,
+        coach_rating:  _rating.value,
+        // Stamped only when a rating is actually set, so the date always
+        // refers to a real assessment rather than any save.
+        coach_rating_updated_at: _rating.value !== null ? new Date().toISOString() : null,
         gender:     document.getElementById('p-gender').value || null,
         skill_level:document.getElementById('p-skill').value || null,
         status:     document.getElementById('p-status').value,
@@ -1673,9 +1730,9 @@
     // date_of_birth uses MM/DD/YYYY in the template. The importer also
     // accepts YYYY-MM-DD, because Excel sometimes rewrites a date column
     // into that shape when the file is saved.
-    const csv = 'first_name,last_name,email,phone,gender,date_of_birth\n'
-              + 'John,Smith,john@email.com,561-555-1234,Male,03/15/1985\n'
-              + 'Jane,Doe,jane@email.com,954-555-5678,Female,11/02/1990';
+    const csv = 'first_name,last_name,email,phone,gender,date_of_birth,coach_rating\n'
+              + 'John,Smith,john@email.com,561-555-1234,Male,03/15/1985,3.500\n'
+              + 'Jane,Doe,jane@email.com,954-555-5678,Female,11/02/1990,4.250';
     const blob = new Blob([csv], { type: 'text/csv' });
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement('a');
@@ -1755,6 +1812,7 @@
     // Parse header
     const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/^"|"$/g,''));
     const colIdx = {
+      coach_rating:  headers.indexOf('coach_rating'),
       date_of_birth: headers.indexOf('date_of_birth'),
       first_name: headers.indexOf('first_name'),
       last_name:  headers.indexOf('last_name'),
@@ -1789,6 +1847,8 @@
         last_name:  get(colIdx.last_name),
         email:      get(colIdx.email),
         phone:      get(colIdx.phone),
+        rating_raw: get(colIdx.coach_rating),
+        rating:     null,   // rellenado por ratingCheck() más abajo
         dob_raw:    get(colIdx.date_of_birth),
         dob:        null,   // rellenado por dobParse() más abajo
         gender:     get(colIdx.gender),
@@ -1824,6 +1884,11 @@
       // dobParse() accepts MM/DD/YYYY and YYYY-MM-DD and rejects days
       // that do not exist, so 02/30/1985 fails here rather than silently
       // becoming March 2nd.
+      // Required in the CSV (approved decision).
+      const _rc = ratingCheck(row.rating_raw, { required: true });
+      if (!_rc.ok) row._errors.push(_rc.error);
+      else row.rating = _rc.value;
+
       if (!row.dob_raw) row._errors.push('Missing date of birth');
       else {
         row.dob = dobParse(row.dob_raw);
@@ -1934,6 +1999,7 @@
         <td>${r.phone ? esc(FerociaPhone.format(FerociaPhone.normalize(r.phone).length === 10 ? '+1' : null, r.phone)) : '—'}</td>
         <td>${esc(r.gender||'—')}</td>
         <td>${r.dob ? esc(dobDisplay(r.dob)) : (r.dob_raw ? `<span style="color:#e53935;">${esc(r.dob_raw)}</span>` : '—')}</td>
+        <td>${r.rating !== null ? esc(ratingDisplay(r.rating)) : (r.rating_raw ? `<span style="color:#e53935;">${esc(r.rating_raw)}</span>` : '—')}</td>
         <td style="white-space:nowrap;">${badge}${subBadge}</td>
       </tr>`;
     }).join('');
@@ -1975,6 +2041,8 @@
           // A number that is not 10 digits is left with no dial code rather
           // than mislabelled, so it can be found and fixed later.
           date_of_birth: row.dob,
+          coach_rating:  row.rating,
+          coach_rating_updated_at: row.rating !== null ? new Date().toISOString() : null,
           phone:        FerociaPhone.normalize(row.phone) || null,
           country_code: FerociaPhone.normalize(row.phone).length === 10 ? '+1' : null,
           gender:      row.gender || null,
@@ -2054,6 +2122,10 @@
 
     // Optional in Edit Player for now (approved). The bounds still apply
     // so a typo cannot be picked from the calendar.
+    const editRating = document.getElementById('edit-coach-rating');
+    if (editRating) editRating.value = p.coach_rating !== null && p.coach_rating !== undefined
+      ? ratingDisplay(p.coach_rating) : '';
+
     const editDob = document.getElementById('edit-dob');
     if (editDob) {
       editDob.min   = dobBound(DOB_MAX_AGE);
@@ -2134,6 +2206,18 @@
     }
     const _editPhone = FerociaPhone.getValue('edit-phone-field');
 
+    // Optional here (approved): 279 players have no rating yet, and making
+    // it mandatory would block every unrelated edit.
+    const _editRating = ratingCheck(document.getElementById('edit-coach-rating')?.value, { required: false });
+    if (!_editRating.ok) { toast(_editRating.error, true); return; }
+    // The rating this player had before the edit, read from the cache that
+    // openEdit() populated. Used below to stamp the date only on a real
+    // change. Falls back to null when the player is not cached, which makes
+    // the comparison treat it as new — a harmless extra timestamp.
+    const _origPlayerRow = AdminState.allPlayers.find(x => x.id === id);
+    const _origRating = (_origPlayerRow?.coach_rating === null || _origPlayerRow?.coach_rating === undefined)
+      ? null : Number(_origPlayerRow.coach_rating);
+
     const _editDob = document.getElementById('edit-dob')?.value || '';
     const _editDobCheck = dobCheck(_editDob, { required: false });
     if (!_editDobCheck.ok) { toast(_editDobCheck.error, true); return; }
@@ -2154,6 +2238,13 @@
       phone:         _editPhone.phone,
       country_code:  _editPhone.country_code,
       date_of_birth: _editDob || null,
+      coach_rating:  _editRating.value,
+      // Only re-stamp when the value actually CHANGED. Touching it on every
+      // save would make the date mean "last edited", not "last assessed" —
+      // and then it would tell you nothing about how current the rating is.
+      ...(_editRating.value !== _origRating
+            ? { coach_rating_updated_at: _editRating.value !== null ? new Date().toISOString() : null }
+            : {}),
       gender: document.getElementById('edit-gender').value || null,
       status: newStatus,
     };
