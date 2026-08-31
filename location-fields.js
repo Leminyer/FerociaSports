@@ -57,6 +57,11 @@
   ];
 
   const BY_CODE = Object.fromEntries(STATES.map(s => [s.code, s]));
+  // Full name → code, so "Florida" resolves to "FL". Needed because 247
+  // player rows were written with the full name before this module existed,
+  // and without it Edit Player would show an empty dropdown for them and
+  // then WIPE the state on save.
+  const BY_NAME = Object.fromEntries(STATES.map(s => [s.name.toLowerCase(), s.code]));
 
   /**
    * Cleans a city name for storage.
@@ -101,24 +106,41 @@
     return { ok: true, value: v };
   };
 
+  /**
+   * Accepts a two-letter code OR a full state name, and always returns the
+   * code. Legacy rows hold "Florida" rather than "FL"; converting instead
+   * of rejecting means editing one of those players fixes it rather than
+   * blanking it.
+   */
+  const toStateCode = (raw) => {
+    const v = String(raw ?? '').trim();
+    if (!v) return '';
+    if (BY_CODE[v.toUpperCase()]) return v.toUpperCase();
+    return BY_NAME[v.toLowerCase()] || '';
+  };
+
   const validateState = (raw, opts) => {
     const required = !!(opts && opts.required);
-    const v = String(raw ?? '').trim().toUpperCase();
+    const v = String(raw ?? '').trim();
     if (!v) {
       return required
         ? { ok: false, value: '', error: 'State is required.' }
         : { ok: true, value: '' };
     }
-    if (!BY_CODE[v]) {
-      return { ok: false, value: '', error: `"${raw}" is not a valid US state code.` };
+    const code = toStateCode(v);
+    if (!code) {
+      return { ok: false, value: '', error: `"${raw}" is not a valid US state.` };
     }
-    return { ok: true, value: v };
+    return { ok: true, value: code };
   };
 
   /** <option> markup for a state dropdown, Florida first. */
   const stateOptions = (selected) => {
+    // Run the incoming value through toStateCode so a legacy "Florida"
+    // still preselects Florida instead of falling back to "Select state".
+    const sel = toStateCode(selected);
     const opt = (s) =>
-      `<option value="${s.code}"${s.code === (selected || '') ? ' selected' : ''}>${s.name}</option>`;
+      `<option value="${s.code}"${s.code === sel ? ' selected' : ''}>${s.name}</option>`;
     const pinned = STATES.filter(s => s.pinned);
     const rest   = STATES.filter(s => !s.pinned)
                          .sort((a, b) => a.name.localeCompare(b.name));
@@ -156,7 +178,9 @@
   /** "Boca Raton, FL" — the one place that decides how a location reads. */
   const formatLocation = (city, state) => {
     const c = (city || '').trim();
-    const s = (state || '').trim().toUpperCase();
+    // toStateCode first: a legacy "Florida" would otherwise render as the
+    // shouted "FLORIDA".
+    const s = toStateCode(state) || String(state || '').trim();
     if (c && s) return `${c}, ${s}`;
     return c || s || '';
   };
@@ -164,6 +188,7 @@
   window.FerociaLocation = {
     STATES,
     normalizeCity,
+    toStateCode,
     validateCity,
     validateState,
     stateOptions,
