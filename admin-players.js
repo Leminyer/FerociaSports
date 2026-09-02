@@ -154,8 +154,7 @@
               <div class="player-expand-field">
                 <div class="player-expand-label">Date of Birth</div>
                 ${p.date_of_birth
-                  ? `<div class="player-expand-value">${esc(dobDisplay(p.date_of_birth))}${
-                       dobAge(p.date_of_birth) !== null ? ` (${dobAge(p.date_of_birth)})` : ''}</div>`
+                  ? `<div class="player-expand-value">${esc(dobDisplay(p.date_of_birth))}</div>`
                   : `<div class="player-expand-empty">Not registered</div>`}
               </div>
               <div class="player-expand-div"></div>
