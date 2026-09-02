@@ -213,7 +213,11 @@
       + svRow('Gender', esc(s.gender))
       + svRow('Date of Birth', esc(subDob(s.date_of_birth)))
       + svRow('Location', esc(FerociaLocation.formatLocation(s.city, s.state)))
-      + svRow('Skill Level', esc(s.skill_level))
+      // The public form stores this lower-cased; the table capitalises it
+      // with CSS, so this does the same for consistency.
+      + svRow('Skill Level', s.skill_level
+          ? esc(s.skill_level.charAt(0).toUpperCase() + s.skill_level.slice(1))
+          : '')
       + svSection('Subscription')
       + svRow('Status', esc(s.status))
       + svRow('Subscribed', fmtDate(s.subscribed_at))
@@ -271,7 +275,7 @@
           <option value="Female">Female</option>
         </select></div>
         <div>${lbl('Skill Level')}<select id="sc-skill" style="${inp}">
-          <option value="">Select level</option>
+          <option value="" selected>Select level</option>
           <option value="Beginner">Beginner</option>
           <option value="Intermediate">Intermediate</option>
           <option value="Advanced">Advanced</option>
@@ -300,8 +304,18 @@
       value:     { country_code: s.country_code, phone: s.phone },
     });
     document.getElementById('sc-state').innerHTML = FerociaLocation.stateOptions(s.state || '');
-    if (s.gender)      document.getElementById('sc-gender').value = s.gender;
-    if (s.skill_level) document.getElementById('sc-skill').value  = s.skill_level;
+    if (s.gender) document.getElementById('sc-gender').value = s.gender;
+
+    /* subscribe.html stores the level lower-cased ("beginner"), while the
+       player records use "Beginner". Assigning a value no <option> has
+       leaves a select showing BLANK — not the first option — which is why
+       this dropdown appeared empty. Match case-insensitively and fall back
+       to the placeholder when nothing fits. */
+    const skillSel = document.getElementById('sc-skill');
+    const wanted   = String(s.skill_level || '').trim().toLowerCase();
+    const match    = Array.from(skillSel.options)
+      .find(o => o.value && o.value.toLowerCase() === wanted);
+    skillSel.value = match ? match.value : '';
     FerociaLocation.loadCitySuggestions('city-suggestions', api);
   };
 
@@ -375,6 +389,29 @@
         // The date they became a player, not the date they subscribed.
         date_joined:   todayISO(),
       });
+
+      /* Push the completed details back onto the subscriber row.
+         Without this the conversion filled in a date of birth, city and
+         state on the PLAYER record while the subscriber kept its blanks —
+         so reopening the details modal still showed "—" for data that had
+         just been entered.
+
+         Non-fatal: the player was created, which is the operation that
+         mattered. A failure here is logged and reported, not raised. */
+      try {
+        await api(`subscribers?id=eq.${s.id}`, 'PATCH', {
+          phone:         phoneVal.phone,
+          country_code:  phoneVal.country_code,
+          date_of_birth: dob,
+          city:          city.value,
+          state:         state.value,
+          gender:        document.getElementById('sc-gender').value || s.gender      || null,
+          skill_level:   document.getElementById('sc-skill').value  || s.skill_level || null,
+        });
+      } catch (syncErr) {
+        console.warn('[promotions] player created but subscriber sync failed:', syncErr.message);
+        toast('Player created, but the subscriber record could not be updated.', true);
+      }
 
       window.closeSubConvert();
       toast(`${s.first_name} ${s.last_name} is now a player.`);
