@@ -29,6 +29,9 @@
 
   // ── Promotions page state ─────────────────────────────────────────────
   let _allSubs       = [];
+  /* Keys of everyone who is already a player, so each subscriber row can
+     show the right icon without a lookup per row. Built once per load. */
+  let _playerIndex   = new Map();
   let _subsShown     = 25;
 
   const _renderSubsTable = () => {
@@ -63,6 +66,7 @@
             <th style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text);padding:10px 16px;text-align:left;border-bottom:0.5px solid #e0e7f5;background:#fafbff;">Skill</th>
             <th style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text);padding:10px 16px;text-align:left;border-bottom:0.5px solid #e0e7f5;background:#fafbff;">Status</th>
             <th style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text);padding:10px 16px;text-align:left;border-bottom:0.5px solid #e0e7f5;background:#fafbff;">Joined</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text);padding:10px 16px;text-align:left;border-bottom:0.5px solid #e0e7f5;background:#fafbff;text-align:right;">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -82,6 +86,9 @@
                 <span style="font-size:9px;font-weight:800;padding:3px 9px;border-radius:99px;letter-spacing:.5px;text-transform:uppercase;${pillCSS(s.status)}">${esc(s.status || '—')}</span>
               </td>
               <td style="padding:11px 16px;border-bottom:0.5px solid #f4f5f8;font-size:11px;color:var(--text-muted);">${fmtDate(s.subscribed_at) || '—'}</td>
+              <td style="padding:11px 16px;border-bottom:0.5px solid #f4f5f8;text-align:right;white-space:nowrap;">
+                ${subActionIcons(s)}
+              </td>
             </tr>`;
           }).join('')}
         </tbody>
@@ -114,6 +121,270 @@
     generateQR();
   };
 
+  /* Mirrors _normName in admin-players.js and normalize_name_for_matching()
+     in the database: lower → strip accents → collapse spaces. Kept local so
+     this module has no load-order dependency on admin-players.js. */
+  const _norm = (v) =>
+    String(v ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase().replace(/\s+/g, ' ').trim();
+
+  /* Same three-field rule used everywhere else: email + first + last.
+     Email alone would be wrong — a parent and child can share an inbox. */
+  const _personKey = (r) =>
+    `${(r.email || '').trim().toLowerCase()}|${_norm(r.first_name)}|${_norm(r.last_name)}`;
+
+  /* Icons for the actions column.
+
+     Three states, decided per row:
+       · always      an eye → read-only details
+       · already a player   → person-with-check, goes to their profile
+       · unsubscribed       → NO convert icon at all (approved): someone
+                              who left the mailing list is not converted
+                              into a player from here
+       · otherwise          → person-with-plus, opens the convert modal */
+  const ICON_EYE   = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>';
+  const ICON_ADD   = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>';
+  const ICON_CHECK = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></svg>';
+
+  const iconBtn = (action, extra, title, icon, color) =>
+    `<button type="button" data-action="${action}" ${extra} title="${title}"
+       style="background:none;border:none;padding:4px 6px;cursor:pointer;color:${color};vertical-align:middle;"
+       onmouseover="this.style.opacity='0.6'" onmouseout="this.style.opacity='1'">${icon}</button>`;
+
+  const subActionIcons = (s) => {
+    let html = iconBtn('viewSubscriber', `data-subid="${s.id}"`,
+                       'View details', ICON_EYE, 'var(--text-muted)');
+
+    if (s.status === 'unsubscribed') return html;   // no conversion
+
+    const pid = _playerIndex.get(_personKey(s));
+    html += pid
+      ? iconBtn('showPage', `data-page="player-profile" data-pid="${pid}"`,
+                'Already a player — view profile', ICON_CHECK, 'var(--teal)')
+      : iconBtn('convertSubscriber', `data-subid="${s.id}"`,
+                'Convert to player', ICON_ADD, 'var(--blue)');
+    return html;
+  };
+
+
+  /* ─── SUBSCRIBER DETAILS & CONVERSION ────────────────────────
+     Two separate modals on purpose: the details one gets opened far more
+     often, and loading it with the conversion form would make the common
+     case slower and more fragile.
+     ──────────────────────────────────────────────────────────── */
+
+  const svRow = (label, value) => `
+    <div style="display:flex;justify-content:space-between;gap:16px;padding:9px 0;border-bottom:0.5px solid var(--divider-color);">
+      <div style="font-size:10px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);flex-shrink:0;">${label}</div>
+      <div style="font-size:13px;font-weight:600;color:var(--text);text-align:right;word-break:break-word;">${value || '—'}</div>
+    </div>`;
+
+  const svSection = (title) => `
+    <div style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--blue);margin:18px 0 4px;">${title}</div>`;
+
+  const subAge = (iso) => {
+    if (!iso) return null;
+    const b = new Date(iso + 'T00:00:00');
+    if (isNaN(b.getTime())) return null;
+    const n = new Date();
+    let a = n.getFullYear() - b.getFullYear();
+    if (n.getMonth() < b.getMonth() || (n.getMonth() === b.getMonth() && n.getDate() < b.getDate())) a--;
+    return a;
+  };
+
+  const subDob = (iso) => {
+    if (!iso) return '';
+    const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    const txt = m ? `${m[2]}/${m[3]}/${m[1]}` : String(iso);
+    const age = subAge(iso);
+    return age !== null ? `${txt} (${age})` : txt;
+  };
+
+  window.viewSubscriber = (subId) => {
+    const s = _allSubs.find(x => String(x.id) === String(subId));
+    if (!s) { toast('Subscriber not found. Refresh the page.', true); return; }
+
+    document.getElementById('sv-name').textContent = `${s.first_name} ${s.last_name}`;
+    document.getElementById('sv-body').innerHTML =
+        svSection('Contact')
+      + svRow('Email', esc(s.email))
+      + svRow('Phone', s.phone ? esc(FerociaPhone.format(s.country_code, s.phone)) : '')
+      + svSection('Personal')
+      + svRow('Gender', esc(s.gender))
+      + svRow('Date of Birth', esc(subDob(s.date_of_birth)))
+      + svRow('Location', esc(FerociaLocation.formatLocation(s.city, s.state)))
+      + svRow('Skill Level', esc(s.skill_level))
+      + svSection('Subscription')
+      + svRow('Status', esc(s.status))
+      + svRow('Subscribed', fmtDate(s.subscribed_at))
+      + svRow('Confirmed', s.confirm_token ? 'Pending confirmation' : 'Yes')
+      // Surfaces the legacy rows that have no token and therefore cannot
+      // use the unsubscribe link in a campaign.
+      + svRow('Can unsubscribe', s.unsubscribe_token ? 'Yes' : '<span style="color:#c04a0e;">No — no token</span>');
+
+    document.getElementById('sub-view-modal').classList.add('open');
+  };
+
+  window.closeSubView = () =>
+    document.getElementById('sub-view-modal').classList.remove('open');
+
+  window.convertSubscriber = (subId) => {
+    const s = _allSubs.find(x => String(x.id) === String(subId));
+    if (!s) { toast('Subscriber not found. Refresh the page.', true); return; }
+
+    document.getElementById('sc-subtitle').textContent = `${s.first_name} ${s.last_name} · ${s.email}`;
+    const body = document.getElementById('sc-body');
+
+    // Already a player? Checked against the index loaded with the page,
+    // then confirmed against the database when Create is pressed — the
+    // index could be a few minutes stale.
+    const existingId = _playerIndex.get(_personKey(s));
+    if (existingId) {
+      body.innerHTML = `
+        <div style="padding:16px;background:rgba(36,188,150,0.06);border:1px solid rgba(36,188,150,0.25);border-radius:10px;font-size:13px;font-weight:600;color:var(--text);line-height:1.6;">
+          This person already has a player record. Converting again would create a duplicate.
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;">
+          <button type="button" data-action="closeSubConvert" style="padding:10px 18px;border:1px solid var(--divider-color);border-radius:99px;background:white;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Close</button>
+          <button type="button" data-action="showPage" data-page="player-profile" data-pid="${existingId}"
+            style="padding:10px 22px;border:none;border-radius:99px;background:linear-gradient(180deg,#2456d3,var(--blue));color:white;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">View Profile</button>
+        </div>`;
+      document.getElementById('sub-convert-modal').classList.add('open');
+      return;
+    }
+
+    const lbl = (t, req) => `<div style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;">${t}${req ? ' <span style="color:#e53935;">*</span>' : ''}</div>`;
+    const inp = 'width:100%;padding:9px 12px;border:1px solid var(--divider-color);border-radius:8px;font-family:\'Inter\',sans-serif;font-size:13px;font-weight:600;color:var(--text);outline:none;';
+
+    body.innerHTML = `
+      <div style="font-size:12px;font-weight:600;color:var(--text-muted);line-height:1.6;margin-bottom:14px;">
+        Fields are prefilled from the subscription. Complete what is missing — a player record needs all of it.
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div>${lbl('Phone', true)}<div id="sc-phone-field"></div></div>
+        <div>${lbl('Date of Birth', true)}<input type="date" id="sc-dob" style="${inp}" value="${s.date_of_birth || ''}"></div>
+        <div>${lbl('City', true)}<input type="text" id="sc-city" list="city-suggestions" style="${inp}" value="${esc(s.city || '')}" placeholder="Boca Raton"></div>
+        <div>${lbl('State', true)}<select id="sc-state" style="${inp}"></select></div>
+        <div>${lbl('Gender')}<select id="sc-gender" style="${inp}">
+          <option value="">Select</option>
+          <option value="Male">Male</option>
+          <option value="Female">Female</option>
+        </select></div>
+        <div>${lbl('Skill Level')}<select id="sc-skill" style="${inp}">
+          <option value="">Select level</option>
+          <option value="Beginner">Beginner</option>
+          <option value="Intermediate">Intermediate</option>
+          <option value="Advanced">Advanced</option>
+        </select></div>
+        <div>${lbl('Coach Rating', true)}<input type="number" id="sc-rating" min="1" max="8" step="0.001" placeholder="3.500" style="${inp}"></div>
+        <div>${lbl('Player Status', true)}<select id="sc-status" style="${inp}">
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select></div>
+      </div>
+      <div style="margin-top:16px;padding:12px 14px;background:#fff4e6;border-left:3px solid var(--orange);border-radius:0 8px 8px 0;font-size:12px;font-weight:600;color:#9a6200;line-height:1.6;">
+        ⚠️ This cannot be undone from the app — there is no option to delete a player. Reversing it would need direct database access.
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;">
+        <button type="button" data-action="closeSubConvert" style="padding:10px 18px;border:1px solid var(--divider-color);border-radius:99px;background:white;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Cancel</button>
+        <button type="button" id="sc-create-btn" data-action="doConvertSubscriber" data-subid="${s.id}"
+          style="padding:10px 22px;border:none;border-radius:99px;background:linear-gradient(180deg,#2456d3,var(--blue));color:white;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Create Player</button>
+      </div>`;
+
+    document.getElementById('sub-convert-modal').classList.add('open');
+
+    // Mount the shared widgets after the markup exists.
+    FerociaPhone.mount({
+      container: 'sc-phone-field',
+      required:  true,
+      value:     { country_code: s.country_code, phone: s.phone },
+    });
+    document.getElementById('sc-state').innerHTML = FerociaLocation.stateOptions(s.state || '');
+    if (s.gender)      document.getElementById('sc-gender').value = s.gender;
+    if (s.skill_level) document.getElementById('sc-skill').value  = s.skill_level;
+    FerociaLocation.loadCitySuggestions('city-suggestions', api);
+  };
+
+  window.closeSubConvert = () =>
+    document.getElementById('sub-convert-modal').classList.remove('open');
+
+  window.doConvertSubscriber = async (subId) => {
+    const s = _allSubs.find(x => String(x.id) === String(subId));
+    if (!s) { toast('Subscriber not found.', true); return; }
+
+    const phone = FerociaPhone.validate('sc-phone-field', { required: true });
+    if (!phone.ok) { toast(phone.error, true); return; }
+    const phoneVal = FerociaPhone.getValue('sc-phone-field');
+
+    const dob = document.getElementById('sc-dob').value;
+    if (!dob) { toast('Date of birth is required.', true); return; }
+
+    const city = FerociaLocation.validateCity(document.getElementById('sc-city').value, { required: true });
+    if (!city.ok) { toast(city.error, true); return; }
+    const state = FerociaLocation.validateState(document.getElementById('sc-state').value, { required: true });
+    if (!state.ok) { toast(state.error, true); return; }
+
+    const ratingRaw = document.getElementById('sc-rating').value;
+    const rating = Number(ratingRaw);
+    if (!ratingRaw || !Number.isFinite(rating) || rating < 1 || rating > 8) {
+      toast('Coach rating is required and must be between 1 and 8.', true);
+      return;
+    }
+
+    // confirmModal() renders with textContent, so this is one flowing
+    // sentence rather than a formatted block.
+    const ok = await confirmModal({
+      title: 'Create a player record?',
+      message: `A player record will be created for ${s.first_name} ${s.last_name}. `
+             + `This cannot be undone from the app — there is no option to delete a player, `
+             + `so reversing it would need direct database access. They stay on the mailing list.`,
+      okLabel: 'Create player',
+      cancelLabel: 'Cancel',
+    });
+    if (!ok) return;
+
+    const btn = document.getElementById('sc-create-btn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Creating...'; }
+
+    try {
+      // Re-check against the database, not the index: it was loaded when the
+      // page opened and another admin may have added this person since.
+      const dup = await api(
+        `players?email=ilike.${encodeURIComponent(s.email)}&select=id,first_name,last_name,email&limit=25`);
+      if ((dup || []).some(p => _personKey(p) === _personKey(s))) {
+        toast('This person already has a player record. Refreshing the list.', true);
+        window.closeSubConvert();
+        await loadSubscribers();
+        return;
+      }
+
+      await api('players', 'POST', {
+        first_name:    s.first_name,
+        last_name:     s.last_name,
+        email:         s.email,
+        phone:         phoneVal.phone,
+        country_code:  phoneVal.country_code,
+        date_of_birth: dob,
+        city:          city.value,
+        state:         state.value,
+        gender:        document.getElementById('sc-gender').value || null,
+        skill_level:   document.getElementById('sc-skill').value  || null,
+        coach_rating:  Number(rating.toFixed(3)),
+        coach_rating_updated_at: new Date().toISOString(),
+        status:        document.getElementById('sc-status').value,
+        // The date they became a player, not the date they subscribed.
+        date_joined:   todayISO(),
+      });
+
+      window.closeSubConvert();
+      toast(`${s.first_name} ${s.last_name} is now a player.`);
+      await loadSubscribers();   // rebuilds the index so the icon flips
+    } catch (err) {
+      toast(`Error creating player: ${err.message}`, true);
+      if (btn) { btn.disabled = false; btn.textContent = 'Create Player'; }
+    }
+  };
+
   const loadSubscribers = async () => {
     _subsShown = 25;
     let subs = [];
@@ -125,6 +396,18 @@
       return;
     }
     _allSubs = subs;
+
+    // Which of these people already have a player record. Loaded here, once,
+    // rather than per row: 419 subscribers would mean 419 lookups.
+    // Non-fatal — if it fails the convert icon simply shows for everyone and
+    // the modal catches the duplicate before creating anything.
+    try {
+      const players = await api('players?select=id,first_name,last_name,email');
+      _playerIndex = new Map(players.map(p => [_personKey(p), p.id]));
+    } catch (err) {
+      console.warn('[promotions] could not load players for the convert icon:', err.message);
+      _playerIndex = new Map();
+    }
 
     // Stat cards
     const countActive  = subs.filter(s => s.status === 'active').length;
@@ -537,6 +820,12 @@
   window.loadSubscribers    = loadSubscribers;    // called by sendPendingReminder, which stays in app.js
 
   Object.assign(window.CLICK_HANDLERS, {
+    // CLICK_HANDLERS are called with ONE argument: the button element.
+    viewSubscriber:      (btn) => window.viewSubscriber(btn.dataset.subid),
+    convertSubscriber:   (btn) => window.convertSubscriber(btn.dataset.subid),
+    doConvertSubscriber: (btn) => window.doConvertSubscriber(btn.dataset.subid),
+    closeSubView:        () => window.closeSubView(),
+    closeSubConvert:     () => window.closeSubConvert(),
     openSendPromo: () => openSendPromo(),
     generateQR: () => generateQR(),
   });

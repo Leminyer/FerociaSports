@@ -13,23 +13,23 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Ferocia Pickleball Ladder</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="design-tokens.css?v=20260830b">
-<link rel="stylesheet" href="tournament.css?v=20260830b">
-<link rel="stylesheet" href="app.css?v=20260830b">
-<link rel="stylesheet" href="country-codes.css?v=20260830b">
+<link rel="stylesheet" href="design-tokens.css?v=20260831">
+<link rel="stylesheet" href="tournament.css?v=20260831">
+<link rel="stylesheet" href="app.css?v=20260831">
+<link rel="stylesheet" href="country-codes.css?v=20260831">
 <!-- Extracted from the four embedded CSS blocks that used to live in this
      file. ORDER MATTERS: later rules of equal specificity win, so these
      four must stay in this sequence. See the header of admin-layout.css. -->
-<link rel="stylesheet" href="admin-layout.css?v=20260830b">
-<link rel="stylesheet" href="admin-components.css?v=20260830b">
-<link rel="stylesheet" href="admin-pages.css?v=20260830b">
-<link rel="stylesheet" href="admin-ftc.css?v=20260830b">
+<link rel="stylesheet" href="admin-layout.css?v=20260831">
+<link rel="stylesheet" href="admin-components.css?v=20260831">
+<link rel="stylesheet" href="admin-pages.css?v=20260831">
+<link rel="stylesheet" href="admin-ftc.css?v=20260831">
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-<script src="config.js?v=20260830b"></script>
+<script src="config.js?v=20260831"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="db.js?v=20260830b"></script>
-<script src="auth.js?v=20260830b"></script>
-<script src="assets.js?v=20260830b"></script>
+<script src="db.js?v=20260831"></script>
+<script src="auth.js?v=20260831"></script>
+<script src="assets.js?v=20260831"></script>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 </head>
@@ -2703,6 +2703,42 @@
   </div>
 </div>
 
+<!-- Subscriber Details Modal (read-only) -->
+<div class="modal-bg" id="sub-view-modal">
+  <div class="modal" style="max-width:520px;border-radius:14px;padding:0;overflow:hidden;display:flex;flex-direction:column;max-height:88vh;">
+    <div style="padding:20px 24px 0;display:flex;align-items:flex-start;justify-content:space-between;flex-shrink:0;">
+      <div>
+        <div style="font-family:'Inter',sans-serif;font-size:22px;color:var(--text);letter-spacing:1px;line-height:1;margin-bottom:3px;" id="sv-name">Subscriber</div>
+        <div style="font-size:11px;font-weight:600;color:var(--text-muted);">Subscriber details</div>
+      </div>
+      <button type="button" data-action="closeSubView"
+        style="width:30px;height:30px;border-radius:8px;border:0.5px solid var(--divider-color);background:white;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#e53935" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div style="border-top:0.5px solid var(--divider-color);margin:14px 24px 0;"></div>
+    <div id="sv-body" style="padding:16px 24px 24px;overflow-y:auto;"></div>
+  </div>
+</div>
+
+<!-- Convert Subscriber to Player Modal -->
+<div class="modal-bg" id="sub-convert-modal">
+  <div class="modal" style="max-width:560px;border-radius:14px;padding:0;overflow:hidden;display:flex;flex-direction:column;max-height:90vh;">
+    <div style="padding:20px 24px 0;display:flex;align-items:flex-start;justify-content:space-between;flex-shrink:0;">
+      <div>
+        <div style="font-family:'Inter',sans-serif;font-size:22px;color:var(--text);letter-spacing:1px;line-height:1;margin-bottom:3px;">Convert to Player</div>
+        <div style="font-size:11px;font-weight:600;color:var(--text-muted);" id="sc-subtitle"></div>
+      </div>
+      <button type="button" data-action="closeSubConvert"
+        style="width:30px;height:30px;border-radius:8px;border:0.5px solid var(--divider-color);background:white;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#e53935" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div style="border-top:0.5px solid var(--divider-color);margin:14px 24px 0;"></div>
+    <div id="sc-body" style="padding:16px 24px 24px;overflow-y:auto;"></div>
+  </div>
+</div>
+
 <!-- Incident Report Modal — shared by Ladder Sessions and Tournaments -->
 <div class="modal-bg" id="incident-report-modal">
   <div class="modal" style="max-width:560px;border-radius:14px;padding:0;overflow:hidden;display:flex;flex-direction:column;max-height:85vh;">
@@ -3272,30 +3308,30 @@
 
 <!-- Loaded before every admin-* module: three of them call
      FerociaPhone.format() when rendering. -->
-<script src="country-codes.js?v=20260830b"></script>
-<script src="location-fields.js?v=20260830b"></script>
-<script src="admin-state.js?v=20260830b"></script>
-<script src="admin-incident-reports.js?v=20260830b"></script>
-<script src="admin-ladder-selector.js?v=20260830b"></script>
-<script src="admin-orders.js?v=20260830b"></script>
-<script src="admin-email-utils.js?v=20260830b"></script>
-<script src="admin-share.js?v=20260830b"></script>
-<script src="admin-tournament-notify.js?v=20260830b"></script>
-<script src="admin-player-status-history.js?v=20260830b"></script>
-<script src="admin-player-profile.js?v=20260830b"></script>
-<script src="admin-email-notifications.js?v=20260830b"></script>
-<script src="admin-ladder-standings.js?v=20260830b"></script>
-<script src="admin-sessions.js?v=20260830b"></script>
-<script src="admin-print-roster.js?v=20260830b"></script>
-<script src="admin-ladder-management.js?v=20260830b"></script>
-<script src="admin-promotions.js?v=20260830b"></script>
-<script src="admin-players.js?v=20260830b"></script>
-<script src="admin-players-email.js?v=20260830b"></script>
-<script src="admin-ftc-standings.js?v=20260830b"></script>
-<script src="admin-ftc-playoffs-schedule.js?v=20260830b"></script>
-<script src="admin-ftc-teams.js?v=20260830b"></script>
-<script src="app.js?v=20260830b"></script>
-<script src="tournament.js?v=20260830b"></script>
+<script src="country-codes.js?v=20260831"></script>
+<script src="location-fields.js?v=20260831"></script>
+<script src="admin-state.js?v=20260831"></script>
+<script src="admin-incident-reports.js?v=20260831"></script>
+<script src="admin-ladder-selector.js?v=20260831"></script>
+<script src="admin-orders.js?v=20260831"></script>
+<script src="admin-email-utils.js?v=20260831"></script>
+<script src="admin-share.js?v=20260831"></script>
+<script src="admin-tournament-notify.js?v=20260831"></script>
+<script src="admin-player-status-history.js?v=20260831"></script>
+<script src="admin-player-profile.js?v=20260831"></script>
+<script src="admin-email-notifications.js?v=20260831"></script>
+<script src="admin-ladder-standings.js?v=20260831"></script>
+<script src="admin-sessions.js?v=20260831"></script>
+<script src="admin-print-roster.js?v=20260831"></script>
+<script src="admin-ladder-management.js?v=20260831"></script>
+<script src="admin-promotions.js?v=20260831"></script>
+<script src="admin-players.js?v=20260831"></script>
+<script src="admin-players-email.js?v=20260831"></script>
+<script src="admin-ftc-standings.js?v=20260831"></script>
+<script src="admin-ftc-playoffs-schedule.js?v=20260831"></script>
+<script src="admin-ftc-teams.js?v=20260831"></script>
+<script src="app.js?v=20260831"></script>
+<script src="tournament.js?v=20260831"></script>
 <script>
   // ── Sidebar toggle — persisted in localStorage ──────────────────────
   (function() {
