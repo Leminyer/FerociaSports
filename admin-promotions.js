@@ -197,7 +197,8 @@
     const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/);
     const txt = m ? `${m[2]}/${m[3]}/${m[1]}` : String(iso);
     const age = subAge(iso);
-    return age !== null ? `${txt} (${age})` : txt;
+    // "(41 years)" rather than "(41)" — matches the player profile.
+    return age !== null ? `${txt} (${age} ${age === 1 ? 'year' : 'years'})` : txt;
   };
 
   window.viewSubscriber = (subId) => {
