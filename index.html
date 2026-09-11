@@ -419,11 +419,34 @@ footer{
   // ── Load upcoming events ──────────────────────────────────
   const today = new Date().toISOString().split('T')[0];
   let events = [];
-  // Order by date AND time. PostgREST sorts nulls first by default, which
-  // would put an event with no time ahead of one starting at 8am on the
-  // same day; nullslast keeps the timed ones in order and leaves the
-  // undated-time ones at the end of their day.
-  try { events = await api(`events?event_date=gte.${today}&select=*&order=event_date.asc,event_time.asc.nullslast`); } catch(_) {}
+  /* WHICH EVENTS ARE STILL SHOWN
+     event_date means different things per type: for a tournament it is the
+     day it happens, for a ladder or clinic it is the day it STARTED. So a
+     plain "event_date >= today" made every clinic vanish the day after it
+     began, even though it runs every week.
+
+       · tournament / other  → hidden once their date has passed
+       · ladder              → shown until end_date (or forever if unset,
+                               so an older ladder never silently disappears)
+       · clinic / private    → always shown; they recur with no end
+
+     Order by date, then time. nullslast matters twice: PostgREST puts
+     nulls FIRST by default, which would push an event with no time ahead
+     of one starting at 8am the same day. */
+  try {
+    events = await api(`events?or=(event_date.gte.${today},and(event_type.eq.ladder,or(end_date.gte.${today},end_date.is.null)),event_type.in.(clinic,private_session))&select=*&order=event_date.asc,event_time.asc.nullslast`);
+  } catch(_) {}
+
+  /* Recurring events last. A clinic that started in July would otherwise
+     sort above a tournament in October, burying the thing that actually
+     happens next under something that happens every week. */
+  const RECURRING = ['clinic', 'private_session'];
+  events.sort((a, b) => {
+    const ra = RECURRING.includes(a.event_type) ? 1 : 0;
+    const rb = RECURRING.includes(b.event_type) ? 1 : 0;
+    if (ra !== rb) return ra - rb;
+    return String(a.event_date).localeCompare(String(b.event_date));
+  });
 
   const grid = document.getElementById('events-grid');
   if (!events.length) {

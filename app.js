@@ -332,7 +332,22 @@ window.selectLadderType = (type) => {
       if (eventsEl) {
         const today = new Date().toISOString().split('T')[0];
         let events = [];
-        try { events = await api(`events?event_date=gte.${today}&select=id,title,event_date&order=event_date.asc&limit=4`); } catch(_) {}
+        // Same visibility rule as the events page — a clinic should not
+        // vanish from the dashboard the day after it started either.
+        try {
+          events = await api(`events?or=(event_date.gte.${today},and(event_type.eq.ladder,or(end_date.gte.${today},end_date.is.null)),event_type.in.(clinic,private_session))&select=id,title,event_date,event_type&order=event_date.asc&limit=8`);
+          const RECURRING = ['clinic', 'private_session'];
+          events.sort((a, b) => {
+            const ra = RECURRING.includes(a.event_type) ? 1 : 0;
+            const rb = RECURRING.includes(b.event_type) ? 1 : 0;
+            if (ra !== rb) return ra - rb;
+            return String(a.event_date).localeCompare(String(b.event_date));
+          });
+          // Fetched 8 to sort across the full set, then trimmed to 4: with a
+          // limit of 4 the database could hand back four clinics and hide the
+          // tournament that is actually next.
+          events = events.slice(0, 4);
+        } catch(_) {}
 
         if (!events.length) {
           eventsEl.innerHTML = `
@@ -604,9 +619,22 @@ window.selectLadderType = (type) => {
     if (!el) return;
     try {
       const today = new Date().toISOString().split('T')[0];
-      // Same ordering as the public page, so both lists agree: by date, then
-      // by start time, with events that have no time last within their day.
-      const events = await api(`events?event_date=gte.${today}&select=*&order=event_date.asc,event_time.asc.nullslast`);
+      /* Same rule as the public page, so both lists agree.
+
+         event_date means the day a tournament happens but the day a ladder
+         or clinic STARTED, so filtering on it alone made every clinic
+         disappear the day after it began. Ladders stay until end_date (or
+         forever when unset); clinics and private sessions always show. */
+      const events = await api(`events?or=(event_date.gte.${today},and(event_type.eq.ladder,or(end_date.gte.${today},end_date.is.null)),event_type.in.(clinic,private_session))&select=*&order=event_date.asc,event_time.asc.nullslast`);
+
+      // Recurring events last, so what happens next is at the top.
+      const RECURRING = ['clinic', 'private_session'];
+      events.sort((a, b) => {
+        const ra = RECURRING.includes(a.event_type) ? 1 : 0;
+        const rb = RECURRING.includes(b.event_type) ? 1 : 0;
+        if (ra !== rb) return ra - rb;
+        return String(a.event_date).localeCompare(String(b.event_date));
+      });
       // Update count badge
       const badge = document.getElementById('events-count-badge');
       if (badge) badge.textContent = events.length || '';
