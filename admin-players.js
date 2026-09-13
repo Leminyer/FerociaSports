@@ -1857,7 +1857,10 @@
     //    the shared cache is never degraded.
     let importPlayers = [];
     try {
-      importPlayers = await api('players?select=first_name,last_name,email&order=id');
+      // The extra columns come from the temporary backfill module, so
+      // deleting that file also drops them from this query.
+      const extra = window.TempDobBackfill ? ',' + window.TempDobBackfill.SELECT_EXTRA : '';
+      importPlayers = await api(`players?select=first_name,last_name,email${extra}&order=id`);
     } catch (err) {
       // Fall back to the shared cache rather than an empty list: stale data
       // is still a better duplicate check than none, which would pass every
@@ -2004,12 +2007,21 @@
       // Dedup check against the database: all 3 must match (case-insensitive).
       // Uses the freshly-fetched local list, not the shared cache — see the
       // comment where importPlayers is loaded.
-      const isDup = importPlayers.some(p =>
+      const existing = importPlayers.find(p =>
         _normName(p.first_name) === _normName(row.first_name) &&
         _normName(p.last_name)  === _normName(row.last_name)  &&
         (p.email || '').toLowerCase() === row.email.toLowerCase()
       );
-      if (isDup) { row._state = 'duplicate'; return row; }
+      if (existing) {
+        row._state = 'duplicate';
+        // TEMPORARY (temp-dob-backfill.js): an existing player with no date
+        // of birth still gets one from the spreadsheet. Remove the file and
+        // this simply stops happening.
+        if (window.TempDobBackfill) {
+          row._backfill = window.TempDobBackfill.check(existing, row);
+        }
+        return row;
+      }
 
       // Dedup check against EARLIER ROWS OF THIS FILE. Without this, a CSV
       // that lists the same person twice created two identical players —
@@ -2074,6 +2086,10 @@
       // Reactivation flag — shown next to the main badge so the admin sees,
       // BEFORE confirming, that importing this row will put someone who
       // unsubscribed back onto the mailing list.
+      // TEMPORARY (temp-dob-backfill.js)
+      const dobBadge = (r._backfill && window.TempDobBackfill)
+        ? window.TempDobBackfill.badge(r._backfill) : '';
+
       const subBadge = (r._state === 'new' && r._subState === 'reactivate')
         ? '<span class="import-badge" title="This person previously unsubscribed. Importing this row will reactivate their subscription." style="background:rgba(23,76,204,0.08);color:var(--blue);border:0.5px solid rgba(23,76,204,0.3);margin-left:4px;">↻ Reactivate</span>'
         : '';
@@ -2092,7 +2108,7 @@
         <td>${r.rating !== null ? esc(ratingDisplay(r.rating)) : (r.rating_raw ? `<span style="color:#e53935;">${esc(r.rating_raw)}</span>` : '—')}</td>
         <td>${(r.city && r.state) ? esc(FerociaLocation.formatLocation(r.city, r.state))
               : ((r.city_raw || r.state_raw) ? `<span style="color:#e53935;">${esc([r.city_raw, r.state_raw].filter(Boolean).join(', '))}</span>` : '—')}</td>
-        <td style="white-space:nowrap;">${badge}${subBadge}</td>
+        <td style="white-space:nowrap;">${badge}${subBadge}${dobBadge}</td>
       </tr>`;
     }).join('');
 
@@ -2173,6 +2189,22 @@
       }
     }
 
+    // TEMPORARY (temp-dob-backfill.js): fill in the date of birth of
+    // players who already existed but had none. Runs after the inserts so
+    // a failure here cannot affect them.
+    let dobFilled = 0, ratingFilled = 0;
+    if (window.TempDobBackfill) {
+      const pending = _importRows.filter(r => r._backfill).map(r => r._backfill);
+      if (pending.length) {
+        const res = await window.TempDobBackfill.apply(pending, api);
+        dobFilled    = res.dob;
+        ratingFilled = res.rating;
+        if (res.failed) {
+          toast(`${res.failed} existing player${res.failed !== 1 ? 's' : ''} could not be updated. See the console.`, true);
+        }
+      }
+    }
+
     // Reload players cache
     try { AdminState.allPlayers = await api('players?select=*&order=first_name'); } catch(_) {}
 
@@ -2183,6 +2215,9 @@
     if (subCreated)      parts.push(`${subCreated} added to subscribers`);
     if (subReactivated)  parts.push(`${subReactivated} subscription${subReactivated !== 1 ? 's' : ''} reactivated`);
     if (subFailed)       parts.push(`${subFailed} subscriber sync${subFailed !== 1 ? 's' : ''} failed`);
+    // TEMPORARY (temp-dob-backfill.js)
+    if (dobFilled)       parts.push(`${dobFilled} date${dobFilled !== 1 ? 's' : ''} of birth added`);
+    if (ratingFilled)    parts.push(`${ratingFilled} rating${ratingFilled !== 1 ? 's' : ''} added`);
     toast(parts.join(' · '), failCount > 0 || subFailed > 0);
     importReset();
     if (typeof loadPlayers === 'function') loadPlayers();
