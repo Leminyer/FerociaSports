@@ -300,8 +300,15 @@
               <div style="display:flex;gap:6px;align-items:center;">
                 <button class="sess-edit-btn" data-action="editSession" data-matchids="${sessionMatchIds}" data-date="${esc(s.session_date)}" data-court="${s.court_group}" data-time="${esc(s.session_time || '')}" title="Edit session">${editSVG}</button>
                 <button class="sess-edit-btn" data-action="deleteSession" data-matchids="${sessionMatchIds}" data-date="${esc(s.session_date)}" data-court="${s.court_group}" data-time="${esc(s.session_time || '')}" title="Delete session" style="border-color:rgba(229,57,53,0.3);"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#e53935" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
-                <button class="sess-edit-btn" data-action="openIncidentReportForSession" data-date="${esc(s.session_date)}" data-time="${esc(s.session_time || '')}" data-court="${s.court_group}" title="Incident Report" style="border-color:rgba(242,96,36,0.3);color:var(--orange);">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                <!-- Solid orange with a count when this court has incidents,
+                     so a closed session from months ago still shows at a
+                     glance that something was reported. -->
+                <button class="sess-edit-btn" data-action="openIncidentReportForSession" data-date="${esc(s.session_date)}" data-time="${esc(s.session_time || '')}" data-court="${s.court_group}"
+                  title="${courtIncidents.length ? `${courtIncidents.length} incident report${courtIncidents.length !== 1 ? 's' : ''} on this court — click to add another` : 'Report an incident'}"
+                  style="${courtIncidents.length
+                    ? 'border-color:var(--orange);background:var(--orange);color:white;width:auto;padding:0 9px;gap:5px;font-family:\'Inter\',sans-serif;font-size:11px;font-weight:800;'
+                    : 'border-color:rgba(242,96,36,0.3);color:var(--orange);'}">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>${courtIncidents.length ? courtIncidents.length : ''}
                 </button>
               </div>
             </div>
