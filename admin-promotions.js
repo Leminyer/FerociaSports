@@ -278,7 +278,9 @@
         <div>${lbl('Skill Level')}<select id="sc-skill" style="${inp}">
           <option value="" selected>Select level</option>
           <option value="Beginner">Beginner</option>
+          <option value="Advanced Beginner">Advanced Beginner</option>
           <option value="Intermediate">Intermediate</option>
+          <option value="Advanced Intermediate">Advanced Intermediate</option>
           <option value="Advanced">Advanced</option>
         </select></div>
         <div>${lbl('Coach Rating', true)}<input type="number" id="sc-rating" min="1" max="8" step="0.001" placeholder="3.500" style="${inp}"></div>
