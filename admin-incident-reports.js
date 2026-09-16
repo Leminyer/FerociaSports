@@ -72,9 +72,9 @@
       playerDropdownWrap.style.display = '';
       const list = document.getElementById('ir-player-list');
       list.innerHTML = (ctx.playerPool || []).map((p) => `
-        <label style="display:flex;align-items:center;gap:9px;padding:8px 12px;cursor:pointer;border-bottom:1px solid #f4f5f8;">
+        <label style="display:flex;align-items:center;gap:9px;padding:6px 12px;cursor:pointer;border-bottom:1px solid #f4f5f8;">
           <input type="checkbox" class="ir-player-cb" value="${p.id}" style="width:15px;height:15px;accent-color:var(--blue);cursor:pointer;">
-          <span style="font-family:'Inter',sans-serif;font-size:12.5px;font-weight:600;color:var(--text);">${esc(p.first_name)} ${esc(p.last_name)}</span>
+          <span style="font-family:'Inter',sans-serif;font-size:11.5px;font-weight:600;color:var(--text);">${esc(p.first_name)} ${esc(p.last_name)}</span>
         </label>`).join('')
         || '<div style="padding:12px;font-size:12px;font-weight:600;color:var(--text-muted);text-align:center;">No players on this court.</div>';
 
