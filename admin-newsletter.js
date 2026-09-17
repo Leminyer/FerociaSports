@@ -1,0 +1,528 @@
+/* ============================================================
+   FEROCIA SPORTS CENTER — ADMIN: NEWSLETTER
+   Depends on: config.js, db.js, admin-state.js
+   ------------------------------------------------------------
+   Create, edit, preview, test and send FEROCIA Monthly.
+
+   SAVE AND SEND ARE SEPARATE, ALWAYS
+     Saving writes the draft. Sending is a different button with its own
+     confirmation. Nothing goes out because someone pressed Save.
+
+   A SENT EDITION IS HISTORY
+     Once status is 'sent', the editor becomes read-only. Subscribers
+     already have that content in their inbox; letting it be edited would
+     make the archive disagree with what was actually delivered.
+
+   THE PREVIEW IS THE REAL THING
+     It renders through the same Edge Function that sends, in preview
+     mode, rather than a separate mock that could drift from the email.
+   ============================================================ */
+
+(function () {
+  'use strict';
+
+  const CFG = window.FEROCIA_CONFIG;
+  if (!CFG) { console.error('[Ferocia] config.js must load before admin-newsletter.js'); return; }
+
+  let _issues  = [];
+  let _current = null;   // the edition being edited
+  let _dirty   = false;
+
+  const MONTHS = ['January','February','March','April','May','June',
+                  'July','August','September','October','November','December'];
+
+  /* ─── HELPERS ────────────────────────────────────────────── */
+
+  const setDirty = (v) => {
+    _dirty = v;
+    const btn = document.getElementById('nl-save-btn');
+    if (btn) {
+      btn.textContent = v ? 'Save Draft •' : 'Save Draft';
+      btn.style.borderColor = v ? 'var(--orange)' : 'var(--divider-color)';
+      btn.style.color = v ? 'var(--orange)' : 'var(--text)';
+    }
+  };
+
+  const isSent = () => _current?.status === 'sent';
+
+  /** Reads a value out of the content object by dotted path. */
+  const get = (path, fallback = '') => {
+    const parts = path.split('.');
+    let v = _current?.content || {};
+    for (const p of parts) { v = v?.[p]; if (v === undefined) return fallback; }
+    return v ?? fallback;
+  };
+
+  const set = (path, value) => {
+    if (isSent()) return;
+    const parts = path.split('.');
+    let o = _current.content;
+    for (let i = 0; i < parts.length - 1; i++) {
+      if (typeof o[parts[i]] !== 'object' || o[parts[i]] === null) o[parts[i]] = {};
+      o = o[parts[i]];
+    }
+    o[parts[parts.length - 1]] = value;
+    setDirty(true);
+  };
+  window.nlSet = set;
+
+  const inputStyle = 'width:100%;padding:10px 12px;border:1px solid var(--divider-color);border-radius:8px;'
+    + "font-family:'Inter',sans-serif;font-size:13px;font-weight:600;color:var(--text);outline:none;";
+
+  const field = (label, path, opts = {}) => {
+    const v = esc(get(path));
+    const dis = isSent() ? 'disabled' : '';
+    const el = opts.textarea
+      ? `<textarea data-nlpath="${path}" ${dis} rows="${opts.rows || 5}" placeholder="${esc(opts.placeholder || '')}"
+           style="${inputStyle}resize:vertical;line-height:1.6;font-weight:500;">${v}</textarea>`
+      : `<input type="text" data-nlpath="${path}" ${dis} value="${v}" placeholder="${esc(opts.placeholder || '')}" style="${inputStyle}">`;
+    return `
+      <div style="margin-bottom:12px;">
+        <div style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;">${esc(label)}</div>
+        ${el}
+        ${opts.hint ? `<div style="font-size:10.5px;font-weight:600;color:var(--text-light);margin-top:4px;">${esc(opts.hint)}</div>` : ''}
+      </div>`;
+  };
+
+  const sectionCard = (num, title, purpose, body) => `
+    <div class="card" style="padding:0;margin-bottom:14px;overflow:hidden;">
+      <div style="padding:14px 18px;background:var(--bg);border-bottom:0.5px solid var(--divider-color);">
+        <div style="display:flex;align-items:center;gap:9px;">
+          <div style="width:22px;height:22px;border-radius:50%;background:var(--blue);color:white;font-family:'Inter',sans-serif;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${num}</div>
+          <div style="font-family:'Inter',sans-serif;font-size:15px;font-weight:800;color:var(--text);">${esc(title)}</div>
+        </div>
+        <div style="font-size:11px;font-weight:600;color:var(--text-muted);margin-top:4px;">${esc(purpose)}</div>
+      </div>
+      <div style="padding:16px 18px;">${body}</div>
+    </div>`;
+
+  /* ─── REPEATING ITEMS ────────────────────────────────────── */
+
+  /* Upcoming events, champions and spotlight are lists with no fixed
+     length: an October with four ladders and a November with one must
+     both work. Items are added and removed rather than living in a
+     fixed number of slots. */
+
+  const listAdd = (path, template) => {
+    if (isSent()) return;
+    const arr = get(path, []);
+    arr.push(JSON.parse(JSON.stringify(template)));
+    set(path, arr);
+    renderSections();
+  };
+  window.nlListAdd = listAdd;
+
+  const listRemove = async (path, idx) => {
+    if (isSent()) return;
+    const ok = await confirmModal({
+      title: 'Remove this item?',
+      message: 'It will be taken out of this edition. Nothing is sent or deleted elsewhere.',
+      okLabel: 'Remove', cancelLabel: 'Cancel',
+    });
+    if (!ok) return;
+    const arr = get(path, []);
+    arr.splice(idx, 1);
+    set(path, arr);
+    renderSections();
+  };
+  window.nlListRemove = listRemove;
+
+  const removeBtn = (path, i) => isSent() ? '' : `
+    <button type="button" data-action="nlRemove" data-path="${path}" data-idx="${i}"
+      style="background:none;border:none;color:#e53935;font-size:11px;font-weight:700;cursor:pointer;padding:0;">Remove</button>`;
+
+  const addBtn = (label, action, path) => isSent() ? '' : `
+    <button type="button" data-action="${action}" data-path="${path}"
+      style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border:1px dashed var(--blue);border-radius:8px;background:white;color:var(--blue);font-family:'Inter',sans-serif;font-size:11.5px;font-weight:700;cursor:pointer;">
+      + ${esc(label)}</button>`;
+
+  const itemBox = (inner, path, i) => `
+    <div style="border:1px solid var(--divider-color);border-radius:8px;padding:13px;margin-bottom:10px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px;">
+        <span style="font-size:10px;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;">Item ${i + 1}</span>
+        ${removeBtn(path, i)}
+      </div>
+      ${inner}</div>`;
+
+  /* ─── SECTION RENDERERS ──────────────────────────────────── */
+
+  const secHeader = () => sectionCard('H', 'Header', 'Masthead image and opening line', `
+    ${field('Hero image URL', 'hero.image_url', { hint: 'Paste a URL, or upload to the newsletter-images bucket and paste the public link.' })}
+    ${field('Opening line', 'hero.quote', { placeholder: 'A stronger pickleball community together.' })}`);
+
+  const secUpcoming = () => {
+    const items = get('upcoming', []);
+    return sectionCard(1, "What's Coming Up", 'Ladders, tournaments, clinics — what readers can register for',
+      items.map((_, i) => itemBox(
+        field('Name', `upcoming.${i}.title`) +
+        field('Date', `upcoming.${i}.date`, { placeholder: 'Starts October 2, 2026' }) +
+        field('Time', `upcoming.${i}.time`, { placeholder: '8:30 AM – 10:30 AM' }) +
+        field('Location', `upcoming.${i}.location`) +
+        field('Short description', `upcoming.${i}.description`, { textarea: true, rows: 2 }) +
+        field('Registration URL', `upcoming.${i}.url`, { hint: 'Leave empty if registration has not opened.' }) +
+        field('Button label', `upcoming.${i}.cta_label`, { placeholder: 'Register Now — or "Registration coming soon" with no URL' }),
+        'upcoming', i)).join('')
+      + addBtn('Add event', 'nlAddUpcoming', 'upcoming'));
+  };
+
+  const secSpotlight = () => {
+    const items = get('spotlight', []);
+    const players = (base, key, label) => {
+      const arr = get(`${base}.${key}`, []);
+      return `<div style="margin:10px 0 4px;font-size:10px;font-weight:800;color:var(--blue);text-transform:uppercase;letter-spacing:.5px;">${label}</div>`
+        + arr.map((_, j) => `
+          <div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:6px;">
+            <div style="width:20px;padding-top:10px;font-size:11px;font-weight:800;color:var(--text-muted);">${j + 1}</div>
+            <div style="flex:2;">${field('Name', `${base}.${key}.${j}.name`)}</div>
+            <div style="flex:1;">${field('Points', `${base}.${key}.${j}.detail`, { placeholder: '83 PTS' })}</div>
+            <div style="padding-top:10px;">${removeBtn(`${base}.${key}`, j)}</div>
+          </div>`).join('')
+        + addBtn(`Add to ${label}`, 'nlAddPlayer', `${base}.${key}`);
+    };
+    return sectionCard(2, 'Player Spotlight', 'Ladder leaders, most improved, or any recognition this month',
+      items.map((_, i) => itemBox(
+        field('Ladder / group name', `spotlight.${i}.ladder`) +
+        field('Period', `spotlight.${i}.period`, { placeholder: 'July – September 2026' }) +
+        players(`spotlight.${i}`, 'top_men', 'Top Men') +
+        players(`spotlight.${i}`, 'top_women', 'Top Women'),
+        'spotlight', i)).join('')
+      + addBtn('Add ladder / group', 'nlAddSpotlight', 'spotlight'));
+  };
+
+  const secChampions = () => {
+    const items = get('champions', []);
+    return sectionCard(3, 'Tournament Champions', 'Every division, every placement — the layout grows',
+      field('Tournament name', 'champions_sub', { placeholder: 'Mamba Day 2026 · Sunday, August 23, 2026' })
+      + items.map((_, i) => {
+        const pod = get(`champions.${i}.podium`, ['', '', '']);
+        return itemBox(
+          field('Division', `champions.${i}.division`, { placeholder: 'Mixed Doubles 55+' }) +
+          field('Level', `champions.${i}.level`, { placeholder: 'Up to 4.0' }) +
+          pod.map((_, j) =>
+            field(['Champion', '2nd place', '3rd place'][j] || `${j + 1}th`, `champions.${i}.podium.${j}`,
+                  { placeholder: 'Chris Berry & Emely Skiff' })).join(''),
+          'champions', i);
+      }).join('')
+      + addBtn('Add division', 'nlAddChampion', 'champions'));
+  };
+
+  const secCoach = () => sectionCard(4, "Coach's Corner", 'Real pickleball teaching — the reason to open the email', `
+    ${field('Tip headline', 'coach.title', { placeholder: 'Win the point later, not on your third shot' })}
+    ${field('Body', 'coach.body', { textarea: true, rows: 9, hint: 'Blank lines become paragraphs.' })}
+    ${field('Signature', 'coach.author', { placeholder: 'Coach Leminyer' })}
+    ${field("This month's challenge", 'coach.challenge', { textarea: true, rows: 3 })}`);
+
+  const secPick = () => sectionCard(5, 'FEROCIA Pick of the Month', 'One product — never a carousel', `
+    ${field('Product name', 'pick.name')}
+    ${field('Image URL', 'pick.image_url')}
+    ${field('Description', 'pick.description', { textarea: true, rows: 3 })}
+    ${field("Coach's tip", 'pick.tip', { textarea: true, rows: 3 })}
+    ${field('Amazon / affiliate URL', 'pick.amazon_url', { hint: 'Pasted exactly as given. Nothing is appended to it.' })}`);
+
+  const secNumbers = () => {
+    const items = get('numbers.items', []);
+    return sectionCard(6, 'Around FEROCIA', 'Monthly activity — only the metrics worth showing',
+      field('Subtitle', 'numbers.subtitle', { placeholder: 'September by the numbers' })
+      + items.map((_, i) => `
+        <div style="display:flex;gap:8px;align-items:flex-start;">
+          <div style="flex:1;">${field('Value', `numbers.items.${i}.value`, { placeholder: '64' })}</div>
+          <div style="flex:2;">${field('Label', `numbers.items.${i}.label`, { placeholder: 'Players on court' })}</div>
+          <div style="padding-top:10px;">${removeBtn('numbers.items', i)}</div>
+        </div>`).join('')
+      + (items.length < 4 ? addBtn('Add metric', 'nlAddMetric', 'numbers.items') : '')
+      + field('Closing line', 'numbers.footer', { placeholder: 'A growing community. A brighter place to play.' }));
+  };
+
+  const renderSections = () => {
+    const el = document.getElementById('nl-sections');
+    if (!el || !_current) return;
+    el.innerHTML = secHeader() + secUpcoming() + secSpotlight() + secChampions()
+                 + secCoach() + secPick() + secNumbers();
+  };
+
+  // One delegated listener rather than one per field: the sections are
+  // rebuilt whenever a list item is added or removed.
+  document.addEventListener('input', (e) => {
+    const path = e.target?.dataset?.nlpath;
+    if (path && _current) set(path, e.target.value);
+  });
+
+  /* ─── LIST VIEW ──────────────────────────────────────────── */
+
+  const statusPill = (s) => s === 'sent'
+    ? '<span style="font-size:10px;font-weight:800;color:#1D9E68;background:#EEF9F2;padding:3px 10px;border-radius:99px;text-transform:uppercase;">Sent</span>'
+    : '<span style="font-size:10px;font-weight:800;color:#9a6200;background:#FFF4E6;padding:3px 10px;border-radius:99px;text-transform:uppercase;">Draft</span>';
+
+  const renderList = () => {
+    const el = document.getElementById('nl-list');
+    if (!_issues.length) {
+      el.innerHTML = '<div class="empty" style="padding:28px;">No editions yet. Create the first one.</div>';
+      return;
+    }
+    el.innerHTML = _issues.map((n) => `
+      <div style="display:flex;align-items:center;gap:14px;padding:15px 20px;border-bottom:0.5px solid #f4f5f8;cursor:pointer;"
+           data-action="nlOpen" data-id="${n.id}">
+        <div style="flex:1;min-width:0;">
+          <div style="font-family:'Inter',sans-serif;font-size:15px;font-weight:700;color:var(--text);">${esc(n.title)}</div>
+          <div style="font-size:11px;font-weight:600;color:var(--text-muted);margin-top:2px;">
+            ${n.status === 'sent'
+              ? `Sent ${fmtDate(String(n.sent_at).slice(0, 10))} · ${n.sent_count} recipient${n.sent_count !== 1 ? 's' : ''}${n.failed_count ? ` · ${n.failed_count} failed` : ''}`
+              : `Last edited ${fmtDate(String(n.updated_at).slice(0, 10))}`}
+          </div>
+        </div>
+        ${statusPill(n.status)}
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-light)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>`).join('');
+  };
+
+  const loadNewsletterPage = async () => {
+    document.getElementById('nl-list-view').style.display = 'block';
+    document.getElementById('nl-edit-view').style.display = 'none';
+    try {
+      _issues = await api('newsletters?select=*&order=issue_date.desc');
+    } catch (err) {
+      document.getElementById('nl-list').innerHTML =
+        `<div class="empty" style="padding:24px;">Error: ${esc(err.message)}</div>`;
+      return;
+    }
+    renderList();
+  };
+  window.loadNewsletterPage = loadNewsletterPage;
+
+  /* ─── CREATE / OPEN ──────────────────────────────────────── */
+
+  window.nlNew = async () => {
+    const now = new Date();
+    // Next month: a newsletter is normally written ahead of the month it
+    // covers, not during it.
+    const d = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    const title = `${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+
+    try {
+      await api('newsletters', 'POST', {
+        title,
+        issue_date: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`,
+        status: 'draft',
+        content: {},
+      });
+      // db.js's POST does not return the inserted row, so the new edition is
+      // fetched back rather than assumed.
+      _issues = await api('newsletters?select=*&order=id.desc&limit=1');
+      if (_issues[0]) openIssue(_issues[0].id, _issues[0]);
+      toast(`Draft created for ${title}.`);
+    } catch (err) {
+      toast(`Error: ${err.message}`, true);
+    }
+  };
+
+  const openIssue = (id, preloaded) => {
+    const n = preloaded || _issues.find((x) => String(x.id) === String(id));
+    if (!n) { toast('Edition not found.', true); return; }
+    _current = { ...n, content: n.content || {} };
+    setDirty(false);
+
+    document.getElementById('nl-list-view').style.display = 'none';
+    document.getElementById('nl-edit-view').style.display = 'block';
+    document.getElementById('nl-edit-title').textContent = n.title;
+    document.getElementById('nl-edit-status').innerHTML =
+      n.status === 'sent' ? 'Sent — read only' : 'Draft';
+
+    // A sent issue is what subscribers already received. Editing it would
+    // make the archive disagree with their inbox.
+    const banner = document.getElementById('nl-sent-banner');
+    const sent = n.status === 'sent';
+    banner.style.display = sent ? 'block' : 'none';
+    if (sent) {
+      banner.textContent = `This edition was sent on ${fmtDate(String(n.sent_at).slice(0, 10))} to `
+        + `${n.sent_count} subscriber${n.sent_count !== 1 ? 's' : ''}. It is kept exactly as it went out, so it cannot be edited.`;
+    }
+    ['nl-save-btn', 'nl-test-btn', 'nl-send-btn'].forEach((bid) => {
+      const b = document.getElementById(bid);
+      if (b) { b.disabled = sent; b.style.opacity = sent ? '0.4' : '1'; b.style.cursor = sent ? 'not-allowed' : 'pointer'; }
+    });
+
+    // Spelled out next to the button so there is never a doubt about
+    // where a test lands.
+    const addr = document.getElementById('nl-test-addr');
+    if (addr) addr.textContent = sent ? '' : `to ${CFG.ADMIN_EMAIL}`;
+
+    renderSections();
+  };
+  window.nlOpen = openIssue;
+
+  window.nlBackToList = async () => {
+    if (_dirty) {
+      const ok = await confirmModal({
+        title: 'Leave without saving?',
+        message: 'This edition has unsaved changes. Leaving now discards them.',
+        okLabel: 'Discard changes', cancelLabel: 'Stay',
+      });
+      if (!ok) return;
+    }
+    _current = null;
+    loadNewsletterPage();
+  };
+
+  /* ─── SAVE ───────────────────────────────────────────────── */
+
+  window.nlSave = async () => {
+    if (!_current || isSent()) return;
+    const btn = document.getElementById('nl-save-btn');
+    btn.disabled = true; btn.textContent = 'Saving...';
+    try {
+      await api(`newsletters?id=eq.${_current.id}`, 'PATCH', {
+        content: _current.content,
+        updated_at: new Date().toISOString(),
+      });
+      setDirty(false);
+      toast('Draft saved.');
+    } catch (err) {
+      toast(`Error saving: ${err.message}`, true);
+    } finally {
+      btn.disabled = false;
+      if (!_dirty) btn.textContent = 'Save Draft';
+    }
+  };
+
+  /* ─── PREVIEW ────────────────────────────────────────────── */
+
+  const previewHTML = async () => {
+    // Rendered by the same function that sends, so what is previewed is
+    // what goes out — not a separate mock that could drift.
+    const { data, error } = await window.supabase.functions.invoke('send-newsletter', {
+      body: { newsletter_id: _current.id, preview: true },
+    });
+    if (error) throw new Error(error.message);
+    return data?.html || '';
+  };
+
+  window.nlPreview = async () => {
+    if (!_current) return;
+    if (_dirty) { await window.nlSave(); }
+    const frame = document.getElementById('nl-preview-frame');
+    frame.srcdoc = '<p style="font-family:sans-serif;padding:20px;color:#6b7a99;">Loading preview...</p>';
+    document.getElementById('nl-preview-modal').classList.add('open');
+    try {
+      frame.srcdoc = await previewHTML();
+    } catch (err) {
+      frame.srcdoc = `<p style="font-family:sans-serif;padding:20px;color:#e53935;">Preview failed: ${esc(err.message)}</p>`;
+    }
+  };
+
+  window.nlClosePreview = () =>
+    document.getElementById('nl-preview-modal').classList.remove('open');
+
+  const setPreviewWidth = (mobile) => {
+    const f = document.getElementById('nl-preview-frame');
+    f.style.maxWidth = mobile ? '380px' : '700px';
+    const on  = 'padding:7px 14px;border:1px solid var(--blue);border-radius:99px;background:var(--blue);color:white;';
+    const off = 'padding:7px 14px;border:1px solid var(--divider-color);border-radius:99px;background:white;color:var(--text-muted);';
+    const tail = "font-family:'Inter',sans-serif;font-size:11px;font-weight:700;cursor:pointer;";
+    document.getElementById('nl-pv-mobile').style.cssText  = (mobile ? on : off) + tail;
+    document.getElementById('nl-pv-desktop').style.cssText = (mobile ? off : on) + tail;
+  };
+  window.nlPreviewMobile  = () => setPreviewWidth(true);
+  window.nlPreviewDesktop = () => setPreviewWidth(false);
+
+  /* ─── TEST ───────────────────────────────────────────────── */
+
+  window.nlTest = async () => {
+    if (!_current || isSent()) return;
+    if (_dirty) { await window.nlSave(); }
+    const btn = document.getElementById('nl-test-btn');
+    btn.disabled = true; btn.textContent = 'Sending...';
+    try {
+      const { data, error } = await window.supabase.functions.invoke('send-newsletter', {
+        body: { newsletter_id: _current.id, test_email: CFG.ADMIN_EMAIL },
+      });
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
+      toast(`Test sent to ${CFG.ADMIN_EMAIL}.`);
+    } catch (err) {
+      toast(`Test failed: ${err.message}`, true);
+    } finally {
+      btn.disabled = false; btn.textContent = 'Send Test to Me';
+    }
+  };
+
+  /* ─── SEND ───────────────────────────────────────────────── */
+
+  window.nlSend = async () => {
+    if (!_current || isSent()) return;
+    if (_dirty) { await window.nlSave(); }
+
+    // How many people this actually reaches, counted now rather than
+    // quoted from a stale number.
+    let count = 0;
+    try {
+      const subs = await api('subscribers?status=eq.active&select=id');
+      count = (subs || []).length;
+    } catch (_) { /* the confirmation still works without it */ }
+
+    // Already sent an issue this month? A warning, not a block: a special
+    // edition is legitimate, a duplicate by accident is not.
+    let dupWarning = '';
+    try {
+      const { data: prior } = await window.supabase.rpc('newsletter_sent_this_month',
+        { p_issue_date: _current.issue_date });
+      if (prior?.length) {
+        dupWarning = `A newsletter for this month was already sent on `
+          + `${fmtDate(String(prior[0].sent_at).slice(0, 10))} to ${prior[0].sent_count} subscribers. `
+          + `Sending this one means subscribers receive a second edition for the same month. `;
+      }
+    } catch (_) { /* non-fatal */ }
+
+    const ok = await confirmModal({
+      title: `Send ${_current.title}?`,
+      message: `${dupWarning}This will be sent to ${count} active subscriber${count !== 1 ? 's' : ''}. `
+        + `Please confirm you have reviewed the content and every link. `
+        + `Once sent, the edition is locked as a historical record and cannot be edited.`,
+      okLabel: 'Confirm & send', cancelLabel: 'Cancel',
+    });
+    if (!ok) return;
+
+    const btn = document.getElementById('nl-send-btn');
+    btn.disabled = true; btn.textContent = 'Sending...';
+    window.AdminState.emailInFlight = true;
+
+    try {
+      const { data, error } = await window.supabase.functions.invoke('send-newsletter', {
+        body: { newsletter_id: _current.id },
+      });
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
+
+      const msg = `Sent to ${data.sent} subscriber${data.sent !== 1 ? 's' : ''}`
+        + (data.failed ? `, ${data.failed} failed` : '')
+        + (data.skipped ? `, ${data.skipped} already had it` : '') + '.';
+      toast(msg);
+      await loadNewsletterPage();
+    } catch (err) {
+      toast(`Send failed: ${err.message}`, true);
+      btn.disabled = false; btn.textContent = 'Send Newsletter';
+    } finally {
+      window.AdminState.emailInFlight = false;
+    }
+  };
+
+  /* ─── HANDLERS ───────────────────────────────────────────── */
+
+  Object.assign(window.CLICK_HANDLERS, {
+    nlNew:             () => window.nlNew(),
+    nlOpen:            (btn) => openIssue(btn.dataset.id),
+    nlBackToList:      () => window.nlBackToList(),
+    nlSave:            () => window.nlSave(),
+    nlPreview:         () => window.nlPreview(),
+    nlClosePreview:    () => window.nlClosePreview(),
+    nlPreviewMobile:   () => window.nlPreviewMobile(),
+    nlPreviewDesktop:  () => window.nlPreviewDesktop(),
+    nlTest:            () => window.nlTest(),
+    nlSend:            () => window.nlSend(),
+    nlRemove:          (btn) => listRemove(btn.dataset.path, parseInt(btn.dataset.idx, 10)),
+    nlAddUpcoming:     () => listAdd('upcoming',  { title: '', date: '', time: '', url: '', cta_label: 'Register Now' }),
+    nlAddSpotlight:    () => listAdd('spotlight', { ladder: '', period: '', top_men: [], top_women: [] }),
+    nlAddChampion:     () => listAdd('champions', { division: '', level: '', podium: ['', '', ''] }),
+    nlAddMetric:       () => listAdd('numbers.items', { value: '', label: '' }),
+    nlAddPlayer:       (btn) => listAdd(btn.dataset.path, { name: '', detail: '' }),
+  });
+})();

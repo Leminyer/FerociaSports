@@ -100,6 +100,7 @@ window.selectLadderType = (type) => {
       'events':       ['sb-events',      null],
       'orders':       ['sb-orders',      null],
       'promotions':   ['sb-promotions',  null],
+      'newsletter':   ['sb-newsletter',  null],
       'share':        ['sb-share',       null],
       'match-hub':    ['sb-match-hub',   null],
     };
@@ -107,7 +108,7 @@ window.selectLadderType = (type) => {
     ids.forEach(id => { if (id) { const el = document.getElementById(id); if (el) el.classList.add('active'); } });
 
     // Bottom nav: pages in "more" drawer activate the ⋯ button
-    const morePages = ['add-player','ladders','t-tournaments','events','orders','promotions','share','match-hub'];
+    const morePages = ['add-player','ladders','t-tournaments','events','orders','promotions','newsletter','share','match-hub'];
     if (morePages.includes(pageOrKey)) {
       document.getElementById('bn-more')?.classList.add('active');
       const mdEl = document.getElementById(`md-${pageOrKey}`);
@@ -530,6 +531,7 @@ window.selectLadderType = (type) => {
     if (name === 'share') window.AdminPageLoaders.share?.();
     if (name === 'orders') window.AdminPageLoaders.orders?.();
     if (name === 'events') loadEventsPage();
+    if (name === 'newsletter' && window.loadNewsletterPage) window.loadNewsletterPage();
     if (name === 'promotions' && typeof window.loadPromotionsPage !== 'undefined') window.loadPromotionsPage();
     if (name === 'match-hub') window.loadMatchHub();
     if (name === 't-tournaments' && typeof loadTournamentModule !== 'undefined') loadTournamentModule();

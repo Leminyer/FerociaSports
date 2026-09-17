@@ -13,23 +13,23 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Ferocia Pickleball Ladder</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="design-tokens.css?v=20260903c">
-<link rel="stylesheet" href="tournament.css?v=20260903c">
-<link rel="stylesheet" href="app.css?v=20260903c">
-<link rel="stylesheet" href="country-codes.css?v=20260903c">
+<link rel="stylesheet" href="design-tokens.css?v=20260904b">
+<link rel="stylesheet" href="tournament.css?v=20260904b">
+<link rel="stylesheet" href="app.css?v=20260904b">
+<link rel="stylesheet" href="country-codes.css?v=20260904b">
 <!-- Extracted from the four embedded CSS blocks that used to live in this
      file. ORDER MATTERS: later rules of equal specificity win, so these
      four must stay in this sequence. See the header of admin-layout.css. -->
-<link rel="stylesheet" href="admin-layout.css?v=20260903c">
-<link rel="stylesheet" href="admin-components.css?v=20260903c">
-<link rel="stylesheet" href="admin-pages.css?v=20260903c">
-<link rel="stylesheet" href="admin-ftc.css?v=20260903c">
+<link rel="stylesheet" href="admin-layout.css?v=20260904b">
+<link rel="stylesheet" href="admin-components.css?v=20260904b">
+<link rel="stylesheet" href="admin-pages.css?v=20260904b">
+<link rel="stylesheet" href="admin-ftc.css?v=20260904b">
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-<script src="config.js?v=20260903c"></script>
+<script src="config.js?v=20260904b"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="db.js?v=20260903c"></script>
-<script src="auth.js?v=20260903c"></script>
-<script src="assets.js?v=20260903c"></script>
+<script src="db.js?v=20260904b"></script>
+<script src="auth.js?v=20260904b"></script>
+<script src="assets.js?v=20260904b"></script>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 </head>
@@ -134,6 +134,10 @@
     <button class="sb-item" id="sb-promotions" data-action="showPage" data-page="promotions">
       <span class="sb-item-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" ><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span>
       <span class="sb-item-label">Promotions</span>
+    </button>
+    <button class="sb-item" id="sb-newsletter" data-action="showPage" data-page="newsletter">
+      <span class="sb-item-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-4 0v-9h4"/><path d="M18 14h-8M15 18h-5M10 6h8v4h-8z"/></svg></span>
+      <span class="sb-item-label">Newsletter</span>
     </button>
     <button class="sb-item" id="sb-share" data-action="showPage" data-page="share">
       <span class="sb-item-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" ><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span>
@@ -2743,6 +2747,85 @@
   </div>
 </div>
 
+<div id="page-newsletter" class="page">
+  <div style="padding:24px 28px;max-width:1100px;">
+
+    <!-- LIST VIEW -->
+    <div id="nl-list-view">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:20px;flex-wrap:wrap;">
+        <div>
+          <div style="font-family:'Inter',sans-serif;font-size:28px;color:var(--text);letter-spacing:1px;line-height:1;margin-bottom:4px;">FEROCIA Monthly</div>
+          <div style="font-size:12px;font-weight:600;color:var(--text-muted);">Create, preview and send the monthly newsletter</div>
+        </div>
+        <button type="button" data-action="nlNew"
+          style="display:inline-flex;align-items:center;gap:7px;padding:11px 20px;border:none;border-radius:99px;background:linear-gradient(180deg,#2456d3,var(--blue));color:white;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          New Edition
+        </button>
+      </div>
+      <div class="card" style="padding:0;overflow:hidden;">
+        <div id="nl-list"><div class="loading" style="padding:24px;">Loading...</div></div>
+      </div>
+    </div>
+
+    <!-- EDITOR VIEW -->
+    <div id="nl-edit-view" style="display:none;">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap;">
+        <button type="button" data-action="nlBackToList"
+          style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border:1px solid var(--divider-color);border-radius:99px;background:white;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;color:var(--text-muted);cursor:pointer;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          Back
+        </button>
+        <div style="flex:1;min-width:150px;">
+          <div id="nl-edit-title" style="font-family:'Inter',sans-serif;font-size:22px;color:var(--text);letter-spacing:.5px;line-height:1.1;">Edition</div>
+          <div id="nl-edit-status" style="font-size:11px;font-weight:700;color:var(--text-muted);margin-top:2px;"></div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button type="button" data-action="nlSave" id="nl-save-btn"
+            style="padding:10px 18px;border:1px solid var(--divider-color);border-radius:99px;background:white;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;color:var(--text);cursor:pointer;">Save Draft</button>
+          <button type="button" data-action="nlPreview"
+            style="padding:10px 18px;border:1px solid var(--blue);border-radius:99px;background:white;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;color:var(--blue);cursor:pointer;">Preview</button>
+          <!-- Named for who receives it, with the address shown below: the
+               point of this button is that nothing reaches subscribers, and
+               that should be obvious without opening documentation. -->
+          <div style="display:flex;flex-direction:column;align-items:center;gap:3px;">
+            <button type="button" data-action="nlTest" id="nl-test-btn"
+              style="padding:10px 18px;border:1px solid var(--blue);border-radius:99px;background:white;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;color:var(--blue);cursor:pointer;white-space:nowrap;">Send Test to Me</button>
+            <span id="nl-test-addr" style="font-size:9.5px;font-weight:600;color:var(--text-light);"></span>
+          </div>
+          <button type="button" data-action="nlSend" id="nl-send-btn"
+            style="padding:10px 22px;border:none;border-radius:99px;background:linear-gradient(180deg,#2456d3,var(--blue));color:white;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Send Newsletter</button>
+        </div>
+      </div>
+      <div id="nl-sent-banner" style="display:none;margin-bottom:16px;padding:13px 16px;background:#EEF9F2;border-left:3px solid #2AB87A;border-radius:0 8px 8px 0;font-size:12.5px;font-weight:600;color:var(--text);line-height:1.6;"></div>
+      <div id="nl-sections"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- PREVIEW MODAL -->
+<div class="modal-bg" id="nl-preview-modal">
+  <div class="modal" style="max-width:860px;border-radius:14px;padding:0;overflow:hidden;display:flex;flex-direction:column;max-height:92vh;">
+    <div style="padding:16px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:0.5px solid var(--divider-color);flex-shrink:0;">
+      <div style="font-family:'Inter',sans-serif;font-size:18px;color:var(--text);letter-spacing:.5px;">Preview</div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <button type="button" data-action="nlPreviewDesktop" id="nl-pv-desktop"
+          style="padding:7px 14px;border:1px solid var(--blue);border-radius:99px;background:var(--blue);color:white;font-family:'Inter',sans-serif;font-size:11px;font-weight:700;cursor:pointer;">Desktop</button>
+        <button type="button" data-action="nlPreviewMobile" id="nl-pv-mobile"
+          style="padding:7px 14px;border:1px solid var(--divider-color);border-radius:99px;background:white;color:var(--text-muted);font-family:'Inter',sans-serif;font-size:11px;font-weight:700;cursor:pointer;">Mobile</button>
+        <button type="button" data-action="nlClosePreview"
+          style="width:30px;height:30px;border-radius:8px;border:0.5px solid var(--divider-color);background:white;display:flex;align-items:center;justify-content:center;cursor:pointer;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#e53935" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+    </div>
+    <div style="flex:1;overflow:auto;background:#e8ecf5;padding:16px;display:flex;justify-content:center;">
+      <iframe id="nl-preview-frame" style="width:100%;max-width:700px;height:1200px;border:none;background:white;border-radius:8px;transition:max-width .2s;"></iframe>
+    </div>
+  </div>
+</div>
+
 <!-- Incident Report Modal — shared by Ladder Sessions and Tournaments -->
 <div class="modal-bg" id="incident-report-modal">
   <div class="modal" style="max-width:560px;border-radius:14px;padding:0;overflow:hidden;display:flex;flex-direction:column;max-height:85vh;">
@@ -3326,34 +3409,35 @@
 
 <!-- Loaded before every admin-* module: three of them call
      FerociaPhone.format() when rendering. -->
-<script src="country-codes.js?v=20260903c"></script>
-<script src="location-fields.js?v=20260903c"></script>
-<script src="admin-state.js?v=20260903c"></script>
-<script src="admin-incident-reports.js?v=20260903c"></script>
-<script src="admin-ladder-selector.js?v=20260903c"></script>
-<script src="admin-orders.js?v=20260903c"></script>
-<script src="admin-email-utils.js?v=20260903c"></script>
-<script src="admin-share.js?v=20260903c"></script>
-<script src="admin-tournament-notify.js?v=20260903c"></script>
-<script src="admin-player-status-history.js?v=20260903c"></script>
-<script src="admin-player-profile.js?v=20260903c"></script>
-<script src="admin-email-notifications.js?v=20260903c"></script>
-<script src="admin-ladder-standings.js?v=20260903c"></script>
-<script src="admin-sessions.js?v=20260903c"></script>
-<script src="admin-print-roster.js?v=20260903c"></script>
-<script src="admin-ladder-management.js?v=20260903c"></script>
-<script src="admin-promotions.js?v=20260903c"></script>
+<script src="country-codes.js?v=20260904b"></script>
+<script src="location-fields.js?v=20260904b"></script>
+<script src="admin-state.js?v=20260904b"></script>
+<script src="admin-incident-reports.js?v=20260904b"></script>
+<script src="admin-ladder-selector.js?v=20260904b"></script>
+<script src="admin-orders.js?v=20260904b"></script>
+<script src="admin-email-utils.js?v=20260904b"></script>
+<script src="admin-share.js?v=20260904b"></script>
+<script src="admin-tournament-notify.js?v=20260904b"></script>
+<script src="admin-player-status-history.js?v=20260904b"></script>
+<script src="admin-player-profile.js?v=20260904b"></script>
+<script src="admin-email-notifications.js?v=20260904b"></script>
+<script src="admin-ladder-standings.js?v=20260904b"></script>
+<script src="admin-sessions.js?v=20260904b"></script>
+<script src="admin-print-roster.js?v=20260904b"></script>
+<script src="admin-ladder-management.js?v=20260904b"></script>
+<script src="admin-promotions.js?v=20260904b"></script>
+<script src="admin-newsletter.js?v=20260904b"></script>
 <!-- TEMPORARY: fills in missing dates of birth from a CSV import.
      Delete this line and temp-dob-backfill.js once every player has one.
      See the header of that file. -->
-<script src="temp-dob-backfill.js?v=20260903c"></script>
-<script src="admin-players.js?v=20260903c"></script>
-<script src="admin-players-email.js?v=20260903c"></script>
-<script src="admin-ftc-standings.js?v=20260903c"></script>
-<script src="admin-ftc-playoffs-schedule.js?v=20260903c"></script>
-<script src="admin-ftc-teams.js?v=20260903c"></script>
-<script src="app.js?v=20260903c"></script>
-<script src="tournament.js?v=20260903c"></script>
+<script src="temp-dob-backfill.js?v=20260904b"></script>
+<script src="admin-players.js?v=20260904b"></script>
+<script src="admin-players-email.js?v=20260904b"></script>
+<script src="admin-ftc-standings.js?v=20260904b"></script>
+<script src="admin-ftc-playoffs-schedule.js?v=20260904b"></script>
+<script src="admin-ftc-teams.js?v=20260904b"></script>
+<script src="app.js?v=20260904b"></script>
+<script src="tournament.js?v=20260904b"></script>
 <script>
   // ── Sidebar toggle — persisted in localStorage ──────────────────────
   (function() {
