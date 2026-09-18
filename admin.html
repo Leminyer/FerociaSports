@@ -13,23 +13,23 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Ferocia Pickleball Ladder</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="design-tokens.css?v=20260904c">
-<link rel="stylesheet" href="tournament.css?v=20260904c">
-<link rel="stylesheet" href="app.css?v=20260904c">
-<link rel="stylesheet" href="country-codes.css?v=20260904c">
+<link rel="stylesheet" href="design-tokens.css?v=20260905">
+<link rel="stylesheet" href="tournament.css?v=20260905">
+<link rel="stylesheet" href="app.css?v=20260905">
+<link rel="stylesheet" href="country-codes.css?v=20260905">
 <!-- Extracted from the four embedded CSS blocks that used to live in this
      file. ORDER MATTERS: later rules of equal specificity win, so these
      four must stay in this sequence. See the header of admin-layout.css. -->
-<link rel="stylesheet" href="admin-layout.css?v=20260904c">
-<link rel="stylesheet" href="admin-components.css?v=20260904c">
-<link rel="stylesheet" href="admin-pages.css?v=20260904c">
-<link rel="stylesheet" href="admin-ftc.css?v=20260904c">
+<link rel="stylesheet" href="admin-layout.css?v=20260905">
+<link rel="stylesheet" href="admin-components.css?v=20260905">
+<link rel="stylesheet" href="admin-pages.css?v=20260905">
+<link rel="stylesheet" href="admin-ftc.css?v=20260905">
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-<script src="config.js?v=20260904c"></script>
+<script src="config.js?v=20260905"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="db.js?v=20260904c"></script>
-<script src="auth.js?v=20260904c"></script>
-<script src="assets.js?v=20260904c"></script>
+<script src="db.js?v=20260905"></script>
+<script src="auth.js?v=20260905"></script>
+<script src="assets.js?v=20260905"></script>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 </head>
@@ -2226,24 +2226,22 @@
           Back
         </button>
         <div style="flex:1;min-width:150px;">
+          <!-- "October 2026 — Draft" on one line. -->
           <div id="nl-edit-title" style="font-family:'Inter',sans-serif;font-size:22px;color:var(--text);letter-spacing:.5px;line-height:1.1;">Edition</div>
-          <div id="nl-edit-status" style="font-size:11px;font-weight:700;color:var(--text-muted);margin-top:2px;"></div>
         </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <!-- All four share the Back button's height (8px 14px) and the same
+             outline style, so the row reads as one set of controls. The
+             address that sat under "Send Test to Me" made that one taller
+             than the rest; it lives in the button's tooltip instead. -->
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
           <button type="button" data-action="nlSave" id="nl-save-btn"
-            style="padding:10px 18px;border:1px solid var(--divider-color);border-radius:99px;background:white;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;color:var(--text);cursor:pointer;">Save Draft</button>
+            style="padding:8px 16px;border:1px solid var(--blue);border-radius:99px;background:white;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;color:var(--blue);cursor:pointer;white-space:nowrap;">Save Draft</button>
           <button type="button" data-action="nlPreview"
-            style="padding:10px 18px;border:1px solid var(--blue);border-radius:99px;background:white;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;color:var(--blue);cursor:pointer;">Preview</button>
-          <!-- Named for who receives it, with the address shown below: the
-               point of this button is that nothing reaches subscribers, and
-               that should be obvious without opening documentation. -->
-          <div style="display:flex;flex-direction:column;align-items:center;gap:3px;">
-            <button type="button" data-action="nlTest" id="nl-test-btn"
-              style="padding:10px 18px;border:1px solid var(--blue);border-radius:99px;background:white;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;color:var(--blue);cursor:pointer;white-space:nowrap;">Send Test to Me</button>
-            <span id="nl-test-addr" style="font-size:9.5px;font-weight:600;color:var(--text-light);"></span>
-          </div>
+            style="padding:8px 16px;border:1px solid var(--blue);border-radius:99px;background:white;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;color:var(--blue);cursor:pointer;white-space:nowrap;">Preview</button>
+          <button type="button" data-action="nlTest" id="nl-test-btn"
+            style="padding:8px 16px;border:1px solid var(--blue);border-radius:99px;background:white;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;color:var(--blue);cursor:pointer;white-space:nowrap;">Send Test to Me</button>
           <button type="button" data-action="nlSend" id="nl-send-btn"
-            style="padding:10px 22px;border:none;border-radius:99px;background:linear-gradient(180deg,#2456d3,var(--blue));color:white;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Send Newsletter</button>
+            style="padding:8px 18px;border:none;border-radius:99px;background:linear-gradient(180deg,#2456d3,var(--blue));color:white;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">Send Newsletter</button>
         </div>
       </div>
       <div id="nl-sent-banner" style="display:none;margin-bottom:16px;padding:13px 16px;background:#EEF9F2;border-left:3px solid #2AB87A;border-radius:0 8px 8px 0;font-size:12.5px;font-weight:600;color:var(--text);line-height:1.6;"></div>
@@ -2821,8 +2819,12 @@
         </button>
       </div>
     </div>
-    <div style="flex:1;overflow:auto;background:#e8ecf5;padding:16px;display:flex;justify-content:center;">
-      <iframe id="nl-preview-frame" style="width:100%;max-width:700px;height:1200px;border:none;background:white;border-radius:8px;transition:max-width .2s;"></iframe>
+    <!-- One scrollbar, not two. The iframe is grown to the full height of
+         its content by nlFitPreview(), so the email never scrolls inside
+         its own frame — only this container does. -->
+    <div style="flex:1;overflow-y:auto;overflow-x:hidden;background:#e8ecf5;padding:16px;display:flex;justify-content:center;align-items:flex-start;">
+      <iframe id="nl-preview-frame" scrolling="no"
+        style="width:100%;max-width:700px;height:400px;border:none;background:white;border-radius:8px;transition:max-width .2s;overflow:hidden;"></iframe>
     </div>
   </div>
 </div>
@@ -3410,35 +3412,35 @@
 
 <!-- Loaded before every admin-* module: three of them call
      FerociaPhone.format() when rendering. -->
-<script src="country-codes.js?v=20260904c"></script>
-<script src="location-fields.js?v=20260904c"></script>
-<script src="admin-state.js?v=20260904c"></script>
-<script src="admin-incident-reports.js?v=20260904c"></script>
-<script src="admin-ladder-selector.js?v=20260904c"></script>
-<script src="admin-orders.js?v=20260904c"></script>
-<script src="admin-email-utils.js?v=20260904c"></script>
-<script src="admin-share.js?v=20260904c"></script>
-<script src="admin-tournament-notify.js?v=20260904c"></script>
-<script src="admin-player-status-history.js?v=20260904c"></script>
-<script src="admin-player-profile.js?v=20260904c"></script>
-<script src="admin-email-notifications.js?v=20260904c"></script>
-<script src="admin-ladder-standings.js?v=20260904c"></script>
-<script src="admin-sessions.js?v=20260904c"></script>
-<script src="admin-print-roster.js?v=20260904c"></script>
-<script src="admin-ladder-management.js?v=20260904c"></script>
-<script src="admin-promotions.js?v=20260904c"></script>
-<script src="admin-newsletter.js?v=20260904c"></script>
+<script src="country-codes.js?v=20260905"></script>
+<script src="location-fields.js?v=20260905"></script>
+<script src="admin-state.js?v=20260905"></script>
+<script src="admin-incident-reports.js?v=20260905"></script>
+<script src="admin-ladder-selector.js?v=20260905"></script>
+<script src="admin-orders.js?v=20260905"></script>
+<script src="admin-email-utils.js?v=20260905"></script>
+<script src="admin-share.js?v=20260905"></script>
+<script src="admin-tournament-notify.js?v=20260905"></script>
+<script src="admin-player-status-history.js?v=20260905"></script>
+<script src="admin-player-profile.js?v=20260905"></script>
+<script src="admin-email-notifications.js?v=20260905"></script>
+<script src="admin-ladder-standings.js?v=20260905"></script>
+<script src="admin-sessions.js?v=20260905"></script>
+<script src="admin-print-roster.js?v=20260905"></script>
+<script src="admin-ladder-management.js?v=20260905"></script>
+<script src="admin-promotions.js?v=20260905"></script>
+<script src="admin-newsletter.js?v=20260905"></script>
 <!-- TEMPORARY: fills in missing dates of birth from a CSV import.
      Delete this line and temp-dob-backfill.js once every player has one.
      See the header of that file. -->
-<script src="temp-dob-backfill.js?v=20260904c"></script>
-<script src="admin-players.js?v=20260904c"></script>
-<script src="admin-players-email.js?v=20260904c"></script>
-<script src="admin-ftc-standings.js?v=20260904c"></script>
-<script src="admin-ftc-playoffs-schedule.js?v=20260904c"></script>
-<script src="admin-ftc-teams.js?v=20260904c"></script>
-<script src="app.js?v=20260904c"></script>
-<script src="tournament.js?v=20260904c"></script>
+<script src="temp-dob-backfill.js?v=20260905"></script>
+<script src="admin-players.js?v=20260905"></script>
+<script src="admin-players-email.js?v=20260905"></script>
+<script src="admin-ftc-standings.js?v=20260905"></script>
+<script src="admin-ftc-playoffs-schedule.js?v=20260905"></script>
+<script src="admin-ftc-teams.js?v=20260905"></script>
+<script src="app.js?v=20260905"></script>
+<script src="tournament.js?v=20260905"></script>
 <script>
   // ── Sidebar toggle — persisted in localStorage ──────────────────────
   (function() {
