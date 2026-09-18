@@ -210,7 +210,7 @@
 
   const removeBtn = (path, i) => isSent() ? '' : `
     <button type="button" data-action="nlRemove" data-path="${path}" data-idx="${i}"
-      style="background:none;border:none;color:#e53935;font-size:11px;font-weight:700;cursor:pointer;padding:0;">Remove</button>`;
+      style="background:none;border:none;color:#e53935;${FONT}font-size:11px;font-weight:700;cursor:pointer;padding:0;">Remove</button>`;
 
   const addBtn = (label, action, path) => isSent() ? '' : `
     <button type="button" data-action="${action}" data-path="${path}"
