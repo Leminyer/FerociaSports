@@ -66,8 +66,13 @@
   };
   window.nlSet = set;
 
+  /* Inter is the app's typeface everywhere else, so it is stated on every
+     control rather than left to inherit — form elements do NOT inherit
+     font-family from their parent by default, which is why the small text
+     here looked different from the rest of the admin. */
+  const FONT = "font-family:'Inter',sans-serif;";
   const inputStyle = 'width:100%;padding:10px 12px;border:1px solid var(--divider-color);border-radius:8px;'
-    + "font-family:'Inter',sans-serif;font-size:13px;font-weight:600;color:var(--text);outline:none;";
+    + FONT + 'font-size:13px;font-weight:600;color:var(--text);outline:none;';
 
   const field = (label, path, opts = {}) => {
     const v = esc(get(path));
@@ -78,11 +83,78 @@
       : `<input type="text" data-nlpath="${path}" ${dis} value="${v}" placeholder="${esc(opts.placeholder || '')}" style="${inputStyle}">`;
     return `
       <div style="margin-bottom:12px;">
-        <div style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;">${esc(label)}</div>
+        <div style="${FONT}font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;">${esc(label)}</div>
         ${el}
-        ${opts.hint ? `<div style="font-size:10.5px;font-weight:600;color:var(--text-light);margin-top:4px;">${esc(opts.hint)}</div>` : ''}
+        ${opts.hint ? `<div style="${FONT}font-size:11px;font-weight:600;color:var(--text-light);margin-top:4px;line-height:1.5;">${esc(opts.hint)}</div>` : ''}
       </div>`;
   };
+
+  /* Upload box instead of asking for a URL.
+
+     "Paste the public link from the bucket" assumed the person knows what
+     a bucket is. They pick a file; the upload happens here, exactly as the
+     event flyer upload already does. */
+  const imageField = (label, path, hint) => {
+    const url = get(path);
+    const id  = 'nlimg_' + path.replace(/\./g, '_');
+    return `
+      <div style="margin-bottom:12px;">
+        <div style="${FONT}font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;">${esc(label)}</div>
+        ${url ? `
+        <div style="display:flex;align-items:center;gap:12px;padding:10px;border:1px solid var(--divider-color);border-radius:8px;margin-bottom:8px;">
+          <img src="${esc(url)}" alt="" style="width:90px;height:60px;object-fit:cover;border-radius:6px;flex-shrink:0;">
+          <div style="flex:1;min-width:0;${FONT}font-size:11px;font-weight:600;color:var(--text-muted);">Image uploaded</div>
+          ${isSent() ? '' : `<button type="button" data-action="nlImgClear" data-path="${path}"
+            style="background:none;border:none;color:#e53935;${FONT}font-size:11px;font-weight:700;cursor:pointer;">Remove</button>`}
+        </div>` : ''}
+        ${isSent() ? '' : `
+        <input type="file" id="${id}" accept="image/*" data-action-file="${path}"
+          style="display:block;width:100%;${FONT}font-size:12px;font-weight:600;color:var(--text-muted);padding:9px;border:1px dashed var(--divider-color);border-radius:8px;cursor:pointer;">
+        <div id="${id}_status" style="${FONT}font-size:11px;font-weight:600;color:var(--blue);margin-top:5px;"></div>`}
+        ${hint ? `<div style="${FONT}font-size:11px;font-weight:600;color:var(--text-light);margin-top:4px;line-height:1.5;">${esc(hint)}</div>` : ''}
+      </div>`;
+  };
+
+  /** Uploads to the newsletter-images bucket and stores the public URL. */
+  const uploadImage = async (file, path, statusId) => {
+    const st = document.getElementById(statusId);
+    const setStatus = (t, err) => { if (st) { st.textContent = t; st.style.color = err ? '#e53935' : 'var(--blue)'; } };
+
+    if (!file.type.startsWith('image/')) { setStatus('That file is not an image.', true); return; }
+    // 5MB, same ceiling the event flyer upload uses.
+    if (file.size > 5 * 1024 * 1024)     { setStatus('Image must be under 5MB.', true); return; }
+
+    setStatus('Uploading...');
+    try {
+      const ext  = file.name.split('.').pop().toLowerCase();
+      const name = `${Date.now()}_${path.replace(/[^a-z0-9]/gi, '_')}.${ext}`;
+      const token = (await window.supabase.auth.getSession()).data.session.access_token;
+      const res = await fetch(`${CFG.SUPABASE_URL}/storage/v1/object/newsletter-images/${name}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': file.type, 'x-upsert': 'false' },
+        body: file,
+      });
+      if (!res.ok) {
+        const e = await res.json().catch(() => ({}));
+        throw new Error(e.message || `Upload failed (${res.status})`);
+      }
+      set(path, `${CFG.SUPABASE_URL}/storage/v1/object/public/newsletter-images/${name}`);
+      setStatus('');
+      renderSections();
+      toast('Image uploaded.');
+    } catch (err) {
+      setStatus(err.message, true);
+    }
+  };
+
+  document.addEventListener('change', (e) => {
+    const path = e.target?.dataset?.actionFile;
+    if (path && e.target.files?.[0]) {
+      uploadImage(e.target.files[0], path, e.target.id + '_status');
+    }
+  });
+
+  window.nlImgClear = (path) => { set(path, ''); renderSections(); };
 
   const sectionCard = (num, title, purpose, body) => `
     <div class="card" style="padding:0;margin-bottom:14px;overflow:hidden;">
@@ -91,7 +163,7 @@
           <div style="width:22px;height:22px;border-radius:50%;background:var(--blue);color:white;font-family:'Inter',sans-serif;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${num}</div>
           <div style="font-family:'Inter',sans-serif;font-size:15px;font-weight:800;color:var(--text);">${esc(title)}</div>
         </div>
-        <div style="font-size:11px;font-weight:600;color:var(--text-muted);margin-top:4px;">${esc(purpose)}</div>
+        <div style="${FONT}font-size:11.5px;font-weight:600;color:var(--text-muted);margin-top:4px;">${esc(purpose)}</div>
       </div>
       <div style="padding:16px 18px;">${body}</div>
     </div>`;
@@ -146,9 +218,12 @@
 
   /* ─── SECTION RENDERERS ──────────────────────────────────── */
 
-  const secHeader = () => sectionCard('H', 'Header', 'Masthead image and opening line', `
-    ${field('Hero image URL', 'hero.image_url', { hint: 'Paste a URL, or upload to the newsletter-images bucket and paste the public link.' })}
-    ${field('Opening line', 'hero.quote', { placeholder: 'A stronger pickleball community together.' })}`);
+  const secHeader = () => sectionCard('H', 'Header', 'The banner image and the line printed over it', `
+    ${imageField('Banner image', 'hero.image_url',
+       'Appears at the top of the email, under the FEROCIA Monthly title. Landscape works best — about twice as wide as it is tall.')}
+    ${field('Line printed over the banner', 'hero.quote', {
+       placeholder: 'A stronger pickleball community together.',
+       hint: 'One short sentence, shown in white over the dark strip below the image. Leave it empty and the strip is not shown at all.' })}`);
 
   const secUpcoming = () => {
     const items = get('upcoming', []);
@@ -214,7 +289,8 @@
 
   const secPick = () => sectionCard(5, 'FEROCIA Pick of the Month', 'One product — never a carousel', `
     ${field('Product name', 'pick.name')}
-    ${field('Image URL', 'pick.image_url')}
+    ${imageField('Product photo', 'pick.image_url',
+       'Optional. A photo of the product — the email still reads fine without one.')}
     ${field('Description', 'pick.description', { textarea: true, rows: 3 })}
     ${field("Coach's tip", 'pick.tip', { textarea: true, rows: 3 })}
     ${field('Amazon / affiliate URL', 'pick.amazon_url', { hint: 'Pasted exactly as given. Nothing is appended to it.' })}`);
@@ -323,9 +399,10 @@
 
     document.getElementById('nl-list-view').style.display = 'none';
     document.getElementById('nl-edit-view').style.display = 'block';
-    document.getElementById('nl-edit-title').textContent = n.title;
-    document.getElementById('nl-edit-status').innerHTML =
-      n.status === 'sent' ? 'Sent — read only' : 'Draft';
+    // "October 2026 — Draft" on one line, with the status in a lighter
+    // weight so the month still leads.
+    document.getElementById('nl-edit-title').innerHTML =
+      `${esc(n.title)} <span style="font-size:15px;font-weight:600;color:var(--text-muted);letter-spacing:0;">— ${n.status === 'sent' ? 'Sent' : 'Draft'}</span>`;
 
     // A sent issue is what subscribers already received. Editing it would
     // make the archive disagree with their inbox.
@@ -341,10 +418,10 @@
       if (b) { b.disabled = sent; b.style.opacity = sent ? '0.4' : '1'; b.style.cursor = sent ? 'not-allowed' : 'pointer'; }
     });
 
-    // Spelled out next to the button so there is never a doubt about
-    // where a test lands.
-    const addr = document.getElementById('nl-test-addr');
-    if (addr) addr.textContent = sent ? '' : `to ${CFG.ADMIN_EMAIL}`;
+    // The address lives in the tooltip now: shown under the button it made
+    // that one taller than the other three.
+    const tb = document.getElementById('nl-test-btn');
+    if (tb) tb.title = `Sends one copy to ${CFG.ADMIN_EMAIL}. Subscribers receive nothing.`;
 
     renderSections();
   };
@@ -404,6 +481,16 @@
     document.getElementById('nl-preview-modal').classList.add('open');
     try {
       frame.srcdoc = await previewHTML();
+      /* Grow the frame to its content so the email never scrolls inside
+         its own box — only the modal scrolls. Two nested scrollbars made
+         it unclear which one to use. srcdoc is same-origin, so the height
+         can be measured directly. */
+      frame.onload = () => {
+        try {
+          const d = frame.contentDocument;
+          frame.style.height = (d.body.scrollHeight + 20) + 'px';
+        } catch (_) { frame.style.height = '1400px'; }
+      };
     } catch (err) {
       frame.srcdoc = `<p style="font-family:sans-serif;padding:20px;color:#e53935;">Preview failed: ${esc(err.message)}</p>`;
     }
@@ -420,6 +507,11 @@
     const tail = "font-family:'Inter',sans-serif;font-size:11px;font-weight:700;cursor:pointer;";
     document.getElementById('nl-pv-mobile').style.cssText  = (mobile ? on : off) + tail;
     document.getElementById('nl-pv-desktop').style.cssText = (mobile ? off : on) + tail;
+    // The narrower width reflows the content taller, so re-measure once
+    // the transition has finished.
+    setTimeout(() => {
+      try { f.style.height = (f.contentDocument.body.scrollHeight + 20) + 'px'; } catch (_) {}
+    }, 250);
   };
   window.nlPreviewMobile  = () => setPreviewWidth(true);
   window.nlPreviewDesktop = () => setPreviewWidth(false);
@@ -519,6 +611,7 @@
     nlTest:            () => window.nlTest(),
     nlSend:            () => window.nlSend(),
     nlRemove:          (btn) => listRemove(btn.dataset.path, parseInt(btn.dataset.idx, 10)),
+    nlImgClear:        (btn) => window.nlImgClear(btn.dataset.path),
     nlAddUpcoming:     () => listAdd('upcoming',  { title: '', date: '', time: '', url: '', cta_label: 'Register Now' }),
     nlAddSpotlight:    () => listAdd('spotlight', { ladder: '', period: '', top_men: [], top_women: [] }),
     nlAddChampion:     () => listAdd('champions', { division: '', level: '', podium: ['', '', ''] }),
