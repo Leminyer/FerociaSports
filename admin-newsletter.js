@@ -237,7 +237,15 @@
   const secUpcoming = () => {
     const items = get('upcoming', []);
     return sectionCard(1, "What's Coming Up", 'Ladders, tournaments, clinics — what readers can register for',
-      items.map((_, i) => itemBox(
+      (isSent() ? '' : `
+      <div style="margin-bottom:12px;">
+        <button type="button" data-action="nlPickEvents"
+          style="display:inline-flex;align-items:center;gap:7px;padding:9px 16px;border:1px solid var(--blue);border-radius:99px;background:#f0f5ff;color:var(--blue);${FONT}font-size:12px;font-weight:700;cursor:pointer;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Add from Events
+        </button>
+      </div>`)
+      + items.map((_, i) => itemBox(
         field('Name', `upcoming.${i}.title`) +
         field('Date', `upcoming.${i}.date`, { placeholder: 'Starts October 2, 2026' }) +
         field('Time', `upcoming.${i}.time`, { placeholder: '8:30 AM – 10:30 AM' }) +
@@ -264,19 +272,35 @@
         + addBtn(`Add to ${label}`, 'nlAddPlayer', `${base}.${key}`);
     };
     return sectionCard(2, 'Player Spotlight', 'Ladder leaders, most improved, or any recognition this month',
-      items.map((_, i) => itemBox(
-        field('Ladder / group name', `spotlight.${i}.ladder`) +
+      (isSent() ? '' : `
+      <div style="margin-bottom:12px;">
+        <button type="button" data-action="nlPickLadder"
+          style="display:inline-flex;align-items:center;gap:7px;padding:9px 16px;border:1px solid var(--blue);border-radius:99px;background:#f0f5ff;color:var(--blue);${FONT}font-size:12px;font-weight:700;cursor:pointer;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Add a Ladder
+        </button>
+      </div>`)
+      + items.map((_, i) => itemBox(
+        field('Ladder name', `spotlight.${i}.ladder`) +
         field('Period', `spotlight.${i}.period`, { placeholder: 'July – September 2026' }) +
         players(`spotlight.${i}`, 'top_men', 'Top Men') +
         players(`spotlight.${i}`, 'top_women', 'Top Women'),
         'spotlight', i)).join('')
-      + addBtn('Add ladder / group', 'nlAddSpotlight', 'spotlight'));
+      + addBtn('Add manually', 'nlAddSpotlight', 'spotlight'));
   };
 
   const secChampions = () => {
     const items = get('champions', []);
     return sectionCard(3, 'Tournament Champions', 'Every division, every placement — the layout grows',
-      field('Tournament name', 'champions_sub', { placeholder: 'Mamba Day 2026 · Sunday, August 23, 2026' })
+      (isSent() ? '' : `
+      <div style="margin-bottom:12px;">
+        <button type="button" data-action="nlPickTournament"
+          style="display:inline-flex;align-items:center;gap:7px;padding:9px 16px;border:1px solid var(--blue);border-radius:99px;background:#f0f5ff;color:var(--blue);${FONT}font-size:12px;font-weight:700;cursor:pointer;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Add a Tournament
+        </button>
+      </div>`)
+      + field('Tournament name', 'champions_sub', { placeholder: 'Mamba Day 2026 · Sunday, August 23, 2026' })
       + items.map((_, i) => {
         const pod = get(`champions.${i}.podium`, ['', '', '']);
         return itemBox(
@@ -331,6 +355,279 @@
     const path = e.target?.dataset?.nlpath;
     if (path && _current) set(path, e.target.value);
   });
+
+
+  /* ─── IMPORTING FROM THE DATABASE ────────────────────────────
+     Events, ladder standings and tournament results already live in
+     FEROCIA's tables. Retyping them into a newsletter is slow and gets
+     names and points wrong.
+
+     Everything imported stays EDITABLE afterwards: newsletter copy is
+     not the same as an operational record, and a title that reads well
+     in the admin may need shortening for an email.
+     ──────────────────────────────────────────────────────────── */
+
+  let _pickState = null;   // { mode, items, selected }
+
+  const openPick = (title, sub, bodyHTML, showConfirm) => {
+    document.getElementById('nl-pick-title').textContent = title;
+    document.getElementById('nl-pick-sub').textContent   = sub;
+    document.getElementById('nl-pick-body').innerHTML    = bodyHTML;
+    document.getElementById('nl-pick-footer').style.display = showConfirm ? 'block' : 'none';
+    document.getElementById('nl-pick-modal').classList.add('open');
+  };
+
+  window.nlClosePick = () => {
+    document.getElementById('nl-pick-modal').classList.remove('open');
+    _pickState = null;
+  };
+
+  const pickRow = (inner, attrs = '') => `
+    <div ${attrs} style="display:flex;align-items:center;gap:11px;padding:11px 13px;border:1px solid var(--divider-color);border-radius:8px;margin-bottom:8px;cursor:pointer;">
+      ${inner}</div>`;
+
+  const emptyMsg = (t) => `<div style="${FONT}padding:26px;text-align:center;font-size:12.5px;font-weight:600;color:var(--text-muted);line-height:1.6;">${esc(t)}</div>`;
+
+  /* ── EVENTS ──────────────────────────────────────────────── */
+
+  window.nlPickEvents = async () => {
+    openPick('Add from Events', 'Loading...', emptyMsg('Loading events...'), false);
+    let events = [];
+    try {
+      // Same visibility rule the site uses: upcoming one-off events plus
+      // the recurring ones, which have no future date of their own.
+      const today = todayISO();
+      events = await api(`events?or=(event_date.gte.${today},event_type.in.(clinic,private_session))`
+        + `&select=*&order=event_date.asc`);
+    } catch (err) {
+      openPick('Add from Events', '', emptyMsg(`Could not load events: ${err.message}`), false);
+      return;
+    }
+    if (!events.length) {
+      openPick('Add from Events', '', emptyMsg('There are no upcoming events. Create one on the Events page first.'), false);
+      return;
+    }
+    _pickState = { mode: 'events', items: events, selected: new Set() };
+
+    const fmtT = (t) => t ? window.fmtTime12(t) : '';
+    openPick('Add from Events', 'Tick the ones to feature. Everything stays editable afterwards.',
+      events.map((e, i) => pickRow(`
+        <input type="checkbox" class="nl-pick-cb" data-i="${i}" style="width:16px;height:16px;accent-color:var(--blue);cursor:pointer;flex-shrink:0;">
+        <div style="flex:1;min-width:0;">
+          <div style="${FONT}font-size:13px;font-weight:700;color:var(--text);">${esc(e.title)}</div>
+          <div style="${FONT}font-size:11px;font-weight:600;color:var(--text-muted);margin-top:1px;">
+            ${fmtDate(e.event_date)}${e.event_time ? ` · ${fmtT(e.event_time)}` : ''}${e.event_time && e.end_time ? ` – ${fmtT(e.end_time)}` : ''}
+          </div>
+          ${e.registration_url
+            ? '<div style="' + FONT + 'font-size:10px;font-weight:700;color:#1D9E68;margin-top:2px;">Registration link available</div>'
+            : '<div style="' + FONT + 'font-size:10px;font-weight:700;color:#9a6200;margin-top:2px;">No registration link yet</div>'}
+        </div>`, `data-action="nlPickToggle" data-i="${i}"`)).join(''),
+      true);
+  };
+
+  /* ── LADDERS ─────────────────────────────────────────────── */
+
+  window.nlPickLadder = async () => {
+    openPick('Add a Ladder', 'Loading...', emptyMsg('Loading ladders...'), false);
+    let ladders = [];
+    try {
+      // Completed only: a ladder still running has no final standings, so
+      // publishing its leaders would be wrong by next week.
+      ladders = await api('ladders?status=eq.completed&select=*&order=id.desc');
+    } catch (err) {
+      openPick('Add a Ladder', '', emptyMsg(`Could not load ladders: ${err.message}`), false);
+      return;
+    }
+    if (!ladders.length) {
+      openPick('Add a Ladder', '', emptyMsg('No completed ladders yet. Only finished ladders have final standings to publish.'), false);
+      return;
+    }
+    _pickState = { mode: 'ladder', items: ladders };
+
+    openPick('Add a Ladder', 'Pick one — the top three men and women load automatically.',
+      ladders.map((l, i) => pickRow(`
+        <div style="flex:1;min-width:0;">
+          <div style="${FONT}font-size:13px;font-weight:700;color:var(--text);">${esc(l.name)}</div>
+          <div style="${FONT}font-size:11px;font-weight:600;color:var(--text-muted);margin-top:1px;">
+            ${l.start_date ? fmtDate(l.start_date) : ''}${l.end_date ? ` – ${fmtDate(l.end_date)}` : ''}
+          </div>
+        </div>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-light)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`,
+        `data-action="nlLadderChoose" data-i="${i}"`)).join(''),
+      false);
+  };
+
+  window.nlLadderChoose = async (i) => {
+    const l = _pickState?.items?.[i];
+    if (!l) return;
+    document.getElementById('nl-pick-body').innerHTML = emptyMsg('Loading standings...');
+    try {
+      const { data, error } = await window.supabase.rpc('get_ladder_standings', { p_ladder_id: l.id });
+      if (error) throw new Error(error.message);
+
+      /* rank in the RPC is the OVERALL position, so it cannot be used to
+         pick the top three of each gender — a ladder whose first four are
+         men would leave the women's list starting at rank 5. Each gender
+         is ranked separately here. */
+      const byGender = (g) => (data || [])
+        .filter((r) => String(r.gender || '').toLowerCase() === g)
+        .sort((a, b) => Number(b.points) - Number(a.points))
+        .slice(0, 3)
+        .map((r) => ({ name: `${r.first_name} ${r.last_name}`, detail: `${r.points} PTS` }));
+
+      const men   = byGender('male');
+      const women = byGender('female');
+      if (!men.length && !women.length) {
+        document.getElementById('nl-pick-body').innerHTML =
+          emptyMsg('That ladder has no standings yet. Nothing was added.');
+        return;
+      }
+
+      const arr = get('spotlight', []);
+      arr.push({
+        ladder: l.name,
+        // The period is filled from the ladder's own dates; edit it if the
+        // newsletter should word it differently.
+        period: [l.start_date && fmtDate(l.start_date), l.end_date && fmtDate(l.end_date)]
+                  .filter(Boolean).join(' – '),
+        top_men: men,
+        top_women: women,
+      });
+      set('spotlight', arr);
+      window.nlClosePick();
+      renderSections();
+      toast(`Added ${l.name} — ${men.length} men, ${women.length} women.`);
+    } catch (err) {
+      document.getElementById('nl-pick-body').innerHTML =
+        emptyMsg(`Could not load standings: ${err.message}`);
+    }
+  };
+
+  /* ── TOURNAMENTS ─────────────────────────────────────────── */
+
+  window.nlPickTournament = async () => {
+    openPick('Add a Tournament', 'Loading...', emptyMsg('Loading tournaments...'), false);
+    let ts = [];
+    try {
+      ts = await api('tournaments?status=eq.completed&select=*&order=id.desc');
+    } catch (err) {
+      openPick('Add a Tournament', '', emptyMsg(`Could not load tournaments: ${err.message}`), false);
+      return;
+    }
+    if (!ts.length) {
+      openPick('Add a Tournament', '', emptyMsg('No completed tournaments yet.'), false);
+      return;
+    }
+    _pickState = { mode: 'tournament', items: ts };
+
+    openPick('Add a Tournament', 'Pick one — every division and all three placements load automatically.',
+      ts.map((t, i) => pickRow(`
+        <div style="flex:1;min-width:0;">
+          <div style="${FONT}font-size:13px;font-weight:700;color:var(--text);">${esc(t.name)}</div>
+          <div style="${FONT}font-size:11px;font-weight:600;color:var(--text-muted);margin-top:1px;">${t.date ? fmtDate(t.date) : ''}</div>
+        </div>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-light)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`,
+        `data-action="nlTournamentChoose" data-i="${i}"`)).join(''),
+      false);
+  };
+
+  /* Same ordering the public results page uses: wins, then point
+     difference, then points for, then fewest losses. Teams that forfeited
+     drop to the bottom. Reimplemented here rather than imported because
+     tournament.js keeps it inside a page-scoped closure — the ordering is
+     copied exactly so both agree. */
+  const calcPodium = (teams, matches) => {
+    const st = {};
+    teams.forEach((t) => { st[t.id] = { team: t, w: 0, l: 0, pf: 0, pa: 0, ff: false }; });
+    matches.filter((m) => m.status === 'completed').forEach((m) => {
+      const a = st[m.team_a_id], b = st[m.team_b_id];
+      if (!a || !b) return;
+      a.pf += m.score_a || 0; a.pa += m.score_b || 0;
+      b.pf += m.score_b || 0; b.pa += m.score_a || 0;
+      if (m.winner_id === m.team_a_id) { a.w++; b.l++; }
+      else if (m.winner_id === m.team_b_id) { b.w++; a.l++; }
+      if (m.forfeit_team_id && st[m.forfeit_team_id]) st[m.forfeit_team_id].ff = true;
+    });
+    return Object.values(st).sort((x, y) =>
+      (x.ff - y.ff) || (y.w - x.w) || ((y.pf - y.pa) - (x.pf - x.pa)) || (y.pf - x.pf) || (x.l - y.l));
+  };
+
+  window.nlTournamentChoose = async (i) => {
+    const t = _pickState?.items?.[i];
+    if (!t) return;
+    document.getElementById('nl-pick-body').innerHTML = emptyMsg('Loading results...');
+    try {
+      const [cats, teams, matches] = await Promise.all([
+        api(`tournament_categories?tournament_id=eq.${t.id}&select=*&order=id`),
+        api(`tournament_teams?tournament_id=eq.${t.id}&select=*`),
+        api(`tournament_rr_matches?select=category_id,status,team_a_id,team_b_id,score_a,score_b,winner_id,forfeit_team_id`),
+      ]);
+
+      const added = [];
+      (cats || []).forEach((c) => {
+        const ct = (teams || []).filter((x) => x.category_id === c.id);
+        const cm = (matches || []).filter((m) => m.category_id === c.id);
+        if (!ct.length) return;
+        const podium = calcPodium(ct, cm).slice(0, 3).map((r) => r.team.name);
+        // A division with no completed matches produces no real podium.
+        if (!podium.length) return;
+        // tournament_categories has no skill/level column — the level is
+        // usually part of the name ("Mixed Doubles 55+ Up to 4.0"). Left
+        // empty for the admin to split out if they want it on its own line.
+        added.push({ division: c.name, level: '', podium });
+      });
+
+      if (!added.length) {
+        document.getElementById('nl-pick-body').innerHTML =
+          emptyMsg('That tournament has no completed results. Nothing was added.');
+        return;
+      }
+
+      set('champions', (get('champions', [])).concat(added));
+      if (!get('champions_sub')) {
+        set('champions_sub', `${t.name}${t.date ? ` · ${fmtDate(t.date)}` : ''}`);
+      }
+      window.nlClosePick();
+      renderSections();
+      toast(`Added ${added.length} division${added.length !== 1 ? 's' : ''} from ${t.name}.`);
+    } catch (err) {
+      document.getElementById('nl-pick-body').innerHTML =
+        emptyMsg(`Could not load results: ${err.message}`);
+    }
+  };
+
+  /* ── CONFIRM (events only) ───────────────────────────────── */
+
+  window.nlPickToggle = (i) => {
+    const cb = document.querySelector(`.nl-pick-cb[data-i="${i}"]`);
+    if (cb) cb.checked = !cb.checked;
+  };
+
+  window.nlPickConfirm = () => {
+    if (_pickState?.mode !== 'events') return;
+    const chosen = Array.from(document.querySelectorAll('.nl-pick-cb:checked'))
+      .map((cb) => _pickState.items[parseInt(cb.dataset.i, 10)])
+      .filter(Boolean);
+    if (!chosen.length) { toast('Nothing selected.', true); return; }
+
+    const fmtT = (x) => x ? window.fmtTime12(x) : '';
+    const arr = get('upcoming', []);
+    chosen.forEach((e) => arr.push({
+      title: e.title,
+      date: fmtDate(e.event_date),
+      time: [fmtT(e.event_time), fmtT(e.end_time)].filter(Boolean).join(' – '),
+      location: '',
+      description: e.description || '',
+      url: e.registration_url || '',
+      // An event with no registration link gets the label the spec asks
+      // for rather than a button that goes nowhere.
+      cta_label: e.registration_url ? 'Register Now' : 'Registration coming soon',
+    }));
+    set('upcoming', arr);
+    window.nlClosePick();
+    renderSections();
+    toast(`Added ${chosen.length} event${chosen.length !== 1 ? 's' : ''}.`);
+  };
 
   /* ─── LIST VIEW ──────────────────────────────────────────── */
 
@@ -621,6 +918,14 @@
     nlSend:            () => window.nlSend(),
     nlRemove:          (btn) => listRemove(btn.dataset.path, parseInt(btn.dataset.idx, 10)),
     nlImgClear:        (btn) => window.nlImgClear(btn.dataset.path),
+    nlPickEvents:      () => window.nlPickEvents(),
+    nlPickLadder:      () => window.nlPickLadder(),
+    nlPickTournament:  () => window.nlPickTournament(),
+    nlClosePick:       () => window.nlClosePick(),
+    nlPickConfirm:     () => window.nlPickConfirm(),
+    nlPickToggle:      (btn) => window.nlPickToggle(btn.dataset.i),
+    nlLadderChoose:    (btn) => window.nlLadderChoose(parseInt(btn.dataset.i, 10)),
+    nlTournamentChoose:(btn) => window.nlTournamentChoose(parseInt(btn.dataset.i, 10)),
     nlAddUpcoming:     () => listAdd('upcoming',  { title: '', date: '', time: '', url: '', cta_label: 'Register Now' }),
     nlAddSpotlight:    () => listAdd('spotlight', { ladder: '', period: '', top_men: [], top_women: [] }),
     nlAddChampion:     () => listAdd('champions', { division: '', level: '', podium: ['', '', ''] }),
