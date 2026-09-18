@@ -701,11 +701,48 @@
     // covers, not during it.
     const d = new Date(now.getFullYear(), now.getMonth() + 1, 1);
     const title = `${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+    const iso   = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+
+    /* Warn before creating a second edition for the same month.
+
+       "New Edition" always makes a new one, which is right — a special
+       edition is legitimate. But pressing it twice by habit produced a
+       duplicate October with no hint that the first one existed. This
+       names what is already there and offers to open it instead. */
+    const existing = _issues.filter((n) => String(n.issue_date).slice(0, 7) === iso.slice(0, 7));
+    if (existing.length) {
+      const drafts = existing.filter((n) => n.status === 'draft');
+      const sent   = existing.filter((n) => n.status === 'sent');
+
+      const what = drafts.length && sent.length
+        ? `a draft and a sent edition`
+        : drafts.length
+          ? `${drafts.length} draft${drafts.length !== 1 ? 's' : ''}`
+          : `a sent edition`;
+
+      const ok = await confirmModal({
+        title: `${title} already exists`,
+        message: `There ${existing.length === 1 ? 'is' : 'are'} already ${what} for ${title}. `
+          + `Creating another means keeping two editions for the same month. `
+          + (drafts.length
+              ? `If you meant to keep working on the existing draft, open it instead.`
+              : `A second edition for a month that was already sent is unusual — check this is what you want.`),
+        okLabel: 'Create another anyway',
+        cancelLabel: drafts.length ? 'Open the existing one' : 'Cancel',
+      });
+
+      if (!ok) {
+        // Cancelling on a month that has a draft opens it, which is what
+        // the person almost always meant.
+        if (drafts.length) openIssue(drafts[0].id, drafts[0]);
+        return;
+      }
+    }
 
     try {
       await api('newsletters', 'POST', {
         title,
-        issue_date: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`,
+        issue_date: iso,
         status: 'draft',
         content: {},
       });
