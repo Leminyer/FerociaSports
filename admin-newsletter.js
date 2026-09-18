@@ -38,8 +38,11 @@
     const btn = document.getElementById('nl-save-btn');
     if (btn) {
       btn.textContent = v ? 'Save Draft •' : 'Save Draft';
-      btn.style.borderColor = v ? 'var(--orange)' : 'var(--divider-color)';
-      btn.style.color = v ? 'var(--orange)' : 'var(--text)';
+      // Blue is the resting state, matching Preview and Send Test to Me.
+      // This used to reset to grey-and-black, which quietly undid the
+      // styling set in the markup.
+      btn.style.borderColor = v ? 'var(--orange)' : 'var(--blue)';
+      btn.style.color       = v ? 'var(--orange)' : 'var(--blue)';
     }
   };
 
@@ -108,8 +111,14 @@
             style="background:none;border:none;color:#e53935;${FONT}font-size:11px;font-weight:700;cursor:pointer;">Remove</button>`}
         </div>` : ''}
         ${isSent() ? '' : `
-        <input type="file" id="${id}" accept="image/*" data-action-file="${path}"
-          style="display:block;width:100%;${FONT}font-size:12px;font-weight:600;color:var(--text-muted);padding:9px;border:1px dashed var(--divider-color);border-radius:8px;cursor:pointer;">
+        <!-- The browser's default file input is ugly and dated. Events
+             already solved this: a styled <label> pointing at a hidden
+             <input>. Same class, same look. -->
+        <label class="ev-file-upload" for="${id}">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          <span style="${FONT}font-size:11px;font-weight:600;color:var(--text-muted);">${url ? 'Click to replace' : 'Click to upload'} — JPG or PNG, max 5MB</span>
+        </label>
+        <input type="file" id="${id}" accept="image/jpeg,image/png,image/jpg" data-action-file="${path}" style="display:none;">
         <div id="${id}_status" style="${FONT}font-size:11px;font-weight:600;color:var(--blue);margin-top:5px;"></div>`}
         ${hint ? `<div style="${FONT}font-size:11px;font-weight:600;color:var(--text-light);margin-top:4px;line-height:1.5;">${esc(hint)}</div>` : ''}
       </div>`;
