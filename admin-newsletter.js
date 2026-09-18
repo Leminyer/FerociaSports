@@ -101,9 +101,10 @@
      fires the same `input` event as the text fields, so it saves through
      the one delegated listener already in place. */
   const ICON_CHOICES = [
-    ['🏓', 'Paddle'], ['👥', 'Players'], ['🏆', 'Trophy'], ['📅', 'Calendar'],
-    ['🔥', 'Fire'], ['⭐', 'Star'], ['📈', 'Growth'], ['🎾', 'Ball'],
-    ['🥇', 'Medal'], ['💪', 'Strength'], ['🎯', 'Target'], ['☀️', 'Sun'],
+    ['👥', 'Players'], ['🏓', 'Paddle'], ['🏆', 'Trophy'], ['🆕', 'New'],
+    ['📅', 'Calendar'], ['🔥', 'Fire'], ['⭐', 'Star'], ['📈', 'Growth'],
+    ['🎾', 'Ball'], ['🥇', 'Medal'], ['💪', 'Strength'], ['🎯', 'Target'],
+    ['☀️', 'Sun'], ['📊', 'Chart'],
   ];
 
   const iconField = (path) => {
