@@ -300,7 +300,13 @@
           Add a Tournament
         </button>
       </div>`)
-      + field('Tournament name', 'champions_sub', { placeholder: 'Mamba Day 2026 · Sunday, August 23, 2026' })
+      // The tournament name and the divisions only appear once there is
+      // something to edit. Importing fills the name in, so an empty field
+      // and an "Add division" button up front asked the admin to do work
+      // the importer was about to do for them.
+      + (items.length
+          ? field('Tournament name', 'champions_sub', { placeholder: 'Mamba Day 2026 · Sunday, August 23, 2026' })
+          : '')
       + items.map((_, i) => {
         const pod = get(`champions.${i}.podium`, ['', '', '']);
         return itemBox(
@@ -311,7 +317,7 @@
                   { placeholder: 'Chris Berry & Emely Skiff' })).join(''),
           'champions', i);
       }).join('')
-      + addBtn('Add division', 'nlAddChampion', 'champions'));
+      + addBtn(items.length ? 'Add division' : 'Add manually', 'nlAddChampion', 'champions'));
   };
 
   const secCoach = () => sectionCard(4, "Coach's Corner", 'Real pickleball teaching — the reason to open the email', `
@@ -338,7 +344,7 @@
           <div style="flex:2;">${field('Label', `numbers.items.${i}.label`, { placeholder: 'Players on court' })}</div>
           <div style="padding-top:10px;">${removeBtn('numbers.items', i)}</div>
         </div>`).join('')
-      + (items.length < 4 ? addBtn('Add metric', 'nlAddMetric', 'numbers.items') : '')
+      + (items.length < 4 ? `<div style="margin-bottom:18px;">${addBtn('Add metric', 'nlAddMetric', 'numbers.items')}</div>` : '')
       + field('Closing line', 'numbers.footer', { placeholder: 'A growing community. A brighter place to play.' }));
   };
 
@@ -382,9 +388,15 @@
     _pickState = null;
   };
 
-  const pickRow = (inner, attrs = '') => `
-    <div ${attrs} style="display:flex;align-items:center;gap:11px;padding:11px 13px;border:1px solid var(--divider-color);border-radius:8px;margin-bottom:8px;cursor:pointer;">
-      ${inner}</div>`;
+  /* A <label> for the checkbox rows, a <div> for the click-through ones.
+
+     They were all divs with data-action="nlPickToggle", which meant
+     clicking the checkbox toggled it natively AND fired the row handler
+     that toggled it back — so nothing ever appeared ticked. A label lets
+     the browser handle it, and the whole row stays clickable. */
+  const pickRow = (inner, attrs = '', asLabel = false) => asLabel
+    ? `<label ${attrs} style="display:flex;align-items:center;gap:11px;padding:11px 13px;border:1px solid var(--divider-color);border-radius:8px;margin-bottom:8px;cursor:pointer;">${inner}</label>`
+    : `<div ${attrs} style="display:flex;align-items:center;gap:11px;padding:11px 13px;border:1px solid var(--divider-color);border-radius:8px;margin-bottom:8px;cursor:pointer;">${inner}</div>`;
 
   const emptyMsg = (t) => `<div style="${FONT}padding:26px;text-align:center;font-size:12.5px;font-weight:600;color:var(--text-muted);line-height:1.6;">${esc(t)}</div>`;
 
@@ -412,7 +424,7 @@
     const fmtT = (t) => t ? window.fmtTime12(t) : '';
     openPick('Add from Events', 'Tick the ones to feature. Everything stays editable afterwards.',
       events.map((e, i) => pickRow(`
-        <input type="checkbox" class="nl-pick-cb" data-i="${i}" style="width:16px;height:16px;accent-color:var(--blue);cursor:pointer;flex-shrink:0;">
+        <input type="checkbox" class="nl-pick-cb" id="nlcb_${i}" data-i="${i}" style="width:16px;height:16px;accent-color:var(--blue);cursor:pointer;flex-shrink:0;">
         <div style="flex:1;min-width:0;">
           <div style="${FONT}font-size:13px;font-weight:700;color:var(--text);">${esc(e.title)}</div>
           <div style="${FONT}font-size:11px;font-weight:600;color:var(--text-muted);margin-top:1px;">
@@ -421,30 +433,30 @@
           ${e.registration_url
             ? '<div style="' + FONT + 'font-size:10px;font-weight:700;color:#1D9E68;margin-top:2px;">Registration link available</div>'
             : '<div style="' + FONT + 'font-size:10px;font-weight:700;color:#9a6200;margin-top:2px;">No registration link yet</div>'}
-        </div>`, `data-action="nlPickToggle" data-i="${i}"`)).join(''),
+        </div>`, `for="nlcb_${i}"`, true)).join(''),
       true);
   };
 
   /* ── LADDERS ─────────────────────────────────────────────── */
 
   window.nlPickLadder = async () => {
-    openPick('Add a Ladder', 'Loading...', emptyMsg('Loading ladders...'), false);
+    openPick('Add From Ladder', 'Loading...', emptyMsg('Loading ladders...'), false);
     let ladders = [];
     try {
       // Completed only: a ladder still running has no final standings, so
       // publishing its leaders would be wrong by next week.
       ladders = await api('ladders?status=eq.completed&select=*&order=id.desc');
     } catch (err) {
-      openPick('Add a Ladder', '', emptyMsg(`Could not load ladders: ${err.message}`), false);
+      openPick('Add From Ladder', '', emptyMsg(`Could not load ladders: ${err.message}`), false);
       return;
     }
     if (!ladders.length) {
-      openPick('Add a Ladder', '', emptyMsg('No completed ladders yet. Only finished ladders have final standings to publish.'), false);
+      openPick('Add From Ladder', '', emptyMsg('No completed ladders yet. Only finished ladders have final standings to publish.'), false);
       return;
     }
     _pickState = { mode: 'ladder', items: ladders };
 
-    openPick('Add a Ladder', 'Pick one — the top three men and women load automatically.',
+    openPick('Add From Ladder', 'Pick one — the top three men and women load automatically.',
       ladders.map((l, i) => pickRow(`
         <div style="flex:1;min-width:0;">
           <div style="${FONT}font-size:13px;font-weight:700;color:var(--text);">${esc(l.name)}</div>
@@ -506,21 +518,21 @@
   /* ── TOURNAMENTS ─────────────────────────────────────────── */
 
   window.nlPickTournament = async () => {
-    openPick('Add a Tournament', 'Loading...', emptyMsg('Loading tournaments...'), false);
+    openPick('Add From Tournament', 'Loading...', emptyMsg('Loading tournaments...'), false);
     let ts = [];
     try {
       ts = await api('tournaments?status=eq.completed&select=*&order=id.desc');
     } catch (err) {
-      openPick('Add a Tournament', '', emptyMsg(`Could not load tournaments: ${err.message}`), false);
+      openPick('Add From Tournament', '', emptyMsg(`Could not load tournaments: ${err.message}`), false);
       return;
     }
     if (!ts.length) {
-      openPick('Add a Tournament', '', emptyMsg('No completed tournaments yet.'), false);
+      openPick('Add From Tournament', '', emptyMsg('No completed tournaments yet.'), false);
       return;
     }
     _pickState = { mode: 'tournament', items: ts };
 
-    openPick('Add a Tournament', 'Pick one — every division and all three placements load automatically.',
+    openPick('Add From Tournament', 'Pick one — every division and all three placements load automatically.',
       ts.map((t, i) => pickRow(`
         <div style="flex:1;min-width:0;">
           <div style="${FONT}font-size:13px;font-weight:700;color:var(--text);">${esc(t.name)}</div>
@@ -557,10 +569,19 @@
     if (!t) return;
     document.getElementById('nl-pick-body').innerHTML = emptyMsg('Loading results...');
     try {
-      const [cats, teams, matches] = await Promise.all([
-        api(`tournament_categories?tournament_id=eq.${t.id}&select=*&order=id`),
-        api(`tournament_teams?tournament_id=eq.${t.id}&select=*`),
-        api(`tournament_rr_matches?select=category_id,status,team_a_id,team_b_id,score_a,score_b,winner_id,forfeit_team_id`),
+      // tournament_teams has no tournament_id: it hangs off the category.
+      // So the categories come first, then their teams and matches.
+      const cats = await api(`tournament_categories?tournament_id=eq.${t.id}&select=*&order=id`);
+      if (!cats?.length) {
+        document.getElementById('nl-pick-body').innerHTML =
+          emptyMsg('That tournament has no categories. Nothing was added.');
+        return;
+      }
+      const catIds = cats.map((c) => c.id).join(',');
+      const [teams, matches] = await Promise.all([
+        api(`tournament_teams?category_id=in.(${catIds})&select=id,category_id,name`),
+        api(`tournament_rr_matches?category_id=in.(${catIds})`
+          + `&select=category_id,status,team_a_id,team_b_id,score_a,score_b,winner_id,forfeit_team_id`),
       ]);
 
       const added = [];
@@ -597,11 +618,6 @@
   };
 
   /* ── CONFIRM (events only) ───────────────────────────────── */
-
-  window.nlPickToggle = (i) => {
-    const cb = document.querySelector(`.nl-pick-cb[data-i="${i}"]`);
-    if (cb) cb.checked = !cb.checked;
-  };
 
   window.nlPickConfirm = () => {
     if (_pickState?.mode !== 'events') return;
@@ -653,6 +669,12 @@
           </div>
         </div>
         ${statusPill(n.status)}
+        ${n.status === 'draft' ? `
+        <button type="button" data-action="nlDelete" data-id="${n.id}" title="Delete this draft"
+          style="background:none;border:none;padding:4px 6px;cursor:pointer;color:var(--text-light);"
+          onmouseover="this.style.color='#e53935'" onmouseout="this.style.color='var(--text-light)'">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+        </button>` : ''}
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-light)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
       </div>`).join('');
   };
@@ -732,6 +754,34 @@
     renderSections();
   };
   window.nlOpen = openIssue;
+
+  /* Deleting a draft.
+
+     Creating a second October by mistake was easy and had no way back —
+     "New Edition" always makes a new one, and nothing could be removed.
+     Only DRAFTS can be deleted: a sent edition is the record of what 450
+     people received, and that has to stay. */
+  window.nlDelete = async (id) => {
+    const n = _issues.find((x) => String(x.id) === String(id));
+    if (!n) return;
+    if (n.status === 'sent') {
+      toast('Sent editions cannot be deleted — they are the record of what was sent.', true);
+      return;
+    }
+    const ok = await confirmModal({
+      title: `Delete the ${n.title} draft?`,
+      message: 'This draft and everything written in it will be removed. Nothing was sent to subscribers, so nobody is affected — but the text cannot be recovered.',
+      okLabel: 'Delete draft', cancelLabel: 'Keep it',
+    });
+    if (!ok) return;
+    try {
+      await api(`newsletters?id=eq.${id}`, 'DELETE');
+      toast('Draft deleted.');
+      await loadNewsletterPage();
+    } catch (err) {
+      toast(`Could not delete: ${err.message}`, true);
+    }
+  };
 
   window.nlBackToList = async () => {
     if (_dirty) {
@@ -918,12 +968,12 @@
     nlSend:            () => window.nlSend(),
     nlRemove:          (btn) => listRemove(btn.dataset.path, parseInt(btn.dataset.idx, 10)),
     nlImgClear:        (btn) => window.nlImgClear(btn.dataset.path),
+    nlDelete:          (btn) => window.nlDelete(btn.dataset.id),
     nlPickEvents:      () => window.nlPickEvents(),
     nlPickLadder:      () => window.nlPickLadder(),
     nlPickTournament:  () => window.nlPickTournament(),
     nlClosePick:       () => window.nlClosePick(),
     nlPickConfirm:     () => window.nlPickConfirm(),
-    nlPickToggle:      (btn) => window.nlPickToggle(btn.dataset.i),
     nlLadderChoose:    (btn) => window.nlLadderChoose(parseInt(btn.dataset.i, 10)),
     nlTournamentChoose:(btn) => window.nlTournamentChoose(parseInt(btn.dataset.i, 10)),
     nlAddUpcoming:     () => listAdd('upcoming',  { title: '', date: '', time: '', url: '', cta_label: 'Register Now' }),
