@@ -92,6 +92,34 @@
       </div>`;
   };
 
+  /* The icon that sits above each Around FEROCIA number.
+
+     A dropdown rather than a text box: typing an emoji on a desktop
+     keyboard is awkward, and a free text field would let anything through.
+     Leaving it on "Default" gives the icon that matches the position —
+     nothing has to be chosen for the section to look finished. A <select>
+     fires the same `input` event as the text fields, so it saves through
+     the one delegated listener already in place. */
+  const ICON_CHOICES = [
+    ['🏓', 'Paddle'], ['👥', 'Players'], ['🏆', 'Trophy'], ['📅', 'Calendar'],
+    ['🔥', 'Fire'], ['⭐', 'Star'], ['📈', 'Growth'], ['🎾', 'Ball'],
+    ['🥇', 'Medal'], ['💪', 'Strength'], ['🎯', 'Target'], ['☀️', 'Sun'],
+  ];
+
+  const iconField = (path) => {
+    const v = get(path);
+    const dis = isSent() ? 'disabled' : '';
+    return `
+      <div style="margin-bottom:12px;">
+        <div style="${FONT}font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;">Icon</div>
+        <select data-nlpath="${path}" ${dis} style="${inputStyle}cursor:pointer;">
+          <option value="" ${v ? '' : 'selected'}>Default</option>
+          ${ICON_CHOICES.map(([e, n]) =>
+            `<option value="${e}" ${v === e ? 'selected' : ''}>${e}  ${esc(n)}</option>`).join('')}
+        </select>
+      </div>`;
+  };
+
   /* Upload box instead of asking for a URL.
 
      "Paste the public link from the bucket" assumed the person knows what
@@ -161,6 +189,11 @@
     if (path && e.target.files?.[0]) {
       uploadImage(e.target.files[0], path, e.target.id + '_status');
     }
+    // A <select> fires `input` in every current browser, so the delegated
+    // input listener already covers the icon dropdown. This is the belt to
+    // that suspenders: writing the same value twice changes nothing.
+    const nlpath = e.target?.dataset?.nlpath;
+    if (nlpath && e.target.tagName === 'SELECT' && _current) set(nlpath, e.target.value);
   });
 
   window.nlImgClear = (path) => { set(path, ''); renderSections(); };
@@ -324,10 +357,13 @@
     ${field('Tip headline', 'coach.title', { placeholder: 'Win the point later, not on your third shot' })}
     ${field('Body', 'coach.body', { textarea: true, rows: 9, hint: 'Blank lines become paragraphs.' })}
     ${field('Signature', 'coach.author', { placeholder: 'Coach Leminyer' })}
-    ${field("This month's challenge", 'coach.challenge', { textarea: true, rows: 3 })}`);
+    ${field("This month's challenge", 'coach.challenge', { textarea: true, rows: 3 })}
+    ${field('Challenge goal', 'coach.goal', {
+       placeholder: 'Ten clean third-shot drops in a row',
+       hint: 'Optional. Shown on its own line, in bold, under the challenge.' })}`);
 
   const secPick = () => sectionCard(5, 'FEROCIA Pick of the Month', 'One product — never a carousel', `
-    ${field('Product name', 'pick.name')}
+    ${field('Product name', 'pick.name', { placeholder: 'Selkirk SLK Halo Control' })}
     ${imageField('Product photo', 'pick.image_url',
        'Optional. A photo of the product — the email still reads fine without one.')}
     ${field('Description', 'pick.description', { textarea: true, rows: 3 })}
@@ -340,6 +376,7 @@
       field('Subtitle', 'numbers.subtitle', { placeholder: 'September by the numbers' })
       + items.map((_, i) => `
         <div style="display:flex;gap:8px;align-items:flex-start;">
+          <div style="width:112px;flex-shrink:0;">${iconField(`numbers.items.${i}.icon`)}</div>
           <div style="flex:1;">${field('Value', `numbers.items.${i}.value`, { placeholder: '64' })}</div>
           <div style="flex:2;">${field('Label', `numbers.items.${i}.label`, { placeholder: 'Players on court' })}</div>
           <div style="padding-top:10px;">${removeBtn('numbers.items', i)}</div>
