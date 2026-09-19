@@ -48,6 +48,23 @@
 
   const isSent = () => _current?.status === 'sent';
 
+  /* The newsletter spells the month out in full — "October 2, 2026" — while
+     the rest of the admin uses the short form.
+
+     fmtDate is a global shared by nine modules (players, sessions,
+     promotions, rosters and more). Changing it to suit the newsletter
+     would move dates on screens nobody asked about, so it is left alone
+     and the long form is built here, for this section only.
+
+     Noon rather than midnight: "2026-10-02" parsed as UTC midnight becomes
+     October 1st for anyone west of Greenwich. */
+  const fmtDateLong = (d) => {
+    if (!d) return '';
+    const dt = new Date(String(d).includes('T') ? d : d + 'T12:00:00');
+    return isNaN(dt) ? String(d)
+      : dt.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  };
+
   /** Reads a value out of the content object by dotted path. */
   const get = (path, fallback = '') => {
     const parts = path.split('.');
@@ -687,7 +704,9 @@
     const arr = get('upcoming', []);
     chosen.forEach((e) => arr.push({
       title: e.title,
-      date: fmtDate(e.event_date),
+      // "Starts" comes in as part of the text so it can be taken out for a
+      // tournament, where the proposal shows the date on its own.
+      date: 'Starts ' + fmtDateLong(e.event_date),
       time: [fmtT(e.event_time), fmtT(e.end_time)].filter(Boolean).join(' – '),
       location: '',
       // The description is no longer imported: the card shows name, date
