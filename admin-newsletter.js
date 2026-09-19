@@ -355,6 +355,15 @@
           Add a Ladder
         </button>
       </div>`)
+      /* The email has always rendered a subtitle and an intro line here —
+         there was simply no box to type either, so both were permanently
+         blank. Same gap the What's Coming Up intro had. */
+      + (items.length
+          ? field('Subtitle', 'spotlight_sub',
+                  { hint: 'Shown in caps under the PLAYER SPOTLIGHT heading.' })
+            + field('Intro line', 'spotlight_intro',
+                  { hint: 'One sentence under the subtitle. Example: Two ladders. Twelve standout performances. One competitive summer.' })
+          : '')
       + items.map((_, i) => itemBox(
         field('Ladder name', `spotlight.${i}.ladder`) +
         field('Period', `spotlight.${i}.period`, { placeholder: 'July – September 2026' }) +
@@ -609,6 +618,9 @@
         top_women: women,
       });
       set('spotlight', arr);
+      // Written in rather than offered as grey placeholder text, which is
+      // easy to mistake for a filled-in value and never reaches the email.
+      if (!get('spotlight_sub')) set('spotlight_sub', 'Celebrating our ladder leaders');
       window.nlClosePick();
       renderSections();
       toast(`Added ${l.name} — ${men.length} men, ${women.length} women.`);
@@ -651,6 +663,40 @@
      drop to the bottom. Reimplemented here rather than imported because
      tournament.js keeps it inside a page-scoped closure — the ordering is
      copied exactly so both agree. */
+  /* WHO ACTUALLY FINISHED FIRST
+
+     Round-robin position is not the result. Once a division plays a
+     bracket, the tournament screen declares the champion the way
+     renderPodium does in tournament-results.html:
+
+       1st — winner of the match whose round_name is 'Final'
+       2nd — the other team in that Final
+       3rd — winner of the '3rd Place' match
+
+     Reading the round robin instead put whoever topped the group stage
+     first, so a team that won the group and then lost the final came out
+     ahead of the team that beat them. That is the swap that was reported.
+
+     Only when there is no completed Final does the round robin decide —
+     a division that never played a bracket has nothing else to go on. */
+  const finalPodium = (teams, rrMatches, bracketMatches) => {
+    const byId = new Map(teams.map((t) => [t.id, t]));
+    const fin = (bracketMatches || []).find(
+      (m) => m.round_name === 'Final' && m.status === 'completed' && m.winner_id);
+
+    if (fin) {
+      const champion = byId.get(fin.winner_id);
+      const runnerId = fin.team_a_id === fin.winner_id ? fin.team_b_id : fin.team_a_id;
+      const third = (bracketMatches || []).find(
+        (m) => m.round_name === '3rd Place' && m.status === 'completed' && m.winner_id);
+      // A division with no third-place match simply has two places, which
+      // is what the tournament screen shows too. Nothing is invented.
+      return [champion, runnerId ? byId.get(runnerId) : null,
+              third ? byId.get(third.winner_id) : null].filter(Boolean);
+    }
+    return calcPodium(teams, rrMatches).slice(0, 3).map((r) => r.team);
+  };
+
   const calcPodium = (teams, matches) => {
     const st = {};
     teams.forEach((t) => { st[t.id] = { team: t, w: 0, l: 0, pf: 0, pa: 0, ff: false }; });
@@ -688,11 +734,13 @@
          The players hang off player1_id … player4_id, exactly as the
          tournament screen reads them, so those ids are fetched and turned
          into "First Last & First Last". */
-      const [teams, matches] = await Promise.all([
+      const [teams, matches, bracket] = await Promise.all([
         api(`tournament_teams?category_id=in.(${catIds})`
           + `&select=id,category_id,name,player1_id,player2_id,player3_id,player4_id`),
         api(`tournament_rr_matches?category_id=in.(${catIds})`
           + `&select=category_id,status,team_a_id,team_b_id,score_a,score_b,winner_id,forfeit_team_id`),
+        api(`tournament_bracket_matches?category_id=in.(${catIds})`
+          + `&select=category_id,round_name,status,team_a_id,team_b_id,winner_id`).catch(() => []),
       ]);
 
       const playerIds = [...new Set((teams || []).flatMap((t2) =>
@@ -716,7 +764,8 @@
         const ct = (teams || []).filter((x) => x.category_id === c.id);
         const cm = (matches || []).filter((m) => m.category_id === c.id);
         if (!ct.length) return;
-        const podium = calcPodium(ct, cm).slice(0, 3).map((r) => teamLabel(r.team));
+        const podium = finalPodium(ct, cm, (bracket || []).filter((m) => m.category_id === c.id))
+          .map(teamLabel);
         // A division with no completed matches produces no real podium.
         if (!podium.length) return;
         // tournament_categories has no skill/level column — the level is
@@ -736,6 +785,11 @@
       // stored as two values rather than one string joined with a dot.
       if (!get('champions_sub'))  set('champions_sub', t.name);
       if (!get('champions_date') && t.date) set('champions_date', fmtDateLong(t.date));
+      /* The closing line was only a placeholder — grey ghost text that
+         looks filled in but is not, so the line never reached the email
+         and its absence read as a bug. It is written in for real now, and
+         can be edited or emptied like any other field. */
+      if (!get('champions_footer')) set('champions_footer', 'Congratulations to all our champions!');
       window.nlClosePick();
       renderSections();
       toast(`Added ${added.length} division${added.length !== 1 ? 's' : ''} from ${t.name}.`);
