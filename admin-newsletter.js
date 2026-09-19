@@ -269,6 +269,11 @@
     arr.splice(idx, 1);
     set(path, arr);
     renderSections();
+    /* Removing something looks final — it even asks first — but like every
+       other edit here it has only changed the copy in the browser. Say so,
+       because a reload before saving quietly brings the item back and that
+       reads as the delete having failed. */
+    toast('Removed. Press Save Draft to keep the change.');
   };
   window.nlListRemove = listRemove;
 
@@ -440,6 +445,24 @@
   document.addEventListener('input', (e) => {
     const path = e.target?.dataset?.nlpath;
     if (path && _current) set(path, e.target.value);
+  });
+
+  /* Nothing typed, added or removed here reaches the database until Save
+     Draft is pressed — that separation is deliberate, so a half-written
+     edition never becomes the saved one.
+
+     What was missing was the warning. Reloading with work in progress threw
+     it away in silence and the page came back showing the last saved copy,
+     which looks exactly like the edit never happened. The browser's own
+     "leave site?" prompt is the one thing that interrupts a reload, so it
+     is asked for whenever there is something unsaved.
+
+     Chrome and Safari need returnValue set as well as preventDefault, and
+     they show their own wording — the string below is never displayed. */
+  window.addEventListener('beforeunload', (e) => {
+    if (!_dirty || !_current || isSent()) return;
+    e.preventDefault();
+    e.returnValue = '';
   });
 
 
