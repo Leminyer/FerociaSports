@@ -292,12 +292,18 @@
           Add from Events
         </button>
       </div>`)
+      // The line that sits under the heading. The email has always rendered
+      // it; there was simply no box to type it in, so it was always empty.
+      + field('Intro line', 'upcoming_sub',
+              { placeholder: 'New ladders. A spooky tournament. More pickleball.',
+                hint: 'One short line under the WHAT\'S COMING UP heading.' })
       + items.map((_, i) => itemBox(
         field('Name', `upcoming.${i}.title`) +
         field('Date', `upcoming.${i}.date`, { placeholder: 'Starts October 2, 2026' }) +
         field('Time', `upcoming.${i}.time`, { placeholder: '8:30 AM – 10:30 AM' }) +
         field('Location', `upcoming.${i}.location`) +
-        field('Short description', `upcoming.${i}.description`, { textarea: true, rows: 2 }) +
+        imageField(`Flyer (optional)`, `upcoming.${i}.image_url`,
+          'For a tournament with its own artwork. The flyer fills the top of the card; leave it empty and the card shows the calendar instead.') +
         field('Registration URL', `upcoming.${i}.url`, { hint: 'Leave empty if registration has not opened.' }) +
         field('Button label', `upcoming.${i}.cta_label`, { placeholder: 'Register Now — or "Registration coming soon" with no URL' }),
         'upcoming', i)).join('')
@@ -684,7 +690,10 @@
       date: fmtDate(e.event_date),
       time: [fmtT(e.event_time), fmtT(e.end_time)].filter(Boolean).join(' – '),
       location: '',
-      description: e.description || '',
+      // The description is no longer imported: the card shows name, date
+      // and time, as the visual proposal does, so carrying the text across
+      // only left dead weight in the saved JSON.
+      image_url: '',
       url: e.registration_url || '',
       // An event with no registration link gets the label the spec asks
       // for rather than a button that goes nowhere.
