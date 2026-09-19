@@ -375,7 +375,8 @@
       // and an "Add division" button up front asked the admin to do work
       // the importer was about to do for them.
       + (items.length
-          ? field('Tournament name', 'champions_sub', { placeholder: 'Mamba Day 2026 · Sunday, August 23, 2026' })
+          ? field('Tournament name', 'champions_sub', { placeholder: 'Mamba Day 2026 Pickleball Tournament' })
+            + field('Tournament date', 'champions_date', { placeholder: 'Sunday, August 23, 2026' })
           : '')
       + items.map((_, i) => {
         const pod = get(`champions.${i}.podium`, ['', '', '']);
@@ -387,7 +388,12 @@
                   { placeholder: 'Chris Berry & Emely Skiff' })).join(''),
           'champions', i);
       }).join('')
-      + addBtn(items.length ? 'Add division' : 'Add manually', 'nlAddChampion', 'champions'));
+      + (items.length ? `<div style="margin-bottom:18px;">${addBtn('Add division', 'nlAddChampion', 'champions')}</div>`
+                      : addBtn('Add manually', 'nlAddChampion', 'champions'))
+      + (items.length
+          ? field('Closing line', 'champions_footer',
+                  { placeholder: 'Congratulations to all our champions!' })
+          : ''));
   };
 
   const secCoach = () => sectionCard(4, "Coach's Corner", 'Real pickleball teaching — the reason to open the email', `
@@ -652,18 +658,42 @@
         return;
       }
       const catIds = cats.map((c) => c.id).join(',');
+      /* tournament_teams.name is the SEED LABEL — "A1", "B4" — not the
+         players. Reading it straight is what put "A1" in the newsletter
+         where a champion's name belongs.
+
+         The players hang off player1_id … player4_id, exactly as the
+         tournament screen reads them, so those ids are fetched and turned
+         into "First Last & First Last". */
       const [teams, matches] = await Promise.all([
-        api(`tournament_teams?category_id=in.(${catIds})&select=id,category_id,name`),
+        api(`tournament_teams?category_id=in.(${catIds})`
+          + `&select=id,category_id,name,player1_id,player2_id,player3_id,player4_id`),
         api(`tournament_rr_matches?category_id=in.(${catIds})`
           + `&select=category_id,status,team_a_id,team_b_id,score_a,score_b,winner_id,forfeit_team_id`),
       ]);
+
+      const playerIds = [...new Set((teams || []).flatMap((t2) =>
+        [t2.player1_id, t2.player2_id, t2.player3_id, t2.player4_id].filter(Boolean)))];
+      const roster = playerIds.length
+        ? await api(`players?id=in.(${playerIds.join(',')})&select=id,first_name,last_name`)
+        : [];
+      const byId = new Map((roster || []).map((pl) => [pl.id, `${pl.first_name} ${pl.last_name}`]));
+
+      /* A team with no players on it — a placeholder, or a format that
+         does not use them — keeps its label rather than coming through
+         blank. Better a seed code than an empty line. */
+      const teamLabel = (tm) => {
+        const names = [tm.player1_id, tm.player2_id, tm.player3_id, tm.player4_id]
+          .filter(Boolean).map((id) => byId.get(id)).filter(Boolean);
+        return names.length ? names.join(' & ') : (tm.name || '');
+      };
 
       const added = [];
       (cats || []).forEach((c) => {
         const ct = (teams || []).filter((x) => x.category_id === c.id);
         const cm = (matches || []).filter((m) => m.category_id === c.id);
         if (!ct.length) return;
-        const podium = calcPodium(ct, cm).slice(0, 3).map((r) => r.team.name);
+        const podium = calcPodium(ct, cm).slice(0, 3).map((r) => teamLabel(r.team));
         // A division with no completed matches produces no real podium.
         if (!podium.length) return;
         // tournament_categories has no skill/level column — the level is
@@ -679,9 +709,10 @@
       }
 
       set('champions', (get('champions', [])).concat(added));
-      if (!get('champions_sub')) {
-        set('champions_sub', `${t.name}${t.date ? ` · ${fmtDate(t.date)}` : ''}`);
-      }
+      // Name and date are two separate lines in the email now, so they are
+      // stored as two values rather than one string joined with a dot.
+      if (!get('champions_sub'))  set('champions_sub', t.name);
+      if (!get('champions_date') && t.date) set('champions_date', fmtDateLong(t.date));
       window.nlClosePick();
       renderSections();
       toast(`Added ${added.length} division${added.length !== 1 ? 's' : ''} from ${t.name}.`);
