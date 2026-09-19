@@ -94,30 +94,43 @@
 
   /* The icon that sits above each Around FEROCIA number.
 
-     A dropdown rather than a text box: typing an emoji on a desktop
-     keyboard is awkward, and a free text field would let anything through.
-     Leaving it on "Default" gives the icon that matches the position —
+     These are the PNG files in the newsletter-images bucket, the same ones
+     the email itself loads — so what the dropdown previews is exactly what
+     the reader gets. A <select> cannot draw an image, so the chosen icon is
+     shown beside it.
+
+     Leaving it on "Default" gives the icon that matches the position, so
      nothing has to be chosen for the section to look finished. A <select>
      fires the same `input` event as the text fields, so it saves through
      the one delegated listener already in place. */
-  const ICON_CHOICES = [
-    ['👥', 'Players'], ['🏓', 'Paddle'], ['🏆', 'Trophy'], ['🆕', 'New'],
-    ['📅', 'Calendar'], ['🔥', 'Fire'], ['⭐', 'Star'], ['📈', 'Growth'],
-    ['🎾', 'Ball'], ['🥇', 'Medal'], ['💪', 'Strength'], ['🎯', 'Target'],
-    ['☀️', 'Sun'], ['📊', 'Chart'],
-  ];
+  const ICON_BASE = CFG.SUPABASE_URL + '/storage/v1/object/public/newsletter-images/icons/';
 
-  const iconField = (path) => {
-    const v = get(path);
-    const dis = isSent() ? 'disabled' : '';
+  const ICON_CHOICES = [
+    ['num-players', 'Players'],
+    ['num-games',   'Games played'],
+    ['num-ladders', 'Ladders'],
+    ['num-new',     'New players'],
+  ];
+  const ICON_DEFAULTS = ICON_CHOICES.map((c) => c[0]);   // same order as the email
+
+  const iconField = (path, index) => {
+    const v    = get(path);
+    const dis  = isSent() ? 'disabled' : '';
+    // Drafts saved before the icons became images may still hold an emoji.
+    const name = /^[a-z][a-z0-9-]*$/.test(v) ? v : '';
+    const shown = name || ICON_DEFAULTS[index] || ICON_DEFAULTS[0];
     return `
       <div style="margin-bottom:12px;">
         <div style="${FONT}font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;">Icon</div>
-        <select data-nlpath="${path}" ${dis} style="${inputStyle}cursor:pointer;">
-          <option value="" ${v ? '' : 'selected'}>Default</option>
-          ${ICON_CHOICES.map(([e, n]) =>
-            `<option value="${e}" ${v === e ? 'selected' : ''}>${e}  ${esc(n)}</option>`).join('')}
-        </select>
+        <div style="display:flex;align-items:center;gap:9px;">
+          <img src="${esc(ICON_BASE + shown + '.png')}" alt="" width="26" height="26"
+               style="flex-shrink:0;display:block;">
+          <select data-nlpath="${path}" ${dis} style="${inputStyle}cursor:pointer;">
+            <option value="" ${name ? '' : 'selected'}>Default</option>
+            ${ICON_CHOICES.map(([f, n]) =>
+              `<option value="${f}" ${name === f ? 'selected' : ''}>${esc(n)}</option>`).join('')}
+          </select>
+        </div>
       </div>`;
   };
 
@@ -377,7 +390,7 @@
       field('Subtitle', 'numbers.subtitle', { placeholder: 'September by the numbers' })
       + items.map((_, i) => `
         <div style="display:flex;gap:8px;align-items:flex-start;">
-          <div style="width:112px;flex-shrink:0;">${iconField(`numbers.items.${i}.icon`)}</div>
+          <div style="width:168px;flex-shrink:0;">${iconField(`numbers.items.${i}.icon`, i)}</div>
           <div style="flex:1;">${field('Value', `numbers.items.${i}.value`, { placeholder: '64' })}</div>
           <div style="flex:2;">${field('Label', `numbers.items.${i}.label`, { placeholder: 'Players on court' })}</div>
           <div style="padding-top:10px;">${removeBtn('numbers.items', i)}</div>
