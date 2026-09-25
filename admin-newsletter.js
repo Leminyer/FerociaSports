@@ -296,6 +296,13 @@
 
   /* ─── SECTION RENDERERS ──────────────────────────────────── */
 
+  /* Sits above the banner, on the page background rather than inside the
+     white card — so it is its own card here too, before the Header, in the
+     order the reader meets it. */
+  const secIntro = () => sectionCard('I', 'Opening Note', 'Optional. A line from you, above the newsletter itself', `
+    ${field('Opening note', 'intro', { textarea: true, rows: 4,
+       hint: 'Shown at the very top of the email, outside the newsletter, in italics. Leave it empty and nothing is shown — no heading, no space. Blank lines become paragraphs.' })}`);
+
   const secHeader = () => sectionCard('H', 'Header', 'The banner image and the line printed over it', `
     ${imageField('Banner image', 'hero.image_url',
        'Appears at the top of the email, under the FEROCIA Monthly title. Landscape works best — about twice as wide as it is tall.')}
@@ -445,7 +452,7 @@
   const renderSections = () => {
     const el = document.getElementById('nl-sections');
     if (!el || !_current) return;
-    el.innerHTML = secHeader() + secUpcoming() + secSpotlight() + secChampions()
+    el.innerHTML = secIntro() + secHeader() + secUpcoming() + secSpotlight() + secChampions()
                  + secCoach() + secPick() + secNumbers();
   };
 
