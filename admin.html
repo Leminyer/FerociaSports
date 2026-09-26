@@ -13,23 +13,23 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Ferocia Pickleball Ladder</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="design-tokens.css?v=20260906s">
-<link rel="stylesheet" href="tournament.css?v=20260906s">
-<link rel="stylesheet" href="app.css?v=20260906s">
-<link rel="stylesheet" href="country-codes.css?v=20260906s">
+<link rel="stylesheet" href="design-tokens.css?v=20260926b">
+<link rel="stylesheet" href="tournament.css?v=20260926b">
+<link rel="stylesheet" href="app.css?v=20260926b">
+<link rel="stylesheet" href="country-codes.css?v=20260926b">
 <!-- Extracted from the four embedded CSS blocks that used to live in this
      file. ORDER MATTERS: later rules of equal specificity win, so these
      four must stay in this sequence. See the header of admin-layout.css. -->
-<link rel="stylesheet" href="admin-layout.css?v=20260906s">
-<link rel="stylesheet" href="admin-components.css?v=20260906s">
-<link rel="stylesheet" href="admin-pages.css?v=20260906s">
-<link rel="stylesheet" href="admin-ftc.css?v=20260906s">
+<link rel="stylesheet" href="admin-layout.css?v=20260926b">
+<link rel="stylesheet" href="admin-components.css?v=20260926b">
+<link rel="stylesheet" href="admin-pages.css?v=20260926b">
+<link rel="stylesheet" href="admin-ftc.css?v=20260926b">
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-<script src="config.js?v=20260906s"></script>
+<script src="config.js?v=20260926b"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="db.js?v=20260906s"></script>
-<script src="auth.js?v=20260906s"></script>
-<script src="assets.js?v=20260906s"></script>
+<script src="db.js?v=20260926b"></script>
+<script src="auth.js?v=20260926b"></script>
+<script src="assets.js?v=20260926b"></script>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 </head>
@@ -2021,7 +2021,33 @@
           </select>
           <svg style="position:absolute;right:12px;top:50%;transform:translateY(-50%);pointer-events:none;" width="10" height="6" viewBox="0 0 10 6"><path d="M0 0l5 6 5-6z" fill="var(--text-muted)"/></svg>
         </div>
+        <!-- Los valores tienen que coincidir con SOURCE_META en
+             admin-promotions.js y con el CHECK subscribers_source_valido
+             de la base. "__none" son los suscriptores anteriores al
+             seguimiento, que no tienen origen guardado. -->
+        <div style="position:relative;">
+          <select id="sub-source-filter" style="font-family:'Inter',sans-serif;font-size:12px;font-weight:700;padding:8px 32px 8px 12px;border:0.5px solid var(--divider-color);border-radius:99px;color:var(--text);background:white;outline:none;appearance:none;cursor:pointer;">
+            <option value="all">All Sources</option>
+            <option value="instagram">Instagram</option>
+            <option value="facebook">Facebook</option>
+            <option value="tiktok">TikTok</option>
+            <option value="youtube">YouTube</option>
+            <option value="google">Google</option>
+            <option value="whatsapp">WhatsApp</option>
+            <option value="newsletter">Newsletter</option>
+            <option value="qr">QR code</option>
+            <option value="flyer">Flyer</option>
+            <option value="referral">Referral</option>
+            <option value="direct">Direct</option>
+            <option value="other">Other</option>
+            <option value="__none">Before tracking</option>
+          </select>
+          <svg style="position:absolute;right:12px;top:50%;transform:translateY(-50%);pointer-events:none;" width="10" height="6" viewBox="0 0 10 6"><path d="M0 0l5 6 5-6z" fill="var(--text-muted)"/></svg>
+        </div>
       </div>
+      <!-- Resumen por origen. Va encima de la tabla porque responde la
+           pregunta que se hace primero: de donde viene la gente nueva. -->
+      <div id="sub-source-summary" style="padding:14px 20px;border-bottom:0.5px solid var(--divider-color);"></div>
       <div id="subscribers-table"><div class="loading" style="padding:20px;">Loading subscribers...</div></div>
       <!-- Load more row -->
       <div id="sub-load-more-row" style="display:none;padding:14px 20px;border-top:0.5px solid var(--divider-color);display:flex;align-items:center;justify-content:space-between;">
@@ -3434,35 +3460,35 @@
 
 <!-- Loaded before every admin-* module: three of them call
      FerociaPhone.format() when rendering. -->
-<script src="country-codes.js?v=20260906s"></script>
-<script src="location-fields.js?v=20260906s"></script>
-<script src="admin-state.js?v=20260906s"></script>
-<script src="admin-incident-reports.js?v=20260906s"></script>
-<script src="admin-ladder-selector.js?v=20260906s"></script>
-<script src="admin-orders.js?v=20260906s"></script>
-<script src="admin-email-utils.js?v=20260906s"></script>
-<script src="admin-share.js?v=20260906s"></script>
-<script src="admin-tournament-notify.js?v=20260906s"></script>
-<script src="admin-player-status-history.js?v=20260906s"></script>
-<script src="admin-player-profile.js?v=20260906s"></script>
-<script src="admin-email-notifications.js?v=20260906s"></script>
-<script src="admin-ladder-standings.js?v=20260906s"></script>
-<script src="admin-sessions.js?v=20260906s"></script>
-<script src="admin-print-roster.js?v=20260906s"></script>
-<script src="admin-ladder-management.js?v=20260906s"></script>
-<script src="admin-promotions.js?v=20260906s"></script>
-<script src="admin-newsletter.js?v=20260906s"></script>
+<script src="country-codes.js?v=20260926b"></script>
+<script src="location-fields.js?v=20260926b"></script>
+<script src="admin-state.js?v=20260926b"></script>
+<script src="admin-incident-reports.js?v=20260926b"></script>
+<script src="admin-ladder-selector.js?v=20260926b"></script>
+<script src="admin-orders.js?v=20260926b"></script>
+<script src="admin-email-utils.js?v=20260926b"></script>
+<script src="admin-share.js?v=20260926b"></script>
+<script src="admin-tournament-notify.js?v=20260926b"></script>
+<script src="admin-player-status-history.js?v=20260926b"></script>
+<script src="admin-player-profile.js?v=20260926b"></script>
+<script src="admin-email-notifications.js?v=20260926b"></script>
+<script src="admin-ladder-standings.js?v=20260926b"></script>
+<script src="admin-sessions.js?v=20260926b"></script>
+<script src="admin-print-roster.js?v=20260926b"></script>
+<script src="admin-ladder-management.js?v=20260926b"></script>
+<script src="admin-promotions.js?v=20260926b"></script>
+<script src="admin-newsletter.js?v=20260926b"></script>
 <!-- TEMPORARY: fills in missing dates of birth from a CSV import.
      Delete this line and temp-dob-backfill.js once every player has one.
      See the header of that file. -->
-<script src="temp-dob-backfill.js?v=20260906s"></script>
-<script src="admin-players.js?v=20260906s"></script>
-<script src="admin-players-email.js?v=20260906s"></script>
-<script src="admin-ftc-standings.js?v=20260906s"></script>
-<script src="admin-ftc-playoffs-schedule.js?v=20260906s"></script>
-<script src="admin-ftc-teams.js?v=20260906s"></script>
-<script src="app.js?v=20260906s"></script>
-<script src="tournament.js?v=20260906s"></script>
+<script src="temp-dob-backfill.js?v=20260926b"></script>
+<script src="admin-players.js?v=20260926b"></script>
+<script src="admin-players-email.js?v=20260926b"></script>
+<script src="admin-ftc-standings.js?v=20260926b"></script>
+<script src="admin-ftc-playoffs-schedule.js?v=20260926b"></script>
+<script src="admin-ftc-teams.js?v=20260926b"></script>
+<script src="app.js?v=20260926b"></script>
+<script src="tournament.js?v=20260926b"></script>
 <script>
   // ── Sidebar toggle — persisted in localStorage ──────────────────────
   (function() {

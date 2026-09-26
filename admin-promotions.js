@@ -33,14 +33,187 @@
      show the right icon without a lookup per row. Built once per load. */
   let _playerIndex   = new Map();
   let _subsShown     = 25;
+  /* 'month' | 'all' — qué periodo muestra el resumen por origen. No
+     afecta a la tabla: el resumen responde "¿de dónde vino la gente?",
+     la tabla responde "¿quién es?". Son dos preguntas distintas. */
+  let _summaryPeriod = 'month';
+
+  /* ─── ORIGEN DEL SUSCRIPTOR ────────────────────────────────
+
+     Las claves tienen que coincidir EXACTAMENTE con el CHECK
+     subscribers_source_valido de la base y con la lista de
+     attribution.js. Si aquí falta una, esa fila se vería como
+     "Unknown" aunque el dato esté bien guardado.
+
+     El texto visible sí se puede cambiar cuando se quiera; la clave no.
+
+     Colores: fondo teñido + texto oscuro, el mismo patrón que las
+     etiquetas de estado que ya existen, para que la tabla no se
+     convierta en un semáforo. */
+  const SOURCE_META = {
+    instagram:  { label: 'Instagram',  bg: 'rgba(193,53,132,0.12)',  fg: '#8a1f5e' },
+    facebook:   { label: 'Facebook',   bg: 'rgba(24,119,242,0.12)',  fg: '#0f4fa8' },
+    tiktok:     { label: 'TikTok',     bg: 'rgba(17,17,17,0.10)',    fg: '#2b2b2b' },
+    youtube:    { label: 'YouTube',    bg: 'rgba(214,0,0,0.10)',     fg: '#a11212' },
+    google:     { label: 'Google',     bg: 'rgba(217,119,6,0.14)',   fg: '#8a4b00' },
+    whatsapp:   { label: 'WhatsApp',   bg: 'rgba(37,211,102,0.16)',  fg: '#0a6b33' },
+    newsletter: { label: 'Newsletter', bg: 'rgba(13,31,74,0.10)',    fg: '#0d1f4a' },
+    qr:         { label: 'QR code',    bg: 'rgba(36,188,150,0.14)',  fg: '#085041' },
+    flyer:      { label: 'Flyer',      bg: 'rgba(242,96,36,0.12)',   fg: '#7a3d00' },
+    referral:   { label: 'Referral',   bg: 'rgba(124,58,237,0.12)',  fg: '#4c1d95' },
+    direct:     { label: 'Direct',     bg: 'rgba(107,122,153,0.12)', fg: '#3d4a63' },
+    other:      { label: 'Other',      bg: 'rgba(107,122,153,0.12)', fg: '#3d4a63' },
+  };
+
+  /* Los 429 suscriptores anteriores a esta función tienen source vacío.
+     NO son "Direct": de esos no se sabe de dónde vinieron, y decir
+     "Direct" sería inventarse un dato que después ensuciaría cualquier
+     comparación entre canales. Se muestran aparte, y a propósito con
+     borde punteado, para que se vean distintos de un dato real. */
+  const SOURCE_NONE = '__none';
+  const SOURCE_NONE_LABEL = 'Before tracking';
+
+  const sourceMeta = (v) =>
+    SOURCE_META[String(v || '').trim().toLowerCase()] || null;
+
+  /* Hay TRES estados, no dos, y confundirlos hace mentir al admin:
+
+       1. sin origen    → nadie lo midió (los 429 de antes)
+       2. origen conocido → una de las 12 etiquetas de la lista
+       3. origen guardado pero que este archivo no conoce
+
+     El tercero sólo puede pasar si algún día se añade un valor al CHECK
+     de la base y se olvida añadirlo aquí. Mostrarlo como "Before
+     tracking" sería decir "no sabemos" cuando sí se sabe — y además el
+     filtro "Before tracking" no lo traería, con lo que la etiqueta y el
+     filtro se contradirían. Se muestra el valor tal cual, en gris. */
+  const sourceMetaOrRaw = (v) => {
+    const clave = String(v || '').trim().toLowerCase();
+    if (!clave) return null;
+    return SOURCE_META[clave]
+        || { label: clave, bg: 'rgba(107,122,153,0.12)', fg: '#3d4a63', desconocido: true };
+  };
+
+  /** La etiqueta de color de la tabla. */
+  const sourcePill = (v) => {
+    const m = sourceMetaOrRaw(v);
+    if (!m) {
+      return `<span title="This person subscribed before we started recording where people come from."
+        style="font-size:9px;font-weight:800;padding:3px 9px;border-radius:99px;letter-spacing:.5px;text-transform:uppercase;border:1px dashed #cbd5e8;color:var(--text-muted);">${SOURCE_NONE_LABEL}</span>`;
+    }
+    const aviso = m.desconocido
+      ? ' title="This source is stored in the database but the admin has no label for it yet."'
+      : '';
+    return `<span${aviso} style="font-size:9px;font-weight:800;padding:3px 9px;border-radius:99px;letter-spacing:.5px;text-transform:uppercase;background:${m.bg};color:${m.fg};">${esc(m.label)}</span>`;
+  };
+
+  /* Lo que la propia persona contestó en el formulario. Distinto del
+     origen automático: esto es lo que ELLA dice, aquello es lo que se
+     midió. Pueden no coincidir, y eso también es información. */
+  const HEARD_META = {
+    student:    'Already a Ferocia student',
+    tournament: 'Played in a Ferocia tournament',
+    ladder:     'Plays in a Ferocia ladder',
+    coach:      'A Ferocia coach told them',
+    instagram:  'Instagram',
+    facebook:   'Facebook',
+    google:     'Google or web search',
+    friend:     'A friend or family member',
+    club:       'Saw it at the club',
+    event:      'At an event, clinic or open play',
+    other:      'Other',
+  };
+
+  /* ─── RESUMEN POR ORIGEN ───────────────────────────────────
+     La pregunta que justifica toda esta función: ¿de dónde está
+     saliendo la gente nueva?
+
+     Cuenta sobre la lista COMPLETA, no sobre lo que la tabla tenga
+     filtrado. Un resumen que cambiara con el filtro no sería un
+     resumen, sería un eco de lo que ya estás viendo.
+
+     Los suscriptores sin origen se cuentan aparte y NO entran en los
+     porcentajes: meter 429 filas de las que no se sabe nada dentro del
+     cálculo haría que cualquier canal real pareciera insignificante. */
+  const _renderSourceSummary = () => {
+    const cont = document.getElementById('sub-source-summary');
+    if (!cont) return;
+
+    const desde = (() => {
+      if (_summaryPeriod !== 'month') return null;
+      const n = new Date();
+      return new Date(n.getFullYear(), n.getMonth(), 1).toISOString();
+    })();
+
+    const enPeriodo = _allSubs.filter(s =>
+      !desde || (s.subscribed_at && s.subscribed_at >= desde));
+
+    const cuenta = new Map();
+    let sinOrigen = 0;
+    enPeriodo.forEach(s => {
+      // Sólo cuenta como "no rastreado" el que de verdad no tiene dato.
+      // Un origen que este archivo no reconozca igual se cuenta: el
+      // dato existe y esconderlo daría un total que no cuadra.
+      if (!s.source) { sinOrigen++; return; }
+      cuenta.set(s.source, (cuenta.get(s.source) || 0) + 1);
+    });
+
+    const conOrigen = enPeriodo.length - sinOrigen;
+    const filas = [...cuenta.entries()].sort((a, b) => b[1] - a[1]);
+
+    const toggle = (val, txt) => `
+      <button type="button" data-action="setSourcePeriod" data-period="${val}"
+        style="font-size:10px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;padding:5px 12px;border-radius:99px;cursor:pointer;font-family:'Inter',sans-serif;
+               border:0.5px solid ${_summaryPeriod === val ? 'transparent' : 'var(--divider-color)'};
+               background:${_summaryPeriod === val ? 'var(--blue)' : 'white'};
+               color:${_summaryPeriod === val ? 'white' : 'var(--text-muted)'};">${txt}</button>`;
+
+    const cuerpo = filas.length
+      ? filas.map(([src, n]) => {
+          const m = sourceMetaOrRaw(src);
+          const pct = conOrigen ? Math.round((n / conOrigen) * 100) : 0;
+          /* Cada tarjeta filtra la tabla al pulsarla: ver "12 de
+             Instagram" y querer saber quiénes son es el paso siguiente
+             natural, y así no hay que ir al menú de filtros. */
+          return `
+            <button type="button" data-action="filterBySource" data-source="${esc(src)}"
+              title="Show these subscribers in the table"
+              style="flex:0 0 auto;min-width:104px;text-align:left;padding:10px 13px;border-radius:10px;cursor:pointer;font-family:'Inter',sans-serif;border:0.5px solid var(--divider-color);background:white;">
+              <div style="font-size:19px;font-weight:800;color:${m.fg};line-height:1;">${n}</div>
+              <div style="font-size:10px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:var(--text);margin-top:5px;">${esc(m.label)}</div>
+              <div style="font-size:10px;font-weight:600;color:var(--text-muted);margin-top:2px;">${pct}% of tracked</div>
+            </button>`;
+        }).join('')
+      : `<div style="font-size:12px;font-weight:600;color:var(--text-muted);padding:4px 0;">
+           ${_summaryPeriod === 'month'
+             ? 'Nobody has subscribed yet this month.'
+             : 'No subscriber has a recorded source yet.'}
+           Once people arrive through a tagged link, the breakdown appears here.
+         </div>`;
+
+    cont.innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
+        <div style="font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text);">Where they came from</div>
+        <div style="display:flex;gap:6px;">${toggle('month', 'This month')}${toggle('all', 'All time')}</div>
+        <div style="flex:1;"></div>
+        ${sinOrigen ? `<div style="font-size:10px;font-weight:600;color:var(--text-muted);">${sinOrigen} before tracking &mdash; not counted</div>` : ''}
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">${cuerpo}</div>`;
+  };
 
   const _renderSubsTable = () => {
     const search = (document.getElementById('sub-search')?.value || '').toLowerCase().trim();
     const filter = document.getElementById('sub-status-filter')?.value || 'all';
+    const srcFil = document.getElementById('sub-source-filter')?.value || 'all';
     const filtered = _allSubs.filter(s => {
       const nameMatch = `${s.first_name} ${s.last_name} ${s.email} ${s.phone || ''} ${FerociaPhone.searchable(s.country_code, s.phone)}`.toLowerCase().includes(search);
       const statusMatch = filter === 'all' || s.status === filter;
-      return nameMatch && statusMatch;
+      /* Los tres filtros se combinan (Y, no O): buscar "maria", estado
+         Active y origen Instagram devuelve las Marías activas que
+         llegaron por Instagram, no la suma de las tres listas. */
+      const srcMatch = srcFil === 'all'
+        || (srcFil === SOURCE_NONE ? !s.source : s.source === srcFil);
+      return nameMatch && statusMatch && srcMatch;
     });
     const slice   = filtered.slice(0, _subsShown);
     const total   = filtered.length;
@@ -64,6 +237,7 @@
             <th style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text);padding:10px 16px;text-align:left;border-bottom:0.5px solid #e0e7f5;background:#fafbff;">Email</th>
             <th style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text);padding:10px 16px;text-align:left;border-bottom:0.5px solid #e0e7f5;background:#fafbff;">Phone</th>
             <th style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text);padding:10px 16px;text-align:left;border-bottom:0.5px solid #e0e7f5;background:#fafbff;">Skill</th>
+            <th style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text);padding:10px 16px;text-align:left;border-bottom:0.5px solid #e0e7f5;background:#fafbff;">Source</th>
             <th style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text);padding:10px 16px;text-align:left;border-bottom:0.5px solid #e0e7f5;background:#fafbff;">Status</th>
             <th style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text);padding:10px 16px;text-align:left;border-bottom:0.5px solid #e0e7f5;background:#fafbff;">Joined</th>
             <th style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text);padding:10px 16px;text-align:left;border-bottom:0.5px solid #e0e7f5;background:#fafbff;text-align:right;">Actions</th>
@@ -82,6 +256,15 @@
               <td style="padding:11px 16px;border-bottom:0.5px solid #f4f5f8;font-size:12px;color:var(--text-muted);">${esc(s.email || '—')}</td>
               <td style="padding:11px 16px;border-bottom:0.5px solid #f4f5f8;font-size:12px;color:var(--text-muted);">${s.phone ? esc(FerociaPhone.format(s.country_code, s.phone)) : '—'}</td>
               <td style="padding:11px 16px;border-bottom:0.5px solid #f4f5f8;font-size:12px;color:var(--text-muted);text-transform:capitalize;">${esc(s.skill_level || '—')}</td>
+              <td style="padding:11px 16px;border-bottom:0.5px solid #f4f5f8;white-space:nowrap;">
+                ${sourcePill(s.source)}
+                ${/* La campaña va debajo y en pequeño: dice CUÁL anuncio,
+                      no de qué canal. Sólo aparece si la hay, para no
+                      dejar una línea vacía en cada fila antigua. */''}
+                ${s.source_campaign
+                  ? `<div style="font-size:10px;font-weight:600;color:var(--text-muted);margin-top:3px;">${esc(s.source_campaign)}</div>`
+                  : ''}
+              </td>
               <td style="padding:11px 16px;border-bottom:0.5px solid #f4f5f8;">
                 <span style="font-size:9px;font-weight:800;padding:3px 9px;border-radius:99px;letter-spacing:.5px;text-transform:uppercase;${pillCSS(s.status)}">${esc(s.status || '—')}</span>
               </td>
@@ -232,6 +415,27 @@
       + svRow('Self-Rating', svRating(s.self_rating)
           ? `${esc(svRating(s.self_rating))}<span style="font-size:10px;font-weight:700;color:var(--text-muted);margin-left:6px;">self-reported</span>`
           : '')
+      /* Dos cosas distintas, separadas a propósito:
+           · Source       → lo que se MIDIÓ (la etiqueta del enlace)
+           · Heard about  → lo que la persona DIJO
+         Pueden no coincidir. Alguien puede llegar por un anuncio de
+         Instagram y contestar "me lo dijo un amigo" — y las dos cosas
+         son ciertas: el amigo se lo contó, el anuncio se lo recordó.
+         Por eso no se mezclan en una sola fila. */
+      + svSection('Where they came from')
+      + svRow('Source', s.source
+          ? sourcePill(s.source)
+          : `<span style="color:var(--text-muted);font-weight:600;">${SOURCE_NONE_LABEL}</span>`)
+      + svRow('Campaign', esc(s.source_campaign))
+      + svRow('They said', (() => {
+          if (!s.heard_about) return '';
+          const txt = esc(HEARD_META[s.heard_about] || s.heard_about);
+          // El texto libre sólo existe con "Other", y es justo el que
+          // enseña lo que a la lista de opciones le falta.
+          return s.heard_about_other
+            ? `${txt}<div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-top:3px;font-style:italic;">&ldquo;${esc(s.heard_about_other)}&rdquo;</div>`
+            : txt;
+        })())
       + svSection('Subscription')
       + svRow('Status', esc(s.status))
       + svRow('Subscribed', fmtDate(s.subscribed_at))
@@ -518,6 +722,7 @@
       });
     }
 
+    _renderSourceSummary();
     _renderSubsTable();
   };
 
@@ -866,6 +1071,7 @@
   document.getElementById('promo-form')?.addEventListener('submit', sendPromoEmail);
   document.getElementById('sub-status-filter')?.addEventListener('change', () => { _subsShown = 25; _renderSubsTable(); });
   document.getElementById('sub-search')?.addEventListener('input', () => { _subsShown = 25; _renderSubsTable(); });
+  document.getElementById('sub-source-filter')?.addEventListener('change', () => { _subsShown = 25; _renderSubsTable(); });
 
   // ── Expose / register with the shared infrastructure ──────────────────
   window.loadPromotionsPage = loadPromotionsPage; // called from the page router
@@ -875,6 +1081,23 @@
   Object.assign(window.CLICK_HANDLERS, {
     // CLICK_HANDLERS are called with ONE argument: the button element.
     viewSubscriber:      (btn) => window.viewSubscriber(btn.dataset.subid),
+    // El resumen por origen: cambiar de periodo, y saltar de una
+    // tarjeta al listado filtrado de esa misma gente.
+    setSourcePeriod: (btn) => {
+      _summaryPeriod = btn.dataset.period === 'all' ? 'all' : 'month';
+      _renderSourceSummary();
+    },
+    filterBySource: (btn) => {
+      const sel = document.getElementById('sub-source-filter');
+      if (!sel) return;
+      sel.value = btn.dataset.source;
+      _subsShown = 25;
+      _renderSubsTable();
+      // Sin esto la tabla se filtra fuera de la pantalla y parece que
+      // el botón no hizo nada.
+      document.getElementById('subscribers-table')
+        ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    },
     convertSubscriber:   (btn) => window.convertSubscriber(btn.dataset.subid),
     doConvertSubscriber: (btn) => window.doConvertSubscriber(btn.dataset.subid),
     closeSubView:        () => window.closeSubView(),
