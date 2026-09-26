@@ -730,11 +730,33 @@
     const modal = document.getElementById('promo-modal');
     if (!modal) return;
 
+    /* Lo que escribe el usuario: asunto, mensaje y texto de vista previa,
+       con sus contadores.
+
+       Está en una función porque se limpia en DOS momentos: al abrir el
+       modal y al cambiar de tipo de campaña. Tenerlo escrito dos veces
+       haría que añadir un campo mañana se arreglara en un sitio y se
+       olvidara en el otro — que es justo el fallo que acaba de aparecer. */
+    const limpiarComposer = () => {
+      const ed = document.getElementById('promo-message');
+      if (ed) ed.innerHTML = '';
+      const sj = document.getElementById('promo-subject');
+      if (sj) sj.value = '';
+      const pv = document.getElementById('promo-preview-text');
+      if (pv) pv.value = '';
+      // Los contadores también: si no, el campo queda vacío pero debajo
+      // sigue diciendo "412 / 2000", que es peor que no tener contador.
+      const c1 = document.getElementById('promo-char-count');
+      if (c1) c1.textContent = '0 / 2000';
+      const c2 = document.getElementById('promo-char-count2');
+      if (c2) c2.textContent = '0 / 2000';
+      const cp = document.getElementById('promo-preview-count');
+      if (cp) cp.textContent = '0 / 140';
+    };
+
     // Reset composer
     const editor = document.getElementById('promo-message');
-    if (editor) editor.innerHTML = '';
-    const subjectEl = document.getElementById('promo-subject');
-    if (subjectEl) subjectEl.value = '';
+    limpiarComposer();
 
     // Reset type pills to Tournament
     document.querySelectorAll('.promo-type-pill').forEach(p => p.classList.remove('active'));
@@ -751,12 +773,8 @@
     if (flyerInp) flyerInp.value = '';
     const otherFlyerInp = document.getElementById('promo-other-flyer-url');
     if (otherFlyerInp) otherFlyerInp.value = '';
-    // Los dos campos nuevos también se limpian al abrir: si no, el
+    // La etiqueta de cabecera también se reinicia al abrir: si no, el
     // segundo correo del día saldría con la etiqueta del primero.
-    const previewInp = document.getElementById('promo-preview-text');
-    if (previewInp) previewInp.value = '';
-    const previewCount = document.getElementById('promo-preview-count');
-    if (previewCount) previewCount.textContent = '0 / 140';
     const headerInp = document.getElementById('promo-header-label');
     if (headerInp) headerInp.value = ETIQUETA_POR_TIPO.Tournament;
 
@@ -783,6 +801,11 @@
            tipo, que es el orden natural del formulario. */
         const lblInp = document.getElementById('promo-header-label');
         if (lblInp) lblInp.value = ETIQUETA_POR_TIPO[pill.dataset.type] || 'ANNOUNCEMENT';
+        /* Cambiar de tipo de campaña es empezar otra campaña distinta,
+           así que el asunto, el mensaje y el texto de vista previa del
+           anterior no deben quedarse. Antes se arrastraban, y era fácil
+           mandar un torneo con el asunto de una promoción. */
+        limpiarComposer();
         updateCampaignTypeUI(pill.dataset.type);
       };
     });

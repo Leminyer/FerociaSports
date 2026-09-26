@@ -13,23 +13,23 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Ferocia Pickleball Ladder</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="design-tokens.css?v=20260926e">
-<link rel="stylesheet" href="tournament.css?v=20260926e">
-<link rel="stylesheet" href="app.css?v=20260926e">
-<link rel="stylesheet" href="country-codes.css?v=20260926e">
+<link rel="stylesheet" href="design-tokens.css?v=20260926f">
+<link rel="stylesheet" href="tournament.css?v=20260926f">
+<link rel="stylesheet" href="app.css?v=20260926f">
+<link rel="stylesheet" href="country-codes.css?v=20260926f">
 <!-- Extracted from the four embedded CSS blocks that used to live in this
      file. ORDER MATTERS: later rules of equal specificity win, so these
      four must stay in this sequence. See the header of admin-layout.css. -->
-<link rel="stylesheet" href="admin-layout.css?v=20260926e">
-<link rel="stylesheet" href="admin-components.css?v=20260926e">
-<link rel="stylesheet" href="admin-pages.css?v=20260926e">
-<link rel="stylesheet" href="admin-ftc.css?v=20260926e">
+<link rel="stylesheet" href="admin-layout.css?v=20260926f">
+<link rel="stylesheet" href="admin-components.css?v=20260926f">
+<link rel="stylesheet" href="admin-pages.css?v=20260926f">
+<link rel="stylesheet" href="admin-ftc.css?v=20260926f">
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-<script src="config.js?v=20260926e"></script>
+<script src="config.js?v=20260926f"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="db.js?v=20260926e"></script>
-<script src="auth.js?v=20260926e"></script>
-<script src="assets.js?v=20260926e"></script>
+<script src="db.js?v=20260926f"></script>
+<script src="auth.js?v=20260926f"></script>
+<script src="assets.js?v=20260926f"></script>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 </head>
@@ -3104,8 +3104,11 @@
                  esto es solo para cambiarla en un caso suelto. -->
             <div style="margin-top:10px;">
               <div class="promo-comp-label">Header Label <span style="font-size:9px;font-weight:600;color:#b0bbd6;text-transform:none;letter-spacing:0;">(shown top-right in the email)</span></div>
+              <!-- 11px, mas pequeno que los campos vecinos (13px) a
+                   proposito: al ir en mayusculas y con espaciado, a 13px
+                   pesaba mucho mas que el asunto de al lado. -->
               <input type="text" id="promo-header-label" maxlength="24" placeholder="TOURNAMENT"
-                style="width:100%;padding:9px 12px;border:1px solid var(--divider-color);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text);outline:none;"
+                style="width:100%;padding:9px 12px;border:1px solid var(--divider-color);border-radius:8px;font-family:'Inter',sans-serif;font-size:11px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:var(--text);outline:none;"
                 onfocus="this.style.borderColor='var(--blue)';this.style.boxShadow='0 0 0 3px rgba(23,76,204,0.08)'"
                 onblur="this.style.borderColor='var(--divider-color)';this.style.boxShadow='none'">
             </div>
@@ -3484,38 +3487,38 @@
 
 <!-- Loaded before every admin-* module: three of them call
      FerociaPhone.format() when rendering. -->
-<script src="country-codes.js?v=20260926e"></script>
-<script src="location-fields.js?v=20260926e"></script>
+<script src="country-codes.js?v=20260926f"></script>
+<script src="location-fields.js?v=20260926f"></script>
 <!-- Etiquetas y colores del origen. Compartido por Promotions y la
      ficha del jugador, y cargado antes que los dos. -->
-<script src="source-labels.js?v=20260926e"></script>
-<script src="admin-state.js?v=20260926e"></script>
-<script src="admin-incident-reports.js?v=20260926e"></script>
-<script src="admin-ladder-selector.js?v=20260926e"></script>
-<script src="admin-orders.js?v=20260926e"></script>
-<script src="admin-email-utils.js?v=20260926e"></script>
-<script src="admin-share.js?v=20260926e"></script>
-<script src="admin-tournament-notify.js?v=20260926e"></script>
-<script src="admin-player-status-history.js?v=20260926e"></script>
-<script src="admin-player-profile.js?v=20260926e"></script>
-<script src="admin-email-notifications.js?v=20260926e"></script>
-<script src="admin-ladder-standings.js?v=20260926e"></script>
-<script src="admin-sessions.js?v=20260926e"></script>
-<script src="admin-print-roster.js?v=20260926e"></script>
-<script src="admin-ladder-management.js?v=20260926e"></script>
-<script src="admin-promotions.js?v=20260926e"></script>
-<script src="admin-newsletter.js?v=20260926e"></script>
+<script src="source-labels.js?v=20260926f"></script>
+<script src="admin-state.js?v=20260926f"></script>
+<script src="admin-incident-reports.js?v=20260926f"></script>
+<script src="admin-ladder-selector.js?v=20260926f"></script>
+<script src="admin-orders.js?v=20260926f"></script>
+<script src="admin-email-utils.js?v=20260926f"></script>
+<script src="admin-share.js?v=20260926f"></script>
+<script src="admin-tournament-notify.js?v=20260926f"></script>
+<script src="admin-player-status-history.js?v=20260926f"></script>
+<script src="admin-player-profile.js?v=20260926f"></script>
+<script src="admin-email-notifications.js?v=20260926f"></script>
+<script src="admin-ladder-standings.js?v=20260926f"></script>
+<script src="admin-sessions.js?v=20260926f"></script>
+<script src="admin-print-roster.js?v=20260926f"></script>
+<script src="admin-ladder-management.js?v=20260926f"></script>
+<script src="admin-promotions.js?v=20260926f"></script>
+<script src="admin-newsletter.js?v=20260926f"></script>
 <!-- TEMPORARY: fills in missing dates of birth from a CSV import.
      Delete this line and temp-dob-backfill.js once every player has one.
      See the header of that file. -->
-<script src="temp-dob-backfill.js?v=20260926e"></script>
-<script src="admin-players.js?v=20260926e"></script>
-<script src="admin-players-email.js?v=20260926e"></script>
-<script src="admin-ftc-standings.js?v=20260926e"></script>
-<script src="admin-ftc-playoffs-schedule.js?v=20260926e"></script>
-<script src="admin-ftc-teams.js?v=20260926e"></script>
-<script src="app.js?v=20260926e"></script>
-<script src="tournament.js?v=20260926e"></script>
+<script src="temp-dob-backfill.js?v=20260926f"></script>
+<script src="admin-players.js?v=20260926f"></script>
+<script src="admin-players-email.js?v=20260926f"></script>
+<script src="admin-ftc-standings.js?v=20260926f"></script>
+<script src="admin-ftc-playoffs-schedule.js?v=20260926f"></script>
+<script src="admin-ftc-teams.js?v=20260926f"></script>
+<script src="app.js?v=20260926f"></script>
+<script src="tournament.js?v=20260926f"></script>
 <script>
   // ── Sidebar toggle — persisted in localStorage ──────────────────────
   (function() {
