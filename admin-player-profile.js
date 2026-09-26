@@ -65,6 +65,51 @@
     link:     '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
     history:  '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
     dots:     '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
+    // Para "lo que la persona contestó" en Quick Info.
+    quote:    '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+  };
+
+  /* ─── CÓMO LLEGÓ ESTA PERSONA ──────────────────────────────
+     Los datos se copian del suscriptor en el momento de convertirlo, y
+     no vuelven a cambiar: son de un día concreto.
+
+     Las etiquetas y los colores viven en source-labels.js, compartidos
+     con la pantalla de Promotions. Si estuvieran duplicados aquí,
+     renombrar "QR code" en un sitio dejaría el otro desactualizado y la
+     misma persona saldría con dos nombres según la pantalla.
+
+     REGLA DE VISIBILIDAD
+       · "Found us via" se muestra SIEMPRE, aunque esté vacío: así se
+         sabe que el dato existe y sencillamente no se registró.
+       · La campaña y la respuesta sólo se muestran si las hay. Tres
+         guiones seguidos en la ficha de un jugador dado de alta a mano
+         serían ruido, no información. */
+  const ppSourceRows = (p) => {
+    const FS = window.FerociaSource;
+    // Si el archivo compartido no cargara, la ficha entera no puede
+    // caerse por esto: se omite el bloque y el resto sigue en pie.
+    if (!FS) return '';
+
+    const fila = (icono, etiqueta, valor) => `
+      <div class="pp-quick-row"><div class="pp-quick-lbl">${ppSVG(icono)} ${etiqueta}</div><div class="pp-quick-val">${valor}</div></div>`;
+
+    let html = fila(ICONS.link, 'Found us via', FS.pill(p.source));
+
+    if (p.source_campaign) {
+      html += fila(ICONS.flag, 'Campaign', esc(p.source_campaign));
+    }
+
+    if (p.heard_about) {
+      const txt = esc(FS.heardLabel(p.heard_about));
+      // El texto libre sólo existe con "Other", y es justo el que enseña
+      // qué le falta a la lista de opciones del formulario.
+      const extra = p.heard_about_other
+        ? `<div style="font-size:11px;font-weight:600;color:var(--text-muted);font-style:italic;margin-top:3px;">&ldquo;${esc(p.heard_about_other)}&rdquo;</div>`
+        : '';
+      html += fila(ICONS.quote, 'They said', txt + extra);
+    }
+
+    return html;
   };
 
   const fmtShort = (d) => { if (!d) return ''; const dt = new Date(d + 'T00:00:00'); return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); };
@@ -404,6 +449,7 @@
     // Quick Info
     const p = d.p;
     const age = ageFromDOB(p.date_of_birth);
+
     const quickInfoHTML = `
       <div class="pp-quick-row"><div class="pp-quick-lbl">${ppSVG(ICONS.mail)} Email</div><div class="pp-quick-val">${p.email ? esc(p.email) : '—'} ${p.email ? `<span class="${p.email_verified ? 'pp-pill-verified' : 'pp-pill-unverified'}">${p.email_verified ? 'Verified' : 'Unverified'}</span>` : ''}</div></div>
       <div class="pp-quick-row"><div class="pp-quick-lbl">${ppSVG(ICONS.phone)} Phone</div><div class="pp-quick-val">${p.phone ? esc(FerociaPhone.format(p.country_code, p.phone)) : '—'} ${p.phone ? `<span class="${p.phone_verified ? 'pp-pill-verified' : 'pp-pill-unverified'}">${p.phone_verified ? 'Verified' : 'Unverified'}</span>` : ''}</div></div>
@@ -413,12 +459,26 @@
           ? Number(p.coach_rating).toFixed(3)
           : '—'
       }</div></div>
+      ${/* Justo debajo del coach rating, a propósito: lo interesante no
+            es el número suelto sino la DISTANCIA entre los dos. Alguien
+            que se pone 4.5 y al que el coach pone 3.0 se ve a sí mismo
+            muy distinto de como juega, y eso cambia cómo se le habla.
+
+            Es histórico: lo que dijo el día que se suscribió. No se
+            edita desde aquí, y por eso no está en el formulario de
+            Edit Player, que es para los campos que sí cambian. */''}
+      <div class="pp-quick-row"><div class="pp-quick-lbl">${ppSVG(ICONS.star)} Self-Rating</div><div class="pp-quick-val">${
+        p.self_rating !== null && p.self_rating !== undefined
+          ? `${Number(p.self_rating).toFixed(3)} <span style="font-size:10px;font-weight:700;color:var(--text-muted);">self-reported</span>`
+          : '—'
+      }</div></div>
       <div class="pp-quick-row"><div class="pp-quick-lbl">${ppSVG(ICONS.calendar)} Date of Birth</div><div class="pp-quick-val">${p.date_of_birth ? `${fmtDate(p.date_of_birth, { month:'2-digit', day:'2-digit', year:'numeric' })}${age !== null ? ` (${age} ${age === 1 ? 'year' : 'years'})` : ''}` : '—'}</div></div>
       <div class="pp-quick-row"><div class="pp-quick-lbl">${ppSVG(ICONS.pin)} Location</div><div class="pp-quick-val">${
         // players.location is empty on all 289 rows; city + state are the
         // real source. The column is left in place for now so removing it
         // is a separate, deliberate step.
-        esc(FerociaLocation.formatLocation(p.city, p.state)) || '—'}</div></div>`;
+        esc(FerociaLocation.formatLocation(p.city, p.state)) || '—'}</div></div>
+      ${ppSourceRows(p)}`;
 
     el.innerHTML = `
       <div class="pp-grid">
