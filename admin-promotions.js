@@ -182,6 +182,13 @@
   const svSection = (title) => `
     <div style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--blue);margin:18px 0 4px;">${title}</div>`;
 
+  /* Three decimals, same convention as coach_rating on the player card.
+     Returns '' for null/undefined/'' so svRow falls back to its dash —
+     but NOT for 0, which is a real answer the subscriber gave and must
+     stay visually different from "did not answer". */
+  const svRating = (v) =>
+    (v === null || v === undefined || v === '') ? '' : Number(v).toFixed(3);
+
   const subAge = (iso) => {
     if (!iso) return null;
     const b = new Date(iso + 'T00:00:00');
@@ -218,6 +225,12 @@
       // with CSS, so this does the same for consistency.
       + svRow('Skill Level', s.skill_level
           ? esc(s.skill_level.charAt(0).toUpperCase() + s.skill_level.slice(1))
+          : '')
+      // The rating the subscriber gave themselves on the public form.
+      // Deliberately NOT the coach rating — the wording says so, so nobody
+      // mistakes it for an evaluated number.
+      + svRow('Self-Rating', svRating(s.self_rating)
+          ? `${esc(svRating(s.self_rating))}<span style="font-size:10px;font-weight:700;color:var(--text-muted);margin-left:6px;">self-reported</span>`
           : '')
       + svSection('Subscription')
       + svRow('Status', esc(s.status))

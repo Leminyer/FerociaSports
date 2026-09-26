@@ -91,6 +91,12 @@
   input.error{border-color:var(--orange);}
   .error-msg{font-size:11px;color:var(--orange);font-weight:700;margin-top:4px;display:none;}
 
+  /* The phone component prints its own message, so this page no longer
+     prints a second one. It does paint it in the component's own warning
+     colour, which is a shade off from every other message here — so it is
+     brought into line. Scoped to this page: the admin keeps its own. */
+  .fp-hint.is-warn{color:var(--orange);font-weight:700;}
+
   /* ── SELF-RATING SLIDER ──────────────────────────────── */
   /* The generic `input` rule above gives every field padding and a
      border. A range input needs neither, so it is reset first —
@@ -250,7 +256,6 @@
           <label>Phone number *</label>
           <!-- Mounted by FerociaPhone (country-codes.js). -->
           <div id="s-phone-field"></div>
-          <div class="error-msg" id="err-phone">Please enter a valid phone number.</div>
         </div>
         <div class="form-group">
           <label>Date of birth *</label>
@@ -506,13 +511,14 @@
     if (!stateVal.ok) { showFieldError('s-state', 'err-state', stateVal.error); valid = false; }
     else { clearFieldError('s-state', 'err-state'); }
 
+    // FerociaPhone.validate() ALREADY paints the message under the field —
+    // and a better one, because it knows the country ("US numbers need 10
+    // digits (you entered 9)"). Printing it again in this page's own
+    // error line showed the visitor the same sentence twice, in two
+    // different colours. The component keeps the job; the page only asks
+    // whether the field passed.
     const phoneCheck = FerociaPhone.validate('s-phone-field', { required: true });
-    if (!phoneCheck.ok) {
-      showFieldError('s-phone-field', 'err-phone', phoneCheck.error);
-      valid = false;
-    } else {
-      clearFieldError('s-phone-field', 'err-phone');
-    }
+    if (!phoneCheck.ok) valid = false;
 
     if (!valid) return;
 
