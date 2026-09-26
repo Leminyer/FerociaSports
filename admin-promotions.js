@@ -751,6 +751,14 @@
     if (flyerInp) flyerInp.value = '';
     const otherFlyerInp = document.getElementById('promo-other-flyer-url');
     if (otherFlyerInp) otherFlyerInp.value = '';
+    // Los dos campos nuevos también se limpian al abrir: si no, el
+    // segundo correo del día saldría con la etiqueta del primero.
+    const previewInp = document.getElementById('promo-preview-text');
+    if (previewInp) previewInp.value = '';
+    const previewCount = document.getElementById('promo-preview-count');
+    if (previewCount) previewCount.textContent = '0 / 140';
+    const headerInp = document.getElementById('promo-header-label');
+    if (headerInp) headerInp.value = ETIQUETA_POR_TIPO.Tournament;
 
     // Wire type pill clicks — show/hide event selector or flyer URL field
     const updateCampaignTypeUI = (type) => {
@@ -767,11 +775,28 @@
         pill.classList.add('active');
         if (typeInput) typeInput.value = pill.dataset.type;
         if (selTypeEl) selTypeEl.textContent = pill.dataset.type;
+        /* La etiqueta de la cabecera sigue al tipo de campaña, para no
+           tener que escribirla. Se sobrescribe siempre a propósito: si
+           se respetara lo que ya hubiera escrito, cambiar de Tournament
+           a Ladder dejaría la cabecera diciendo TOURNAMENT. Quien
+           quiera una etiqueta propia la escribe DESPUÉS de elegir el
+           tipo, que es el orden natural del formulario. */
+        const lblInp = document.getElementById('promo-header-label');
+        if (lblInp) lblInp.value = ETIQUETA_POR_TIPO[pill.dataset.type] || 'ANNOUNCEMENT';
         updateCampaignTypeUI(pill.dataset.type);
       };
     });
     // Trigger for initial state (Tournament selected by default)
     updateCampaignTypeUI('Tournament');
+
+    // Contador del texto de vista previa
+    const prevInp = document.getElementById('promo-preview-text');
+    if (prevInp) {
+      prevInp.oninput = () => {
+        const el = document.getElementById('promo-preview-count');
+        if (el) el.textContent = `${prevInp.value.length} / 140`;
+      };
+    }
 
     // Wire character counter
     if (editor) {
@@ -908,14 +933,16 @@
 
     try {
       emailjs.init({ publicKey: CFG.EMAILJS.PUBLIC_KEY });
-      const ok = await window.sendOneEmail(CFG.EMAILJS.SERVICE, CFG.EMAILJS.TEMPLATES.PROMO, {
-        player_name:     'Ferocia Admin',
-        player_email:    CFG.ADMIN_EMAIL,
-        subject:         `[TEST] ${subject}`,
-        message:         message,
-        unsubscribe_url: '#',
-        flyer_url:       promoFlyerUrl || 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7',
-      });
+      const ok = await window.sendOneEmail(CFG.EMAILJS.SERVICE, CFG.EMAILJS.TEMPLATES.PROMO,
+        paramsPromo({
+          campaignType,
+          subject:     `[TEST] ${subject}`,
+          message,
+          flyerUrl:    promoFlyerUrl,
+          playerName:  'Ferocia Admin',
+          playerEmail: CFG.ADMIN_EMAIL,
+          unsubUrl:    '#',
+        }));
       if (ok) {
         toast(`✅ Test email sent to ${CFG.ADMIN_EMAIL}`);
       } else {
@@ -928,6 +955,71 @@
       testBtn.innerHTML = origHTML;
     }
   };
+
+  /* ─── LOS DATOS QUE VIAJAN A LA PLANTILLA ──────────────────
+     El envío de prueba y el envío real construían esta lista por
+     separado, con el mismo contenido copiado dos veces. Eso significa
+     que una prueba podía salir perfecta y el envío de verdad llevar
+     algo distinto, sin que nadie lo notara. Ahora hay un solo sitio.
+
+     ⚠️  Las claves tienen que coincidir EXACTAMENTE con las variables
+         {{...}} de la plantilla en EmailJS. Una clave que no existe allí
+         se ignora en silencio: no da error, simplemente no aparece. */
+
+  /* Cuando no hay flyer se manda un espaciador transparente de 600x1.
+
+     Antes se mandaba un GIF de 1x1 incrustado en el propio correo, y
+     eso fallaba por dos motivos:
+       · la plantilla lo estiraba al 100% de ancho y, al ser cuadrado,
+         crecía también a 600 de ALTO: un hueco vacío enorme en medio
+         del correo (medido: 1245px de alto contra 646px sin él);
+       · Gmail elimina las imágenes incrustadas en formato data:, así
+         que además aparecía rota.
+     Un archivo de 600x1 ya tiene la proporción correcta y ocupa 1px. */
+  const SPACER_FLYER =
+    'https://yyocceadorckkfbgnbqk.supabase.co/storage/v1/object/public/'
+    + 'newsletter-images/logo/spacer-600x1.png';
+
+  /* La etiqueta de la cabecera, arriba a la derecha. Sale del tipo de
+     campaña que ya se elige arriba, así que no hay que escribirla dos
+     veces — pero se puede cambiar a mano para un caso suelto. */
+  const ETIQUETA_POR_TIPO = {
+    Tournament: 'TOURNAMENT',
+    Ladder:     'LADDER',
+    Other:      'ANNOUNCEMENT',
+  };
+
+  const etiquetaCabecera = (campaignType) => {
+    const escrita = (document.getElementById('promo-header-label')?.value || '').trim();
+    const v = escrita || ETIQUETA_POR_TIPO[campaignType] || 'ANNOUNCEMENT';
+    // Mayúsculas y sin acentos: la cabecera es una etiqueta corta, y así
+    // se ve igual la escriba quien la escriba.
+    return v.normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().slice(0, 24);
+  };
+
+  /* El texto que se lee en la bandeja de entrada, antes de abrir.
+     Si no se escribe uno, se saca del principio del mensaje: cualquier
+     cosa es mejor que dejar que el programa de correo muestre "Hi Ana,",
+     que es lo que hacía hasta ahora. */
+  const textoVistaPrevia = (mensaje) => {
+    const escrito = (document.getElementById('promo-preview-text')?.value || '').trim();
+    if (escrito) return escrito.slice(0, 140);
+    const limpio = String(mensaje || '').replace(/\s+/g, ' ').trim();
+    if (limpio.length <= 140) return limpio;
+    // Corta en la última palabra entera, no a mitad de una.
+    return limpio.slice(0, 140).replace(/\s+\S*$/, '') + '…';
+  };
+
+  const paramsPromo = ({ campaignType, subject, message, flyerUrl, playerName, playerEmail, unsubUrl }) => ({
+    player_name:     playerName,
+    player_email:    playerEmail,
+    subject,
+    message,
+    unsubscribe_url: unsubUrl,
+    flyer_url:       flyerUrl || SPACER_FLYER,
+    email_type:      etiquetaCabecera(campaignType),
+    preview_text:    textoVistaPrevia(message),
+  });
 
   const sendPromoEmail = async (e) => {
     e.preventDefault();
@@ -988,14 +1080,16 @@
         : `${baseUrl}unsubscribe.html`;
       // Replace {first_name} with real name
       const personalizedMsg = message.replace(/\{first_name\}/g, sub.first_name || 'Player');
-      const ok = await window.sendOneEmail(CFG.EMAILJS.SERVICE, CFG.EMAILJS.TEMPLATES.PROMO, {
-        player_name:     `${sub.first_name} ${sub.last_name}`,
-        player_email:    sub.email,
-        subject,
-        message:         personalizedMsg,
-        unsubscribe_url: unsubUrl,
-        flyer_url:       promoFlyerUrl || 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7',
-      });
+      const ok = await window.sendOneEmail(CFG.EMAILJS.SERVICE, CFG.EMAILJS.TEMPLATES.PROMO,
+        paramsPromo({
+          campaignType,
+          subject,
+          message:     personalizedMsg,
+          flyerUrl:    promoFlyerUrl,
+          playerName:  `${sub.first_name} ${sub.last_name}`,
+          playerEmail: sub.email,
+          unsubUrl,
+        }));
       if (ok) sent++;
       else failedRecipients.push(sub.email);
       sendBtn.innerHTML = `Sending... ${sent + failedRecipients.length}/${allPromoRecipients.length}`;
