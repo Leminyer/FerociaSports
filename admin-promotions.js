@@ -608,6 +608,27 @@
         status:        document.getElementById('sc-status').value,
         // The date they became a player, not the date they subscribed.
         date_joined:   todayISO(),
+
+        /* La historia de cómo llegó esta persona, que hasta ahora se
+           quedaba en el suscriptor. Se copia tal cual, sin tocarla:
+           son datos de un momento concreto y ya están validados por la
+           base, así que volver a "limpiarlos" aquí sólo podría
+           estropearlos.
+
+           ⚠️  self_rating NO pisa a coach_rating. Conviven:
+                 · self_rating  → lo que la persona cree que juega
+                 · coach_rating → lo que el entrenador acaba de evaluar
+               La diferencia entre ambos es justamente lo interesante.
+
+           `?? null` en vez de `|| null` a propósito: un self_rating de
+           0 es una respuesta real, y `||` lo convertiría en null,
+           borrando el dato de quien se calificó con cero. */
+        self_rating:       s.self_rating ?? null,
+        source:            s.source            || null,
+        source_campaign:   s.source_campaign   || null,
+        source_detail:     s.source_detail     || null,
+        heard_about:       s.heard_about       || null,
+        heard_about_other: s.heard_about_other || null,
       });
 
       /* Push the completed details back onto the subscriber row.
