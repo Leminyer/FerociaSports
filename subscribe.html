@@ -17,14 +17,18 @@
   <meta name="twitter:description"content="Subscribe to get event invites, tournament news, ladder updates and member-only promos from Ferocia Sports Center.">
   <meta name="twitter:image"      content="https://ferociasports.com/og-preview.png">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="design-tokens.css?v=20260902b">
-<link rel="stylesheet" href="country-codes.css?v=20260902b">
-<script src="config.js?v=20260902b"></script>
+<link rel="stylesheet" href="design-tokens.css?v=20260926a">
+<link rel="stylesheet" href="country-codes.css?v=20260926a">
+<!-- Primero de todos y sin dependencias: cuanto antes corra, antes queda
+     capturado de dónde viene la visita. También se carga en index.html,
+     que es donde de verdad aterriza la gente que viene de un anuncio. -->
+<script src="attribution.js?v=20260926a"></script>
+<script src="config.js?v=20260926a"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="db.js?v=20260902b"></script>
-<script src="assets.js?v=20260902b"></script>
-<script src="country-codes.js?v=20260902b"></script>
-<script src="location-fields.js?v=20260902b"></script>
+<script src="db.js?v=20260926a"></script>
+<script src="assets.js?v=20260926a"></script>
+<script src="country-codes.js?v=20260926a"></script>
+<script src="location-fields.js?v=20260926a"></script>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <style>
   /* Color/typography/radius tokens now come from design-tokens.css. */
@@ -96,6 +100,21 @@
      colour, which is a shade off from every other message here — so it is
      brought into line. Scoped to this page: the admin keeps its own. */
   .fp-hint.is-warn{color:var(--orange);font-weight:700;}
+
+  /* ── "OTHER" DEL CAMPO How did you hear about us ─────── */
+  /* La casilla sólo aparece si la persona elige Other. Aparece debajo
+     del menú, no al lado, para que en el teléfono no se estrechen las
+     dos cosas. */
+  .heard-other{display:flex;align-items:center;gap:8px;margin-top:8px;}
+  /* El atributo hidden vale display:none, que un display:flex pisa.
+     Hay que devolvérselo explícitamente o la casilla se vería siempre. */
+  .heard-other[hidden]{display:none;}
+  .heard-other input{flex:1 1 auto;min-width:0;}
+  .heard-count{
+    flex:0 0 auto;font-size:11px;font-weight:700;color:var(--muted);
+    font-variant-numeric:tabular-nums;
+  }
+  .heard-count.is-full{color:var(--orange);}
 
   /* ── SELF-RATING SLIDER ──────────────────────────────── */
   /* The generic `input` rule above gives every field padding and a
@@ -316,6 +335,50 @@
             <button type="button" class="rating-clear" id="s-rating-clear" style="display:none;">Clear</button>
           </div>
         </div>
+        <div class="form-group">
+          <label>How did you hear about us?</label>
+          <!-- Optional, like Gender and Skill level.
+
+               This is the SOFT signal: what the person says. The hard
+               signal — the campaign tag in the web address — is captured
+               silently by attribution.js and stored in its own columns.
+               They are kept apart on purpose: this one catches word of
+               mouth, which no tracking can ever see, but people answer it
+               loosely. Mixing the two would make neither trustworthy.
+
+               ⚠️  The value="" of each option is what lands in the
+               database and must match subscribers_heard_about_valido.
+               The visible text can be reworded whenever you like; the
+               stored value cannot, or every older row is orphaned. -->
+          <select id="s-heard">
+            <option value="">-- Select --</option>
+            <optgroup label="I already play at Ferocia">
+              <option value="student">I'm already a Ferocia student</option>
+              <option value="tournament">I played in a Ferocia tournament</option>
+              <option value="ladder">I play in a Ferocia ladder</option>
+              <option value="coach">A Ferocia coach told me</option>
+            </optgroup>
+            <optgroup label="Online">
+              <option value="instagram">Instagram</option>
+              <option value="facebook">Facebook</option>
+              <option value="google">Google or web search</option>
+            </optgroup>
+            <optgroup label="In person">
+              <option value="friend">A friend or family member told me</option>
+              <option value="club">I saw it at the club (flyer, QR code, sign)</option>
+              <option value="event">At an event, clinic or open play</option>
+            </optgroup>
+            <option value="other">Other</option>
+          </select>
+          <div class="heard-other" id="s-heard-other-wrap" hidden>
+            <input type="text" id="s-heard-other" maxlength="80"
+                   autocomplete="off"
+                   placeholder="Tell us how — in a few words"
+                   aria-label="Tell us how you heard about us">
+            <div class="heard-count"><span id="s-heard-count">0</span>/80</div>
+          </div>
+        </div>
+
         <button type="submit" class="btn" id="subscribe-btn">Subscribe Now</button>
         <!-- Honeypot: hidden from humans, bots fill this automatically -->
         <div style="position:absolute;left:-9999px;top:-9999px;opacity:0;height:0;overflow:hidden;" aria-hidden="true">
@@ -444,6 +507,52 @@
     return { value: () => (touched ? Number(el.value) : null) };
   })();
 
+  /* ── "How did you hear about us?" ──────────────────────────────
+     La casilla de texto libre sólo existe mientras esté elegido
+     "Other". Si la persona escribe algo y luego cambia de opción, lo
+     escrito se borra: guardar un texto que ya no corresponde a la
+     respuesta elegida dejaría la fila contradiciéndose a sí misma. */
+  const HeardField = (() => {
+    const sel   = document.getElementById('s-heard');
+    const wrap  = document.getElementById('s-heard-other-wrap');
+    const input = document.getElementById('s-heard-other');
+    const count = document.getElementById('s-heard-count');
+    if (!sel) return { value: () => ({ heard: null, other: null }) };
+
+    const pintarContador = () => {
+      const n = input.value.length;
+      count.textContent = String(n);
+      // maxlength ya impide pasar de 80; esto sólo avisa de que llegó.
+      count.parentElement.classList.toggle('is-full', n >= 80);
+    };
+
+    sel.addEventListener('change', () => {
+      const esOtro = sel.value === 'other';
+      wrap.hidden = !esOtro;
+      if (esOtro) {
+        input.focus();
+      } else {
+        input.value = '';
+        pintarContador();
+      }
+    });
+
+    input.addEventListener('input', pintarContador);
+    pintarContador();
+
+    return {
+      value: () => {
+        const heard = sel.value || null;
+        return {
+          heard,
+          // El texto sólo viaja con "Other". La base aplica la misma
+          // regla, porque la función puede llamarse sin pasar por aquí.
+          other: heard === 'other' ? (input.value.trim().slice(0, 80) || null) : null
+        };
+      }
+    };
+  })();
+
   document.getElementById('subscribe-form').addEventListener('submit', async (e) => {
     e.preventDefault();
 
@@ -459,6 +568,16 @@
     const skill  = document.getElementById('s-skill').value;
     // null when the visitor never moved the slider.
     const selfRating = RatingField.value();
+    // { heard, other } — ambos null si no contestó.
+    const heardVal = HeardField.value();
+
+    /* De dónde vino. Lo capturó attribution.js al cargar ESTA página o
+       cualquier otra por la que haya pasado antes (primer contacto).
+       El `||` es una red de seguridad real: si el archivo no cargara,
+       la suscripción tiene que seguir funcionando igual. Nunca se deja
+       caer una suscripción por un dato de marketing. */
+    const attr = (window.FerociaAttribution && window.FerociaAttribution.get())
+              || { source: 'direct', campaign: null, detail: null };
 
     // Honeypot check
     const honeypot = document.getElementById('s-honeypot').value;
@@ -536,6 +655,13 @@
         p_city: cityVal.value || null, p_state: stateVal.value || null,
         p_gender: gender || null, p_skill: skill || null,
         p_self_rating: selfRating,
+        // Dato duro: la etiqueta de la campaña, capturada sola.
+        p_source: attr.source,
+        p_source_campaign: attr.campaign,
+        p_source_detail: attr.detail,
+        // Dato blando: lo que la persona dice.
+        p_heard_about: heardVal.heard,
+        p_heard_about_other: heardVal.other,
       });
       if (rpcError) throw new Error(rpcError.message);
 
