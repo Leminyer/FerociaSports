@@ -32,6 +32,16 @@
   /* Keys of everyone who is already a player, so each subscriber row can
      show the right icon without a lookup per row. Built once per load. */
   let _playerIndex   = new Map();
+  /* La ficha completa de esos mismos jugadores, para los datos que se
+     MUESTRAN aquí pero cuya verdad vive en la tabla de players.
+
+     Por qué existe este segundo mapa en vez de ampliar _playerIndex:
+     _playerIndex guarda sólo el id y de él dependen el iconito de
+     convertir y el aviso de duplicado, que funcionan. Cambiarle la
+     forma obligaría a tocar esos tres sitios. Los dos mapas se
+     construyen del mismo array, en la misma vuelta: no hay una segunda
+     consulta ni coste real. */
+  let _playerByKey   = new Map();
   let _subsShown     = 25;
   /* 'month' | 'all' — qué periodo muestra el resumen por origen. No
      afecta a la tabla: el resumen responde "¿de dónde vino la gente?",
@@ -184,7 +194,11 @@
               </td>
               <td style="padding:11px 16px;border-bottom:0.5px solid #f4f5f8;font-size:12px;color:var(--text-muted);">${esc(s.email || '—')}</td>
               <td style="padding:11px 16px;border-bottom:0.5px solid #f4f5f8;font-size:12px;color:var(--text-muted);">${s.phone ? esc(FerociaPhone.format(s.country_code, s.phone)) : '—'}</td>
-              <td style="padding:11px 16px;border-bottom:0.5px solid #f4f5f8;font-size:12px;color:var(--text-muted);text-transform:capitalize;">${esc(s.skill_level || '—')}</td>
+              ${/* Misma regla que el modal: si ya es jugador, manda su
+                    ficha. Aquí SIN la marca "from player" a propósito —
+                    la tabla ya va apretada y una etiqueta por fila la
+                    volvería ilegible. El modal es donde se explica. */''}
+              <td style="padding:11px 16px;border-bottom:0.5px solid #f4f5f8;font-size:12px;color:var(--text-muted);text-transform:capitalize;">${esc(_fld(_playerByKey.get(_personKey(s)), s, 'skill_level').v || '—')}</td>
               <td style="padding:11px 16px;border-bottom:0.5px solid #f4f5f8;white-space:nowrap;">
                 ${sourcePill(s.source)}
                 ${/* La campaña va debajo y en pequeño: dice CUÁL anuncio,
@@ -245,6 +259,58 @@
   const _personKey = (r) =>
     `${(r.email || '').trim().toLowerCase()}|${_norm(r.first_name)}|${_norm(r.last_name)}`;
 
+  /* ─── DE DÓNDE SALE CADA DATO ─────────────────────────────────
+     Hay gente que está en las dos tablas: se suscribió por la web y
+     además es jugador. Para esas personas, los datos personales se
+     editan en la ficha del jugador — es lo que el admin hace todos los
+     días — y la fila del suscriptor se queda con los huecos del día en
+     que se apuntó, cuando el formulario ni pedía la mitad de los campos.
+
+     La decisión (aprobada): NO se copia el dato de una tabla a la otra.
+     Se muestra el del jugador, que es el único que se mantiene al día.
+     Copiarlo crearía dos versiones del mismo dato, y en la primera
+     corrección se contradirían sin que nada avisara.
+
+     Lo que NO se toca, a propósito: self_rating y todo el bloque de
+     origen. Esos son una FOTO del momento en que la persona se apuntó
+     — lo que ella creía que jugaba, por dónde llegó — y su valor está
+     justamente en que no cambian.
+     ──────────────────────────────────────────────────────────── */
+
+  const _vacio = (v) => v === null || v === undefined || String(v).trim() === '';
+
+  /* Devuelve el valor a mostrar y si vino de la ficha del jugador.
+
+     Regla, campo por campo:
+       1. Ya es jugador Y su ficha tiene ese dato → el de la ficha.
+       2. Si no → el del suscriptor, como hasta ahora.
+
+     El punto 2 no es un detalle: hay fichas de jugador a las que les
+     falta algún campo que el suscriptor SÍ tenía. Sin ese respaldo,
+     este cambio esconderia un dato que hoy se ve — peor que el problema
+     que viene a arreglar. Así nunca se muestra menos que antes. */
+  const _fld = (p, s, field) => {
+    const pv = p ? p[field] : null;
+    return _vacio(pv) ? { v: s[field], dePlayer: false }
+                      : { v: pv,       dePlayer: true  };
+  };
+
+  /* La ubicación son dos columnas pero un solo dato: si se mezclaran
+     (ciudad del jugador, estado del suscriptor) podría salir un
+     "Miami, FL" que no existe en ninguna de las dos fichas. Manda la
+     ciudad: quien la tenga, aporta las dos. */
+  const _fldUbic = (p, s) =>
+    (p && !_vacio(p.city)) ? { city: p.city, state: p.state, dePlayer: true  }
+                           : { city: s.city, state: s.state, dePlayer: false };
+
+  /* La marca que explica de dónde salió el dato. Va en teal, el mismo
+     color del iconito de "Already a player", para que se lea como la
+     misma idea y no como un aviso de error. */
+  const _marcaPlayer = () =>
+    '<span style="font-size:9px;font-weight:800;letter-spacing:.3px;'
+    + 'text-transform:uppercase;color:var(--teal);margin-left:6px;'
+    + 'white-space:nowrap;">from player</span>';
+
   /* Icons for the actions column.
 
      Three states, decided per row:
@@ -301,6 +367,15 @@
   const svRating = (v) =>
     (v === null || v === undefined || v === '') ? '' : Number(v).toFixed(3);
 
+  /* Una fila del bloque Personal: el valor ya formateado y, si salió de
+     la ficha del jugador, la marca que lo dice. Sin valor devuelve ''
+     para que svRow ponga su guion de siempre. */
+  const svPersonal = (campo, fmt) => {
+    if (_vacio(campo.v)) return '';
+    const txt = fmt(campo.v);
+    return campo.dePlayer ? `${txt}${_marcaPlayer()}` : txt;
+  };
+
   const subAge = (iso) => {
     if (!iso) return null;
     const b = new Date(iso + 'T00:00:00');
@@ -324,20 +399,30 @@
     const s = _allSubs.find(x => String(x.id) === String(subId));
     if (!s) { toast('Subscriber not found. Refresh the page.', true); return; }
 
+    /* Su ficha de jugador, si la tiene. undefined para quien sólo está
+       en la lista de correo, y entonces _fld devuelve el dato del
+       suscriptor y todo se ve exactamente igual que antes. */
+    const p = _playerByKey.get(_personKey(s));
+    const ubic = _fldUbic(p, s);
+
     document.getElementById('sv-name').textContent = `${s.first_name} ${s.last_name}`;
     document.getElementById('sv-body').innerHTML =
         svSection('Contact')
       + svRow('Email', esc(s.email))
       + svRow('Phone', s.phone ? esc(FerociaPhone.format(s.country_code, s.phone)) : '')
       + svSection('Personal')
-      + svRow('Gender', esc(s.gender))
-      + svRow('Date of Birth', esc(subDob(s.date_of_birth)))
-      + svRow('Location', esc(FerociaLocation.formatLocation(s.city, s.state)))
+      + svRow('Gender', svPersonal(_fld(p, s, 'gender'), esc))
+      + svRow('Date of Birth', svPersonal(_fld(p, s, 'date_of_birth'),
+          (v) => esc(subDob(v))))
+      + svRow('Location', (() => {
+          const txt = FerociaLocation.formatLocation(ubic.city, ubic.state);
+          if (!txt) return '';
+          return ubic.dePlayer ? `${esc(txt)}${_marcaPlayer()}` : esc(txt);
+        })())
       // The public form stores this lower-cased; the table capitalises it
       // with CSS, so this does the same for consistency.
-      + svRow('Skill Level', s.skill_level
-          ? esc(s.skill_level.charAt(0).toUpperCase() + s.skill_level.slice(1))
-          : '')
+      + svRow('Skill Level', svPersonal(_fld(p, s, 'skill_level'),
+          (v) => esc(String(v).charAt(0).toUpperCase() + String(v).slice(1))))
       // The rating the subscriber gave themselves on the public form.
       // Deliberately NOT the coach rating — the wording says so, so nobody
       // mistakes it for an evaluated number.
@@ -626,12 +711,24 @@
     // rather than per row: 419 subscribers would mean 419 lookups.
     // Non-fatal — if it fails the convert icon simply shows for everyone and
     // the modal catches the duplicate before creating anything.
+    /* Las cuatro columnas de más (gender, date_of_birth, city, state,
+       skill_level) son para los datos que se muestran en el modal y en
+       la columna Skill. No es una consulta nueva: es la misma de antes
+       pidiendo más campos. */
     try {
-      const players = await api('players?select=id,first_name,last_name,email');
-      _playerIndex = new Map(players.map(p => [_personKey(p), p.id]));
+      const players = await api(
+        'players?select=id,first_name,last_name,email,gender,date_of_birth,city,state,skill_level');
+      _playerIndex = new Map();
+      _playerByKey = new Map();
+      players.forEach(p => {
+        const k = _personKey(p);
+        _playerIndex.set(k, p.id);
+        _playerByKey.set(k, p);
+      });
     } catch (err) {
       console.warn('[promotions] could not load players for the convert icon:', err.message);
       _playerIndex = new Map();
+      _playerByKey = new Map();
     }
 
     // Stat cards
