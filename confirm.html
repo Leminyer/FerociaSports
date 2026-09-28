@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Confirm Subscription — Ferocia Sports</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="design-tokens.css?v=20260820e">
-<script src="config.js?v=20260820e"></script>
+<link rel="stylesheet" href="design-tokens.css?v=20260824">
+<script src="config.js?v=20260824"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="db.js?v=20260820e"></script>
-<script src="assets.js?v=20260820e"></script>
+<script src="db.js?v=20260824"></script>
+<script src="assets.js?v=20260824"></script>
 <style>
   /* Color/typography/radius tokens now come from design-tokens.css. */
   *{box-sizing:border-box;margin:0;padding:0;}
@@ -49,13 +49,27 @@
     font-size:32px;color:var(--text);margin-bottom:12px;
     letter-spacing:1px;
   }
-  p{font-size:14px;color:var(--muted);line-height:1.7;}
+  p{font-size:14px;color:var(--muted);line-height:1.7;margin-bottom:20px;}
 
   .divider{
     height:3px;
     background:linear-gradient(90deg,var(--blue),var(--lime));
     border-radius:99px;margin:24px 0;
   }
+
+  /* Mismo botón que unsubscribe.html, en verde porque aquí la acción
+     es positiva. La confirmación NO puede ocurrir sola al abrir la
+     página: hace falta que una persona lo pulse. El porqué está en el
+     comentario del script, al final del archivo. */
+  .btn{
+    display:inline-block;padding:13px 32px;
+    background:var(--teal);color:white;border:none;border-radius:99px;
+    font-size:12px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;
+    cursor:pointer;font-family:'Inter',sans-serif;
+    transition:opacity .15s,transform .15s;
+  }
+  .btn:hover{opacity:.88;transform:translateY(-1px);}
+  .btn:disabled{opacity:.5;cursor:not-allowed;transform:none;}
 
   /* ── FOOTER ──────────────────────────────────────────── */
   footer{
@@ -71,11 +85,16 @@
   <img class="logo" data-asset="ferociaLogo" alt="Ferocia">
 </header>
 <main>
+  <!-- El estado inicial es una INVITACIÓN, no un "confirmando...".
+       Si el JavaScript no llegara a cargar, la persona ve una página
+       coherente que le dice qué hacer, en vez de un reloj de arena
+       eterno. -->
   <div class="card" id="card">
-    <div class="icon loading" id="icon">⏳</div>
-    <h2 id="title">Confirming your subscription...</h2>
+    <div class="icon loading" id="icon">✉️</div>
+    <h2 id="title">Confirm Your Subscription</h2>
     <div class="divider"></div>
-    <p id="msg">Please wait a moment.</p>
+    <p id="msg">One last step. Click the button below to confirm your email address and join the Ferocia Sports community.</p>
+    <button class="btn" id="confirm-btn" type="button">Confirm my subscription</button>
   </div>
 </main>
 <footer>
@@ -83,6 +102,32 @@
   <img class="footer-logo" data-asset="ferociaLogo" alt="Ferocia Sports">
 </footer>
 <script>
+/* ─────────────────────────────────────────────────────────────
+   POR QUÉ HAY UN BOTÓN Y NO SE CONFIRMA SOLO
+
+   Antes esta página confirmaba la suscripción NADA MÁS ABRIRSE, sin
+   ningún botón. El problema no es que la persona no quedara suscrita
+   — sí quedaba — sino QUIÉN pulsaba el enlace:
+
+     · Los antivirus de correo y los escáneres de enlaces de empresas
+       (Outlook, Gmail, Proofpoint y compañía) ABREN los enlaces de un
+       correo antes de entregarlo, para comprobar que no son peligrosos.
+     · Al abrirlo, se ejecutaba la confirmación. La suscripción quedaba
+       activa sin que ninguna persona hubiera hecho clic jamás.
+     · Lo mismo pasaba si alguien reenviaba el correo: quien lo abriera
+       confirmaba la suscripción de otra persona.
+
+   Eso vacía de sentido la doble confirmación. La razón de pedir un
+   segundo clic por correo es tener PRUEBA de que la persona quiso
+   suscribirse. Si lo dispara una máquina, esa prueba no existe.
+
+   La regla, que es la misma que ya sigue unsubscribe.html:
+     · Abrir la página (GET) sólo PINTA. No cambia ningún dato.
+     · El dato se cambia sólo tras un clic deliberado de una persona.
+
+   El coste es un clic más. Es el precio de que la confirmación
+   signifique algo.
+   ───────────────────────────────────────────────────────────── */
 (function () {
   'use strict';
 
@@ -94,20 +139,29 @@
     document.getElementById('msg').textContent = msg;
   };
 
-  (async () => {
-    const params = new URLSearchParams(window.location.search);
-    const token = params.get('t');
+  const btn = document.getElementById('confirm-btn');
+  const hideBtn = () => { btn.style.display = 'none'; };
 
-    if (!token) {
-      setState('❌', 'error', 'Invalid Link', 'This confirmation link is invalid. Please try subscribing again.');
-      return;
-    }
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get('t');
 
-    if (!/^[A-Za-z0-9_-]+$/.test(token)) {
-      setState('❌', 'error', 'Invalid Link', 'This confirmation link is malformed.');
-      return;
-    }
+  /* El enlace se revisa al cargar, pero eso NO toca la base de datos:
+     sólo decide si tiene sentido enseñar el botón. */
+  if (!token) {
+    setState('❌', 'error', 'Invalid Link', 'This confirmation link is invalid. Please try subscribing again.');
+    hideBtn();
+    return;
+  }
 
+  if (!/^[A-Za-z0-9_-]+$/.test(token)) {
+    setState('❌', 'error', 'Invalid Link', 'This confirmation link is malformed.');
+    hideBtn();
+    return;
+  }
+
+  btn.addEventListener('click', async () => {
+    btn.disabled = true;
+    btn.textContent = 'Confirming...';
     try {
       const { data: ok, error: rpcError } = await supabase.rpc(
         'confirm_subscriber',
@@ -129,10 +183,15 @@
           "This link has already been used, or your subscription is already active. You're all set!",
         );
       }
+      hideBtn();
     } catch (err) {
+      /* El botón vuelve a estar disponible: un fallo de red no debe
+         dejar a la persona sin forma de reintentar. */
+      btn.disabled = false;
+      btn.textContent = 'Confirm my subscription';
       setState('❌', 'error', 'Something Went Wrong', 'Please try again or contact us at contact@ferociasports.com');
     }
-  })();
+  });
 })();
 </script>
 </body>
