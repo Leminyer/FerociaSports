@@ -193,7 +193,13 @@
                 </div>
               </td>
               <td style="padding:11px 16px;border-bottom:0.5px solid #f4f5f8;font-size:12px;color:var(--text-muted);">${esc(s.email || '—')}</td>
-              <td style="padding:11px 16px;border-bottom:0.5px solid #f4f5f8;font-size:12px;color:var(--text-muted);">${s.phone ? esc(FerociaPhone.format(s.country_code, s.phone)) : '—'}</td>
+              ${/* Misma regla que el modal, y aqui tambien sin la marca:
+                    la tabla se lee de un vistazo, el modal es el que
+                    explica de donde sale cada dato. */''}
+              <td style="padding:11px 16px;border-bottom:0.5px solid #f4f5f8;font-size:12px;color:var(--text-muted);">${(() => {
+                const t = _fldTel(_playerByKey.get(_personKey(s)), s);
+                return t.phone ? esc(FerociaPhone.format(t.country_code, t.phone)) : '—';
+              })()}</td>
               ${/* Misma regla que el modal: si ya es jugador, manda su
                     ficha. Aquí SIN la marca "from player" a propósito —
                     la tabla ya va apretada y una etiqueta por fila la
@@ -303,6 +309,15 @@
     (p && !_vacio(p.city)) ? { city: p.city, state: p.state, dePlayer: true  }
                            : { city: s.city, state: s.state, dePlayer: false };
 
+  /* El telefono va con su prefijo de pais y por la misma razon que la
+     ubicacion viajan juntos: un numero de la ficha del jugador con el
+     prefijo del suscriptor seria un telefono que no existe. Manda el
+     numero: quien lo tenga, aporta los dos. */
+  const _fldTel = (p, s) =>
+    (p && !_vacio(p.phone))
+      ? { phone: p.phone, country_code: p.country_code, dePlayer: true  }
+      : { phone: s.phone, country_code: s.country_code, dePlayer: false };
+
   /* La marca que explica de dónde salió el dato. Va en teal, el mismo
      color del iconito de "Already a player", para que se lea como la
      misma idea y no como un aviso de error. */
@@ -404,12 +419,17 @@
        suscriptor y todo se ve exactamente igual que antes. */
     const p = _playerByKey.get(_personKey(s));
     const ubic = _fldUbic(p, s);
+    const tel  = _fldTel(p, s);
 
     document.getElementById('sv-name').textContent = `${s.first_name} ${s.last_name}`;
     document.getElementById('sv-body').innerHTML =
         svSection('Contact')
       + svRow('Email', esc(s.email))
-      + svRow('Phone', s.phone ? esc(FerociaPhone.format(s.country_code, s.phone)) : '')
+      + svRow('Phone', (() => {
+          if (_vacio(tel.phone)) return '';
+          const txt = esc(FerociaPhone.format(tel.country_code, tel.phone));
+          return tel.dePlayer ? `${txt}${_marcaPlayer()}` : txt;
+        })())
       + svSection('Personal')
       + svRow('Gender', svPersonal(_fld(p, s, 'gender'), esc))
       + svRow('Date of Birth', svPersonal(_fld(p, s, 'date_of_birth'),
@@ -711,13 +731,14 @@
     // rather than per row: 419 subscribers would mean 419 lookups.
     // Non-fatal — if it fails the convert icon simply shows for everyone and
     // the modal catches the duplicate before creating anything.
-    /* Las cuatro columnas de más (gender, date_of_birth, city, state,
-       skill_level) son para los datos que se muestran en el modal y en
-       la columna Skill. No es una consulta nueva: es la misma de antes
-       pidiendo más campos. */
+    /* Las columnas de más (phone, country_code, gender, date_of_birth,
+       city, state, skill_level) son para los datos que se muestran en
+       el modal y en las columnas Phone y Skill. No es una consulta
+       nueva: es la misma de antes pidiendo más campos. */
     try {
       const players = await api(
-        'players?select=id,first_name,last_name,email,gender,date_of_birth,city,state,skill_level');
+        'players?select=id,first_name,last_name,email,phone,country_code,'
+        + 'gender,date_of_birth,city,state,skill_level');
       _playerIndex = new Map();
       _playerByKey = new Map();
       players.forEach(p => {
