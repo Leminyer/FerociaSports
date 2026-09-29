@@ -28,7 +28,7 @@
 <script src="db.js?v=20260926a"></script>
 <script src="assets.js?v=20260926a"></script>
 <script src="country-codes.js?v=20260926a"></script>
-<script src="location-fields.js?v=20260926a"></script>
+<script src="location-fields.js?v=20260929a"></script>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <style>
   /* Color/typography/radius tokens now come from design-tokens.css. */
@@ -284,7 +284,7 @@
         <div class="form-row">
           <div class="form-group">
             <label>City *</label>
-            <input type="text" id="s-city" placeholder="Boca Raton" required>
+            <input type="text" id="s-city" required>
             <div class="error-msg" id="err-city">Please enter your city.</div>
           </div>
           <div class="form-group">
@@ -442,6 +442,16 @@
   // State dropdown, Florida first.
   const stateSel = document.getElementById('s-state');
   if (stateSel) stateSel.innerHTML = FerociaLocation.stateOptions('');
+
+  /* El campo de ciudad: vacío al empezar, y al hacer clic sale la lista
+     de la zona con Boca Raton primero. Se puede escribir cualquier otra
+     ciudad; la lista es un atajo, no una restricción.
+
+     Antes tenía placeholder="Boca Raton", y en gris claro parecía texto
+     ya escrito: la gente daba por rellenado el campo, le daba a
+     suscribirse y el formulario le pedía la ciudad que creía haber
+     puesto. */
+  FerociaLocation.mountCitySuggest('s-city');
 
   // Bound the calendar to the same 5-100 year window the admin uses, so the
   // browser greys out impossible years before any validation runs.

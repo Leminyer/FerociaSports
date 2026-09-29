@@ -1560,6 +1560,31 @@
         })),
         copiaAdmin,
       ];
+
+      /* ─── ÚLTIMA PARADA ANTES DE 450 CORREOS ─────────────────
+         Un clic en Launch mandaba la campaña inmediatamente. Un clic
+         donde no era —o dos veces en la tecla equivocada— y ya está:
+         no hay forma de recoger un correo enviado.
+
+         La confirmación dice el NÚMERO, que es lo que de verdad hace
+         parar a pensar. "¿Seguro?" a secas se contesta que sí sin
+         leer; "462 personas" no.
+
+         Solo aparece en el envío a la lista. En el ensayo "solo a mí"
+         no: preguntar por un correo a tu propia dirección no protege
+         de nada y enseña a darle a Confirmar sin leer, que es
+         exactamente lo que no queremos. */
+      const cuantos = subs.length;
+      const seguro = await confirmModal({
+        title:   `Send this campaign to ${cuantos} subscriber${cuantos === 1 ? '' : 's'}?`,
+        message: `"${datos.subject}" will be emailed to ${cuantos} active subscriber`
+               + `${cuantos === 1 ? '' : 's'}, plus a copy to you. This cannot be undone.`
+               + `\n\nTo check it first, cancel and use "Send only to me".`,
+        okLabel: `Send to ${cuantos}`,
+        cancelLabel: 'Cancel',
+        danger: true,
+      });
+      if (!seguro) return;   // el modal se queda abierto, no se pierde nada
     }
 
     const sendBtn  = document.getElementById('promo-send-btn');
