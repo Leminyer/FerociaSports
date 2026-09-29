@@ -970,37 +970,6 @@
       });
     }
 
-    // Wire link button
-    window.promptInsertLink = () => {
-      const url = prompt('Enter URL:');
-      if (url) document.execCommand('createLink', false, url);
-    };
-    window.toggleEmojiPicker = (e) => {
-      e.stopPropagation();
-      const picker = document.getElementById('emoji-picker');
-      if (!picker) return;
-      const isOpen = picker.style.display === 'grid';
-      picker.style.display = isOpen ? 'none' : 'grid';
-      if (!isOpen) {
-        // Close when clicking outside
-        const close = (ev) => {
-          if (!picker.contains(ev.target) && ev.target.id !== 'emoji-picker-btn') {
-            picker.style.display = 'none';
-            document.removeEventListener('click', close);
-          }
-        };
-        setTimeout(() => document.addEventListener('click', close), 0);
-      }
-    };
-    window.insertFixedEmoji = (emoji) => {
-      const editor = document.getElementById('promo-message');
-      if (!editor) return;
-      editor.focus();
-      document.execCommand('insertText', false, emoji);
-      // Close picker after selection
-      const picker = document.getElementById('emoji-picker');
-      if (picker) picker.style.display = 'none';
-    };
 
     /* Cada vez que se abre el modal: casilla de ensayo desmarcada y
        clave de campaña nueva.
@@ -1110,6 +1079,164 @@
     }
   };
 
+  /* ═══ LA BARRA DE FORMATO DEL EDITOR ═══════════════════════
+     EL PROBLEMA QUE RESUELVE ESTO
+
+     Un comando de formato se aplica a lo que esté SELECCIONADO en el
+     editor. Pero al tocar cualquier control de la barra, el editor
+     pierde el foco y con él la selección, así que el comando llega
+     sin nada a lo que aplicarse.
+
+     Con los botones el fallo se disimula —el navegador recuerda la
+     última selección un instante— pero con un desplegable (el tamaño
+     de letra) o un panel de colores no: abres el menú, eliges, y para
+     entonces la selección ya no existe hace rato.
+
+     Así que se guarda por nuestra cuenta cada vez que el cursor se
+     mueve dentro del editor, y se restaura justo antes de aplicar.
+
+     ── POR QUÉ ESTÁ AQUÍ Y NO DENTRO DE openSendPromo ──
+     Porque openSendPromo se ejecuta CADA VEZ que se abre el modal.
+     Registrar escuchadores ahí los iría apilando: a la quinta
+     campaña, cinco copias del mismo escuchador respondiendo a cada
+     tecla. Aquí se registran una sola vez, al cargar la página. */
+  let _rangoEditor = null;
+
+  const _editorPromo = () => document.getElementById('promo-message');
+
+  const guardarRango = () => {
+    const ed = _editorPromo();
+    const sel = window.getSelection && window.getSelection();
+    if (!ed || !sel || !sel.rangeCount) return;
+    const r = sel.getRangeAt(0);
+    // Solo si de verdad está dentro del editor, no en otro campo.
+    if (ed.contains(r.commonAncestorContainer)) _rangoEditor = r.cloneRange();
+  };
+
+  {
+    const ed = _editorPromo();
+    if (ed) {
+      ['keyup', 'mouseup', 'input', 'focus'].forEach((ev) =>
+        ed.addEventListener(ev, guardarRango));
+      document.addEventListener('selectionchange', () => {
+        if (document.activeElement === ed) guardarRango();
+      });
+    }
+  }
+
+  /**
+   * Aplica un comando de formato a lo que esté seleccionado.
+   * Lo usan TODOS los controles de la barra, para que no haya dos
+   * formas distintas de hacer lo mismo.
+   *
+   * `styleWithCSS` hace que el navegador escriba
+   * `<span style="color:...">` en vez de la etiqueta antigua
+   * `<font color=...>`. El saneador del servidor entiende las dos,
+   * pero la primera es la que sobrevive limpia en los correos.
+   */
+  window.promoCmd = (comando, valor) => {
+    const ed = _editorPromo();
+    if (!ed) return;
+    ed.focus();
+    if (_rangoEditor) {
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(_rangoEditor);
+    }
+    try { document.execCommand('styleWithCSS', false, true); } catch (_) {}
+    document.execCommand(comando, false, valor === undefined ? null : valor);
+    guardarRango();
+  };
+
+  /* ─── LOS CONTROLES DE LA BARRA ────────────────────────────
+     Aquí, a nivel de módulo, y no dentro de openSendPromo.
+
+     Estaban dentro, así que no existían hasta que alguien abría el
+     modal por primera vez. En la práctica funcionaba —los botones
+     viven dentro del modal— pero es un orden frágil: cualquier otra
+     cosa que quisiera usarlos antes se encontraría con nada. Y
+     además se reasignaban enteros en cada apertura. */
+  window.promptInsertLink = () => {
+    const url = prompt('Enter URL:');
+    /* Sólo enlaces de verdad. El servidor lo vuelve a comprobar —él
+       es la autoridad— pero avisar aquí evita que alguien pegue algo
+       raro, le dé a enviar y descubra el problema en el correo. */
+    if (!url) return;
+    if (!/^(https?:\/\/|mailto:)/i.test(url.trim())) {
+      toast('Links must start with https:// or mailto:', true);
+      return;
+    }
+    window.promoCmd('createLink', url.trim());
+  };
+  window.toggleEmojiPicker = (e) => {
+    e.stopPropagation();
+    const picker = document.getElementById('emoji-picker');
+    if (!picker) return;
+    const isOpen = picker.style.display === 'grid';
+    picker.style.display = isOpen ? 'none' : 'grid';
+    if (!isOpen) {
+      // Close when clicking outside
+      const close = (ev) => {
+        if (!picker.contains(ev.target) && ev.target.id !== 'emoji-picker-btn') {
+          picker.style.display = 'none';
+          document.removeEventListener('click', close);
+        }
+      };
+      setTimeout(() => document.addEventListener('click', close), 0);
+    }
+  };
+  window.insertFixedEmoji = (emoji) => {
+    /* Por promoCmd, que restaura la selección: al abrir el panel de
+       emojis el editor pierde el cursor, y sin restaurarlo el emoji
+       caía al principio del mensaje en vez de donde estabas. */
+    window.promoCmd('insertText', emoji);
+    // Close picker after selection
+    const picker = document.getElementById('emoji-picker');
+    if (picker) picker.style.display = 'none';
+  };
+
+  /* El panel de colores, hermano del de emojis. Un <input type="color">
+     sería más corto, pero su ventana del sistema se lleva el foco de
+     una forma que ni guardando la selección se recupera bien en todos
+     los navegadores. Unas muestras fijas siempre funcionan, y además
+     empujan a usar colores que pegan con la marca. */
+  window.togglePromoColors = (e) => {
+    e.stopPropagation();
+    guardarRango();
+    const panel = document.getElementById('promo-color-picker');
+    if (!panel) return;
+    const abierto = panel.style.display === 'grid';
+    panel.style.display = abierto ? 'none' : 'grid';
+    if (!abierto) {
+      const cerrar = (ev) => {
+        if (!panel.contains(ev.target) && ev.target.id !== 'promo-color-btn') {
+          panel.style.display = 'none';
+          document.removeEventListener('click', cerrar);
+        }
+      };
+      setTimeout(() => document.addEventListener('click', cerrar), 0);
+    }
+  };
+
+  window.aplicarColorPromo = (hex) => {
+    window.promoCmd('foreColor', hex);
+    const panel = document.getElementById('promo-color-picker');
+    if (panel) panel.style.display = 'none';
+  };
+
+  /* El tamaño de letra.
+
+     `fontSize` del navegador sólo admite la escala 1–7 de HTML, que
+     cada programa de correo interpreta a su manera. Se manda esa
+     escala y el saneador del servidor la traduce a píxeles fijos
+     (3 = 14px, el normal), así que el correo se ve igual en todas
+     partes en vez de depender de quien lo abra. */
+  window.aplicarTamanoPromo = (sel) => {
+    if (!sel.value) return;
+    window.promoCmd('fontSize', sel.value);
+    sel.selectedIndex = 0;   // vuelve a "Size" para poder repetir
+  };
+
   /* ─── LOS DATOS QUE VIAJAN A LA PLANTILLA ──────────────────
      Un solo sitio los construye, y un solo camino los usa. Antes había
      dos caminos que armaban la misma lista por separado, y eso permitía
@@ -1195,7 +1322,26 @@
   const leerFormulario = () => {
     const subject = (document.getElementById('promo-subject')?.value || '').trim();
     const editor  = document.getElementById('promo-message');
-    const message = editor ? editor.innerText.trim() : '';
+
+    /* SE MANDA innerHTML, NO innerText.
+
+       `innerText` da solo el texto: sin negritas, sin listas, sin
+       colores. Por eso el editor tenía botones de negrita y de lista
+       desde siempre y el correo llegaba sin nada — la aplicación
+       enseñaba una cosa y mandaba otra.
+
+       El HTML se filtra ENTERO en el servidor (sanear.ts), que es lo
+       único que no se puede saltar nadie. Aquí no se filtra: filtrar
+       en los dos sitios daría una falsa sensación de seguridad y
+       además haría más difícil ver dónde se decide qué pasa. */
+    const message = editor ? editor.innerHTML.trim() : '';
+
+    /* Para validar y para el texto de la bandeja de entrada. Un editor
+       "vacío" en el navegador no es una cadena vacía: suele tener un
+       <br> o un <div></div> dentro. Con el HTML no se puede saber si
+       hay algo escrito; con el texto, sí. */
+    const texto = editor ? editor.innerText.trim() : '';
+
     const campaignType = document.getElementById('promo-campaign-type')?.value || 'Other';
 
     let flyerUrl = '';
@@ -1207,11 +1353,11 @@
       flyerUrl = (document.getElementById('promo-other-flyer-url')?.value || '').trim();
     }
 
-    if (!subject || !message) {
+    if (!subject || !texto) {
       toast('Please fill in the subject and message.', true);
       return null;
     }
-    return { subject, message, campaignType, flyerUrl };
+    return { subject, message, texto, campaignType, flyerUrl };
   };
 
   /* Lo que vale para TODA la campaña, no para una persona.
@@ -1225,19 +1371,25 @@
          plantilla del servidor (templates.ts, renderPromo). Una clave
          que no existe allí se ignora en silencio: no da error,
          simplemente no aparece en el correo. */
-  const metaPromo = ({ campaignType, message, flyerUrl }) => ({
+  const metaPromo = ({ campaignType, texto, flyerUrl }) => ({
     /* Cuando no hay flyer va el espaciador, NO una cadena vacía. La
        plantilla omite la fila de la imagen si la URL está vacía, y eso
-       cambiaría el alto del correo respecto a como sale hoy. Esta
-       etapa mueve el envío; no cambia cómo se ven los correos. */
+       cambiaría el alto del correo respecto a como sale hoy. */
     flyer_url:     flyerUrl || SPACER_FLYER,
     email_type:    etiquetaCabecera(campaignType),
-    preview_text:  textoVistaPrevia(message),
+    /* El texto de la bandeja sale del TEXTO, no del HTML: si saliera
+       del HTML, la bandeja de entrada enseñaría `<p style="color...`
+       antes de que nadie abriera el correo. */
+    preview_text:  textoVistaPrevia(texto),
     /* Para la tarjeta "Last Campaign". `communications.kind` es 'promo'
        en todas las campañas, así que el tipo (Tournament / Ladder /
        Other) no cabe ahí: va aquí, que es la columna que existe justo
        para lo que cambia según el caso. */
     campaign_type: campaignType,
+    /* LA MARCA. El servidor no tiene que adivinar si este mensaje
+       lleva formato: se lo decimos, y como `meta` se guarda con la
+       campaña, un reintento de dentro de dos semanas lo sabrá igual. */
+    cuerpo_html:   true,
   });
 
   /* ─── CONTRA EL ENVÍO DUPLICADO ────────────────────────────
