@@ -204,12 +204,17 @@
    * @param {string} textoNormal  el texto que el botón trae escrito en
    *        admin.html — tiene que coincidir EXACTAMENTE, o el cambio
    *        no encuentra qué sustituir.
-   * @returns {{sync:function, reset:function}}
+   * @returns {{sync:function, reset:function, bloquear:function, original:string}}
    */
   function vincularEnsayo(casillaId, botonId, textoNormal) {
     const chk = document.getElementById(casillaId);
     const btn = document.getElementById(botonId);
-    if (!chk || !btn) return { sync: () => {}, reset: () => {} };
+    if (!chk || !btn) {
+      /* Sin esto el fallo es SILENCIOSO: reset() no desmarcaría nada y
+         el aviso "the checkbox is now off" estaría mintiendo. */
+      console.error(`[Ferocia] vincularEnsayo: falta #${casillaId} o #${botonId}`);
+      return { sync: () => {}, reset: () => {}, bloquear: () => {} };
+    }
 
     const original = btn.innerHTML;
     if (original.indexOf(textoNormal) === -1) {
@@ -228,7 +233,17 @@
 
     /** Al abrir la ventana, y después de un ensayo. */
     const reset = () => { chk.checked = false; sync(); };
-    return { sync, reset, original };
+
+    /* Durante el envío la casilla se bloquea.
+
+       Si no, se puede marcar o desmarcar MIENTRAS se manda, y entonces
+       el botón y la casilla acaban diciendo cosas distintas: el envío
+       ya salió con el valor que había al pulsar, pero la pantalla
+       enseña el nuevo. Bloquearla mientras dura el envío quita el
+       problema de raíz, en vez de intentar arreglarlo después. */
+    const bloquear = (b) => { chk.disabled = !!b; };
+
+    return { sync, reset, bloquear, original };
   }
 
   /* ─── EL NOMBRE PARA EL SALUDO ─────────────────────────────
@@ -331,6 +346,34 @@
     };
   }
 
+  /**
+   * ¿Se puede tocar esta ventana de correo ahora mismo?
+   *
+   * Devuelve false —y avisa— mientras haya un envío en curso. Existe
+   * porque cerrar la ventana a mitad de un envío no lo detiene: sigue
+   * corriendo, y al volver a abrirla el composer se limpia y se lleva
+   * por delante el asunto y el mensaje del envío que todavía no ha
+   * contestado. Si ese envío sale parcial, el texto que hace falta
+   * para reintentar ya no existe.
+   *
+   * Email All Players ya se protegía así; las demás pantallas no, y
+   * eran copias del mismo patrón. Ahora la comprobación vive en un
+   * solo sitio y dice lo mismo en las cinco.
+   *
+   * @param   {string} [que]  qué se estaba intentando hacer, para el aviso
+   * @returns {boolean}       true si hay un envío en curso (o sea: no toques)
+   */
+  function envioEnCurso(que) {
+    if (!window.AdminState || !window.AdminState.emailInFlight) return false;
+    /* `toast` se busca AL LLAMAR, no al cargar: este archivo se carga
+       antes que app.js, que es quien lo publica en window. */
+    const aviso = window.toast || ((m) => console.warn('[Ferocia]', m));
+    aviso(que === 'abrir'
+      ? 'An email is still being sent. Please wait for it to finish before opening this again.'
+      : 'Emails are still being sent. Please wait for it to finish.', true);
+    return true;
+  }
+
   // Warn the user before they navigate away mid-send.
   function beforeUnloadGuard(e) {
     if (window.AdminState.emailInFlight) {
@@ -346,4 +389,5 @@
   window.nombreDestinatario = nombreDestinatario;
   window.resumenEnvio       = resumenEnvio;
   window.vincularEnsayo     = vincularEnsayo;
+  window.envioEnCurso       = envioEnCurso;
 })();

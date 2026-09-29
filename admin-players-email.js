@@ -61,6 +61,11 @@
        color:${color};background:${bg};padding:3px 9px;border-radius:99px;">${text}</span>`;
 
   window.openPlayersEmail = async () => {
+    /* Reabrir la ventana con un envío en curso limpiaba el composer y
+       se llevaba por delante el asunto y el mensaje de ESE envío, que
+       todavía no ha contestado. Si sale parcial, el texto que hace
+       falta para reintentar ya no existe. */
+    if (window.envioEnCurso && window.envioEnCurso('abrir')) return;
     let players = [];
     try {
       players = await api('players?status=eq.active&select=id,first_name,last_name,email&order=first_name');
@@ -113,10 +118,10 @@
   };
 
   window.closePlayersEmail = () => {
-    if (window.AdminState.emailInFlight) {
-      toast('Emails are still being sent. Please wait for it to finish.', true);
-      return;
-    }
+    /* Esta comprobación estaba escrita a mano aquí y era la única de
+       las cinco pantallas que la tenía. Ahora vive en
+       admin-email-utils.js y las cinco dicen lo mismo. */
+    if (window.envioEnCurso && window.envioEnCurso()) return;
     document.getElementById('players-email-modal').classList.remove('open');
   };
 
@@ -131,6 +136,13 @@
     if (!_peRecipients.length) { toast('No recipients loaded. Close and reopen the window.', true); return; }
 
     const soloAdmin = !!document.getElementById('pe-only-me')?.checked;
+    /* La casilla se bloquea AQUÍ, en cuanto se lee, y no después de la
+       confirmación. Entre leerla y bloquearla hay un `await` (el modal
+       de confirmar), y en ese hueco un clic en la casilla la cambiaba:
+       el envío salía con lo leído, pero el `finally` —que a propósito
+       mira la casilla de verdad— dejaba el botón diciendo lo contrario
+       de lo que se acababa de mandar. */
+    ensayo.bloquear(true);
 
     // Tu copia, al final. Si además eres jugador, el servidor se queda
     // con la primera aparición y no recibes dos.
@@ -160,21 +172,28 @@
                + `${cuantos === 1 ? '' : 's'} with an address on file`
                + (_peSkipped ? `, skipping ${_peSkipped} who have none` : '')
                + `, plus a copy to you. This cannot be undone.`
-               + `\n\nTo check it first, cancel and use "Send only to me".`,
+               /* Una sola frase seguida: confirmModal pinta con
+                  textContent y sin white-space:pre-line, así que un
+                  \n\n se queda en un espacio y la frase se pega a la
+                  anterior. Su propio admin-incident-reports.js lo
+                  documenta. */
+               + ` To check it first, cancel and use "Send only to me".`,
         okLabel: `Send to ${cuantos}`,
         cancelLabel: 'Cancel',
         danger: true,
       });
-      if (!seguro) return;
+      // Al cancelar hay que SOLTAR la casilla: si no, se queda gris
+      // para siempre y ya no se puede marcar el ensayo.
+      if (!seguro) { ensayo.bloquear(false); return; }
     }
 
     const sendBtn  = document.getElementById('pe-send-btn');
-    const origHTML = sendBtn.innerHTML;
     sendBtn.disabled = true;
-    sendBtn.textContent = soloAdmin
+    sendBtn.innerHTML = soloAdmin
       ? 'Sending rehearsal to you...'
       : `Sending to ${recipients.length} people...`;
     window.AdminState.emailInFlight = true;
+    ensayo.bloquear(true);
 
     let r;
     try {
@@ -199,7 +218,15 @@
     } finally {
       window.AdminState.emailInFlight = false;
       sendBtn.disabled = false;
-      sendBtn.innerHTML = origHTML;
+      /* ensayo.sync() y NO `innerHTML = origHTML`.
+
+         `origHTML` era una FOTO del botón tomada al empezar el envío.
+         Si la casilla cambiaba mientras se mandaba, el finally reponía
+         esa foto vieja y el botón acababa diciendo lo contrario de lo
+         que marca la casilla — justo la mentira que esto existe para
+         impedir. sync() mira la casilla de verdad, no una foto. */
+      ensayo.bloquear(false);
+      ensayo.sync();
       sendBtn.style.background = 'linear-gradient(180deg,#2456d3,var(--blue))';
     }
 
@@ -220,17 +247,38 @@
       return;
     }
 
-    claveador.limpiar();
-
     const limpio = d.status === 'sent' && !d.failed && !d.unconfirmed;
+
+    /* La clave SOLO se tira cuando el envío salió LIMPIO.
+
+       El servidor contesta 200 también cuando el estado es 'partial' o
+       'failed' (index.ts: json() usa 200 por defecto), así que `r.ok`
+       no quiere decir "salió bien". Tirando la clave ahí, el reintento
+       que el propio aviso pide —"Press Send again to retry the ones
+       that failed"— abría una campaña NUEVA: el servidor ya no sabía
+       que esas personas tenían el correo, y TODAS recibían otra copia. */
+    if (limpio) claveador.limpiar();
+
     if (limpio) {
       sendBtn.style.background = 'linear-gradient(180deg,#2ab87a,#1d9e68)';
       sendBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Sent ${d.sent} emails!`;
+      /* El botón se APAGA durante el aviso verde. El `finally` de arriba
+         ya lo había vuelto a habilitar, así que durante 1,4 s decía
+         "Sent 50 emails!" y seguía siendo pulsable: un clic ahí
+         arrancaba la campaña entera por segunda vez. */
+      sendBtn.disabled = true;
       setTimeout(() => {
         document.getElementById('players-email-modal').classList.remove('open');
-        sendBtn.innerHTML = origHTML;
+        ensayo.sync();   // por la casilla real, no por una foto
+        sendBtn.disabled = false;
         sendBtn.style.background = 'linear-gradient(180deg,#2456d3,var(--blue))';
-        toast(`Message sent to ${Math.max(0, d.sent - 1)} players.`);
+        /* El MISMO número que el botón, y la misma frase que las otras
+           tres pantallas. Antes decía `d.sent - 1` para descontar tu
+           copia, y salían dos números distintos con 1,4 s de diferencia
+           ("Sent 51 emails!" y luego "sent to 50 players"). Además el
+           -1 mentía cuando tu dirección está además en la lista: el
+           servidor la manda una sola vez, así que d.sent ya era 50. */
+        toast(`✅ ${d.sent} email${d.sent === 1 ? '' : 's'} sent successfully!`);
       }, 1400);
     } else {
       /* La ventana NO se cierra: si algo falló, el mensaje escrito sigue

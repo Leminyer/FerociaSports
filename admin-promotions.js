@@ -1079,6 +1079,11 @@
      cinco es la barra, no lo que cada una pinta a su lado. */
   const edPromo = window.FerociaEditor
     ? window.FerociaEditor.mount('promo-message', {
+        /* SIN barraId, mount() no encontraba barra y se creaba UNA
+           SEGUNDA encima de la escrita a mano: dos tiras grises
+           apiladas, y sólo en esta pantalla. La de aquí ya existe en
+           admin.html porque lleva además el contador de caracteres. */
+        barraId: 'promo-fmt-bar',
         alEscribir: (n) => {
           const c1 = document.getElementById('promo-char-count');
           const c2 = document.getElementById('promo-char-count2');
@@ -1273,6 +1278,14 @@
        abre el modal, así que un ensayo de ayer no puede convertirse en
        el lanzamiento de hoy sin querer. */
     const soloAdmin = !!document.getElementById('promo-only-me')?.checked;
+    /* La casilla se bloquea AQUÍ, en cuanto se lee, y no después de la
+       confirmación. Entre leerla y bloquearla hay al menos un `await`,
+       y en ese hueco un clic en la casilla la cambiaba: el envío salía
+       con lo leído, pero el `finally` —que a propósito mira la casilla
+       de verdad— dejaba el botón diciendo lo contrario de lo que se
+       acababa de mandar. */
+    ensayo.bloquear(true);
+
 
     const baseUrl = window.location.origin + window.location.pathname.replace('admin.html', '');
 
@@ -1297,10 +1310,12 @@
         subs = await api('subscribers?status=eq.active&select=*');
       } catch (err) {
         toast(`Error: ${err.message}`, true);
+        ensayo.bloquear(false);   // soltar la casilla al salir por aquí
         return;
       }
       if (!subs.length) {
         toast('No active subscribers to send to.', true);
+        ensayo.bloquear(false);   // soltar la casilla al salir por aquí
         return;
       }
       recipients = [
@@ -1339,16 +1354,22 @@
         title:   `Send this campaign to ${cuantos} subscriber${cuantos === 1 ? '' : 's'}?`,
         message: `"${datos.subject}" will be emailed to ${cuantos} active subscriber`
                + `${cuantos === 1 ? '' : 's'}, plus a copy to you. This cannot be undone.`
-               + `\n\nTo check it first, cancel and use "Send only to me".`,
+               /* Una sola frase seguida: confirmModal pinta con
+                  textContent y sin white-space:pre-line, así que un
+                  \n\n se queda en un espacio y la frase se pega a la
+                  anterior. Su propio admin-incident-reports.js lo
+                  documenta. */
+               + ` To check it first, cancel and use "Send only to me".`,
         okLabel: `Send to ${cuantos}`,
         cancelLabel: 'Cancel',
         danger: true,
       });
-      if (!seguro) return;   // el modal se queda abierto, no se pierde nada
+      // Al cancelar hay que SOLTAR la casilla: si no, se queda gris
+      // para siempre y ya no se puede marcar el ensayo.
+      if (!seguro) { ensayo.bloquear(false); return; }   // el modal se queda abierto
     }
 
     const sendBtn  = document.getElementById('promo-send-btn');
-    const origHTML = sendBtn.innerHTML;
     sendBtn.disabled = true;
     /* Ya no hay contador "127/450": el envío es UNA petición, no 450.
        Lo que se puede decir con verdad es a cuánta gente va. */
@@ -1384,7 +1405,17 @@
          además de bloquear el botón de prueba. */
       window.AdminState.emailInFlight = false;
       sendBtn.disabled = false;
-      sendBtn.innerHTML = origHTML;
+      /* ensayo.sync() y NO `innerHTML = origHTML`.
+
+         `origHTML` era una FOTO del botón tomada al empezar el envío.
+         Si la casilla cambiaba mientras se mandaba, el finally reponía
+         esa foto vieja y el botón acababa diciendo lo contrario de lo
+         que marca la casilla — justo la mentira que esto existe para
+         impedir. sync() mira la casilla de verdad, no una foto.
+
+         Y con bloquear(false) la casilla vuelve a estar disponible. */
+      ensayo.bloquear(false);
+      ensayo.sync();
     }
 
     if (!r.ok) {
@@ -1413,20 +1444,27 @@
       return;
     }
 
-    // Envío real: se cierra el modal, como hasta ahora.
-    const modal = document.getElementById('promo-modal');
-    if (modal) { modal.style.display = 'none'; document.body.style.overflow = ''; }
+    /* La clave y el cierre SOLO cuando la campaña salió LIMPIA.
 
-    /* Un envío nuevo tiene que renovar la clave: si no, volver a
-       lanzar la misma campaña más tarde chocaría con la de este envío
-       y no mandaría nada. */
-    claveador.limpiar();
-
+       El servidor contesta 200 también con estado 'partial' o 'failed'
+       (index.ts: json() usa 200 por defecto), así que `r.ok` no quiere
+       decir "salió bien". Antes se hacían las dos cosas siempre:
+       - tirar la clave abría una campaña NUEVA en el reintento, y el
+         servidor ya no sabía quién tenía el correo: los 462 repetían;
+       - cerrar el modal se llevaba por delante la campaña escrita,
+         justo cuando hacía falta para reintentar. */
     const limpio = d.status === 'sent' && !d.failed && !d.unconfirmed;
     if (limpio) {
+      const modal = document.getElementById('promo-modal');
+      if (modal) { modal.style.display = 'none'; document.body.style.overflow = ''; }
+      /* Una campaña nueva tiene que renovar la clave: si no, volver a
+         lanzar la misma campaña más tarde chocaría con la de este
+         envío y no mandaría nada. */
+      claveador.limpiar();
       toast(`✅ Campaign launched! ${d.sent} email${d.sent === 1 ? '' : 's'} sent.`);
     } else {
-      toast(`Campaign finished: ${resumenEnvio(d)}.`, true);
+      console.warn('[promotions] no salio limpio:', d);
+      toast(`Campaign finished: ${resumenEnvio(d)}. Press Launch again to retry the ones that failed.`, true);
     }
   };
 

@@ -2595,7 +2595,7 @@
 
 <!-- Notify Players Modal -->
 <div class="modal-bg" id="notify-modal">
-  <div class="modal" style="max-width:680px;border-radius:14px;padding:0;overflow:hidden;display:flex;flex-direction:column;">
+  <div class="modal" style="max-width:680px;max-height:88vh;border-radius:14px;padding:0;overflow:hidden;display:flex;flex-direction:column;">
 
     <!-- HEADER -->
     <div style="padding:20px 24px 0;display:flex;align-items:flex-start;justify-content:space-between;flex-shrink:0;">
@@ -2682,13 +2682,13 @@
       </div>
 
       <!-- FOOTER -->
-      <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;padding-top:4px;border-top:0.5px solid var(--divider-color);margin-top:2px;">
-        <label for="notify-only-me" style="display:flex;align-items:flex-start;gap:9px;padding:10px 12px;margin-right:auto;border:1px solid var(--divider-color);border-radius:10px;background:#f8f9ff;cursor:pointer;flex:0 1 340px;min-width:0;">
-          <input type="checkbox" id="notify-only-me" style="margin:1px 0 0;width:14px;height:14px;accent-color:var(--blue);cursor:pointer;flex-shrink:0;">
-          <span style="font-family:'Inter',sans-serif;font-size:11px;font-weight:700;color:var(--text);line-height:1.45;">
+      <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px;padding-top:4px;border-top:0.5px solid var(--divider-color);margin-top:2px;">
+        <label for="notify-only-me" style="display:flex;align-items:flex-start;gap:9px;padding:10px 12px;margin-right:auto;border:1px solid var(--divider-color);border-radius:10px;background:#f8f9ff;cursor:pointer;flex:0 1 auto;max-width:330px;min-width:0;text-transform:none;letter-spacing:normal;">
+          <input type="checkbox" id="notify-only-me" aria-describedby="notify-only-me-ayuda" style="margin:1px 0 0;width:14px;height:14px;accent-color:var(--blue);cursor:pointer;flex-shrink:0;">
+          <span style="font-family:'Inter',sans-serif;font-size:11px;font-weight:700;color:var(--text);line-height:1.45;text-transform:none;letter-spacing:normal;">
             Send only to me
-            <span style="display:block;font-size:10px;font-weight:600;color:var(--text-muted);margin-top:2px;">
-              Full rehearsal &mdash; real send, fully logged, but nobody in the ladder receives it.
+            <span id="notify-only-me-ayuda" style="display:block;font-size:10px;font-weight:600;color:var(--text-muted);margin-top:2px;text-transform:none;letter-spacing:normal;">
+              Real send, fully logged &mdash; but only you receive it.
             </span>
           </span>
         </label>
@@ -2790,13 +2790,13 @@
       </div>
 
       <!-- FOOTER -->
-      <div style="display:flex;justify-content:flex-end;gap:8px;padding-top:8px;border-top:0.5px solid var(--divider-color);">
-        <label for="pe-only-me" style="display:flex;align-items:flex-start;gap:9px;padding:10px 12px;margin-right:auto;border:1px solid var(--divider-color);border-radius:10px;background:#f8f9ff;cursor:pointer;flex:0 1 340px;min-width:0;">
-          <input type="checkbox" id="pe-only-me" style="margin:1px 0 0;width:14px;height:14px;accent-color:var(--blue);cursor:pointer;flex-shrink:0;">
-          <span style="font-family:'Inter',sans-serif;font-size:11px;font-weight:700;color:var(--text);line-height:1.45;">
+      <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px;padding-top:8px;border-top:0.5px solid var(--divider-color);">
+        <label for="pe-only-me" style="display:flex;align-items:flex-start;gap:9px;padding:10px 12px;margin-right:auto;border:1px solid var(--divider-color);border-radius:10px;background:#f8f9ff;cursor:pointer;flex:0 1 auto;max-width:330px;min-width:0;text-transform:none;letter-spacing:normal;">
+          <input type="checkbox" id="pe-only-me" aria-describedby="pe-only-me-ayuda" style="margin:1px 0 0;width:14px;height:14px;accent-color:var(--blue);cursor:pointer;flex-shrink:0;">
+          <span style="font-family:'Inter',sans-serif;font-size:11px;font-weight:700;color:var(--text);line-height:1.45;text-transform:none;letter-spacing:normal;">
             Send only to me
-            <span style="display:block;font-size:10px;font-weight:600;color:var(--text-muted);margin-top:2px;">
-              Full rehearsal &mdash; real send, fully logged, but no player receives it.
+            <span id="pe-only-me-ayuda" style="display:block;font-size:10px;font-weight:600;color:var(--text-muted);margin-top:2px;text-transform:none;letter-spacing:normal;">
+              Real send, fully logged &mdash; but only you receive it.
             </span>
           </span>
         </label>
@@ -2996,7 +2996,7 @@
 
 <!-- Tournament Notify Modal -->
 <div class="modal-bg" id="tournament-notify-modal">
-  <div class="modal" style="max-width:680px;border-radius:14px;padding:0;overflow:hidden;display:flex;flex-direction:column;">
+  <div class="modal" style="max-width:680px;max-height:88vh;border-radius:14px;padding:0;overflow:hidden;display:flex;flex-direction:column;">
 
     <!-- HEADER -->
     <div style="padding:20px 24px 0;display:flex;align-items:flex-start;justify-content:space-between;flex-shrink:0;">
@@ -3066,13 +3066,13 @@
       </div>
 
       <!-- FOOTER inside form -->
-      <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;padding-top:4px;border-top:0.5px solid var(--divider-color);margin-top:2px;">
-        <label for="t-notify-only-me" style="display:flex;align-items:flex-start;gap:9px;padding:10px 12px;margin-right:auto;border:1px solid var(--divider-color);border-radius:10px;background:#f8f9ff;cursor:pointer;flex:0 1 340px;min-width:0;">
-          <input type="checkbox" id="t-notify-only-me" style="margin:1px 0 0;width:14px;height:14px;accent-color:var(--blue);cursor:pointer;flex-shrink:0;">
-          <span style="font-family:'Inter',sans-serif;font-size:11px;font-weight:700;color:var(--text);line-height:1.45;">
+      <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px;padding-top:4px;border-top:0.5px solid var(--divider-color);margin-top:2px;">
+        <label for="t-notify-only-me" style="display:flex;align-items:flex-start;gap:9px;padding:10px 12px;margin-right:auto;border:1px solid var(--divider-color);border-radius:10px;background:#f8f9ff;cursor:pointer;flex:0 1 auto;max-width:330px;min-width:0;text-transform:none;letter-spacing:normal;">
+          <input type="checkbox" id="t-notify-only-me" aria-describedby="t-notify-only-me-ayuda" style="margin:1px 0 0;width:14px;height:14px;accent-color:var(--blue);cursor:pointer;flex-shrink:0;">
+          <span style="font-family:'Inter',sans-serif;font-size:11px;font-weight:700;color:var(--text);line-height:1.45;text-transform:none;letter-spacing:normal;">
             Send only to me
-            <span style="display:block;font-size:10px;font-weight:600;color:var(--text-muted);margin-top:2px;">
-              Full rehearsal &mdash; real send, fully logged, but no player receives it.
+            <span id="t-notify-only-me-ayuda" style="display:block;font-size:10px;font-weight:600;color:var(--text-muted);margin-top:2px;text-transform:none;letter-spacing:normal;">
+              Real send, fully logged &mdash; but only you receive it.
             </span>
           </span>
         </label>
@@ -3188,7 +3188,7 @@
                    la pone en las otras cuatro pantallas que escriben
                    correos. Antes estaba escrita a mano aquí; con cinco
                    editores eso eran cinco copias del mismo HTML. -->
-              <div class="promo-fmt-toolbar">
+              <div class="promo-fmt-toolbar" id="promo-fmt-bar">
                 <div style="flex:1;"></div>
                 <span id="promo-char-count" style="font-size:9px;font-weight:700;color:#b0bbd6;">0 / 2000</span>
               </div>
@@ -3207,12 +3207,12 @@
                admin-promotions.js la desmarca sola cada vez que se abre
                el modal, y cambia la etiqueta del botón mientras está
                puesta, para que el botón nunca diga una cosa y haga otra. -->
-          <label for="promo-only-me" style="display:flex;align-items:flex-start;gap:9px;padding:10px 12px;margin-bottom:8px;border:1px solid #e8edf8;border-radius:10px;background:#f8f9ff;cursor:pointer;">
-            <input type="checkbox" id="promo-only-me" style="margin:1px 0 0;width:14px;height:14px;accent-color:var(--blue);cursor:pointer;flex-shrink:0;">
-            <span style="font-family:'Inter',sans-serif;font-size:11px;font-weight:700;color:var(--text);line-height:1.45;">
+          <label for="promo-only-me" style="display:flex;align-items:flex-start;gap:9px;padding:10px 12px;margin-bottom:8px;border:1px solid var(--divider-color);border-radius:10px;background:#f8f9ff;cursor:pointer;text-transform:none;letter-spacing:normal;">
+            <input type="checkbox" id="promo-only-me" aria-describedby="promo-only-me-ayuda" style="margin:1px 0 0;width:14px;height:14px;accent-color:var(--blue);cursor:pointer;flex-shrink:0;">
+            <span style="font-family:'Inter',sans-serif;font-size:11px;font-weight:700;color:var(--text);line-height:1.45;text-transform:none;letter-spacing:normal;">
               Send only to me
-              <span style="display:block;font-size:10px;font-weight:600;color:var(--text-muted);margin-top:2px;">
-                Full rehearsal &mdash; real send, fully logged, but nobody on the list receives it.
+              <span id="promo-only-me-ayuda" style="display:block;font-size:10px;font-weight:600;color:var(--text-muted);margin-top:2px;text-transform:none;letter-spacing:normal;">
+                Real send, fully logged &mdash; but only you receive it.
               </span>
             </span>
           </label>
@@ -3511,25 +3511,25 @@
 <script src="admin-incident-reports.js?v=20260928b"></script>
 <script src="admin-ladder-selector.js?v=20260928b"></script>
 <script src="admin-orders.js?v=20260928b"></script>
-<script src="admin-email-utils.js?v=20260929f"></script>
+<script src="admin-email-utils.js?v=20260929g"></script>
 <script src="admin-rich-editor.js?v=20260929a"></script>
 <script src="admin-share.js?v=20260928b"></script>
-<script src="admin-tournament-notify.js?v=20260929f"></script>
+<script src="admin-tournament-notify.js?v=20260929h"></script>
 <script src="admin-player-status-history.js?v=20260928b"></script>
 <script src="admin-player-profile.js?v=20260929d"></script>
-<script src="admin-email-notifications.js?v=20260929f"></script>
+<script src="admin-email-notifications.js?v=20260929h"></script>
 <script src="admin-ladder-standings.js?v=20260928b"></script>
 <script src="admin-sessions.js?v=20260928b"></script>
 <script src="admin-print-roster.js?v=20260928b"></script>
 <script src="admin-ladder-management.js?v=20260928b"></script>
-<script src="admin-promotions.js?v=20260929f"></script>
+<script src="admin-promotions.js?v=20260929h"></script>
 <script src="admin-newsletter.js?v=20260928b"></script>
 <!-- TEMPORARY: fills in missing dates of birth from a CSV import.
      Delete this line and temp-dob-backfill.js once every player has one.
      See the header of that file. -->
 <script src="temp-dob-backfill.js?v=20260928b"></script>
 <script src="admin-players.js?v=20260928b"></script>
-<script src="admin-players-email.js?v=20260929f"></script>
+<script src="admin-players-email.js?v=20260929h"></script>
 <script src="admin-ftc-standings.js?v=20260928b"></script>
 <script src="admin-ftc-playoffs-schedule.js?v=20260928b"></script>
 <script src="admin-ftc-teams.js?v=20260928b"></script>

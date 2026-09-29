@@ -221,6 +221,14 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
        ventana, así que un ensayo de ayer no se convierte en el envío
        de hoy sin querer. */
     const soloAdmin = !!document.getElementById('notify-only-me')?.checked;
+    /* La casilla se bloquea AQUÍ, en cuanto se lee, y no después de la
+       confirmación. Entre leerla y bloquearla hay al menos un `await`,
+       y en ese hueco un clic en la casilla la cambiaba: el envío salía
+       con lo leído, pero el `finally` —que a propósito mira la casilla
+       de verdad— dejaba el botón diciendo lo contrario de lo que se
+       acababa de mandar. */
+    ensayo.bloquear(true);
+
 
     const encoded = btoa(String(AdminState.currentLadder.id));
     const baseUrl =
@@ -253,16 +261,22 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
         message: `"${subject}" will be emailed to ${cuantos} active player`
                + `${cuantos === 1 ? '' : 's'} in ${AdminState.currentLadder.name}`
                + `, plus a copy to you. This cannot be undone.`
-               + `\n\nTo check it first, cancel and use "Send only to me".`,
+               /* Una sola frase seguida: confirmModal pinta con
+                  textContent y sin white-space:pre-line, así que un
+                  \n\n se queda en un espacio y la frase se pega a la
+                  anterior. Su propio admin-incident-reports.js lo
+                  documenta. */
+               + ` To check it first, cancel and use "Send only to me".`,
         okLabel: `Send to ${cuantos}`,
         cancelLabel: 'Cancel',
         danger: true,
       });
-      if (!seguro) return;   // la ventana se queda abierta, no se pierde nada
+      // Al cancelar hay que SOLTAR la casilla: si no, se queda gris
+      // para siempre y ya no se puede marcar el ensayo.
+      if (!seguro) { ensayo.bloquear(false); return; }   // la ventana se queda abierta
     }
 
     const sendBtn = document.getElementById('notify-send-btn');
-    const sendBtnOrigText = sendBtn.innerHTML;
     sendBtn.disabled = true;
     /* Ya no hay contador "12/30": el envío es UNA petición, no treinta. */
     sendBtn.innerHTML = soloAdmin
@@ -299,7 +313,17 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
          true y la página avisa de un envío en curso para siempre. */
       AdminState.emailInFlight = false;
       sendBtn.disabled = false;
-      sendBtn.innerHTML = sendBtnOrigText;
+      /* ensayo.sync() y NO `innerHTML = origHTML`.
+
+         `origHTML` era una FOTO del botón tomada al empezar el envío.
+         Si la casilla cambiaba mientras se mandaba, el finally reponía
+         esa foto vieja y el botón acababa diciendo lo contrario de lo
+         que marca la casilla — justo la mentira que esto existe para
+         impedir. sync() mira la casilla de verdad, no una foto.
+
+         Y con bloquear(false) la casilla vuelve a estar disponible. */
+      ensayo.bloquear(false);
+      ensayo.sync();
     }
 
     if (!r.ok) {
@@ -324,14 +348,23 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
       return;
     }
 
-    claveador.limpiar();   // el siguiente aviso será uno nuevo
-    document.getElementById('notify-modal').classList.remove('open');
+    /* La clave y el cierre SOLO cuando el envío salió LIMPIO.
 
+       El servidor contesta 200 también con estado 'partial' o 'failed'
+       (index.ts: json() usa 200 por defecto), así que `r.ok` no quiere
+       decir "salió bien". Antes se hacían las dos cosas siempre:
+       - tirar la clave abría una campaña NUEVA en el reintento, y el
+         servidor ya no sabía quién tenía el correo: todos repetían;
+       - cerrar la ventana se llevaba por delante el mensaje escrito,
+         justo cuando hacía falta para reintentar. */
     const limpio = d.status === 'sent' && !d.failed && !d.unconfirmed;
     if (limpio) {
+      claveador.limpiar();   // el siguiente aviso será uno nuevo
+      document.getElementById('notify-modal').classList.remove('open');
       toast(`✅ ${d.sent} email${d.sent === 1 ? '' : 's'} sent successfully!`);
     } else {
-      toast(`Finished: ${window.resumenEnvio(d)}.`, true);
+      console.warn('[ladder-notify] no salio limpio:', d);
+      toast(`Finished: ${window.resumenEnvio(d)}. Press Send again to retry the ones that failed.`, true);
     }
   };
 
