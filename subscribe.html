@@ -29,7 +29,9 @@
 <script src="assets.js?v=20260926a"></script>
 <script src="country-codes.js?v=20260926a"></script>
 <script src="location-fields.js?v=20260929a"></script>
-<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<!-- Aquí se cargaba EmailJS. Ya no hace falta: el correo de
+     confirmación lo manda la función `subscribe-confirm` en el
+     servidor. Esta página ya no lleva ninguna credencial. -->
 <style>
   /* Color/typography/radius tokens now come from design-tokens.css. */
   *{box-sizing:border-box;margin:0;padding:0;}
@@ -391,10 +393,20 @@
     <div class="success-screen" id="success-screen">
       <div class="success-icon">✅</div>
       <div class="success-title">Almost Done!</div>
-      <div class="success-body">
+      <div class="success-body" id="success-normal">
         We sent a confirmation email to:<br>
         <span class="success-email" id="confirm-email-shown"></span>
         Please check your inbox and click the confirmation link to complete your subscription.
+      </div>
+      <!-- El servidor guardó a la persona pero NO pudo mandarle el
+           correo. Antes se le enseñaba igualmente "te hemos enviado un
+           correo": esperaba, no llegaba nada, y se quedaba sin confirmar
+           para siempre — fuera de todos los envíos. Ahora se le dice la
+           verdad y a quién escribir. -->
+      <div class="success-body" id="success-sin-correo" style="display:none;">
+        You're on the list &mdash; but we couldn't send your confirmation email just now.<br>
+        <span class="success-email" id="confirm-email-shown-2"></span>
+        Please write to <strong>contact@ferociasports.com</strong> and we'll send it again.
       </div>
     </div>
 
@@ -410,8 +422,9 @@
 (function () {
   'use strict';
 
-  const CFG = window.FEROCIA_CONFIG;
-  emailjs.init({ publicKey: CFG.EMAILJS.PUBLIC_KEY });
+  /* Aquí estaba `const CFG = window.FEROCIA_CONFIG;`. Lo único que esta
+     página sacaba de ahí eran las claves de EmailJS, así que al
+     quitarlas se quedó sin usar. */
 
   const validateEmail = (email) => {
     const e = email.trim().toLowerCase();
@@ -656,26 +669,73 @@
     btn.textContent = 'Processing...';
 
     try {
-      const { data: result, error: rpcError } = await supabase.rpc('subscribe_signup', {
-        p_first: first, p_last: last, p_email: email,
-        p_phone: phoneVal.phone, p_country_code: phoneVal.country_code,
-        p_date_of_birth: dobVal || null,
-        // City is stored normalised — accents stripped, symbols dropped,
-        // title cased — so the same place is always spelled one way.
-        p_city: cityVal.value || null, p_state: stateVal.value || null,
-        p_gender: gender || null, p_skill: skill || null,
-        p_self_rating: selfRating,
-        // Dato duro: la etiqueta de la campaña, capturada sola.
-        p_source: attr.source,
-        p_source_campaign: attr.campaign,
-        p_source_detail: attr.detail,
-        // Dato blando: lo que la persona dice.
-        p_heard_about: heardVal.heard,
-        p_heard_about_other: heardVal.other,
-      });
-      if (rpcError) throw new Error(rpcError.message);
+      /* ── EL ALTA LA HACE EL SERVIDOR ─────────────────────────────
+         Antes esta página hacía dos cosas: guardaba a la persona con
+         supabase.rpc() y le mandaba el correo con EmailJS. Para eso
+         segundo tenía que llevar dentro el servicio, la clave pública
+         y el id de plantilla de EmailJS — y cualquiera que mirase el
+         código fuente de esta página los veía. Con esos tres datos se
+         puede mandar correo DESDE contact@ferociasports.com, con la
+         marca del club, A QUIEN SEA.
 
-      if (result && result.already) {
+         Ahora las dos cosas las hace la función `subscribe-confirm`
+         en el servidor, donde las credenciales no se ven. Esta página
+         ya no lleva ninguna.
+
+         Y hay una segunda mejora, callada: el confirm_token ya no
+         viaja hasta aquí. Antes llegaba para poder construir el
+         enlace; ahora lo construye el servidor y el token no sale de
+         allí. */
+      const { data: result, error: fnError } = await supabase.functions.invoke('subscribe-confirm', {
+        body: {
+          first_name: first, last_name: last, email: email,
+          phone: phoneVal.phone, country_code: phoneVal.country_code,
+          date_of_birth: dobVal || null,
+          // City is stored normalised — accents stripped, symbols dropped,
+          // title cased — so the same place is always spelled one way.
+          city: cityVal.value || null, state: stateVal.value || null,
+          gender: gender || null, skill: skill || null,
+          self_rating: selfRating,
+          // Dato duro: la etiqueta de la campaña, capturada sola.
+          source: attr.source,
+          source_campaign: attr.campaign,
+          source_detail: attr.detail,
+          // Dato blando: lo que la persona dice.
+          heard_about: heardVal.heard,
+          heard_about_other: heardVal.other,
+        },
+      });
+      /* supabase-js SÍ trata un 400/500 como fallo: pone `fnError` y
+         deja `result` en null. Pero el mensaje que trae es siempre el
+         mismo texto genérico ("Edge Function returned a non-2xx status
+         code"), y eso es lo que acababa viendo la persona. El motivo de
+         verdad —email_invalido, falta_nombre, fecha_invalida…— viaja en
+         el cuerpo de la respuesta, así que hay que ir a buscarlo. */
+      if (fnError) {
+        let codigo = '';
+        try {
+          const resp = fnError.context;
+          if (resp && typeof resp.json === 'function') {
+            codigo = ((await resp.clone().json()) || {}).error || '';
+          }
+        } catch (_) { /* si no se puede leer, queda el mensaje genérico */ }
+        throw new Error(codigo || fnError.message);
+      }
+
+      /* El éxito se AFIRMA, no se deduce.
+
+         Antes era la salida por descarte: si no había error y no era
+         "ya existe", se daba por bueno. Pero una respuesta 200 que no
+         venga de la función —la página de un proxy de empresa, un
+         portal de wifi— llega aquí como texto suelto, sin `error` y sin
+         `already`, y la persona veía la pantalla de éxito sin haberse
+         suscrito. Ahora se exige que la respuesta diga que sí. */
+      if (!result || typeof result !== 'object'
+          || (result.already !== true && result.already !== false)) {
+        throw new Error('unexpected_response');
+      }
+
+      if (result.already) {
         const status = result.status;
         if (status === 'active') {
           showFieldError('s-email', 'err-email', 'You are already subscribed! Check your inbox for updates.');
@@ -695,33 +755,53 @@
         return;
       }
 
-      const confirmToken = result.confirm_token;
-      const baseUrl = window.location.origin + window.location.pathname.replace('subscribe.html', '');
-      const confirmUrl = `${baseUrl}confirm.html?t=${confirmToken}`;
-
-      try {
-        await emailjs.send(CFG.EMAILJS.SERVICE, CFG.EMAILJS.TEMPLATES.CONFIRM, {
-          player_name: `${first} ${last}`,
-          player_email: email,
-          subject: '✅ Please confirm your Ferocia Sports subscription',
-          confirm_url: confirmUrl,
-        });
-      } catch (emailErr) {
-        console.error('[Ferocia subscribe] Confirmation email failed:', emailErr);
+      /* El correo ya lo mandó el servidor. Si NO pudo, la persona está
+         dada de alta igual y se le enseña la pantalla de éxito, tal
+         como se hacía antes: el alta es lo que cuenta, y el correo se
+         puede reenviar desde el admin (Subscribers → recordatorio de
+         confirmación). Queda anotado en la consola para poder mirarlo. */
+      const salioElCorreo = result.email_ok !== false;
+      if (!salioElCorreo) {
+        console.error('[Ferocia subscribe] El alta se guardó pero el correo de confirmación no salió.');
       }
 
       document.getElementById('form-section').style.display = 'none';
       document.getElementById('confirm-email-shown').textContent = email;
+      document.getElementById('confirm-email-shown-2').textContent = email;
+      /* Dos mensajes distintos, porque son dos situaciones distintas.
+         Decirle "mira tu bandeja" a quien no va a recibir nada la deja
+         esperando y sin confirmar. */
+      document.getElementById('success-normal').style.display = salioElCorreo ? '' : 'none';
+      document.getElementById('success-sin-correo').style.display = salioElCorreo ? 'none' : '';
       document.getElementById('success-screen').style.display = 'block';
 
     } catch (err) {
       console.error('[Ferocia subscribe] Error:', err);
-      if (err.message && err.message.toLowerCase().includes('duplicate')) {
+      /* Los códigos del servidor, traducidos. Sin esto la persona veía
+         literalmente "Something went wrong: falta_nombre", que no
+         significa nada para nadie que no haya escrito este código. */
+      const MENSAJES = {
+        falta_nombre:   'Please enter your first name (letters only).',
+        falta_apellido: 'Please enter your last name (letters only).',
+        email_invalido: 'Please enter a valid email address.',
+        fecha_invalida: 'Please enter a valid date of birth.',
+        cuerpo_invalido:'Something went wrong. Please try again.',
+        alta_fallo:     'Something went wrong on our side. Please try again in a moment.',
+        unexpected:     'Something went wrong on our side. Please try again in a moment.',
+        unexpected_response: 'We could not reach the subscription service. Please try again in a moment.',
+        method_not_allowed:  'Something went wrong. Please try again.',
+      };
+      const m = (err && err.message) || '';
+      if (MENSAJES[m]) {
+        showFieldError('s-email', 'err-email', MENSAJES[m]);
+      } else if (m.toLowerCase().includes('duplicate')) {
         showFieldError('s-email', 'err-email', 'This email is already registered.');
-      } else if (err.message && err.message.toLowerCase().includes('policy')) {
+      } else if (m.toLowerCase().includes('policy')) {
         showFieldError('s-email', 'err-email', 'Subscription temporarily unavailable. Please try again in a moment.');
       } else {
-        showFieldError('s-email', 'err-email', `Something went wrong: ${err.message || 'Please try again.'}`);
+        /* Cualquier otra cosa NO se le enseña tal cual: el mensaje de
+           Supabase es técnico y no le dice nada. Queda en la consola. */
+        showFieldError('s-email', 'err-email', 'Something went wrong. Please try again in a moment.');
       }
       btn.disabled = false;
       btn.textContent = 'Subscribe Now';
