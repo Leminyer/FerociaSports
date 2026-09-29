@@ -45,6 +45,12 @@
   if (!edNotify) console.error('[Ferocia] admin-rich-editor.js must load before admin-email-notifications.js');
   const claveador = window.crearClaveador('ladder');
 
+  /* La casilla de ensayo y la etiqueta del botón van juntas: con la
+     casilla puesta, el botón dice "Send only to me". Un botón que
+     dijera "Send Update" mientras la casilla está marcada
+     diría una cosa y haría otra. */
+  const ensayo = window.vincularEnsayo('notify-only-me', 'notify-send-btn', 'Send Update');
+
   const NOTIFY_TEMPLATES = {
     welcome: {
       subject: '🏓 Welcome to the {{ladder}} — Guidelines & Schedule',
@@ -183,8 +189,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
        La clave, en cambio, NO se renueva si hay una pendiente: un
        envío que falló deja la suya, y reintentar tiene que retomarlo
        en vez de crear otro y duplicar a quien ya recibió. */
-    const chkSolo = document.getElementById('notify-only-me');
-    if (chkSolo) chkSolo.checked = false;
+    ensayo.reset();
     claveador.asegurar();
 
     document.getElementById('notify-modal').classList.add('open');
@@ -312,8 +317,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     if (soloAdmin) {
       /* La ventana se queda abierta a propósito: el ensayo existe para
          mirar el correo y LUEGO enviar de verdad. */
-      const chk = document.getElementById('notify-only-me');
-      if (chk) chk.checked = false;
+      ensayo.reset();
       toast(d.sent
         ? `✅ Rehearsal sent to ${CFG.ADMIN_EMAIL} only. Nobody in the ladder received it. The checkbox is now off — press Send again to notify everyone.`
         : `Rehearsal did not go out: ${window.resumenEnvio(d)}`, !d.sent);

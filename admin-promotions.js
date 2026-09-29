@@ -972,9 +972,7 @@
 
        Lo segundo, porque abrir el modal es lo que distingue "reenviar
        esta campaña a propósito" de "he hecho doble clic". */
-    const chkSolo = document.getElementById('promo-only-me');
-    if (chkSolo) chkSolo.checked = false;
-    actualizarEtiquetaLanzar();
+    ensayo.reset();
 
     /* ⚠️  OJO: la clave NO se renueva aquí si ya hay una pendiente.
 
@@ -1250,27 +1248,11 @@
      comparten las cuatro pantallas que mandan en lote. */
   const claveador = window.crearClaveador('promo');
 
-  /* ─── LA ETIQUETA DEL BOTÓN SIGUE A LA CASILLA ─────────────
-     Un botón que dice "Launch Campaign" mientras la casilla de ensayo
-     está marcada es una trampa: dice una cosa y hace otra. Con la
-     casilla puesta, el botón lo dice.
+  /* La casilla de ensayo y la etiqueta del botón van juntas. El
+     mecanismo vive en admin-email-utils.js: lo comparten las cuatro
+     pantallas que tienen casilla, y así todas dicen lo mismo. */
+  const ensayo = window.vincularEnsayo('promo-only-me', 'promo-send-btn', 'Launch Campaign');
 
-     Se guarda el HTML original una sola vez y se sustituye solo el
-     texto, para no perder el icono.
-
-     ⚠️  El texto "Launch Campaign" tiene que coincidir con el de
-         admin.html. Si allí cambia, aquí hay que cambiarlo también. */
-  let _lanzarHTMLOriginal = null;
-
-  const actualizarEtiquetaLanzar = () => {
-    const btn = document.getElementById('promo-send-btn');
-    if (!btn) return;
-    if (_lanzarHTMLOriginal === null) _lanzarHTMLOriginal = btn.innerHTML;
-    const solo = !!document.getElementById('promo-only-me')?.checked;
-    btn.innerHTML = solo
-      ? _lanzarHTMLOriginal.replace('Launch Campaign', 'Launch — only to me')
-      : _lanzarHTMLOriginal;
-  };
   /* nombreDestinatario() y resumenEnvio() viven en admin-email-utils.js:
      los usan las cuatro pantallas que mandan en lote. */
   const nombreDe = window.nombreDestinatario;
@@ -1422,8 +1404,7 @@
       /* El modal se queda abierto a propósito: el ensayo existe para
          mirar el correo y LUEGO lanzar de verdad. Cerrarlo obligaría a
          escribir la campaña otra vez. */
-      const chk = document.getElementById('promo-only-me');
-      if (chk) { chk.checked = false; actualizarEtiquetaLanzar(); }
+      ensayo.reset();
       toast(d.sent
         ? `✅ Rehearsal sent to ${CFG.ADMIN_EMAIL} only. Nothing went to the list. The checkbox is now off — press Launch again to send for real.`
         : `Rehearsal did not go out: ${resumenEnvio(d)}`, !d.sent);
@@ -1453,7 +1434,6 @@
   // Own these listeners directly (DOM is already parsed by the time this
   // script runs, same as every other listener).
   document.getElementById('promo-form')?.addEventListener('submit', sendPromoEmail);
-  document.getElementById('promo-only-me')?.addEventListener('change', actualizarEtiquetaLanzar);
   document.getElementById('sub-status-filter')?.addEventListener('change', () => { _subsShown = 25; _renderSubsTable(); });
   document.getElementById('sub-search')?.addEventListener('input', () => { _subsShown = 25; _renderSubsTable(); });
   document.getElementById('sub-source-filter')?.addEventListener('change', () => { _subsShown = 25; _renderSubsTable(); });

@@ -37,6 +37,12 @@
   if (!edTNotify) console.error('[Ferocia] admin-rich-editor.js must load before admin-tournament-notify.js');
   const claveador = window.crearClaveador('tourney');
 
+  /* La casilla de ensayo y la etiqueta del botón van juntas: con la
+     casilla puesta, el botón dice "Send only to me". Un botón que
+     dijera "Send Update" mientras la casilla está marcada
+     diría una cosa y haría otra. */
+  const ensayo = window.vincularEnsayo('t-notify-only-me', 't-notify-send-btn', 'Send Update');
+
   // Opens the tournament notify modal, pre-filled with a default subject/message.
   // tournamentId and tournamentName are passed from tournament.js via window.app.
   const openTournamentNotifyModal = async (tournamentId) => {
@@ -130,8 +136,7 @@
 
     /* Casilla de ensayo siempre desmarcada al abrir; la clave sólo se
        pone si no hay ninguna pendiente (ver admin-email-utils.js). */
-    const chkSolo = document.getElementById('t-notify-only-me');
-    if (chkSolo) chkSolo.checked = false;
+    ensayo.reset();
     claveador.asegurar();
 
     modal.classList.add('open');
@@ -230,8 +235,7 @@
     console.log('[tournament-notify] resultado del envio:', d);
 
     if (soloAdmin) {
-      const chk = document.getElementById('t-notify-only-me');
-      if (chk) chk.checked = false;
+      ensayo.reset();
       toast(d.sent
         ? `✅ Rehearsal sent to ${CFG.ADMIN_EMAIL} only. No player received it. The checkbox is now off — press Send again to notify everyone.`
         : `Rehearsal did not go out: ${window.resumenEnvio(d)}`, !d.sent);

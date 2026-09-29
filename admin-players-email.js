@@ -44,6 +44,12 @@
   if (!edPlayers) console.error('[Ferocia] admin-rich-editor.js must load before admin-players-email.js');
   const claveador = window.crearClaveador('players');
 
+  /* La casilla de ensayo y la etiqueta del botón van juntas: con la
+     casilla puesta, el botón dice "Send only to me". Un botón que
+     dijera "Send to All Players" mientras la casilla está marcada
+     diría una cosa y haría otra. */
+  const ensayo = window.vincularEnsayo('pe-only-me', 'pe-send-btn', 'Send to All Players');
+
   /* La estimación de minutos que había aquí se quitó porque era FALSA:
      calculaba la pausa del navegador entre envío y envío, y esa pausa
      ya no existe. Decir "tarda 4 minutos, no cierres la ventana"
@@ -92,14 +98,16 @@
 
     /* Casilla de ensayo siempre desmarcada al abrir; la clave sólo se
        pone si no hay ninguna pendiente (ver admin-email-utils.js). */
-    const chkSolo = document.getElementById('pe-only-me');
-    if (chkSolo) chkSolo.checked = false;
     claveador.asegurar();
 
     const btn = document.getElementById('pe-send-btn');
     btn.disabled = false;
     btn.style.background = 'linear-gradient(180deg,#2456d3,var(--blue))';
-    btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Send to All Players`;
+    /* El TEXTO del botón lo pone ensayo.reset(), y sólo él. Aquí había
+       además un innerHTML con el mismo icono y el mismo texto escritos
+       a mano: dos sitios para lo mismo es como acaban diciendo cosas
+       distintas. Va después, para que sea el último en hablar. */
+    ensayo.reset();
 
     document.getElementById('players-email-modal').classList.add('open');
   };
@@ -205,8 +213,7 @@
     console.log('[players-email] resultado del envio:', d);
 
     if (soloAdmin) {
-      const chk = document.getElementById('pe-only-me');
-      if (chk) chk.checked = false;
+      ensayo.reset();
       toast(d.sent
         ? `✅ Rehearsal sent to ${CFG.ADMIN_EMAIL} only. No player received it. The checkbox is now off — press Send again to email everyone.`
         : `Rehearsal did not go out: ${window.resumenEnvio(d)}`, !d.sent);

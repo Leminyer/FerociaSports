@@ -180,6 +180,57 @@
     };
   }
 
+  /* ════════════════════════════════════════════════════════════
+     LA CASILLA DE ENSAYO Y EL BOTÓN VAN JUNTOS
+
+     Un botón que dice "Send to All Players" mientras la casilla de
+     ensayo está marcada es una trampa: dice una cosa y hace otra. Con
+     la casilla puesta, el botón lo dice — y dice LO MISMO que la
+     casilla, palabra por palabra, para que no haya que interpretar
+     nada.
+
+     Se guarda el HTML original una sola vez y se sustituye sólo el
+     texto, así el icono no se pierde.
+
+     Vive aquí porque son cuatro pantallas con casilla. Escrito cuatro
+     veces, a la tercera ya no dirían lo mismo.
+     ════════════════════════════════════════════════════════════ */
+
+  const ETIQUETA_ENSAYO = 'Send only to me';
+
+  /**
+   * @param {string} casillaId  la casilla "Send only to me"
+   * @param {string} botonId    el botón de enviar
+   * @param {string} textoNormal  el texto que el botón trae escrito en
+   *        admin.html — tiene que coincidir EXACTAMENTE, o el cambio
+   *        no encuentra qué sustituir.
+   * @returns {{sync:function, reset:function}}
+   */
+  function vincularEnsayo(casillaId, botonId, textoNormal) {
+    const chk = document.getElementById(casillaId);
+    const btn = document.getElementById(botonId);
+    if (!chk || !btn) return { sync: () => {}, reset: () => {} };
+
+    const original = btn.innerHTML;
+    if (original.indexOf(textoNormal) === -1) {
+      /* Si el texto de admin.html cambia y aquí no, el botón se
+         quedaría sin avisar del ensayo y nadie se enteraría. Mejor
+         que se vea en la consola. */
+      console.warn(`[Ferocia] "${textoNormal}" no está en #${botonId}: la etiqueta de ensayo no cambiará`);
+    }
+
+    const sync = () => {
+      btn.innerHTML = chk.checked
+        ? original.replace(textoNormal, ETIQUETA_ENSAYO)
+        : original;
+    };
+    chk.addEventListener('change', sync);
+
+    /** Al abrir la ventana, y después de un ensayo. */
+    const reset = () => { chk.checked = false; sync(); };
+    return { sync, reset, original };
+  }
+
   /* ─── EL NOMBRE PARA EL SALUDO ─────────────────────────────
      `[a, b].filter(Boolean).join(' ')` y no `${a} ${b}`: alguien sin
      apellido salía saludado como "Hi Ana null," porque la
@@ -294,4 +345,5 @@
   window.crearClaveador  = crearClaveador;
   window.nombreDestinatario = nombreDestinatario;
   window.resumenEnvio       = resumenEnvio;
+  window.vincularEnsayo     = vincularEnsayo;
 })();
