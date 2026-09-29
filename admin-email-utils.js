@@ -22,16 +22,17 @@
          Shared boolean guard so a page navigation mid-send can warn
          the user, no matter which feature is currently sending.
 
-   ── SE ACABÓ EMAILJS EN EL ADMIN ──────────────────────────────────
+   ── SE ACABÓ EMAILJS, EN TODA LA APLICACIÓN ───────────────────────
    Aquí vivía `sendOneEmail`, que mandaba un correo por EmailJS desde
    el navegador. Las cinco pantallas que mandan correo ya pasan por el
    servidor, así que no la llamaba nadie: se fue, y con ella el
    <script> de EmailJS de admin.html.
 
-   Queda UN sitio con EmailJS en toda la aplicación: subscribe.html,
-   el formulario público. Ahí no hay ningún admin autenticado, así que
-   no puede usar esta función — necesita una suya, pública y de un
-   solo propósito. Hasta entonces las claves siguen en config.js.
+   El formulario público (subscribe.html) fue el último en migrar. No
+   puede usar ESTA función, porque ahí no hay ningún admin con sesión,
+   así que tiene la suya: `subscribe-confirm`, pública y de un solo
+   propósito. Con eso el bloque de claves salió de config.js, y ya no
+   queda ni una credencial de proveedor en el navegador.
 
    Lo que se gana al mandar por el servidor:
      · La clave del proveedor no está en el navegador. Es un secreto de
@@ -81,15 +82,11 @@
     sin_destinatarios:        'There is nobody to send to.',
     demasiados_destinatarios: 'Too many recipients for one send (limit is 1000). Nothing was sent.',
     ningun_email_valido:      'None of the addresses are valid. Nothing was sent.',
-    test_email_invalido:      'That test address is not a valid email.',
-
-    resend_failed: 'The email provider rejected the request. Nothing was sent.',
 
     no_se_pudo_crear:  'Server error creating the send record. Nothing was sent.',
     idempotencia_rota: 'Server error checking for a duplicate send. Nothing was sent.',
     lectura_fallo:     'Server error reading the recipient list. Check the Supabase logs.',
     snapshot_fallo:    'Server error writing the recipient list. Check the Supabase logs.',
-    reserva_fallo:     'Server error reserving recipients. Check the Supabase logs.',
     unexpected:        'Unexpected server error. Check the Supabase logs.',
 
     network:   'Could not reach the server. Check your connection, then try again.',
@@ -141,8 +138,7 @@
    *
    * @param {object} payload  Lo que espera la función: kind, template,
    *                          subject, body, meta, recipients[], y
-   *                          opcionalmente idempotency_key — o bien
-   *                          preview:true / test_email.
+   *                          opcionalmente idempotency_key.
    * @returns {Promise<{ok:boolean, data?:object, code?:string|null,
    *                    status?:number|null, detail?:string, message:string}>}
    *

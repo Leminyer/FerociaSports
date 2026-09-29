@@ -28,30 +28,8 @@ window.FEROCIA_CONFIG = Object.freeze({
     FREE_THRESHOLD_CENTS: 7500,    // $75.00 free shipping threshold
   }),
 
-  EMAILJS: Object.freeze({
-    SERVICE: 'service_b9yh0p3',
-    PUBLIC_KEY: '6_1uofjtAIBjdqqrn',
-    TEMPLATES: Object.freeze({
-      LADDER_NOTIFY: 'template_whqzhfb',
-      PROMO:         'template_bi5i16p',
-      CONFIRM:       'template_zr9ihxl',
-      // Plain message with no leaderboard button — used by the per-player
-      // "Send Message" action and by Email All Players. LADDER_NOTIFY was
-      // being reused for those, which sent people a "View Leaderboard"
-      // button that made no sense outside a ladder.
-      MESSAGE:       'template_ferocia_message',
-    }),
-  }),
-
   // Admin email — receives a copy of ladder notify, tournament notify, and promo emails
   // so the admin can verify the email looks correct and confirm delivery.
   // Not added to subscription confirmation emails.
   ADMIN_EMAIL: 'contact@ferociasports.com',
-
-  // Throttle between EmailJS sends to stay under their rate limit
-  // and give the user visible progress feedback.
-  EMAIL_THROTTLE_MS: 600,
-
-  // Retry once on failure with this delay
-  EMAIL_RETRY_DELAY_MS: 2000,
 });
