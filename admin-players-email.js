@@ -37,6 +37,10 @@
   // list cannot change between what the admin was told and what is sent.
   let _peRecipients = [];
   let _peSkipped    = 0;
+  /* El temporizador que cierra la ventana 1,4 s despues de un envio
+     bien hecho. Se guarda para poder cancelarlo si ella vuelve a
+     abrir la ventana dentro de ese rato. */
+  let _peCierre     = null;
 
   /* Compartidos con las otras cuatro pantallas que mandan correo. */
   const edPlayers = window.FerociaEditor
@@ -66,6 +70,12 @@
        todavía no ha contestado. Si sale parcial, el texto que hace
        falta para reintentar ya no existe. */
     if (window.envioEnCurso && window.envioEnCurso('abrir')) return;
+
+    /* Si el envio anterior dejo armado el cierre de 1,4 s, se anula:
+       si no, cerraria esta ventana que se acaba de abrir y soltaria
+       el aviso del envio ANTERIOR encima del mensaje nuevo. */
+    if (_peCierre) { clearTimeout(_peCierre); _peCierre = null; }
+
     let players = [];
     try {
       players = await api('players?status=eq.active&select=id,first_name,last_name,email&order=first_name');
@@ -193,7 +203,8 @@
       ? 'Sending rehearsal to you...'
       : `Sending to ${recipients.length} people...`;
     window.AdminState.emailInFlight = true;
-    ensayo.bloquear(true);
+    /* El `ensayo.bloquear(true)` ya se hizo arriba, en cuanto se leyó la
+       casilla. Aquí sobraba. */
 
     let r;
     try {
@@ -257,9 +268,8 @@
        que el propio aviso pide —"Press Send again to retry the ones
        that failed"— abría una campaña NUEVA: el servidor ya no sabía
        que esas personas tenían el correo, y TODAS recibían otra copia. */
-    if (limpio) claveador.limpiar();
-
     if (limpio) {
+      claveador.limpiar();
       sendBtn.style.background = 'linear-gradient(180deg,#2ab87a,#1d9e68)';
       sendBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Sent ${d.sent} emails!`;
       /* El botón se APAGA durante el aviso verde. El `finally` de arriba
@@ -267,18 +277,18 @@
          "Sent 50 emails!" y seguía siendo pulsable: un clic ahí
          arrancaba la campaña entera por segunda vez. */
       sendBtn.disabled = true;
-      setTimeout(() => {
+      /* El temporizador se GUARDA para poder cancelarlo. Durante estos
+         1,4 s `emailInFlight` ya es false, así que ella puede volver a
+         abrir la ventana para escribir otro mensaje — y entonces este
+         temporizador se la cerraba en las narices, con un aviso del
+         envío ANTERIOR. openPlayersEmail() lo cancela. */
+      _peCierre = setTimeout(() => {
+        _peCierre = null;
         document.getElementById('players-email-modal').classList.remove('open');
         ensayo.sync();   // por la casilla real, no por una foto
         sendBtn.disabled = false;
         sendBtn.style.background = 'linear-gradient(180deg,#2456d3,var(--blue))';
-        /* El MISMO número que el botón, y la misma frase que las otras
-           tres pantallas. Antes decía `d.sent - 1` para descontar tu
-           copia, y salían dos números distintos con 1,4 s de diferencia
-           ("Sent 51 emails!" y luego "sent to 50 players"). Además el
-           -1 mentía cuando tu dirección está además en la lista: el
-           servidor la manda una sola vez, así que d.sent ya era 50. */
-        toast(`✅ ${d.sent} email${d.sent === 1 ? '' : 's'} sent successfully!`);
+        toast(window.mensajeExito(d));
       }, 1400);
     } else {
       /* La ventana NO se cierra: si algo falló, el mensaje escrito sigue

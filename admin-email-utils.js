@@ -57,6 +57,12 @@
 
   const FUNCION = 'send-email';
 
+  /* Cuánto se espera al servidor antes de dejar de esperarlo. Una
+     campaña de 460 va en lotes de 100 y tarda segundos, no minutos, así
+     que tres minutos es de sobra: esto no está para cortar un envío
+     lento, sino para que uno colgado no congele el admin. */
+  const TOPE_MS = 180000;
+
   /* Lo que se le enseña al admin cuando algo falla.
 
      El código de error que devuelve la función es para nosotros; a la
@@ -155,7 +161,29 @@
 
     let data, error;
     try {
-      ({ data, error } = await sb.functions.invoke(FUNCION, { body: payload }));
+      /* CON LÍMITE DE TIEMPO, y no por capricho.
+
+         Mientras esta llamada no conteste, `emailInFlight` sigue en
+         true, y con eso las ventanas de correo no se dejan cerrar ni
+         reabrir (ver envioEnCurso). Sin un tope, una petición que se
+         queda colgada —arranque en frío atascado, un proxy que no
+         suelta el socket, wifi que ni falla ni responde— dejaba el
+         admin congelado detrás de una capa a pantalla completa, sin
+         más salida que recargar.
+
+         No se puede cancelar la petición de verdad (functions.invoke
+         no acepta una señal de aborto), así que lo que se hace es
+         DEJAR DE ESPERARLA. El envío puede seguir su curso en el
+         servidor: por eso el mensaje es el mismo que el de la red
+         caída, el que a propósito NO promete que no se mandó nada.
+         Reintentar es seguro — la misma idempotency_key retoma la
+         misma campaña y nadie recibe dos copias. */
+      const conTope = new Promise((_, rechaza) =>
+        setTimeout(() => rechaza(new Error(`sin respuesta en ${TOPE_MS / 1000}s`)), TOPE_MS));
+      ({ data, error } = await Promise.race([
+        sb.functions.invoke(FUNCION, { body: payload }),
+        conTope,
+      ]));
     } catch (e) {
       /* Se cayó la red, o la petición no llegó a salir.
 
@@ -277,6 +305,39 @@
     return partes.length ? partes.join(', ') : 'nothing to send';
   }
 
+  /**
+   * El aviso verde cuando un envío sale bien. UNO solo, para las cuatro
+   * pantallas, porque las cuatro se equivocaban de tres maneras:
+   *
+   * 1. Un REINTENTO contaba sólo lo reintentado. Tras un parcial de una
+   *    campaña de 460, el segundo intento decía "3 emails sent" y
+   *    cerraba la ventana: por pantalla no había forma de saber si
+   *    habían recibido 3 personas o 463.
+   * 2. Cuando ya estaba todo mandado, el servidor contesta sent:0 con
+   *    estado 'sent' — y salía un "✅ 0 emails sent successfully!".
+   *    Pasa de verdad: se pierde la respuesta, ella reintenta, y el
+   *    servidor ve que no queda nada por hacer.
+   * 3. `d.sent` incluye TU copia, así que tras aprobar "Send to 50"
+   *    el aviso decía 51. Ahora se nombra la copia en vez de callarla.
+   *
+   * @param   {object} d  lo que contesta la Edge Function
+   * @returns {string}    el texto del aviso
+   */
+  function mensajeExito(d) {
+    const nuevos = d.sent || 0;
+    const antes  = d.already_sent || 0;
+    const total  = nuevos + antes;
+
+    if (!nuevos && antes) {
+      return `Everyone had already received this — nothing new was sent.`;
+    }
+    if (antes) {
+      return `✅ Sent to the remaining ${nuevos}. ${total} people have now received it.`;
+    }
+    if (!nuevos) return `Nothing was sent — there was nobody to send to.`;
+    return `✅ Sent successfully — ${nuevos} email${nuevos === 1 ? '' : 's'}, your copy included.`;
+  }
+
   /* ════════════════════════════════════════════════════════════
      CONTRA EL ENVÍO DUPLICADO
 
@@ -368,9 +429,15 @@
     /* `toast` se busca AL LLAMAR, no al cargar: este archivo se carga
        antes que app.js, que es quien lo publica en window. */
     const aviso = window.toast || ((m) => console.warn('[Ferocia]', m));
+    /* El mensaje NO dice "este envío", porque `emailInFlight` es uno
+       solo para todo el admin: el que está corriendo puede ser el de
+       otra pantalla — un newsletter, por ejemplo. Si dijera "este",
+       ella leería "aquí no estoy mandando nada" y pensaría que la
+       pantalla está rota. Diciendo "somewhere in the admin" sabe dónde
+       mirar. */
     aviso(que === 'abrir'
-      ? 'An email is still being sent. Please wait for it to finish before opening this again.'
-      : 'Emails are still being sent. Please wait for it to finish.', true);
+      ? 'A send is still running somewhere in the admin. Please wait for it to finish before opening this again.'
+      : 'A send is still running somewhere in the admin. Please wait for it to finish.', true);
     return true;
   }
 
@@ -388,6 +455,7 @@
   window.crearClaveador  = crearClaveador;
   window.nombreDestinatario = nombreDestinatario;
   window.resumenEnvio       = resumenEnvio;
+  window.mensajeExito       = mensajeExito;
   window.vincularEnsayo     = vincularEnsayo;
   window.envioEnCurso       = envioEnCurso;
 })();

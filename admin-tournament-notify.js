@@ -46,6 +46,11 @@
   // Opens the tournament notify modal, pre-filled with a default subject/message.
   // tournamentId and tournamentName are passed from tournament.js via window.app.
   const openTournamentNotifyModal = async (tournamentId) => {
+    /* Reabrir la ventana con un envío en curso limpiaba el composer y
+       se llevaba por delante el asunto y el mensaje de ESE envío, que
+       todavía no ha contestado. Si sale parcial, el texto que hace
+       falta para reintentar ya no existe. */
+    if (window.envioEnCurso && window.envioEnCurso('abrir')) return;
     if (!tournamentId) { toast('No tournament selected.', true); return; }
 
     // Fetch tournament name + all teams in parallel
@@ -279,7 +284,7 @@
     if (limpio) {
       claveador.limpiar();   // el siguiente aviso será uno nuevo
       closeTournamentNotifyModal();
-      toast(`✅ ${d.sent} email${d.sent === 1 ? '' : 's'} sent successfully!`);
+      toast(window.mensajeExito(d));
     } else {
       console.warn('[tournament-notify] no salio limpio:', d);
       toast(`Finished: ${window.resumenEnvio(d)}. Press Send again to retry the ones that failed.`, true);
@@ -293,6 +298,12 @@
   // ── Register with the shared infrastructure ───────────────────────────
   window.openTournamentNotifyModal = openTournamentNotifyModal; // for window.app, built in app.js's BOOT
   Object.assign(window.CLICK_HANDLERS, {
-    closeTournamentNotifyModal: () => closeTournamentNotifyModal(),
+    /* Aquí y no dentro de la función: el cierre automático que hace
+       el propio envío al terminar tiene que seguir funcionando. Lo que
+       se protege es el botón X, que es por donde entra la persona. */
+    closeTournamentNotifyModal: () => {
+      if (window.envioEnCurso && window.envioEnCurso()) return;
+      closeTournamentNotifyModal();
+    },
   });
 })();

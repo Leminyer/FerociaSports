@@ -865,6 +865,11 @@
   };
 
   const openSendPromo = async () => {
+    /* Reabrir la ventana con un envío en curso limpiaba el composer y
+       se llevaba por delante el asunto y el mensaje de ESE envío, que
+       todavía no ha contestado. Si sale parcial, el texto que hace
+       falta para reintentar ya no existe. */
+    if (window.envioEnCurso && window.envioEnCurso('abrir')) return;
     const modal = document.getElementById('promo-modal');
     if (!modal) return;
 
@@ -1461,7 +1466,7 @@
          lanzar la misma campaña más tarde chocaría con la de este
          envío y no mandaría nada. */
       claveador.limpiar();
-      toast(`✅ Campaign launched! ${d.sent} email${d.sent === 1 ? '' : 's'} sent.`);
+      toast(`Campaign launched! ${window.mensajeExito(d)}`);
     } else {
       console.warn('[promotions] no salio limpio:', d);
       toast(`Campaign finished: ${resumenEnvio(d)}. Press Launch again to retry the ones that failed.`, true);

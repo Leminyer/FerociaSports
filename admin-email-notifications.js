@@ -155,6 +155,11 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
   };
 
   const openNotifyPlayers = () => {
+    /* Reabrir la ventana con un envío en curso limpiaba el composer y
+       se llevaba por delante el asunto y el mensaje de ESE envío, que
+       todavía no ha contestado. Si sale parcial, el texto que hace
+       falta para reintentar ya no existe. */
+    if (window.envioEnCurso && window.envioEnCurso('abrir')) return;
     if (!AdminState.currentLadder) {
       toast('Please select a ladder first.', true);
       return;
@@ -361,7 +366,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     if (limpio) {
       claveador.limpiar();   // el siguiente aviso será uno nuevo
       document.getElementById('notify-modal').classList.remove('open');
-      toast(`✅ ${d.sent} email${d.sent === 1 ? '' : 's'} sent successfully!`);
+      toast(window.mensajeExito(d));
     } else {
       console.warn('[ladder-notify] no salio limpio:', d);
       toast(`Finished: ${window.resumenEnvio(d)}. Press Send again to retry the ones that failed.`, true);

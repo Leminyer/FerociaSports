@@ -2235,9 +2235,25 @@
   if (!edPP) console.error('[Ferocia] admin-rich-editor.js must load before admin-player-profile.js');
 
   const ppSendMessage = () => {
+    /* Reabrir la ventana con un envío en curso limpiaba el composer y
+       se llevaba por delante el asunto y el mensaje de ESE envío, que
+       todavía no ha contestado. Si sale parcial, el texto que hace
+       falta para reintentar ya no existe. */
+    if (window.envioEnCurso && window.envioEnCurso('abrir')) return;
     if (!_ppCurrent?.p?.email) { toast('This player has no email on file.', true); return; }
+    /* El MISMO nombre que va en el correo, no otro armado a mano aquí.
+       Pegando first_name y last_name sin más, un jugador sin apellido
+       salía como "To: Bob null (bob@x.com)" — justo en la ventana donde
+       lo único que hay que comprobar antes de mandar es a quién va. */
+    const nombre = window.nombreDestinatario
+      ? window.nombreDestinatario(_ppCurrent.p)
+      /* Si admin-email-utils.js no llegó a cargar, esto NO puede
+         reventar: sin la comprobación la ventana ni se abriría y el
+         botón parecería muerto, que es bastante peor que un nombre
+         mal puesto. */
+      : [_ppCurrent.p.first_name, _ppCurrent.p.last_name].filter(Boolean).join(' ');
     document.getElementById('pp-email-recipient').textContent =
-      `To: ${_ppCurrent.p.first_name} ${_ppCurrent.p.last_name} (${_ppCurrent.p.email})`;
+      `To: ${nombre} (${_ppCurrent.p.email})`;
     document.getElementById('pp-email-subject').value = '';
     if (edPP) edPP.clear();
     document.getElementById('pp-email-modal').classList.add('open');
@@ -2384,7 +2400,13 @@
     ppResendSmsVerification:   () => ppResendSmsVerification(),
     ppResetPlayerDna:          () => ppResetPlayerDna(),
     ppSendMessage:  () => ppSendMessage(),
-    ppCloseEmailModal: () => ppCloseEmailModal(),
+    /* Aquí y no dentro de la función: el cierre automático que hace
+       el propio envío al terminar tiene que seguir funcionando. Lo que
+       se protege es el botón X, que es por donde entra la persona. */
+    ppCloseEmailModal: () => {
+      if (window.envioEnCurso && window.envioEnCurso()) return;
+      ppCloseEmailModal();
+    },
     ppToggleNoteForm: () => ppToggleNoteForm(),
     ppSaveNote: () => ppSaveNote(),
     ppLogLateCancellation: () => ppLogLateCancellation(),
