@@ -4,10 +4,17 @@
    Load order: admin-state.js -> admin-email-utils.js ->
                admin-tournament-notify.js -> app.js -> tournament.js
 
-   Extracted from app.js's TOURNAMENT NOTIFY section. Uses the shared
-   sendOneEmail()/AdminState.emailInFlight from admin-email-utils.js
-   instead of a private copy (this section never had its own — it was
-   already sharing app.js's, so this preserves that exactly).
+   Extracted from app.js's TOURNAMENT NOTIFY section.
+
+   ── EL ENVÍO PASA POR EL SERVIDOR ─────────────────────────────────
+   Ya NO usa EmailJS. Manda con sendEmailServer() de
+   admin-email-utils.js: una sola petición para todo el torneo, la
+   clave del proveedor fuera del navegador, y registro persona a
+   persona. El mensaje se escribe con formato y viaja como HTML, que
+   el servidor filtra antes de pintarlo.
+
+   Hay UN solo camino de envío. La casilla "Send only to me" es ese
+   mismo camino con la lista reducida a una dirección.
 
    openTournamentNotifyModal is called by tournament.js via
    window.app.openTournamentNotifyModal — exposed as a plain global
@@ -23,6 +30,12 @@
     console.error('[Ferocia] config.js must load before admin-tournament-notify.js');
     return;
   }
+
+  /* Compartidos con las otras cuatro pantallas que mandan correo. */
+  const edTNotify = window.FerociaEditor
+    ? window.FerociaEditor.mount('t-notify-message', { barraId: 't-notify-fmt-bar' }) : null;
+  if (!edTNotify) console.error('[Ferocia] admin-rich-editor.js must load before admin-tournament-notify.js');
+  const claveador = window.crearClaveador('tourney');
 
   // Opens the tournament notify modal, pre-filled with a default subject/message.
   // tournamentId and tournamentName are passed from tournament.js via window.app.
@@ -94,14 +107,33 @@
     // Pre-fill default subject and message
     document.getElementById('t-notify-subject').value =
       `🏆 ${tournamentName} — Your Results Are Ready`;
-    document.getElementById('t-notify-message').value =
-      `Hi {{player_name}},\n\nThe results for ${tournamentName} are now available. Click the link below to view your standings, bracket results, and more.\n\nThank you for participating and congratulations to all players on a great tournament!\n\nFerocia Sports Center`;
+    /* SIN el "Hi {{player_name}}," que llevaba antes, por dos motivos:
+
+       · La plantilla del correo YA saluda por el nombre, arriba del
+         mensaje. Con esa línea el nombre salía dos veces.
+       · No hay que escribir variables a mano. Quien redacte esto
+         mañana no tiene por qué saber qué es {{player_name}}.
+
+       Si alguien la escribe igualmente, el servidor la sigue
+       sustituyendo: se quitó del texto por defecto, no del sistema. */
+    if (edTNotify) edTNotify.setHTML(window.FerociaEditor.textoAHTML(
+      `The results for ${tournamentName} are now available. `
+      + `Click the link below to view your standings, bracket results, and more.`
+      + `\n\nThank you for participating and congratulations to all players `
+      + `on a great tournament!\n\nFerocia Sports Center`));
 
     // Store on modal for use by sendTournamentNotify
     const modal = document.getElementById('tournament-notify-modal');
     modal._tournamentId = tournamentId;
     modal._tournamentName = tournamentName;
     modal._emailPlayers = emailPlayers;
+
+    /* Casilla de ensayo siempre desmarcada al abrir; la clave sólo se
+       pone si no hay ninguna pendiente (ver admin-email-utils.js). */
+    const chkSolo = document.getElementById('t-notify-only-me');
+    if (chkSolo) chkSolo.checked = false;
+    claveador.asegurar();
+
     modal.classList.add('open');
   };
 
@@ -109,130 +141,111 @@
     document.getElementById('tournament-notify-modal').classList.remove('open');
   };
 
-  // Sends the subject/message currently in the form to the admin only, so
-  // they can preview exactly how it'll look before notifying real players.
-  const sendTestTournamentNotifyEmail = async () => {
-    if (window.AdminState.emailInFlight) { toast('Please wait for the current send to finish.', true); return; }
-
-    const modal = document.getElementById('tournament-notify-modal');
-    const { _tournamentId, _tournamentName } = modal;
-    if (!_tournamentId) { toast('No tournament selected.', true); return; }
-
-    const subject = document.getElementById('t-notify-subject').value.trim();
-    const message = document.getElementById('t-notify-message').value.trim();
-    if (!subject || !message) {
-      toast('Please fill in subject and message before sending a test.', true);
-      return;
-    }
-
-    const baseTourneyUrl =
-      window.location.origin + window.location.pathname.replace('admin.html', '') + 'tournament-results.html';
-    const resultsUrl = `${baseTourneyUrl}?t=${btoa(String(_tournamentId))}`;
-    const testMsg = message.replace('{{player_name}}', 'Ferocia Admin');
-
-    const testBtn = document.getElementById('t-notify-test-btn');
-    const origHTML = testBtn.innerHTML;
-    testBtn.disabled = true;
-    testBtn.innerHTML = 'Sending test...';
-
-    try {
-      emailjs.init({ publicKey: CFG.EMAILJS.PUBLIC_KEY });
-      const ok = await window.sendOneEmail(CFG.EMAILJS.SERVICE, CFG.EMAILJS.TEMPLATES.LADDER_NOTIFY, {
-        player_name: 'Ferocia Admin',
-        player_email: CFG.ADMIN_EMAIL,
-        email_title: _tournamentName || 'Tournament',
-        subject: `[TEST] ${subject}`,
-        message: testMsg,
-        leaderboard_url: resultsUrl,
-      });
-      if (ok) {
-        toast(`✅ Test email sent to ${CFG.ADMIN_EMAIL}`);
-      } else {
-        toast('Test email failed. Check your EmailJS config.', true);
-      }
-    } catch (err) {
-      toast(`Error: ${err.message}`, true);
-    } finally {
-      testBtn.disabled = false;
-      testBtn.innerHTML = origHTML;
-    }
-  };
-
   const sendTournamentNotify = async (e) => {
     e.preventDefault();
+    if (window.AdminState.emailInFlight) { toast('Please wait for the current send to finish.', true); return; }
+
     const modal = document.getElementById('tournament-notify-modal');
     const { _tournamentId, _tournamentName, _emailPlayers } = modal;
     if (!_tournamentId || !_emailPlayers?.length) return;
 
     const subject = document.getElementById('t-notify-subject').value.trim();
-    const message = document.getElementById('t-notify-message').value.trim();
-    if (!subject || !message) { toast('Please fill in subject and message.', true); return; }
+    const message = edTNotify ? edTNotify.getHTML() : '';
+    const texto   = edTNotify ? edTNotify.getText() : '';
+    if (!subject || !texto) { toast('Please fill in subject and message.', true); return; }
 
-    // Build tournament results URL
+    const soloAdmin = !!document.getElementById('t-notify-only-me')?.checked;
+
     const baseTourneyUrl =
       window.location.origin + window.location.pathname.replace('admin.html', '') + 'tournament-results.html';
     const resultsUrl = `${baseTourneyUrl}?t=${btoa(String(_tournamentId))}`;
 
+    const copiaAdmin = { email: CFG.ADMIN_EMAIL, name: 'Ferocia Admin' };
+
+    let recipients;
+    if (soloAdmin) {
+      recipients = [copiaAdmin];
+    } else {
+      recipients = [
+        ..._emailPlayers.map((p) => ({
+          email: p.email,
+          name:  window.nombreDestinatario(p),
+          player_id: p.id,
+        })),
+        copiaAdmin,
+      ];
+
+      const cuantos = _emailPlayers.length;
+      const seguro = await confirmModal({
+        title:   `Notify ${cuantos} player${cuantos === 1 ? '' : 's'}?`,
+        message: `"${subject}" will be emailed to ${cuantos} player`
+               + `${cuantos === 1 ? '' : 's'} from ${_tournamentName}`
+               + `, plus a copy to you. This cannot be undone.`
+               + `\n\nTo check it first, cancel and use "Send only to me".`,
+        okLabel: `Send to ${cuantos}`,
+        cancelLabel: 'Cancel',
+        danger: true,
+      });
+      if (!seguro) return;
+    }
+
     const sendBtn = document.getElementById('t-notify-send-btn');
     const sendBtnOrigText = sendBtn.innerHTML;
     sendBtn.disabled = true;
-    sendBtn.textContent = 'Sending...';
+    sendBtn.innerHTML = soloAdmin
+      ? 'Sending rehearsal to you...'
+      : `Sending to ${recipients.length} people...`;
     window.AdminState.emailInFlight = true;
 
-    emailjs.init({ publicKey: CFG.EMAILJS.PUBLIC_KEY });
-    let sent = 0;
-    const failedRecipients = [];
-
-    // Add admin as last recipient to receive a copy and verify delivery
-    const allTourneyRecipients = [
-      ..._emailPlayers,
-      { first_name: 'Ferocia', last_name: 'Admin', email: CFG.ADMIN_EMAIL },
-    ];
-
-    for (const player of allTourneyRecipients) {
-      const playerMsg = message.replace('{{player_name}}', `${player.first_name} ${player.last_name}`);
-      const ok = await window.sendOneEmail(CFG.EMAILJS.SERVICE, CFG.EMAILJS.TEMPLATES.LADDER_NOTIFY, {
-        player_name: `${player.first_name} ${player.last_name}`,
-        player_email: player.email,
-        email_title: _tournamentName,
+    let r;
+    try {
+      r = await window.sendEmailServer({
+        kind:     'tournament_notify',
+        template: 'notify',
         subject,
-        message: playerMsg,
-        leaderboard_url: resultsUrl,
+        body: message,
+        meta: {
+          email_title: _tournamentName,
+          leaderboard_url: resultsUrl,
+          cuerpo_html: true,
+          ...(soloAdmin ? { solo_admin: true } : {}),
+        },
+        recipients,
+        idempotency_key: soloAdmin ? null
+          : await claveador.clave([_tournamentId, subject, message]),
       });
-      if (ok) sent++;
-      else failedRecipients.push(player.email);
-      sendBtn.textContent = `Sending... ${sent + failedRecipients.length}/${allTourneyRecipients.length}`;
-      if (sent + failedRecipients.length < allTourneyRecipients.length) {
-        await sleep(CFG.EMAIL_THROTTLE_MS);
-      }
+    } finally {
+      window.AdminState.emailInFlight = false;
+      sendBtn.disabled = false;
+      sendBtn.innerHTML = sendBtnOrigText;
     }
 
-    window.AdminState.emailInFlight = false;
-
-    // Show completion state before closing
-    if (!failedRecipients.length) {
-      sendBtn.style.background = 'linear-gradient(180deg,#2ab87a,#1d9e68)';
-      sendBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Sent ${sent} emails!`;
-    } else {
-      sendBtn.style.background = 'linear-gradient(180deg,var(--orange),#d44e10)';
-      sendBtn.innerHTML = `⚠ Sent ${sent}, ${failedRecipients.length} failed`;
+    if (!r.ok) {
+      console.error('[tournament-notify] send failed:', r);
+      toast(r.message, true);
+      return;   // la ventana se queda abierta: no se pierde el mensaje
     }
 
-    await sleep(2000);
-    sendBtn.disabled = false;
-    sendBtn.innerHTML = sendBtnOrigText;
-    // Same bug as in admin-email-notifications.js: clearing style.background
-    // wipes the inline gradient declared in admin.html and leaves the button
-    // transparent. Restore it explicitly.
-    sendBtn.style.background = 'linear-gradient(180deg,#2456d3,var(--blue))';
+    const d = r.data || {};
+    console.log('[tournament-notify] resultado del envio:', d);
+
+    if (soloAdmin) {
+      const chk = document.getElementById('t-notify-only-me');
+      if (chk) chk.checked = false;
+      toast(d.sent
+        ? `✅ Rehearsal sent to ${CFG.ADMIN_EMAIL} only. No player received it. The checkbox is now off — press Send again to notify everyone.`
+        : `Rehearsal did not go out: ${window.resumenEnvio(d)}`, !d.sent);
+      return;
+    }
+
+    claveador.limpiar();
     closeTournamentNotifyModal();
 
-    if (!failedRecipients.length) {
-      toast(`✅ ${sent} emails sent successfully!`);
+    const limpio = d.status === 'sent' && !d.failed && !d.unconfirmed;
+    if (limpio) {
+      toast(`✅ ${d.sent} email${d.sent === 1 ? '' : 's'} sent successfully!`);
     } else {
-      const failedList = failedRecipients.slice(0, 3).join(', ');
-      const more = failedRecipients.length > 3 ? ` (+${failedRecipients.length - 3} more)` : '';
-      toast(`Sent ${sent}. Failed: ${failedList}${more}`, true);
+      toast(`Finished: ${window.resumenEnvio(d)}.`, true);
     }
   };
 
@@ -244,6 +257,5 @@
   window.openTournamentNotifyModal = openTournamentNotifyModal; // for window.app, built in app.js's BOOT
   Object.assign(window.CLICK_HANDLERS, {
     closeTournamentNotifyModal: () => closeTournamentNotifyModal(),
-    sendTestTournamentNotifyEmail: () => sendTestTournamentNotifyEmail(),
   });
 })();

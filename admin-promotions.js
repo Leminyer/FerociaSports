@@ -876,8 +876,7 @@
        haría que añadir un campo mañana se arreglara en un sitio y se
        olvidara en el otro — que es justo el fallo que acaba de aparecer. */
     const limpiarComposer = () => {
-      const ed = document.getElementById('promo-message');
-      if (ed) ed.innerHTML = '';
+      if (edPromo) edPromo.clear();
       const sj = document.getElementById('promo-subject');
       if (sj) sj.value = '';
       const pv = document.getElementById('promo-preview-text');
@@ -893,7 +892,6 @@
     };
 
     // Reset composer
-    const editor = document.getElementById('promo-message');
     limpiarComposer();
 
     // Reset type pills to Tournament
@@ -959,16 +957,10 @@
       };
     }
 
-    // Wire character counter
-    if (editor) {
-      editor.addEventListener('input', () => {
-        const len = editor.innerText.length;
-        const el1 = document.getElementById('promo-char-count');
-        const el2 = document.getElementById('promo-char-count2');
-        if (el1) el1.textContent = `${len} / 2000`;
-        if (el2) el2.textContent = `${len} / 2000`;
-      });
-    }
+    /* El contador de caracteres lo mantiene admin-rich-editor.js, que
+       recibe `alEscribir` al montar el editor. Antes se enganchaba aquí
+       un escuchador nuevo en CADA apertura del modal: a la quinta
+       campaña, cinco copias contando lo mismo. */
 
 
     /* Cada vez que se abre el modal: casilla de ensayo desmarcada y
@@ -1002,7 +994,7 @@
        La clave se borra sola cuando una campaña termina bien. Por eso
        reenviar una campaña a propósito sigue funcionando: después de
        un envío correcto no queda ninguna, y aquí se pone una nueva. */
-    if (!_promoNonce) _promoNonce = _nuevoNonce();
+    claveador.asegurar();
 
     // Load audience + last campaign in parallel
     try {
@@ -1079,163 +1071,25 @@
     }
   };
 
-  /* ═══ LA BARRA DE FORMATO DEL EDITOR ═══════════════════════
-     EL PROBLEMA QUE RESUELVE ESTO
+  /* ─── EL EDITOR CON FORMATO ────────────────────────────────
+     La barra y su comportamiento viven en admin-rich-editor.js, que
+     usan las cinco pantallas que escriben correos. Antes estaban aquí,
+     cuando Promotions era la única con editor.
 
-     Un comando de formato se aplica a lo que esté SELECCIONADO en el
-     editor. Pero al tocar cualquier control de la barra, el editor
-     pierde el foco y con él la selección, así que el comando llega
-     sin nada a lo que aplicarse.
-
-     Con los botones el fallo se disimula —el navegador recuerda la
-     última selección un instante— pero con un desplegable (el tamaño
-     de letra) o un panel de colores no: abres el menú, eliges, y para
-     entonces la selección ya no existe hace rato.
-
-     Así que se guarda por nuestra cuenta cada vez que el cursor se
-     mueve dentro del editor, y se restaura justo antes de aplicar.
-
-     ── POR QUÉ ESTÁ AQUÍ Y NO DENTRO DE openSendPromo ──
-     Porque openSendPromo se ejecuta CADA VEZ que se abre el modal.
-     Registrar escuchadores ahí los iría apilando: a la quinta
-     campaña, cinco copias del mismo escuchador respondiendo a cada
-     tecla. Aquí se registran una sola vez, al cargar la página. */
-  let _rangoEditor = null;
-
-  const _editorPromo = () => document.getElementById('promo-message');
-
-  const guardarRango = () => {
-    const ed = _editorPromo();
-    const sel = window.getSelection && window.getSelection();
-    if (!ed || !sel || !sel.rangeCount) return;
-    const r = sel.getRangeAt(0);
-    // Solo si de verdad está dentro del editor, no en otro campo.
-    if (ed.contains(r.commonAncestorContainer)) _rangoEditor = r.cloneRange();
-  };
-
-  {
-    const ed = _editorPromo();
-    if (ed) {
-      ['keyup', 'mouseup', 'input', 'focus'].forEach((ev) =>
-        ed.addEventListener(ev, guardarRango));
-      document.addEventListener('selectionchange', () => {
-        if (document.activeElement === ed) guardarRango();
-      });
-    }
-  }
-
-  /**
-   * Aplica un comando de formato a lo que esté seleccionado.
-   * Lo usan TODOS los controles de la barra, para que no haya dos
-   * formas distintas de hacer lo mismo.
-   *
-   * `styleWithCSS` hace que el navegador escriba
-   * `<span style="color:...">` en vez de la etiqueta antigua
-   * `<font color=...>`. El saneador del servidor entiende las dos,
-   * pero la primera es la que sobrevive limpia en los correos.
-   */
-  window.promoCmd = (comando, valor) => {
-    const ed = _editorPromo();
-    if (!ed) return;
-    ed.focus();
-    if (_rangoEditor) {
-      const sel = window.getSelection();
-      sel.removeAllRanges();
-      sel.addRange(_rangoEditor);
-    }
-    try { document.execCommand('styleWithCSS', false, true); } catch (_) {}
-    document.execCommand(comando, false, valor === undefined ? null : valor);
-    guardarRango();
-  };
-
-  /* ─── LOS CONTROLES DE LA BARRA ────────────────────────────
-     Aquí, a nivel de módulo, y no dentro de openSendPromo.
-
-     Estaban dentro, así que no existían hasta que alguien abría el
-     modal por primera vez. En la práctica funcionaba —los botones
-     viven dentro del modal— pero es un orden frágil: cualquier otra
-     cosa que quisiera usarlos antes se encontraría con nada. Y
-     además se reasignaban enteros en cada apertura. */
-  window.promptInsertLink = () => {
-    const url = prompt('Enter URL:');
-    /* Sólo enlaces de verdad. El servidor lo vuelve a comprobar —él
-       es la autoridad— pero avisar aquí evita que alguien pegue algo
-       raro, le dé a enviar y descubra el problema en el correo. */
-    if (!url) return;
-    if (!/^(https?:\/\/|mailto:)/i.test(url.trim())) {
-      toast('Links must start with https:// or mailto:', true);
-      return;
-    }
-    window.promoCmd('createLink', url.trim());
-  };
-  window.toggleEmojiPicker = (e) => {
-    e.stopPropagation();
-    const picker = document.getElementById('emoji-picker');
-    if (!picker) return;
-    const isOpen = picker.style.display === 'grid';
-    picker.style.display = isOpen ? 'none' : 'grid';
-    if (!isOpen) {
-      // Close when clicking outside
-      const close = (ev) => {
-        if (!picker.contains(ev.target) && ev.target.id !== 'emoji-picker-btn') {
-          picker.style.display = 'none';
-          document.removeEventListener('click', close);
-        }
-      };
-      setTimeout(() => document.addEventListener('click', close), 0);
-    }
-  };
-  window.insertFixedEmoji = (emoji) => {
-    /* Por promoCmd, que restaura la selección: al abrir el panel de
-       emojis el editor pierde el cursor, y sin restaurarlo el emoji
-       caía al principio del mensaje en vez de donde estabas. */
-    window.promoCmd('insertText', emoji);
-    // Close picker after selection
-    const picker = document.getElementById('emoji-picker');
-    if (picker) picker.style.display = 'none';
-  };
-
-  /* El panel de colores, hermano del de emojis. Un <input type="color">
-     sería más corto, pero su ventana del sistema se lleva el foco de
-     una forma que ni guardando la selección se recupera bien en todos
-     los navegadores. Unas muestras fijas siempre funcionan, y además
-     empujan a usar colores que pegan con la marca. */
-  window.togglePromoColors = (e) => {
-    e.stopPropagation();
-    guardarRango();
-    const panel = document.getElementById('promo-color-picker');
-    if (!panel) return;
-    const abierto = panel.style.display === 'grid';
-    panel.style.display = abierto ? 'none' : 'grid';
-    if (!abierto) {
-      const cerrar = (ev) => {
-        if (!panel.contains(ev.target) && ev.target.id !== 'promo-color-btn') {
-          panel.style.display = 'none';
-          document.removeEventListener('click', cerrar);
-        }
-      };
-      setTimeout(() => document.addEventListener('click', cerrar), 0);
-    }
-  };
-
-  window.aplicarColorPromo = (hex) => {
-    window.promoCmd('foreColor', hex);
-    const panel = document.getElementById('promo-color-picker');
-    if (panel) panel.style.display = 'none';
-  };
-
-  /* El tamaño de letra.
-
-     `fontSize` del navegador sólo admite la escala 1–7 de HTML, que
-     cada programa de correo interpreta a su manera. Se manda esa
-     escala y el saneador del servidor la traduce a píxeles fijos
-     (3 = 14px, el normal), así que el correo se ve igual en todas
-     partes en vez de depender de quien lo abra. */
-  window.aplicarTamanoPromo = (sel) => {
-    if (!sel.value) return;
-    window.promoCmd('fontSize', sel.value);
-    sel.selectedIndex = 0;   // vuelve a "Size" para poder repetir
-  };
+     El contador de caracteres sigue siendo de esta pantalla, así que
+     se le pasa al módulo en vez de moverlo allí: lo que comparten las
+     cinco es la barra, no lo que cada una pinta a su lado. */
+  const edPromo = window.FerociaEditor
+    ? window.FerociaEditor.mount('promo-message', {
+        alEscribir: (n) => {
+          const c1 = document.getElementById('promo-char-count');
+          const c2 = document.getElementById('promo-char-count2');
+          if (c1) c1.textContent = `${n} / 2000`;
+          if (c2) c2.textContent = `${n} / 2000`;
+        },
+      })
+    : null;
+  if (!edPromo) console.error('[Ferocia] admin-rich-editor.js must load before admin-promotions.js');
 
   /* ─── LOS DATOS QUE VIAJAN A LA PLANTILLA ──────────────────
      Un solo sitio los construye, y un solo camino los usa. Antes había
@@ -1321,7 +1175,7 @@
      Devuelve null si falta algo, y ya ha avisado con un toast. */
   const leerFormulario = () => {
     const subject = (document.getElementById('promo-subject')?.value || '').trim();
-    const editor  = document.getElementById('promo-message');
+
 
     /* SE MANDA innerHTML, NO innerText.
 
@@ -1334,13 +1188,13 @@
        único que no se puede saltar nadie. Aquí no se filtra: filtrar
        en los dos sitios daría una falsa sensación de seguridad y
        además haría más difícil ver dónde se decide qué pasa. */
-    const message = editor ? editor.innerHTML.trim() : '';
+    const message = edPromo ? edPromo.getHTML() : '';
 
     /* Para validar y para el texto de la bandeja de entrada. Un editor
        "vacío" en el navegador no es una cadena vacía: suele tener un
        <br> o un <div></div> dentro. Con el HTML no se puede saber si
        hay algo escrito; con el texto, sí. */
-    const texto = editor ? editor.innerText.trim() : '';
+    const texto = edPromo ? edPromo.getText() : '';
 
     const campaignType = document.getElementById('promo-campaign-type')?.value || 'Other';
 
@@ -1391,60 +1245,10 @@
        campaña, un reintento de dentro de dos semanas lo sabrá igual. */
     cuerpo_html:   true,
   });
-
-  /* ─── CONTRA EL ENVÍO DUPLICADO ────────────────────────────
-     El servidor rechaza una campaña repetida si llega con la misma
-     idempotency_key. La clave se compone de dos trozos, y cada uno
-     resuelve un caso distinto:
-
-       · el NONCE, que se renueva al abrir el modal
-       · el HASH del contenido
-
-     Doble clic en Launch      → mismo nonce, mismo hash → misma clave
-                                 → el segundo no manda nada. ✔
-     Editas el texto y reenvías→ mismo nonce, OTRO hash → clave nueva
-       sin cerrar el modal        → campaña nueva con el texto nuevo. ✔
-                                 (con una clave sola por contenido, el
-                                 servidor habría retomado la campaña
-                                 vieja y mandado el texto ANTERIOR)
-     Cierras y reabres el modal→ nonce nuevo → campaña nueva, aunque el
-                                 texto sea idéntico: un reenvío a
-                                 propósito tiene que poder hacerse. ✔ */
-  let _promoNonce = null;
-
-  const _nuevoNonce = () =>
-    Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
-
-  const _hashCorto = async (txt) => {
-    try {
-      if (!window.crypto || !window.crypto.subtle) return null;
-      const buf = await window.crypto.subtle.digest(
-        'SHA-256', new TextEncoder().encode(txt));
-      return [...new Uint8Array(buf)].slice(0, 8)
-        .map((b) => b.toString(16).padStart(2, '0')).join('');
-    } catch (_) {
-      /* Sin crypto.subtle no hay clave. Se manda sin ella: el envío
-         funciona igual y el botón deshabilitado sigue cubriendo el
-         doble clic. Es peor, pero no es un motivo para no enviar. */
-      return null;
-    }
-  };
-
-  /* La clave es SOLO para el envío a la lista.
-
-     El ensayo va sin clave, y no es un descuido. Protegerlo de
-     duplicados no aporta nada —es un correo a tu propia dirección— y
-     en cambio costaba algo real: dos ensayos seguidos del mismo texto
-     habrían compartido clave, y el segundo no te habría llegado. Te
-     quedarías mirando la bandeja sin entender por qué. El botón
-     deshabilitado ya cubre el doble clic. */
-  const claveCampana = async (datos) => {
-    if (!_promoNonce) _promoNonce = _nuevoNonce();
-    const h = await _hashCorto([
-      datos.subject, datos.message, datos.campaignType, datos.flyerUrl,
-    ].join('\u0000'));
-    return h ? `promo-${_promoNonce}-${h}` : null;
-  };
+  /* La clave contra envíos duplicados. El mecanismo entero —y por qué
+     lleva dos trozos— está explicado en admin-email-utils.js, donde lo
+     comparten las cuatro pantallas que mandan en lote. */
+  const claveador = window.crearClaveador('promo');
 
   /* ─── LA ETIQUETA DEL BOTÓN SIGUE A LA CASILLA ─────────────
      Un botón que dice "Launch Campaign" mientras la casilla de ensayo
@@ -1467,36 +1271,10 @@
       ? _lanzarHTMLOriginal.replace('Launch Campaign', 'Launch — only to me')
       : _lanzarHTMLOriginal;
   };
-
-  /* El nombre para el saludo del correo.
-
-     `[a, b].filter(Boolean).join(' ')` y no `${a} ${b}`: un suscriptor
-     sin apellido salía saludado como "Hi Ana null," porque la
-     interpolación convierte el null en texto. Con la lista filtrada
-     queda "Hi Ana,". */
-  const nombreDe = (s) =>
-    [s.first_name, s.last_name].filter(Boolean).join(' ').trim() || 'Player';
-
-  /* Una línea que resuma lo que devolvió el servidor.
-
-     Se mira campo por campo porque cada uno significa algo distinto y
-     mezclarlos sería mentir:
-       sent        salieron en esta ejecución
-       already_sent ya habían salido antes (un reintento)
-       failed      rebotaron o Resend los rechazó
-       unconfirmed salieron, pero no se pudo escribir su fila: se
-                   recuperan solos en el siguiente intento
-       invalid_addresses descartados antes de empezar por no ser un
-                   correo válido — nunca se intentaron */
-  const resumenEnvio = (d) => {
-    const partes = [];
-    if (d.sent)         partes.push(`${d.sent} sent`);
-    if (d.already_sent) partes.push(`${d.already_sent} already sent earlier`);
-    if (d.failed)       partes.push(`${d.failed} failed`);
-    if (d.unconfirmed)  partes.push(`${d.unconfirmed} unconfirmed (will retry)`);
-    if (d.invalid_addresses) partes.push(`${d.invalid_addresses} invalid address${d.invalid_addresses === 1 ? '' : 'es'}`);
-    return partes.length ? partes.join(', ') : 'nothing to send';
-  };
+  /* nombreDestinatario() y resumenEnvio() viven en admin-email-utils.js:
+     los usan las cuatro pantallas que mandan en lote. */
+  const nombreDe = window.nombreDestinatario;
+  const resumenEnvio = window.resumenEnvio;
 
   const sendPromoEmail = async (e) => {
     e.preventDefault();
@@ -1614,7 +1392,9 @@
           ...(soloAdmin ? { solo_admin: true } : {}),
         },
         recipients,
-        idempotency_key: soloAdmin ? null : await claveCampana(datos),
+        idempotency_key: soloAdmin ? null
+          : await claveador.clave([datos.subject, datos.message,
+                                   datos.campaignType, datos.flyerUrl]),
       });
     } finally {
       /* En finally: si esto no se limpia, `emailInFlight` se queda en
@@ -1659,7 +1439,7 @@
     /* Un envío nuevo tiene que renovar la clave: si no, volver a
        lanzar la misma campaña más tarde chocaría con la de este envío
        y no mandaría nada. */
-    _promoNonce = null;
+    claveador.limpiar();
 
     const limpio = d.status === 'sent' && !d.failed && !d.unconfirmed;
     if (limpio) {

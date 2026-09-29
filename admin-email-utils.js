@@ -195,6 +195,106 @@
     };
   }
 
+  /* ─── EL NOMBRE PARA EL SALUDO ─────────────────────────────
+     `[a, b].filter(Boolean).join(' ')` y no `${a} ${b}`: alguien sin
+     apellido salía saludado como "Hi Ana null," porque la
+     interpolación convierte el null en texto. */
+  function nombreDestinatario(p) {
+    return [p && p.first_name, p && p.last_name]
+      .filter(Boolean).join(' ').trim() || 'Player';
+  }
+
+  /* ─── EL RESUMEN DE LO QUE PASÓ ────────────────────────────
+     Campo por campo, porque cada uno significa algo distinto y
+     mezclarlos sería mentir:
+       sent              salieron en esta ejecución
+       already_sent      ya habían salido antes (un reintento)
+       failed            rebotaron o el proveedor los rechazó
+       unconfirmed       salieron, pero no se pudo escribir su fila;
+                         se recuperan solos en el siguiente intento
+       invalid_addresses descartados antes de empezar por no ser un
+                         correo válido — nunca se intentaron */
+  function resumenEnvio(d) {
+    const partes = [];
+    if (d.sent)         partes.push(`${d.sent} sent`);
+    if (d.already_sent) partes.push(`${d.already_sent} already sent earlier`);
+    if (d.failed)       partes.push(`${d.failed} failed`);
+    if (d.unconfirmed)  partes.push(`${d.unconfirmed} unconfirmed (will retry)`);
+    if (d.invalid_addresses) {
+      partes.push(`${d.invalid_addresses} invalid address${d.invalid_addresses === 1 ? '' : 'es'}`);
+    }
+    return partes.length ? partes.join(', ') : 'nothing to send';
+  }
+
+  /* ════════════════════════════════════════════════════════════
+     CONTRA EL ENVÍO DUPLICADO
+
+     El servidor rechaza un envío repetido si llega con la misma
+     `idempotency_key`. La clave se compone de dos trozos y cada uno
+     resuelve un caso distinto:
+
+       · el NONCE, que se renueva al abrir la ventana de envío
+       · el HASH del contenido
+
+     Doble clic en Enviar      → mismo nonce, mismo hash → misma clave
+                                 → el segundo no manda nada. ✔
+     Editas el texto y reenvías→ mismo nonce, OTRO hash → clave nueva
+       sin cerrar la ventana      → se manda el texto NUEVO. ✔
+                                 (con una clave sólo por contenido, el
+                                 servidor habría retomado el envío
+                                 viejo y mandado el texto ANTERIOR)
+     Falla y reintentas        → misma clave → RETOMA el mismo envío y
+                                 se salta a quien ya recibió. ✔
+     Terminó bien y reenvías   → la clave se limpió al terminar, así
+       a propósito                que sale un envío nuevo. ✔
+
+     Vive aquí y no en cada módulo porque son cuatro pantallas que
+     mandan en lote, y esto escrito cuatro veces es lo mismo escrito
+     de tres formas distintas al cabo de un año.
+     ════════════════════════════════════════════════════════════ */
+
+  const _nuevoNonce = () =>
+    Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+
+  const _hashCorto = async (txt) => {
+    try {
+      if (!window.crypto || !window.crypto.subtle) return null;
+      const buf = await window.crypto.subtle.digest(
+        'SHA-256', new TextEncoder().encode(txt));
+      return [...new Uint8Array(buf)].slice(0, 8)
+        .map((b) => b.toString(16).padStart(2, '0')).join('');
+    } catch (_) {
+      /* Sin crypto.subtle no hay clave. Se manda igual: el envío
+         funciona y el botón deshabilitado sigue cubriendo el doble
+         clic. Es peor, pero no es motivo para no enviar. */
+      return null;
+    }
+  };
+
+  /**
+   * Un generador de claves por pantalla.
+   *
+   * @param {string} prefijo  para reconocer de dónde salió la clave
+   *                          cuando se mira la tabla `communications`.
+   */
+  function crearClaveador(prefijo) {
+    let nonce = null;
+    return {
+      /** Al abrir la ventana de envío. NO renueva si hay una pendiente:
+          un envío que falló deja la suya puesta, y reintentar tiene que
+          retomarlo en vez de crear otro y duplicar a quien ya recibió. */
+      asegurar: () => { if (!nonce) nonce = _nuevoNonce(); },
+      /** Tras un envío CORRECTO: el siguiente será uno nuevo. */
+      limpiar: () => { nonce = null; },
+      /** @param {Array} partes  lo que identifica este envío concreto */
+      clave: async (partes) => {
+        if (!nonce) nonce = _nuevoNonce();
+        const h = await _hashCorto(partes.map((p) => String(p ?? '')).join('\u0000'));
+        return h ? `${prefijo}-${nonce}-${h}` : null;
+      },
+    };
+  }
+
   // Warn the user before they navigate away mid-send.
   function beforeUnloadGuard(e) {
     if (window.AdminState.emailInFlight) {
@@ -207,4 +307,7 @@
 
   window.sendOneEmail    = sendOneEmail;
   window.sendEmailServer = sendEmailServer;
+  window.crearClaveador  = crearClaveador;
+  window.nombreDestinatario = nombreDestinatario;
+  window.resumenEnvio       = resumenEnvio;
 })();

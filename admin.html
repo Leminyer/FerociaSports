@@ -2659,8 +2659,9 @@
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
               <span style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);">Message Preview</span>
             </div>
-            <textarea id="notify-message"
-              style="width:100%;min-height:160px;padding:14px;border:none;outline:none;font-family:'Inter',sans-serif;font-size:13px;font-weight:500;color:var(--text);line-height:1.7;resize:vertical;background:white;"></textarea>
+            <!-- La barra de formato la fabrica admin-rich-editor.js. -->
+            <div class="promo-fmt-toolbar" id="notify-fmt-bar" style="padding:6px 8px;background:#fcfdff;border-bottom:0.5px solid var(--divider-color);display:flex;align-items:center;gap:4px;flex-wrap:wrap;"></div>
+            <div id="notify-message" contenteditable="true" style="width:100%;min-height:160px;padding:14px;border:none;outline:none;font-family:'Inter',sans-serif;font-size:13px;font-weight:500;color:var(--text);line-height:1.7;background:white;overflow-y:auto;max-height:340px;"></div>
           </div>
           <div style="font-size:10px;font-weight:600;color:#b0bbd6;margin-top:5px;">Results and standings links will be automatically added to every email.</div>
         </div>
@@ -2678,12 +2679,16 @@
       </div>
 
       <!-- FOOTER -->
-      <div style="display:flex;justify-content:flex-end;gap:8px;padding-top:4px;border-top:0.5px solid var(--divider-color);margin-top:2px;">
-        <button type="button" id="notify-test-btn" data-action="sendTestNotifyEmail"
-          style="display:inline-flex;align-items:center;gap:7px;padding:10px 18px;border:1px solid var(--blue);border-radius:99px;background:white;color:var(--blue);font-family:'Inter',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-          Send Test to Me
-        </button>
+      <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;padding-top:4px;border-top:0.5px solid var(--divider-color);margin-top:2px;">
+        <label for="notify-only-me" style="display:flex;align-items:flex-start;gap:9px;padding:10px 12px;margin-right:auto;border:1px solid var(--divider-color);border-radius:10px;background:#f8f9ff;cursor:pointer;max-width:340px;">
+          <input type="checkbox" id="notify-only-me" style="margin:1px 0 0;width:14px;height:14px;accent-color:var(--blue);cursor:pointer;flex-shrink:0;">
+          <span style="font-family:'Inter',sans-serif;font-size:11px;font-weight:700;color:var(--text);line-height:1.45;">
+            Send only to me
+            <span style="display:block;font-size:10px;font-weight:600;color:var(--text-muted);margin-top:2px;">
+              Full rehearsal &mdash; real send, fully logged, but nobody in the ladder receives it.
+            </span>
+          </span>
+        </label>
         <button type="submit" id="notify-send-btn"
           style="display:inline-flex;align-items:center;gap:7px;padding:10px 24px;border:none;border-radius:99px;background:linear-gradient(180deg,#2456d3,var(--blue));color:white;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
@@ -3029,8 +3034,9 @@
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
               <span style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);">Message Preview</span>
             </div>
-            <textarea id="t-notify-message"
-              style="width:100%;min-height:160px;padding:14px;border:none;outline:none;font-family:'Inter',sans-serif;font-size:13px;font-weight:500;color:var(--text);line-height:1.7;resize:vertical;background:white;"></textarea>
+            <!-- La barra de formato la fabrica admin-rich-editor.js. -->
+            <div class="promo-fmt-toolbar" id="t-notify-fmt-bar" style="padding:6px 8px;background:#fcfdff;border-bottom:0.5px solid var(--divider-color);display:flex;align-items:center;gap:4px;flex-wrap:wrap;"></div>
+            <div id="t-notify-message" contenteditable="true" style="width:100%;min-height:160px;padding:14px;border:none;outline:none;font-family:'Inter',sans-serif;font-size:13px;font-weight:500;color:var(--text);line-height:1.7;background:white;overflow-y:auto;max-height:340px;"></div>
           </div>
           <div style="font-size:10px;font-weight:600;color:#b0bbd6;margin-top:5px;">Results and standings links will be automatically added to every email.</div>
         </div>
@@ -3048,12 +3054,16 @@
       </div>
 
       <!-- FOOTER inside form -->
-      <div style="display:flex;justify-content:flex-end;gap:8px;padding-top:4px;border-top:0.5px solid var(--divider-color);margin-top:2px;">
-        <button type="button" id="t-notify-test-btn" data-action="sendTestTournamentNotifyEmail"
-          style="display:inline-flex;align-items:center;gap:7px;padding:10px 18px;border:1px solid var(--blue);border-radius:99px;background:white;color:var(--blue);font-family:'Inter',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-          Send Test to Me
-        </button>
+      <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;padding-top:4px;border-top:0.5px solid var(--divider-color);margin-top:2px;">
+        <label for="t-notify-only-me" style="display:flex;align-items:flex-start;gap:9px;padding:10px 12px;margin-right:auto;border:1px solid var(--divider-color);border-radius:10px;background:#f8f9ff;cursor:pointer;max-width:340px;">
+          <input type="checkbox" id="t-notify-only-me" style="margin:1px 0 0;width:14px;height:14px;accent-color:var(--blue);cursor:pointer;flex-shrink:0;">
+          <span style="font-family:'Inter',sans-serif;font-size:11px;font-weight:700;color:var(--text);line-height:1.45;">
+            Send only to me
+            <span style="display:block;font-size:10px;font-weight:600;color:var(--text-muted);margin-top:2px;">
+              Full rehearsal &mdash; real send, fully logged, but no player receives it.
+            </span>
+          </span>
+        </label>
         <button type="submit" id="t-notify-send-btn"
           style="display:inline-flex;align-items:center;gap:7px;padding:10px 24px;border:none;border-radius:99px;background:linear-gradient(180deg,#2456d3,var(--blue));color:white;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
@@ -3161,65 +3171,12 @@
           <div style="flex:1;display:flex;flex-direction:column;">
             <div class="promo-comp-label">Message</div>
             <div class="promo-message-card">
-              <!-- Formatting toolbar -->
+              <!-- Barra de formato.
+                   La fabrica admin-rich-editor.js, el mismo módulo que
+                   la pone en las otras cuatro pantallas que escriben
+                   correos. Antes estaba escrita a mano aquí; con cinco
+                   editores eso eran cinco copias del mismo HTML. -->
               <div class="promo-fmt-toolbar">
-                <button type="button" class="promo-fmt-btn" onclick="promoCmd('bold')" title="Bold"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/><path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/></svg></button>
-                <button type="button" class="promo-fmt-btn" onclick="promoCmd('italic')" title="Italic"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="4" x2="10" y2="4"/><line x1="14" y1="20" x2="5" y2="20"/><line x1="15" y1="4" x2="9" y2="20"/></svg></button>
-                <button type="button" class="promo-fmt-btn" onclick="promoCmd('underline')" title="Underline"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v7a6 6 0 0 0 6 6 6 6 0 0 0 6-6V3"/><line x1="4" y1="21" x2="20" y2="21"/></svg></button>
-                <div class="promo-fmt-sep"></div>
-                <button type="button" class="promo-fmt-btn" onclick="promoCmd('insertUnorderedList')" title="Bullet list"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/><circle cx="4" cy="6" r="1" fill="currentColor"/><circle cx="4" cy="12" r="1" fill="currentColor"/><circle cx="4" cy="18" r="1" fill="currentColor"/></svg></button>
-                <button type="button" class="promo-fmt-btn" onclick="promoCmd('insertOrderedList')" title="Numbered list"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="10" y1="6" x2="21" y2="6"/><line x1="10" y1="12" x2="21" y2="12"/><line x1="10" y1="18" x2="21" y2="18"/><path d="M4 6h1v4" stroke-width="2"/><path d="M4 10h2" stroke-width="2"/><path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1" stroke-width="2"/></svg></button>
-                <button type="button" class="promo-fmt-btn" onclick="promptInsertLink()" title="Link"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></button>
-                <div class="promo-fmt-sep"></div>
-                <div class="promo-fmt-sep"></div>
-                <button type="button" class="promo-fmt-btn" onclick="promoCmd('justifyLeft')" title="Align left"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="14" y2="12"/><line x1="3" y1="18" x2="18" y2="18"/></svg></button>
-                <button type="button" class="promo-fmt-btn" onclick="promoCmd('justifyCenter')" title="Align center"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="5" y1="18" x2="19" y2="18"/></svg></button>
-                <button type="button" class="promo-fmt-btn" onclick="promoCmd('justifyRight')" title="Align right"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="10" y1="12" x2="21" y2="12"/><line x1="6" y1="18" x2="21" y2="18"/></svg></button>
-                <button type="button" class="promo-fmt-btn" onclick="promoCmd('justifyFull')" title="Justify"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
-                <div class="promo-fmt-sep"></div>
-                <!-- Tamano de letra. Los valores son la escala 1-7 de HTML;
-                     el servidor los traduce a pixeles fijos (3 = 14px, el
-                     normal) para que no dependa del programa de correo. -->
-                <select onchange="aplicarTamanoPromo(this)" title="Font size"
-                  style="height:24px;border:0.5px solid var(--divider-color);border-radius:6px;background:white;font-family:'Inter',sans-serif;font-size:10px;font-weight:700;color:var(--text);cursor:pointer;padding:0 4px;">
-                  <option value="">Size</option>
-                  <option value="2">Small</option>
-                  <option value="3">Normal</option>
-                  <option value="4">Large</option>
-                  <option value="5">X-Large</option>
-                  <option value="6">Huge</option>
-                </select>
-                <div style="position:relative;display:inline-block;">
-                  <button type="button" class="promo-fmt-btn" onclick="togglePromoColors(event)" title="Text color" id="promo-color-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l4.5 11h-9L12 3z"/><line x1="4" y1="20" x2="20" y2="20" stroke-width="3.5"/></svg></button>
-                  <div id="promo-color-picker" style="display:none;position:absolute;top:32px;left:0;background:white;border:0.5px solid var(--divider-color);border-radius:8px;padding:8px;box-shadow:0 4px 16px rgba(8,15,46,.12);z-index:999;grid-template-columns:repeat(3,1fr);gap:4px;width:auto;">
-                    <button type="button" onclick="aplicarColorPromo('#0d1f4a')" title="Navy" style="width:22px;height:22px;border:1px solid rgba(0,0,0,.12);border-radius:5px;background:#0d1f4a;cursor:pointer;padding:0;"></button>
-                    <button type="button" onclick="aplicarColorPromo('#174CCC')" title="Blue" style="width:22px;height:22px;border:1px solid rgba(0,0,0,.12);border-radius:5px;background:#174CCC;cursor:pointer;padding:0;"></button>
-                    <button type="button" onclick="aplicarColorPromo('#24BC96')" title="Teal" style="width:22px;height:22px;border:1px solid rgba(0,0,0,.12);border-radius:5px;background:#24BC96;cursor:pointer;padding:0;"></button>
-                    <button type="button" onclick="aplicarColorPromo('#4a5e00')" title="Olive" style="width:22px;height:22px;border:1px solid rgba(0,0,0,.12);border-radius:5px;background:#4a5e00;cursor:pointer;padding:0;"></button>
-                    <button type="button" onclick="aplicarColorPromo('#F26024')" title="Orange" style="width:22px;height:22px;border:1px solid rgba(0,0,0,.12);border-radius:5px;background:#F26024;cursor:pointer;padding:0;"></button>
-                    <button type="button" onclick="aplicarColorPromo('#d61f4e')" title="Red" style="width:22px;height:22px;border:1px solid rgba(0,0,0,.12);border-radius:5px;background:#d61f4e;cursor:pointer;padding:0;"></button>
-                    <button type="button" onclick="aplicarColorPromo('#7c3aed')" title="Purple" style="width:22px;height:22px;border:1px solid rgba(0,0,0,.12);border-radius:5px;background:#7c3aed;cursor:pointer;padding:0;"></button>
-                    <button type="button" onclick="aplicarColorPromo('#6b7a99')" title="Gray" style="width:22px;height:22px;border:1px solid rgba(0,0,0,.12);border-radius:5px;background:#6b7a99;cursor:pointer;padding:0;"></button>
-                    <button type="button" onclick="aplicarColorPromo('#111827')" title="Black" style="width:22px;height:22px;border:1px solid rgba(0,0,0,.12);border-radius:5px;background:#111827;cursor:pointer;padding:0;"></button>
-                  </div>
-                </div>
-                <div style="position:relative;display:inline-block;">
-                  <button type="button" class="promo-fmt-btn" onclick="toggleEmojiPicker(event)" title="Emoji" id="emoji-picker-btn">😊</button>
-                  <div id="emoji-picker" style="display:none;position:absolute;top:32px;left:0;background:white;border:0.5px solid var(--divider-color);border-radius:8px;padding:8px;box-shadow:0 4px 16px rgba(8,15,46,.12);z-index:999;display:none;grid-template-columns:repeat(6,1fr);gap:2px;width:180px;">
-                    <button type="button" class="promo-emoji-item" onclick="insertFixedEmoji('👋')">👋</button>
-                    <button type="button" class="promo-emoji-item" onclick="insertFixedEmoji('📅')">📅</button>
-                    <button type="button" class="promo-emoji-item" onclick="insertFixedEmoji('📍')">📍</button>
-                    <button type="button" class="promo-emoji-item" onclick="insertFixedEmoji('🎾')">🎾</button>
-                    <button type="button" class="promo-emoji-item" onclick="insertFixedEmoji('🏆')">🏆</button>
-                    <button type="button" class="promo-emoji-item" onclick="insertFixedEmoji('⚡')">⚡</button>
-                    <button type="button" class="promo-emoji-item" onclick="insertFixedEmoji('🔥')">🔥</button>
-                    <button type="button" class="promo-emoji-item" onclick="insertFixedEmoji('✅')">✅</button>
-                    <button type="button" class="promo-emoji-item" onclick="insertFixedEmoji('🎉')">🎉</button>
-                    <button type="button" class="promo-emoji-item" onclick="insertFixedEmoji('👑')">👑</button>
-                    <button type="button" class="promo-emoji-item" onclick="insertFixedEmoji('⭐')">⭐</button>
-                    <button type="button" class="promo-emoji-item" onclick="insertFixedEmoji('📢')">📢</button>
-                  </div>
-                </div>
                 <div style="flex:1;"></div>
                 <span id="promo-char-count" style="font-size:9px;font-weight:700;color:#b0bbd6;">0 / 2000</span>
               </div>
@@ -3542,17 +3499,18 @@
 <script src="admin-incident-reports.js?v=20260928b"></script>
 <script src="admin-ladder-selector.js?v=20260928b"></script>
 <script src="admin-orders.js?v=20260928b"></script>
-<script src="admin-email-utils.js?v=20260928c"></script>
+<script src="admin-email-utils.js?v=20260929c"></script>
+<script src="admin-rich-editor.js?v=20260929a"></script>
 <script src="admin-share.js?v=20260928b"></script>
-<script src="admin-tournament-notify.js?v=20260928b"></script>
+<script src="admin-tournament-notify.js?v=20260929c"></script>
 <script src="admin-player-status-history.js?v=20260928b"></script>
 <script src="admin-player-profile.js?v=20260928b"></script>
-<script src="admin-email-notifications.js?v=20260928b"></script>
+<script src="admin-email-notifications.js?v=20260929c"></script>
 <script src="admin-ladder-standings.js?v=20260928b"></script>
 <script src="admin-sessions.js?v=20260928b"></script>
 <script src="admin-print-roster.js?v=20260928b"></script>
 <script src="admin-ladder-management.js?v=20260928b"></script>
-<script src="admin-promotions.js?v=20260929b"></script>
+<script src="admin-promotions.js?v=20260929c"></script>
 <script src="admin-newsletter.js?v=20260928b"></script>
 <!-- TEMPORARY: fills in missing dates of birth from a CSV import.
      Delete this line and temp-dob-backfill.js once every player has one.
