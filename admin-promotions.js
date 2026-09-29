@@ -4,9 +4,29 @@
    Load order: admin-state.js -> admin-email-utils.js ->
                admin-promotions.js -> app.js
 
-   Extracted from app.js's PROMOTIONS section. Uses the shared
-   sendOneEmail()/AdminState.emailInFlight from admin-email-utils.js,
-   same as Tournament Notify and Email Notifications.
+   Extracted from app.js's PROMOTIONS section.
+
+   ── EL ENVÍO PASA POR EL SERVIDOR ─────────────────────────────────
+   Este módulo ya NO usa EmailJS. Manda con sendEmailServer() de
+   admin-email-utils.js, que llama a la Edge Function `send-email`.
+   Sigue usando AdminState.emailInFlight, igual que antes.
+
+   Lo que eso significa aquí:
+     · Una sola petición para toda la campaña, no una por persona.
+     · El mensaje se manda CRUDO: quien sustituye el nombre de cada
+       persona es la plantilla del servidor, no este archivo.
+     · La campaña queda registrada en `communications` y cada
+       destinatario en `communication_recipients`. De ahí sale también
+       la tarjeta "Last Campaign".
+
+   Hay UN solo camino de envío, a propósito: el botón Launch. La casilla
+   "Send only to me" no es un camino aparte — es el mismo envío con la
+   lista reducida a una dirección, para poder ensayarlo. Antes había
+   además un botón de prueba que iba por otro lado y no dejaba
+   registro; se quitó porque dos caminos que parecen lo mismo y no lo
+   son es como se cuela un fallo sin que nadie lo vea.
+
+   Tournament Notify y Email Notifications siguen con EmailJS por ahora.
 
    _subsShown is local module state (how many subscriber rows are
    currently shown) — the status-filter and search inputs need to reset
@@ -982,11 +1002,56 @@
       if (picker) picker.style.display = 'none';
     };
 
+    /* Cada vez que se abre el modal: casilla de ensayo desmarcada y
+       clave de campaña nueva.
+
+       Lo primero, porque una casilla que se queda marcada de la vez
+       anterior es la forma más fácil de creer que has lanzado a 450
+       personas cuando solo te lo mandaste a ti.
+
+       Lo segundo, porque abrir el modal es lo que distingue "reenviar
+       esta campaña a propósito" de "he hecho doble clic". */
+    const chkSolo = document.getElementById('promo-only-me');
+    if (chkSolo) chkSolo.checked = false;
+    actualizarEtiquetaLanzar();
+
+    /* ⚠️  OJO: la clave NO se renueva aquí si ya hay una pendiente.
+
+       Mi primera versión ponía una nueva cada vez que se abría el
+       modal, y eso abría un agujero grave:
+
+         1. Lanzas a 450. Salen los primeros 100.
+         2. El servidor revienta a mitad y devuelve error.
+         3. Cierras el modal, lo vuelves a abrir y lanzas otra vez.
+         4. Clave nueva → campaña NUEVA → esos 100 reciben una
+            SEGUNDA copia.
+
+       El envío fallido deja su clave puesta, así que reintentar
+       —hayas cerrado el modal o no— retoma la MISMA campaña y el
+       servidor se salta a quien ya recibió.
+
+       La clave se borra sola cuando una campaña termina bien. Por eso
+       reenviar una campaña a propósito sigue funcionando: después de
+       un envío correcto no queda ninguna, y aquí se pone una nueva. */
+    if (!_promoNonce) _promoNonce = _nuevoNonce();
+
     // Load audience + last campaign in parallel
     try {
-      const [subs, campaigns] = await Promise.all([
+      const [subs, campanas] = await Promise.all([
         api('subscribers?status=eq.active&select=id'),
-        api('campaigns?select=*&order=sent_at.desc&limit=1').catch(() => []),
+        /* La última campaña sale de `communications`, que es donde la
+           escribe ahora el servidor.
+
+           Tres detalles que no son opcionales:
+           · kind=eq.promo — `communications` guarda TODOS los correos
+             del club. Sin este filtro, un aviso de ladder aparecería
+             aquí como "última campaña".
+           · status=in.(sent,partial) — una campaña que falló del todo
+             no es la última que se envió.
+           · se piden 5 y no 1, para poder descartar los ensayos
+             "solo a mí" sin filtrar por dentro del JSON. */
+        api('communications?kind=eq.promo&status=in.(sent,partial)'
+            + '&select=sent_at,meta&order=sent_at.desc&limit=5').catch(() => []),
       ]);
 
       const count = subs.length;
@@ -996,9 +1061,10 @@
       const recipEl = document.getElementById('promo-recipient-count');
       if (recipEl) recipEl.innerHTML = `<span style="font-weight:800;color:var(--teal);">${count} active subscriber${count !== 1 ? 's' : ''}</span> will receive this campaign.`;
 
-      const last = campaigns?.[0] || null;
+      const last = (campanas || []).find(
+        (c) => c.sent_at && !(c.meta && c.meta.solo_admin)) || null;
       setEl('promo-last-sent', last ? _relTimePromo(last.sent_at) : 'No campaigns yet');
-      setEl('promo-last-type', last ? last.campaign_type || 'General' : '');
+      setEl('promo-last-type', last ? (last.meta && last.meta.campaign_type) || 'General' : '');
 
     } catch (e) {
       const recipEl = document.getElementById('promo-recipient-count');
@@ -1044,68 +1110,16 @@
     }
   };
 
-  const sendTestPromoEmail = async () => {
-    if (window.AdminState.emailInFlight) { toast('Please wait for the current send to finish.', true); return; }
-
-    const subject = document.getElementById('promo-subject').value.trim();
-    const editor  = document.getElementById('promo-message');
-    const message = editor ? editor.innerText.trim() : '';
-    const campaignType = document.getElementById('promo-campaign-type')?.value || 'Other';
-
-    // Resolve flyer URL same as real send
-    let promoFlyerUrl = '';
-    if (campaignType === 'Tournament' || campaignType === 'Ladder') {
-      const sel = document.getElementById('promo-event-select');
-      if (!sel || !sel.value) { toast('Please select an event first.', true); return; }
-      promoFlyerUrl = document.getElementById('promo-event-flyer-url')?.value || '';
-    } else if (campaignType === 'Other') {
-      promoFlyerUrl = document.getElementById('promo-other-flyer-url')?.value.trim() || '';
-    }
-
-    if (!subject || !message) {
-      toast('Please fill in the subject and message before sending a test.', true);
-      return;
-    }
-
-    const testBtn = document.getElementById('promo-test-btn');
-    const origHTML = testBtn.innerHTML;
-    testBtn.disabled = true;
-    testBtn.innerHTML = 'Sending test...';
-
-    try {
-      emailjs.init({ publicKey: CFG.EMAILJS.PUBLIC_KEY });
-      const ok = await window.sendOneEmail(CFG.EMAILJS.SERVICE, CFG.EMAILJS.TEMPLATES.PROMO,
-        paramsPromo({
-          campaignType,
-          subject:     `[TEST] ${subject}`,
-          message,
-          flyerUrl:    promoFlyerUrl,
-          playerName:  'Ferocia Admin',
-          playerEmail: CFG.ADMIN_EMAIL,
-          unsubUrl:    '#',
-        }));
-      if (ok) {
-        toast(`✅ Test email sent to ${CFG.ADMIN_EMAIL}`);
-      } else {
-        toast('Test email failed. Check your EmailJS config.', true);
-      }
-    } catch (err) {
-      toast(`Error: ${err.message}`, true);
-    } finally {
-      testBtn.disabled = false;
-      testBtn.innerHTML = origHTML;
-    }
-  };
-
   /* ─── LOS DATOS QUE VIAJAN A LA PLANTILLA ──────────────────
-     El envío de prueba y el envío real construían esta lista por
-     separado, con el mismo contenido copiado dos veces. Eso significa
-     que una prueba podía salir perfecta y el envío de verdad llevar
-     algo distinto, sin que nadie lo notara. Ahora hay un solo sitio.
+     Un solo sitio los construye, y un solo camino los usa. Antes había
+     dos caminos que armaban la misma lista por separado, y eso permitía
+     que una prueba saliera perfecta y el envío de verdad llevara algo
+     distinto sin que nadie lo notara.
 
-     ⚠️  Las claves tienen que coincidir EXACTAMENTE con las variables
-         {{...}} de la plantilla en EmailJS. Una clave que no existe allí
-         se ignora en silencio: no da error, simplemente no aparece. */
+     ⚠️  Las claves tienen que coincidir EXACTAMENTE con las que lee la
+         plantilla del servidor (send-email/templates.ts, renderPromo).
+         Una clave que no existe allí se ignora en silencio: no da
+         error, simplemente no aparece en el correo. */
 
   /* Cuando no hay flyer se manda un espaciador transparente de 600x1.
 
@@ -1138,6 +1152,24 @@
     return v.normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().slice(0, 24);
   };
 
+  /* Los marcadores fuera.
+
+     Antes el texto de vista previa se calculaba DESPUÉS de sustituir
+     {first_name} por el nombre real, porque la sustitución la hacía el
+     navegador persona a persona. Ahora la hace el servidor, así que
+     aquí el mensaje todavía los lleva puestos — y un asunto de bandeja
+     que dijera "Hi {first_name}, come play" quedaría fatal.
+
+     Se quitan y se recoloca la puntuación: "Hi {first_name}, come
+     play" → "Hi, come play". Si no te gusta cómo queda, el campo
+     "Preview text" del formulario manda sobre esto. */
+  const sinMarcadores = (t) => String(t || '')
+    .replace(/\{\s*first_name\s*\}/gi, '')
+    .replace(/\{\{\s*player_name\s*\}\}/gi, '')
+    .replace(/\s+([,.;:!?])/g, '$1')
+    .replace(/\s+/g, ' ')
+    .trim();
+
   /* El texto que se lee en la bandeja de entrada, antes de abrir.
      Si no se escribe uno, se saca del principio del mensaje: cualquier
      cosa es mejor que dejar que el programa de correo muestre "Hi Ana,",
@@ -1145,126 +1177,318 @@
   const textoVistaPrevia = (mensaje) => {
     const escrito = (document.getElementById('promo-preview-text')?.value || '').trim();
     if (escrito) return escrito.slice(0, 140);
-    const limpio = String(mensaje || '').replace(/\s+/g, ' ').trim();
+    const limpio = sinMarcadores(mensaje);
     if (limpio.length <= 140) return limpio;
     // Corta en la última palabra entera, no a mitad de una.
     return limpio.slice(0, 140).replace(/\s+\S*$/, '') + '…';
   };
 
-  const paramsPromo = ({ campaignType, subject, message, flyerUrl, playerName, playerEmail, unsubUrl }) => ({
-    player_name:     playerName,
-    player_email:    playerEmail,
-    subject,
-    message,
-    unsubscribe_url: unsubUrl,
-    flyer_url:       flyerUrl || SPACER_FLYER,
-    email_type:      etiquetaCabecera(campaignType),
-    preview_text:    textoVistaPrevia(message),
-  });
+  /* ─── UN SOLO SITIO QUE LEE EL FORMULARIO ──────────────────
+     La prueba y el envío real leían los mismos cuatro campos con el
+     mismo código copiado dos veces, validación incluida. Eso es
+     exactamente la trampa que avisa el comentario de arriba, un nivel
+     más abajo: una prueba podía resolver el flyer de una manera y el
+     envío de verdad de otra, y nadie se enteraría hasta que el correo
+     saliera mal a 450 personas.
 
-  const sendPromoEmail = async (e) => {
-    e.preventDefault();
-    const subject = document.getElementById('promo-subject').value.trim();
+     Devuelve null si falta algo, y ya ha avisado con un toast. */
+  const leerFormulario = () => {
+    const subject = (document.getElementById('promo-subject')?.value || '').trim();
     const editor  = document.getElementById('promo-message');
     const message = editor ? editor.innerText.trim() : '';
     const campaignType = document.getElementById('promo-campaign-type')?.value || 'Other';
 
-    // Resolve flyer URL: from event selector or from Other flyer URL input
-    let promoFlyerUrl = '';
+    let flyerUrl = '';
     if (campaignType === 'Tournament' || campaignType === 'Ladder') {
       const sel = document.getElementById('promo-event-select');
-      if (sel && sel.value) {
-        promoFlyerUrl = document.getElementById('promo-event-flyer-url')?.value || '';
-      } else {
-        toast('Please select an event.', true); return;
-      }
+      if (!sel || !sel.value) { toast('Please select an event.', true); return null; }
+      flyerUrl = document.getElementById('promo-event-flyer-url')?.value || '';
     } else if (campaignType === 'Other') {
-      promoFlyerUrl = document.getElementById('promo-other-flyer-url')?.value.trim() || '';
+      flyerUrl = (document.getElementById('promo-other-flyer-url')?.value || '').trim();
     }
 
     if (!subject || !message) {
       toast('Please fill in the subject and message.', true);
-      return;
+      return null;
     }
+    return { subject, message, campaignType, flyerUrl };
+  };
 
-    let subs = [];
+  /* Lo que vale para TODA la campaña, no para una persona.
+
+     Vive en `communications.meta`, una sola vez por campaña, y de ahí
+     la lee el servidor para pintar los 450 correos. Lo que cambia por
+     persona (su nombre, su enlace de baja) va aparte, en cada
+     destinatario.
+
+     ⚠️  Las claves tienen que coincidir EXACTAMENTE con las que usa la
+         plantilla del servidor (templates.ts, renderPromo). Una clave
+         que no existe allí se ignora en silencio: no da error,
+         simplemente no aparece en el correo. */
+  const metaPromo = ({ campaignType, message, flyerUrl }) => ({
+    /* Cuando no hay flyer va el espaciador, NO una cadena vacía. La
+       plantilla omite la fila de la imagen si la URL está vacía, y eso
+       cambiaría el alto del correo respecto a como sale hoy. Esta
+       etapa mueve el envío; no cambia cómo se ven los correos. */
+    flyer_url:     flyerUrl || SPACER_FLYER,
+    email_type:    etiquetaCabecera(campaignType),
+    preview_text:  textoVistaPrevia(message),
+    /* Para la tarjeta "Last Campaign". `communications.kind` es 'promo'
+       en todas las campañas, así que el tipo (Tournament / Ladder /
+       Other) no cabe ahí: va aquí, que es la columna que existe justo
+       para lo que cambia según el caso. */
+    campaign_type: campaignType,
+  });
+
+  /* ─── CONTRA EL ENVÍO DUPLICADO ────────────────────────────
+     El servidor rechaza una campaña repetida si llega con la misma
+     idempotency_key. La clave se compone de dos trozos, y cada uno
+     resuelve un caso distinto:
+
+       · el NONCE, que se renueva al abrir el modal
+       · el HASH del contenido
+
+     Doble clic en Launch      → mismo nonce, mismo hash → misma clave
+                                 → el segundo no manda nada. ✔
+     Editas el texto y reenvías→ mismo nonce, OTRO hash → clave nueva
+       sin cerrar el modal        → campaña nueva con el texto nuevo. ✔
+                                 (con una clave sola por contenido, el
+                                 servidor habría retomado la campaña
+                                 vieja y mandado el texto ANTERIOR)
+     Cierras y reabres el modal→ nonce nuevo → campaña nueva, aunque el
+                                 texto sea idéntico: un reenvío a
+                                 propósito tiene que poder hacerse. ✔ */
+  let _promoNonce = null;
+
+  const _nuevoNonce = () =>
+    Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+
+  const _hashCorto = async (txt) => {
     try {
-      subs = await api('subscribers?status=eq.active&select=*');
-    } catch (err) {
-      toast(`Error: ${err.message}`, true);
-      return;
+      if (!window.crypto || !window.crypto.subtle) return null;
+      const buf = await window.crypto.subtle.digest(
+        'SHA-256', new TextEncoder().encode(txt));
+      return [...new Uint8Array(buf)].slice(0, 8)
+        .map((b) => b.toString(16).padStart(2, '0')).join('');
+    } catch (_) {
+      /* Sin crypto.subtle no hay clave. Se manda sin ella: el envío
+         funciona igual y el botón deshabilitado sigue cubriendo el
+         doble clic. Es peor, pero no es un motivo para no enviar. */
+      return null;
     }
-    if (!subs.length) {
-      toast('No active subscribers to send to.', true);
+  };
+
+  /* La clave es SOLO para el envío a la lista.
+
+     El ensayo va sin clave, y no es un descuido. Protegerlo de
+     duplicados no aporta nada —es un correo a tu propia dirección— y
+     en cambio costaba algo real: dos ensayos seguidos del mismo texto
+     habrían compartido clave, y el segundo no te habría llegado. Te
+     quedarías mirando la bandeja sin entender por qué. El botón
+     deshabilitado ya cubre el doble clic. */
+  const claveCampana = async (datos) => {
+    if (!_promoNonce) _promoNonce = _nuevoNonce();
+    const h = await _hashCorto([
+      datos.subject, datos.message, datos.campaignType, datos.flyerUrl,
+    ].join('\u0000'));
+    return h ? `promo-${_promoNonce}-${h}` : null;
+  };
+
+  /* ─── LA ETIQUETA DEL BOTÓN SIGUE A LA CASILLA ─────────────
+     Un botón que dice "Launch Campaign" mientras la casilla de ensayo
+     está marcada es una trampa: dice una cosa y hace otra. Con la
+     casilla puesta, el botón lo dice.
+
+     Se guarda el HTML original una sola vez y se sustituye solo el
+     texto, para no perder el icono.
+
+     ⚠️  El texto "Launch Campaign" tiene que coincidir con el de
+         admin.html. Si allí cambia, aquí hay que cambiarlo también. */
+  let _lanzarHTMLOriginal = null;
+
+  const actualizarEtiquetaLanzar = () => {
+    const btn = document.getElementById('promo-send-btn');
+    if (!btn) return;
+    if (_lanzarHTMLOriginal === null) _lanzarHTMLOriginal = btn.innerHTML;
+    const solo = !!document.getElementById('promo-only-me')?.checked;
+    btn.innerHTML = solo
+      ? _lanzarHTMLOriginal.replace('Launch Campaign', 'Launch — only to me')
+      : _lanzarHTMLOriginal;
+  };
+
+  /* El nombre para el saludo del correo.
+
+     `[a, b].filter(Boolean).join(' ')` y no `${a} ${b}`: un suscriptor
+     sin apellido salía saludado como "Hi Ana null," porque la
+     interpolación convierte el null en texto. Con la lista filtrada
+     queda "Hi Ana,". */
+  const nombreDe = (s) =>
+    [s.first_name, s.last_name].filter(Boolean).join(' ').trim() || 'Player';
+
+  /* Una línea que resuma lo que devolvió el servidor.
+
+     Se mira campo por campo porque cada uno significa algo distinto y
+     mezclarlos sería mentir:
+       sent        salieron en esta ejecución
+       already_sent ya habían salido antes (un reintento)
+       failed      rebotaron o Resend los rechazó
+       unconfirmed salieron, pero no se pudo escribir su fila: se
+                   recuperan solos en el siguiente intento
+       invalid_addresses descartados antes de empezar por no ser un
+                   correo válido — nunca se intentaron */
+  const resumenEnvio = (d) => {
+    const partes = [];
+    if (d.sent)         partes.push(`${d.sent} sent`);
+    if (d.already_sent) partes.push(`${d.already_sent} already sent earlier`);
+    if (d.failed)       partes.push(`${d.failed} failed`);
+    if (d.unconfirmed)  partes.push(`${d.unconfirmed} unconfirmed (will retry)`);
+    if (d.invalid_addresses) partes.push(`${d.invalid_addresses} invalid address${d.invalid_addresses === 1 ? '' : 'es'}`);
+    return partes.length ? partes.join(', ') : 'nothing to send';
+  };
+
+  const sendPromoEmail = async (e) => {
+    e.preventDefault();
+
+    if (window.AdminState.emailInFlight) {
+      toast('Please wait for the current send to finish.', true);
       return;
     }
 
-    const sendBtn = document.getElementById('promo-send-btn');
+    const datos = leerFormulario();
+    if (!datos) return;
+
+    /* ¿Ensayo o de verdad? La casilla se desmarca sola cada vez que se
+       abre el modal, así que un ensayo de ayer no puede convertirse en
+       el lanzamiento de hoy sin querer. */
+    const soloAdmin = !!document.getElementById('promo-only-me')?.checked;
+
+    const baseUrl = window.location.origin + window.location.pathname.replace('admin.html', '');
+
+    /* Tu copia. Va siempre, y va AL FINAL igual que antes.
+
+       Si tu dirección está además en la lista de suscriptores, el
+       servidor se queda con la PRIMERA aparición — la del suscriptor,
+       con su enlace de baja real — y descarta esta. Antes recibías dos
+       copias en ese caso. */
+    const copiaAdmin = {
+      email: CFG.ADMIN_EMAIL,
+      name:  'Ferocia Admin',
+      vars:  { unsubscribe_url: `${baseUrl}unsubscribe.html` },
+    };
+
+    let recipients;
+    if (soloAdmin) {
+      recipients = [copiaAdmin];
+    } else {
+      let subs = [];
+      try {
+        subs = await api('subscribers?status=eq.active&select=*');
+      } catch (err) {
+        toast(`Error: ${err.message}`, true);
+        return;
+      }
+      if (!subs.length) {
+        toast('No active subscribers to send to.', true);
+        return;
+      }
+      recipients = [
+        ...subs.map((s) => ({
+          email: s.email,
+          name:  nombreDe(s),
+          subscriber_id: s.id,
+          /* Cada enlace de baja lleva el token de SU dueño. Esto es lo
+             único que cambia por persona, y por eso viaja en `vars`:
+             el servidor lo guarda con su fila y así puede pintar el
+             correo de cualquiera sin volver a preguntar al navegador. */
+          vars: {
+            unsubscribe_url: s.unsubscribe_token
+              ? `${baseUrl}unsubscribe.html?t=${s.unsubscribe_token}`
+              : `${baseUrl}unsubscribe.html`,
+          },
+        })),
+        copiaAdmin,
+      ];
+    }
+
+    const sendBtn  = document.getElementById('promo-send-btn');
+    const origHTML = sendBtn.innerHTML;
     sendBtn.disabled = true;
-    sendBtn.innerHTML = 'Sending...';
+    /* Ya no hay contador "127/450": el envío es UNA petición, no 450.
+       Lo que se puede decir con verdad es a cuánta gente va. */
+    sendBtn.innerHTML = soloAdmin
+      ? 'Sending rehearsal to you...'
+      : `Sending to ${recipients.length} people...`;
     window.AdminState.emailInFlight = true;
 
-    emailjs.init({ publicKey: CFG.EMAILJS.PUBLIC_KEY });
-    const baseUrl = window.location.origin + window.location.pathname.replace('admin.html', '');
-    let sent = 0;
-    const failedRecipients = [];
-
-    // Admin copy always last
-    const allPromoRecipients = [
-      ...subs,
-      { first_name: 'Ferocia', last_name: 'Admin', email: CFG.ADMIN_EMAIL, unsubscribe_token: null },
-    ];
-
-    for (const sub of allPromoRecipients) {
-      const unsubUrl = sub.unsubscribe_token
-        ? `${baseUrl}unsubscribe.html?t=${sub.unsubscribe_token}`
-        : `${baseUrl}unsubscribe.html`;
-      // Replace {first_name} with real name
-      const personalizedMsg = message.replace(/\{first_name\}/g, sub.first_name || 'Player');
-      const ok = await window.sendOneEmail(CFG.EMAILJS.SERVICE, CFG.EMAILJS.TEMPLATES.PROMO,
-        paramsPromo({
-          campaignType,
-          subject,
-          message:     personalizedMsg,
-          flyerUrl:    promoFlyerUrl,
-          playerName:  `${sub.first_name} ${sub.last_name}`,
-          playerEmail: sub.email,
-          unsubUrl,
-        }));
-      if (ok) sent++;
-      else failedRecipients.push(sub.email);
-      sendBtn.innerHTML = `Sending... ${sent + failedRecipients.length}/${allPromoRecipients.length}`;
-      if (sent + failedRecipients.length < allPromoRecipients.length) {
-        await sleep(CFG.EMAIL_THROTTLE_MS);
-      }
+    let r;
+    try {
+      r = await window.sendEmailServer({
+        kind:     'promo',
+        template: 'promo',
+        subject:  datos.subject,
+        /* El mensaje CRUDO, con los {first_name} sin tocar. La
+           sustitución la hace el servidor por persona. Guardar aquí el
+           texto ya personalizado dejaría en la base de datos el correo
+           de una sola persona en vez de la campaña. */
+        body: datos.message,
+        meta: {
+          ...metaPromo(datos),
+          /* Marca el ensayo para que no cuente como "Last Campaign". */
+          ...(soloAdmin ? { solo_admin: true } : {}),
+        },
+        recipients,
+        idempotency_key: soloAdmin ? null : await claveCampana(datos),
+      });
+    } finally {
+      /* En finally: si esto no se limpia, `emailInFlight` se queda en
+         true y la página avisa de un envío en curso para siempre,
+         además de bloquear el botón de prueba. */
+      window.AdminState.emailInFlight = false;
+      sendBtn.disabled = false;
+      sendBtn.innerHTML = origHTML;
     }
 
-    // Record campaign in DB
-    try {
-      await api('campaigns', 'POST', {
-        subject,
-        message,
-        campaign_type: campaignType,
-        sent_at:       new Date().toISOString(),
-        sent_count:    sent,
-        failed_count:  failedRecipients.length,
-      });
-    } catch(_) { /* non-critical — don't block on this */ }
+    if (!r.ok) {
+      /* El modal NO se cierra cuando falla. Antes se cerraba siempre y
+         el mensaje escrito se perdía; ahora el texto sigue ahí y se
+         puede reintentar. Y reintentar es seguro: con la misma clave,
+         el servidor retoma la misma campaña en vez de crear otra. */
+      console.error('[promo] send failed:', r);
+      toast(r.message, true);
+      return;
+    }
 
-    window.AdminState.emailInFlight = false;
-    sendBtn.disabled = false;
-    sendBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> Launch Campaign';
+    const d = r.data || {};
+    console.log('[promo] resultado del envio:', d);
 
-    // Close modal
+    if (soloAdmin) {
+      /* El modal se queda abierto a propósito: el ensayo existe para
+         mirar el correo y LUEGO lanzar de verdad. Cerrarlo obligaría a
+         escribir la campaña otra vez. */
+      const chk = document.getElementById('promo-only-me');
+      if (chk) { chk.checked = false; actualizarEtiquetaLanzar(); }
+      toast(d.sent
+        ? `✅ Rehearsal sent to ${CFG.ADMIN_EMAIL} only. Nothing went to the list. The checkbox is now off — press Launch again to send for real.`
+        : `Rehearsal did not go out: ${resumenEnvio(d)}`, !d.sent);
+      /* Aunque sea un ensayo, la tarjeta de la derecha vuelve a leerse:
+         los contadores de la lista pueden haber cambiado. */
+      return;
+    }
+
+    // Envío real: se cierra el modal, como hasta ahora.
     const modal = document.getElementById('promo-modal');
     if (modal) { modal.style.display = 'none'; document.body.style.overflow = ''; }
 
-    if (!failedRecipients.length) {
-      toast(`✅ Campaign launched! ${sent} emails sent.`);
+    /* Un envío nuevo tiene que renovar la clave: si no, volver a
+       lanzar la misma campaña más tarde chocaría con la de este envío
+       y no mandaría nada. */
+    _promoNonce = null;
+
+    const limpio = d.status === 'sent' && !d.failed && !d.unconfirmed;
+    if (limpio) {
+      toast(`✅ Campaign launched! ${d.sent} email${d.sent === 1 ? '' : 's'} sent.`);
     } else {
-      const failedList = failedRecipients.slice(0, 3).join(', ');
-      const more = failedRecipients.length > 3 ? ` (+${failedRecipients.length - 3} more)` : '';
-      toast(`Sent ${sent}. Failed: ${failedList}${more}`, true);
+      toast(`Campaign finished: ${resumenEnvio(d)}.`, true);
     }
   };
 
@@ -1272,13 +1496,13 @@
   // Own these listeners directly (DOM is already parsed by the time this
   // script runs, same as every other listener).
   document.getElementById('promo-form')?.addEventListener('submit', sendPromoEmail);
+  document.getElementById('promo-only-me')?.addEventListener('change', actualizarEtiquetaLanzar);
   document.getElementById('sub-status-filter')?.addEventListener('change', () => { _subsShown = 25; _renderSubsTable(); });
   document.getElementById('sub-search')?.addEventListener('input', () => { _subsShown = 25; _renderSubsTable(); });
   document.getElementById('sub-source-filter')?.addEventListener('change', () => { _subsShown = 25; _renderSubsTable(); });
 
   // ── Expose / register with the shared infrastructure ──────────────────
   window.loadPromotionsPage = loadPromotionsPage; // called from the page router
-  window.sendTestPromoEmail = sendTestPromoEmail; // exposed via window.app for tournament.js (set in app.js's BOOT)
   window.loadSubscribers    = loadSubscribers;    // called by sendPendingReminder, which stays in app.js
 
   Object.assign(window.CLICK_HANDLERS, {

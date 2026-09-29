@@ -3197,12 +3197,25 @@
             </div>
           </div>
 
-          <!-- Test + Launch buttons -->
-          <button type="button" id="promo-test-btn" onclick="window.app.sendTestPromoEmail()"
-            style="width:100%;padding:10px;border:1px solid var(--blue);border-radius:99px;background:white;color:var(--blue);font-family:'Inter',sans-serif;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;margin-bottom:8px;">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-            Send Test to Me
-          </button>
+          <!-- Ensayo de campaña.
+               Marcada, el Launch pasa por el camino REAL completo — se
+               registra en communications, se reserva el destinatario y
+               sale por lotes — pero con una sola dirección: la del
+               admin. Nadie de la lista lo recibe.
+               admin-promotions.js la desmarca sola cada vez que se abre
+               el modal, y cambia la etiqueta del botón mientras está
+               puesta, para que el botón nunca diga una cosa y haga otra. -->
+          <label for="promo-only-me" style="display:flex;align-items:flex-start;gap:9px;padding:10px 12px;margin-bottom:8px;border:1px solid #e8edf8;border-radius:10px;background:#f8f9ff;cursor:pointer;">
+            <input type="checkbox" id="promo-only-me" style="margin:1px 0 0;width:14px;height:14px;accent-color:var(--blue);cursor:pointer;flex-shrink:0;">
+            <span style="font-family:'Inter',sans-serif;font-size:11px;font-weight:700;color:var(--text);line-height:1.45;">
+              Send only to me
+              <span style="display:block;font-size:10px;font-weight:600;color:var(--text-muted);margin-top:2px;">
+                Full rehearsal &mdash; real send, fully logged, but nobody on the list receives it.
+              </span>
+            </span>
+          </label>
+
+          <!-- Launch button -->
           <button type="submit" id="promo-send-btn" style="width:100%;padding:12px;border:none;border-radius:99px;background:linear-gradient(180deg,#2456d3 0%,var(--blue) 100%);color:white;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
             Launch Campaign
@@ -3496,7 +3509,7 @@
 <script src="admin-incident-reports.js?v=20260928b"></script>
 <script src="admin-ladder-selector.js?v=20260928b"></script>
 <script src="admin-orders.js?v=20260928b"></script>
-<script src="admin-email-utils.js?v=20260928b"></script>
+<script src="admin-email-utils.js?v=20260928c"></script>
 <script src="admin-share.js?v=20260928b"></script>
 <script src="admin-tournament-notify.js?v=20260928b"></script>
 <script src="admin-player-status-history.js?v=20260928b"></script>
@@ -3506,7 +3519,7 @@
 <script src="admin-sessions.js?v=20260928b"></script>
 <script src="admin-print-roster.js?v=20260928b"></script>
 <script src="admin-ladder-management.js?v=20260928b"></script>
-<script src="admin-promotions.js?v=20260928b"></script>
+<script src="admin-promotions.js?v=20260928c"></script>
 <script src="admin-newsletter.js?v=20260928b"></script>
 <!-- TEMPORARY: fills in missing dates of birth from a CSV import.
      Delete this line and temp-dob-backfill.js once every player has one.
@@ -3517,7 +3530,7 @@
 <script src="admin-ftc-standings.js?v=20260928b"></script>
 <script src="admin-ftc-playoffs-schedule.js?v=20260928b"></script>
 <script src="admin-ftc-teams.js?v=20260928b"></script>
-<script src="app.js?v=20260928b"></script>
+<script src="app.js?v=20260928c"></script>
 <script src="tournament.js?v=20260928b"></script>
 <script>
   // ── Sidebar toggle — persisted in localStorage ──────────────────────
