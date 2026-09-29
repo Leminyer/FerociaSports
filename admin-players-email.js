@@ -5,14 +5,23 @@
 
    Sends one message to every ACTIVE player who has an email address.
 
-   Built on the same pieces as the tournament notifier: sendOneEmail()
-   for the retry logic, AdminState.emailInFlight so navigating away
-   mid-send warns the user, and the same throttle between sends.
+   ── EL ENVÍO PASA POR EL SERVIDOR ─────────────────────────────────
+   Ya NO usa EmailJS. Manda con sendEmailServer() de
+   admin-email-utils.js: UNA petición para toda la lista en vez de una
+   por jugador.
 
-   WHY THE THROTTLE STAYS
-     CFG.EMAIL_THROTTLE_MS (600ms) is not slowness to be optimised away.
-     EmailJS rate-limits per second; going faster gets messages rejected
-     or flagged as spam, which costs far more than four minutes.
+   Con eso desaparece la espera entre envíos. Aquella pausa de 600ms
+   no era lentitud que sobrara —EmailJS limita por segundo y correr más
+   acababa con los correos rechazados— pero era una pausa del
+   NAVEGADOR. El servidor manda en lotes de 100 y el ritmo lo lleva él.
+
+   Consecuencias visibles, todas buscadas:
+     · De ~4 minutos a segundos.
+     · Ya no hay que dejar la ventana abierta: el envío no vive aquí.
+     · Queda registro persona a persona en la base de datos.
+
+   El mensaje se escribe con formato (admin-rich-editor.js) y viaja
+   como HTML, que el servidor filtra antes de pintarlo.
    ============================================================ */
 
 (function () {
@@ -29,13 +38,17 @@
   let _peRecipients = [];
   let _peSkipped    = 0;
 
-  /** Rough wall-clock estimate: throttle plus the request itself. */
-  const estimateMinutes = (n) => {
-    const seconds = n * ((CFG.EMAIL_THROTTLE_MS + 300) / 1000);
-    return seconds < 90
-      ? `about ${Math.max(1, Math.round(seconds))} seconds`
-      : `about ${Math.round(seconds / 60)} minute${Math.round(seconds / 60) !== 1 ? 's' : ''}`;
-  };
+  /* Compartidos con las otras cuatro pantallas que mandan correo. */
+  const edPlayers = window.FerociaEditor
+    ? window.FerociaEditor.mount('pe-message', { barraId: 'pe-fmt-bar' }) : null;
+  if (!edPlayers) console.error('[Ferocia] admin-rich-editor.js must load before admin-players-email.js');
+  const claveador = window.crearClaveador('players');
+
+  /* La estimación de minutos que había aquí se quitó porque era FALSA:
+     calculaba la pausa del navegador entre envío y envío, y esa pausa
+     ya no existe. Decir "tarda 4 minutos, no cierres la ventana"
+     cuando tarda segundos y la ventana da igual es peor que no decir
+     nada — enseña a desconfiar de lo que pone en pantalla. */
 
   const pill = (bg, color, text) =>
     `<span style="display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:700;
@@ -44,7 +57,7 @@
   window.openPlayersEmail = async () => {
     let players = [];
     try {
-      players = await api('players?status=eq.active&select=first_name,last_name,email&order=first_name');
+      players = await api('players?status=eq.active&select=id,first_name,last_name,email&order=first_name');
     } catch (err) {
       toast(`Error loading players: ${err.message}`, true);
       return;
@@ -70,17 +83,20 @@
       + (_peSkipped ? pill('#fff4e6', '#9a6200',
         `<svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
          ${_peSkipped} skipped — no email`) : '')
-      // Stated up front so nobody starts a four-minute send on their way out.
       + pill('#f3f4f6', 'var(--text-muted)',
         `<svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-         Takes ${estimateMinutes(_peRecipients.length + 1)}`);
+         Sends in seconds`);
 
     document.getElementById('pe-subject').value = '';
-    document.getElementById('pe-message').value = '';
+    if (edPlayers) edPlayers.clear();
 
-    const btn     = document.getElementById('pe-send-btn');
-    const testBtn = document.getElementById('pe-test-btn');
-    if (testBtn) testBtn.disabled = false;
+    /* Casilla de ensayo siempre desmarcada al abrir; la clave sólo se
+       pone si no hay ninguna pendiente (ver admin-email-utils.js). */
+    const chkSolo = document.getElementById('pe-only-me');
+    if (chkSolo) chkSolo.checked = false;
+    claveador.asegurar();
+
+    const btn = document.getElementById('pe-send-btn');
     btn.disabled = false;
     btn.style.background = 'linear-gradient(180deg,#2456d3,var(--blue))';
     btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Send to All Players`;
@@ -96,129 +112,128 @@
     document.getElementById('players-email-modal').classList.remove('open');
   };
 
-  /**
-   * Sends one copy to the admin so they can see how the message actually
-   * lands in an inbox — line breaks, the subject in the blue header, the
-   * whole thing — before committing to a send that cannot be recalled.
-   *
-   * Uses the SAME template and the SAME parameters as the real run, so
-   * what arrives is what everyone else will get. Only two things differ:
-   * "[TEST]" on the subject line, and {{player_name}} resolved to the
-   * admin's own name rather than a player's.
-   */
-  const sendTestPlayersEmail = async () => {
-    const subject = document.getElementById('pe-subject').value.trim();
-    const message = document.getElementById('pe-message').value.trim();
-    if (!subject || !message) { toast('Write a subject and message first.', true); return; }
-
-    const testBtn  = document.getElementById('pe-test-btn');
-    const origHTML = testBtn.innerHTML;
-    testBtn.disabled  = true;
-    testBtn.innerHTML = 'Sending test...';
-
-    try {
-      emailjs.init({ publicKey: CFG.EMAILJS.PUBLIC_KEY });
-      const ok = await window.sendOneEmail(CFG.EMAILJS.SERVICE, CFG.EMAILJS.TEMPLATES.MESSAGE, {
-        player_name:  'Ferocia Admin',
-        player_email: CFG.ADMIN_EMAIL,
-        email_title:  subject,
-        subject:      `[TEST] ${subject}`,
-        message:      message.replace(/\{\{player_name\}\}/g, 'Ferocia Admin'),
-      });
-      if (ok) toast(`✅ Test email sent to ${CFG.ADMIN_EMAIL}`);
-      else    toast('Test email failed. Check your EmailJS config.', true);
-    } catch (err) {
-      toast(`Error: ${err.message}`, true);
-    } finally {
-      testBtn.disabled  = false;
-      testBtn.innerHTML = origHTML;
-    }
-  };
-
   const sendPlayersEmail = async (e) => {
     e.preventDefault();
+    if (window.AdminState.emailInFlight) { toast('Please wait for the current send to finish.', true); return; }
 
     const subject = document.getElementById('pe-subject').value.trim();
-    const message = document.getElementById('pe-message').value.trim();
-    if (!subject || !message) { toast('Subject and message are required.', true); return; }
+    const message = edPlayers ? edPlayers.getHTML() : '';
+    const texto   = edPlayers ? edPlayers.getText() : '';
+    if (!subject || !texto) { toast('Subject and message are required.', true); return; }
     if (!_peRecipients.length) { toast('No recipients loaded. Close and reopen the window.', true); return; }
 
-    // A mass send cannot be undone, so it takes one deliberate confirmation.
-    // confirmModal() renders the message with textContent, so this is one
-    // flowing sentence rather than a formatted block.
-    const ok = await confirmModal({
-      title: `Send to ${_peRecipients.length} players?`,
-      message:
-        `This will email all ${_peRecipients.length} active players with an address on file` +
-        (_peSkipped ? `, skipping ${_peSkipped} who have none` : '') +
-        `. It takes ${estimateMinutes(_peRecipients.length + 1)} and cannot be undone — ` +
-        `keep this window open until it finishes.`,
-      okLabel: 'Send now',
-      cancelLabel: 'Cancel',
-    });
-    if (!ok) return;
+    const soloAdmin = !!document.getElementById('pe-only-me')?.checked;
 
-    const sendBtn = document.getElementById('pe-send-btn');
-    const testBtn = document.getElementById('pe-test-btn');
+    // Tu copia, al final. Si además eres jugador, el servidor se queda
+    // con la primera aparición y no recibes dos.
+    const copiaAdmin = { email: CFG.ADMIN_EMAIL, name: 'Ferocia Admin' };
+
+    let recipients;
+    if (soloAdmin) {
+      recipients = [copiaAdmin];
+    } else {
+      recipients = [
+        ..._peRecipients.map((p) => ({
+          email: p.email,
+          name:  window.nombreDestinatario(p),
+          player_id: p.id,
+        })),
+        copiaAdmin,
+      ];
+
+      /* La confirmación ya existía aquí, y era la única de la app. Lo
+         que cambia es lo que dice: antes avisaba de que tardaba cuatro
+         minutos y de no cerrar la ventana. Las dos cosas han dejado de
+         ser verdad, y una advertencia falsa enseña a no leerlas. */
+      const cuantos = _peRecipients.length;
+      const seguro = await confirmModal({
+        title:   `Send to ${cuantos} player${cuantos === 1 ? '' : 's'}?`,
+        message: `"${subject}" will be emailed to all ${cuantos} active player`
+               + `${cuantos === 1 ? '' : 's'} with an address on file`
+               + (_peSkipped ? `, skipping ${_peSkipped} who have none` : '')
+               + `, plus a copy to you. This cannot be undone.`
+               + `\n\nTo check it first, cancel and use "Send only to me".`,
+        okLabel: `Send to ${cuantos}`,
+        cancelLabel: 'Cancel',
+        danger: true,
+      });
+      if (!seguro) return;
+    }
+
+    const sendBtn  = document.getElementById('pe-send-btn');
+    const origHTML = sendBtn.innerHTML;
     sendBtn.disabled = true;
-    sendBtn.textContent = 'Sending...';
-    // Lock the test button too: firing a test mid-run would interleave an
-    // extra request into a throttle that is deliberately paced.
-    if (testBtn) testBtn.disabled = true;
+    sendBtn.textContent = soloAdmin
+      ? 'Sending rehearsal to you...'
+      : `Sending to ${recipients.length} people...`;
     window.AdminState.emailInFlight = true;
 
-    emailjs.init({ publicKey: CFG.EMAILJS.PUBLIC_KEY });
-    let sent = 0;
-    const failedRecipients = [];
-
-    // Admin last, as in the other bulk senders: a copy arrives once the run
-    // is done, which doubles as confirmation that delivery worked.
-    const allRecipients = [
-      ..._peRecipients,
-      { first_name: 'Ferocia', last_name: 'Admin', email: CFG.ADMIN_EMAIL },
-    ];
-
-    for (const player of allRecipients) {
-      const playerMsg = message.replace(/\{\{player_name\}\}/g,
-        `${player.first_name} ${player.last_name}`);
-
-      const okSend = await window.sendOneEmail(CFG.EMAILJS.SERVICE, CFG.EMAILJS.TEMPLATES.MESSAGE, {
-        player_name:  `${player.first_name} ${player.last_name}`,
-        player_email: player.email,
-        email_title:  subject,
+    let r;
+    try {
+      r = await window.sendEmailServer({
+        kind:     'players_broadcast',
+        template: 'message',
         subject,
-        message:      playerMsg,
+        body: message,
+        meta: {
+          /* En esta plantilla `email_title` es el titular grande del
+             correo, y el asunto es lo que mejor funciona ahí: "Rained
+             out — session cancelled" se lee mucho mejor que un nombre
+             de club repetido en todos los correos. */
+          email_title: subject,
+          cuerpo_html: true,
+          ...(soloAdmin ? { solo_admin: true } : {}),
+        },
+        recipients,
+        idempotency_key: soloAdmin ? null
+          : await claveador.clave([subject, message]),
       });
-
-      if (okSend) sent++;
-      else failedRecipients.push(player.email);
-
-      sendBtn.textContent = `Sending... ${sent + failedRecipients.length}/${allRecipients.length}`;
-      if (sent + failedRecipients.length < allRecipients.length) {
-        await sleep(CFG.EMAIL_THROTTLE_MS);
-      }
+    } finally {
+      window.AdminState.emailInFlight = false;
+      sendBtn.disabled = false;
+      sendBtn.innerHTML = origHTML;
+      sendBtn.style.background = 'linear-gradient(180deg,#2456d3,var(--blue))';
     }
 
-    window.AdminState.emailInFlight = false;
+    if (!r.ok) {
+      console.error('[players-email] send failed:', r);
+      toast(r.message, true);
+      return;   // la ventana se queda abierta: no se pierde el mensaje
+    }
 
-    if (!failedRecipients.length) {
+    const d = r.data || {};
+    console.log('[players-email] resultado del envio:', d);
+
+    if (soloAdmin) {
+      const chk = document.getElementById('pe-only-me');
+      if (chk) chk.checked = false;
+      toast(d.sent
+        ? `✅ Rehearsal sent to ${CFG.ADMIN_EMAIL} only. No player received it. The checkbox is now off — press Send again to email everyone.`
+        : `Rehearsal did not go out: ${window.resumenEnvio(d)}`, !d.sent);
+      return;
+    }
+
+    claveador.limpiar();
+
+    const limpio = d.status === 'sent' && !d.failed && !d.unconfirmed;
+    if (limpio) {
       sendBtn.style.background = 'linear-gradient(180deg,#2ab87a,#1d9e68)';
-      sendBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Sent ${sent} emails!`;
+      sendBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Sent ${d.sent} emails!`;
       setTimeout(() => {
         document.getElementById('players-email-modal').classList.remove('open');
-        toast(`Message sent to ${sent - 1} players.`);
+        sendBtn.innerHTML = origHTML;
+        sendBtn.style.background = 'linear-gradient(180deg,#2456d3,var(--blue))';
+        toast(`Message sent to ${Math.max(0, d.sent - 1)} players.`);
       }, 1400);
     } else {
-      // Failures are named, not just counted: the admin can resend to those
-      // few individually from each player's profile.
-      sendBtn.disabled = false;
-      if (testBtn) testBtn.disabled = false;
-      sendBtn.style.background = 'linear-gradient(180deg,#2456d3,var(--blue))';
-      sendBtn.innerHTML = 'Send to All Players';
-      console.warn('[players-email] failed recipients:', failedRecipients);
-      toast(`Sent ${sent}, but ${failedRecipients.length} failed. See the console for the addresses.`, true);
+      /* La ventana NO se cierra: si algo falló, el mensaje escrito sigue
+         ahí y se puede reintentar. Con la misma clave, el servidor
+         retoma el mismo envío y se salta a quien ya recibió. */
+      console.warn('[players-email] no salio limpio:', d);
+      toast(`Finished: ${window.resumenEnvio(d)}. Press Send again to retry the ones that failed.`, true);
     }
   };
+
 
   document.getElementById('players-email-form')
     ?.addEventListener('submit', sendPlayersEmail);
@@ -226,6 +241,5 @@
   Object.assign(window.CLICK_HANDLERS, {
     openPlayersEmail:     () => window.openPlayersEmail(),
     closePlayersEmail:    () => window.closePlayersEmail(),
-    sendTestPlayersEmail: () => sendTestPlayersEmail(),
   });
 })();

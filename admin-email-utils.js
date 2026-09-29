@@ -8,26 +8,32 @@
    Extracted from app.js (was defined inline in the EMAIL NOTIFICATIONS
    section, but used by three different sections). Exposes:
 
-     window.sendOneEmail(serviceId, templateId, params)
-         Sends one email via EmailJS with one retry on failure.
-         Returns true on success, false on permanent failure.
-
-     window.sendEmailServer(payload)                        ← NUEVO
+     window.sendEmailServer(payload)
          Manda por la Edge Function `send-email`, en el servidor.
          Devuelve { ok, data, code, detail, message }. Nunca lanza.
+
+     window.crearClaveador(prefijo)
+         La clave contra envíos duplicados, una por pantalla.
+
+     window.nombreDestinatario(p) / window.resumenEnvio(d)
+         Dos ayudantes que usaban las cuatro pantallas por igual.
 
      AdminState.emailInFlight
          Shared boolean guard so a page navigation mid-send can warn
          the user, no matter which feature is currently sending.
 
-   ── POR QUÉ HAY DOS TRANSPORTES A LA VEZ ──────────────────────────
-   `sendOneEmail` (EmailJS) queda INTACTA a propósito. Los módulos que
-   todavía no se han cambiado la siguen usando y siguen funcionando
-   exactamente igual que antes. Lo nuevo se añade al lado; no se
-   sustituye nada de golpe. Cuando el último módulo pase al servidor,
-   `sendOneEmail` y las claves de EmailJS se van juntas.
+   ── SE ACABÓ EMAILJS EN EL ADMIN ──────────────────────────────────
+   Aquí vivía `sendOneEmail`, que mandaba un correo por EmailJS desde
+   el navegador. Las cinco pantallas que mandan correo ya pasan por el
+   servidor, así que no la llamaba nadie: se fue, y con ella el
+   <script> de EmailJS de admin.html.
 
-   Lo que gana el módulo que pasa al servidor:
+   Queda UN sitio con EmailJS en toda la aplicación: subscribe.html,
+   el formulario público. Ahí no hay ningún admin autenticado, así que
+   no puede usar esta función — necesita una suya, pública y de un
+   solo propósito. Hasta entonces las claves siguen en config.js.
+
+   Lo que se gana al mandar por el servidor:
      · La clave del proveedor no está en el navegador. Es un secreto de
        Supabase, y nadie que abra el código de la página la ve.
      · Manda en lotes de 100. Una campaña de 450 tarda segundos, no
@@ -43,27 +49,6 @@
   if (!CFG) {
     console.error('[Ferocia] config.js must load before admin-email-utils.js');
     return;
-  }
-
-  /* ════════════════════════════════════════════════════════════
-     TRANSPORTE ANTIGUO — EmailJS, desde el navegador.
-     Sin cambios. No tocar mientras quede un módulo que lo use.
-     ════════════════════════════════════════════════════════════ */
-
-  async function sendOneEmail(serviceId, templateId, params) {
-    try {
-      await emailjs.send(serviceId, templateId, params);
-      return true;
-    } catch (err) {
-      // Brief backoff, then one retry
-      await sleep(CFG.EMAIL_RETRY_DELAY_MS);
-      try {
-        await emailjs.send(serviceId, templateId, params);
-        return true;
-      } catch (_) {
-        return false;
-      }
-    }
   }
 
   /* ════════════════════════════════════════════════════════════
@@ -305,7 +290,6 @@
   }
   window.addEventListener('beforeunload', beforeUnloadGuard);
 
-  window.sendOneEmail    = sendOneEmail;
   window.sendEmailServer = sendEmailServer;
   window.crearClaveador  = crearClaveador;
   window.nombreDestinatario = nombreDestinatario;

@@ -1143,42 +1143,66 @@ window.selectLadderType = (type) => {
         // Confirm with admin before sending
         const confirmed = await confirmModal({
           title: 'Send Confirmation Reminders',
-          message: `Send a confirmation email reminder to ${pending.length} pending subscriber${pending.length !== 1 ? 's' : ''}? Each will receive a link to confirm their subscription.`,
-          okLabel: 'Send Reminders',
+          message: `Send a confirmation email reminder to ${pending.length} pending subscriber${pending.length !== 1 ? 's' : ''}? Each will receive a link to confirm their subscription. This cannot be undone.`,
+          okLabel: `Send ${pending.length} reminder${pending.length !== 1 ? 's' : ''}`,
+          cancelLabel: 'Cancel',
+          danger: true,
         });
         if (!confirmed) return;
 
         const baseUrl = window.location.origin + window.location.pathname.replace('admin.html', '');
-        emailjs.init({ publicKey: CFG.EMAILJS.PUBLIC_KEY });
 
-        let sent = 0;
-        const failed = [];
+        /* Por el servidor, igual que el resto de la aplicación: una
+           sola petición para todos los pendientes en vez de una por
+           persona, y registro de a quién le llegó.
 
-        for (const sub of pending) {
-          const confirmUrl = sub.confirm_token
-            ? `${baseUrl}confirm.html?t=${sub.confirm_token}`
-            : `${baseUrl}confirm.html`;
+           El enlace de confirmación es lo ÚNICO que cambia por
+           persona, así que viaja en `vars` de cada destinatario: el
+           servidor lo guarda con su fila y puede pintar el correo de
+           cualquiera sin volver a preguntarle al navegador.
 
-          const ok = await window.sendOneEmail(CFG.EMAILJS.SERVICE, CFG.EMAILJS.TEMPLATES.CONFIRM, {
-            player_name:  `${sub.first_name} ${sub.last_name}`,
-            player_email: sub.email,
-            subject:      '⏰ Reminder: Please confirm your Ferocia Sports subscription',
-            confirm_url:  confirmUrl,
-          });
-
-          if (ok) sent++;
-          else failed.push(sub.email);
-
-          if (sent + failed.length < pending.length) {
-            await sleep(CFG.EMAIL_THROTTLE_MS);
-          }
+           Sin `confirm_token` no se manda: el correo llevaría un
+           enlace que no confirma nada y la persona haría clic para
+           que no pasara nada. */
+        const conToken = pending.filter((s) => s.confirm_token);
+        const sinToken = pending.length - conToken.length;
+        if (!conToken.length) {
+          toast('None of the pending subscribers has a valid confirmation link.', true);
+          return;
         }
 
-        if (!failed.length) {
-          toast(`✅ Confirmation reminder sent to ${sent} subscriber${sent !== 1 ? 's' : ''}!`);
+        const r = await window.sendEmailServer({
+          kind:     'subscriber_confirm',
+          template: 'confirm',
+          subject:  '⏰ Reminder: Please confirm your Ferocia Sports subscription',
+          recipients: conToken.map((sub) => ({
+            email: sub.email,
+            name:  window.nombreDestinatario(sub),
+            vars: { confirm_url: `${baseUrl}confirm.html?t=${sub.confirm_token}` },
+          })),
+          /* Sin clave: estos recordatorios se mandan a propósito más de
+             una vez, y una clave por contenido impediría el segundo
+             — el asunto y el cuerpo son siempre los mismos. Contra el
+             doble clic ya está la ventana de confirmación de arriba. */
+          idempotency_key: null,
+        });
+
+        if (!r.ok) {
+          console.error('[confirm-reminders] send failed:', r);
+          toast(r.message, true);
+          return;
+        }
+
+        const d = r.data || {};
+        console.log('[confirm-reminders] resultado del envio:', d);
+        const limpio = d.status === 'sent' && !d.failed && !d.unconfirmed;
+        if (limpio) {
+          toast(`✅ Confirmation reminder sent to ${d.sent} subscriber${d.sent !== 1 ? 's' : ''}!`
+            + (sinToken ? ` (${sinToken} skipped — no valid link)` : ''));
         } else {
-          toast(`Sent ${sent} reminders. ${failed.length} failed: ${failed.join(', ')}`, true);
+          toast(`Finished: ${window.resumenEnvio(d)}.`, true);
         }
+
         // Refresh page data
         await window.loadSubscribers();
       } catch(e) {
@@ -1332,7 +1356,6 @@ window.selectLadderType = (type) => {
     sleep,
     showPage,
     openTournamentNotifyModal: window.openTournamentNotifyModal,  // set by admin-tournament-notify.js; called by tournament.js notify button
-    sendTestPromoEmail: window.sendTestPromoEmail, // set by admin-promotions.js
   };
   // Also expose directly on window for legacy references in tournament.js
   window.api          = api;
