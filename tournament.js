@@ -5174,6 +5174,34 @@ async function printTournamentRoster(btn) {
     const RIGHT_X = ML + LEFT_W + 6;
     const RIGHT_W = PW - MR - RIGHT_X;
 
+    /* ── TEAMS LIST: name + age + coach/self rating ────────────────
+       Each player is drawn on their own line so the two value columns
+       line up under their headers. Everything is positioned off ML and
+       LEFT_W, so the column widths themselves are untouched. */
+    const DET_SIZE = 6.5 * NAME_SIZE;        // player detail text size
+    const FILA_BASE = 5.2;                   // team-name band of each row
+    const PASO      = 3.3;                   // one player line
+    const PASO_EQUIPO = 4.1;                 // one extra team-name line
+    const NOMBRE_X  = ML + 11;               // player names, left-aligned
+    const RATE_X    = ML + LEFT_W - 1.5;     // rating column, right-aligned
+    const AGE_X     = RATE_X - 20;           // age column, right-aligned
+    const NOMBRE_W  = AGE_X - 5.5 - NOMBRE_X;
+
+    // Age from date_of_birth, without shifting the day in western timezones.
+    const edadDe = (iso) => {
+      if (!iso) return null;
+      const b = new Date(iso + 'T00:00:00');
+      if (isNaN(b.getTime())) return null;
+      const hoy = new Date();
+      let e = hoy.getFullYear() - b.getFullYear();
+      if (hoy.getMonth() < b.getMonth() ||
+         (hoy.getMonth() === b.getMonth() && hoy.getDate() < b.getDate())) e--;
+      return e;
+    };
+    // Three decimals, same as the players table. A dash when there is no value.
+    const nivelDe = (v) =>
+      (v === null || v === undefined || v === '') ? '—' : Number(v).toFixed(3);
+
     for (let ci = 0; ci < categories.length; ci++) {
       const cat = categories[ci];
       if (ci > 0) doc.addPage();
@@ -5193,22 +5221,57 @@ async function printTournamentRoster(btn) {
       teams.forEach(t => { teamMap[t.id] = t; });
 
       // ── Helper: draw teams list in left column ─────────────────────────
-      const ROW_H = 8.5;
       const drawTeamsList = (startY) => {
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(8);
         doc.setTextColor(...MUTED);
         doc.text('TEAMS', ML, startY);
+        doc.setFontSize(6.5);
+        doc.text('AGE', AGE_X, startY, { align: 'right' });
+        doc.text('COACH / SELF', RATE_X, startY, { align: 'right' });
         let ty = startY + 5;
+        let sinSitio = 0;          // teams left out because the page ran out
         teams.forEach((team, i) => {
+          if (sinSitio) { sinSitio++; return; }
           const seed = i + 1;
           const seedColor = seed === 1 ? GOLD : seed === 2 ? SILVER : seed === 3 ? BRONZE : BLUE;
           const isTop3 = seed <= 3;
+
+          // Measured before drawing: a name that needs two lines makes the
+          // row taller instead of running over the player below it.
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(DET_SIZE);
+          const jugadores = [team.player1_id, team.player2_id, team.player3_id, team.player4_id]
+            .filter(Boolean)
+            .map(id => tAllPlayers.find(x => x.id === id))
+            .filter(Boolean)
+            .map(p => {
+              const edad = edadDe(p.date_of_birth);
+              return {
+                nombre: doc.splitTextToSize(`${p.first_name} ${p.last_name}`, NOMBRE_W),
+                edad: edad === null ? '—' : String(edad),
+                nivel: `${nivelDe(p.coach_rating)} / ${nivelDe(p.self_rating)}`,
+              };
+            });
+          const totalLineas = jugadores.reduce((n, j) => n + j.nombre.length, 0);
+
+          // A team name too long for the column wraps too, and pushes the
+          // players down instead of being printed on top of them.
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(8 * NAME_SIZE);
+          const lineasEquipo = doc.splitTextToSize(team.name || '', LEFT_W - 14);
+          const ALTO_EQUIPO  = (lineasEquipo.length - 1) * PASO_EQUIPO;
+          const ROW_H = FILA_BASE + ALTO_EQUIPO + Math.max(1, totalLineas) * PASO;
+
+          // Never print over the footer: the teams that do not fit are
+          // counted and announced under the list instead of disappearing.
+          if (ty + ROW_H > PAGE_BOTTOM - 4) { sinSitio = 1; return; }
+
           if (i % 2 === 0) {
             doc.setFillColor(245, 247, 252);
             doc.rect(ML, ty, LEFT_W, ROW_H, 'F');
           }
-          const cx = ML + 5, cy = ty + ROW_H / 2;
+          const cx = ML + 5, cy = ty + 4.25;
           doc.setFillColor(...seedColor);
           doc.circle(cx, cy, 3.2, 'F');
           doc.setFont('helvetica', 'bold');
@@ -5218,20 +5281,27 @@ async function printTournamentRoster(btn) {
           doc.setFont('helvetica', 'bold');
           doc.setFontSize(8 * NAME_SIZE);
           doc.setTextColor(...DARK);
-          doc.text(team.name, ML + 11, ty + 4, { maxWidth: LEFT_W - 14 });
-          const pIds = [team.player1_id, team.player2_id, team.player3_id, team.player4_id].filter(Boolean);
-          const pNames = pIds.map(id => {
-            const p = tAllPlayers.find(x => x.id === id);
-            return p ? `${p.first_name} ${p.last_name}` : null;
-          }).filter(Boolean).join(' & ');
-          if (pNames) {
-            doc.setFont('helvetica', 'normal');
-            doc.setFontSize(6.5 * NAME_SIZE);
-            doc.setTextColor(...MUTED);
-            doc.text(pNames, ML + 11, ty + 7.2, { maxWidth: LEFT_W - 14 });
-          }
+          lineasEquipo.forEach((ln, k) => doc.text(ln, NOMBRE_X, ty + 4 + k * PASO_EQUIPO));
+
+          let py = ty + 7.2 + ALTO_EQUIPO;
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(DET_SIZE);
+          doc.setTextColor(...MUTED);
+          jugadores.forEach(j => {
+            j.nombre.forEach((ln, k) => doc.text(ln, NOMBRE_X, py + k * PASO));
+            doc.text(j.edad,  AGE_X,  py, { align: 'right' });
+            doc.text(j.nivel, RATE_X, py, { align: 'right' });
+            py += j.nombre.length * PASO;
+          });
           ty += ROW_H;
         });
+        if (sinSitio) {
+          doc.setFont('helvetica', 'italic');
+          doc.setFontSize(6.5);
+          doc.setTextColor(...MUTED);
+          doc.text(`+ ${sinSitio} more team${sinSitio > 1 ? 's' : ''} — no room on the page`,
+                   ML, ty + 3.5);
+        }
       };
 
       // ── LEFT COLUMN: Teams list (page 1) ─────────────────────────────
