@@ -5221,18 +5221,24 @@ async function printTournamentRoster(btn) {
       teams.forEach(t => { teamMap[t.id] = t; });
 
       // ── Helper: draw teams list in left column ─────────────────────────
+      /* The list fills one page at a time. teamCursor remembers where it
+         stopped, so each new page carries on from there instead of starting
+         over — the same way the schedule continues in the right column. */
+      let teamCursor = 0;
       const drawTeamsList = (startY) => {
+        if (teamCursor >= teams.length) return;
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(8);
         doc.setTextColor(...MUTED);
-        doc.text('TEAMS', ML, startY);
+        doc.text(teamCursor === 0 ? 'TEAMS' : 'TEAMS (continued)', ML, startY);
         doc.setFontSize(6.5);
         doc.text('AGE', AGE_X, startY, { align: 'right' });
         doc.text('COACH / SELF', RATE_X, startY, { align: 'right' });
-        let ty = startY + 5;
-        let skipped = 0;          // teams left out because the page ran out
-        teams.forEach((team, i) => {
-          if (skipped) { skipped++; return; }
+        const firstY = startY + 5;
+        let ty = firstY;
+        while (teamCursor < teams.length) {
+          const i = teamCursor;
+          const team = teams[i];
           const seed = i + 1;
           const seedColor = seed === 1 ? GOLD : seed === 2 ? SILVER : seed === 3 ? BRONZE : BLUE;
           const isTop3 = seed <= 3;
@@ -5263,9 +5269,9 @@ async function printTournamentRoster(btn) {
           const TEAM_EXTRA = (teamLines.length - 1) * TEAM_LINE_H;
           const ROW_H = ROW_BASE + TEAM_EXTRA + Math.max(1, nameLines) * LINE_H;
 
-          // Never print over the footer: the teams that do not fit are
-          // counted and announced under the list instead of disappearing.
-          if (ty + ROW_H > PAGE_BOTTOM - 4) { skipped = 1; return; }
+          // Out of room: the rest of the teams go on the next page. The first
+          // team of a page is always drawn, so the list can never stall.
+          if (ty + ROW_H > PAGE_BOTTOM && ty > firstY) break;
 
           if (i % 2 === 0) {
             doc.setFillColor(245, 247, 252);
@@ -5294,13 +5300,7 @@ async function printTournamentRoster(btn) {
             py += pl.name.length * LINE_H;
           });
           ty += ROW_H;
-        });
-        if (skipped) {
-          doc.setFont('helvetica', 'italic');
-          doc.setFontSize(6.5);
-          doc.setTextColor(...MUTED);
-          doc.text(`+ ${skipped} more team${skipped > 1 ? 's' : ''} — no room on the page`,
-                   ML, ty + 3.5);
+          teamCursor++;
         }
       };
 
@@ -5455,6 +5455,15 @@ async function printTournamentRoster(btn) {
         doc.setFontSize(8);
         doc.setTextColor(...MUTED);
         doc.text('No schedule generated yet.', schedX(), ry + 6);
+      }
+
+      // The schedule may finish before the teams list does — a long category
+      // gets its own extra pages so no team is ever left out.
+      while (teamCursor < teams.length) {
+        drawFooter();
+        doc.addPage();
+        drawHeader(cat.name);
+        drawTeamsList(30);
       }
 
       drawFooter();
