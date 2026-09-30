@@ -24,6 +24,44 @@
 <link rel="stylesheet" href="admin-components.css?v=20260928b">
 <link rel="stylesheet" href="admin-pages.css?v=20260928b">
 <link rel="stylesheet" href="admin-ftc.css?v=20260928b">
+
+<!-- Estilos propios de la pantalla Communications.
+
+     Van aquí y no en admin-components.css a propósito: así esta
+     pantalla se añade sin tocar la hoja de estilos que comparten TODAS
+     las demás. Los nombres empiezan por `co-`, que no existe en
+     ninguna otra parte, así que no pueden pisar nada.
+
+     Los colores y medidas salen de los que ya usa la aplicación: el
+     mismo azul, el mismo borde, el mismo radio de 99px en los botones
+     pequeños. -->
+<style>
+  /* Los accesos de la pestaña Send */
+  .co-launch{display:flex;flex-direction:column;align-items:flex-start;gap:3px;
+             text-align:left;padding:15px 17px;border:0.5px solid var(--divider-color);
+             border-radius:12px;background:white;cursor:pointer;width:100%;
+             font-family:'Inter',sans-serif;transition:border-color .12s,background .12s;}
+  .co-launch:hover{border-color:#c5d6f5;background:#fafbff;}
+  .co-launch-t{font-size:13px;font-weight:800;color:var(--text);}
+  .co-launch-d{font-size:11px;font-weight:600;color:var(--text-muted);}
+
+  /* El filtro de destinatarios dentro de la ventana de detalle */
+  .co-pfilter{font-size:10px;font-weight:700;padding:5px 13px;border-radius:99px;
+              border:0.5px solid var(--divider-color);background:white;
+              color:var(--text-muted);cursor:pointer;font-family:'Inter',sans-serif;
+              text-transform:none;letter-spacing:normal;}
+  .co-pfilter:hover{border-color:#c5d6f5;color:var(--blue);}
+  .co-pfilter-on{background:#e8f0ff;border-color:#c5d6f5;color:var(--blue);}
+
+  /* El cuerpo del correo se guarda con el formato que ella escribió.
+     Se le quitan los márgenes de fuera para que no separe el texto del
+     marco, y se le pone tope a las imágenes para que una foto grande
+     no desborde la ventana. */
+  #co-det-body p:first-child{margin-top:0;}
+  #co-det-body p:last-child{margin-bottom:0;}
+  #co-det-body img{max-width:100%;height:auto;}
+  #co-det-body table{max-width:100%;}
+</style>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="config.js?v=20260929j"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -141,6 +179,10 @@
     <button class="sb-item" id="sb-newsletter" data-action="showPage" data-page="newsletter">
       <span class="sb-item-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-4 0v-9h4"/><path d="M18 14h-8M15 18h-5M10 6h8v4h-8z"/></svg></span>
       <span class="sb-item-label">Newsletter</span>
+    </button>
+    <button class="sb-item" id="sb-communications" data-action="showPage" data-page="communications">
+      <span class="sb-item-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></span>
+      <span class="sb-item-label">Communications</span>
     </button>
     <button class="sb-item" id="sb-share" data-action="showPage" data-page="share">
       <span class="sb-item-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" ><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span>
@@ -1891,6 +1933,99 @@
   </div>
 
   <!-- PROMOTIONS -->
+  <!-- ════════════════════════════════════════════════════════════
+       COMMUNICATIONS
+       Dos pestañas: desde dónde se manda, y qué se ha mandado. El
+       historial vive aquí y no suelto en el menú porque es el
+       historial DE las comunicaciones: su origen es esta pantalla.
+       ════════════════════════════════════════════════════════════ -->
+  <div id="page-communications" class="page">
+
+    <!-- Page title -->
+    <div style="font-family:'Inter',sans-serif;font-size:28px;color:var(--text);letter-spacing:1px;line-height:1;margin-bottom:4px;">Communications</div>
+    <div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:22px;">Send emails to your players and subscribers, and see everything that went out.</div>
+
+    <!-- Pestañas: la misma clase .pp-tab que usa la ficha de jugador,
+         para que se vean y se comporten igual en toda la aplicación. -->
+    <div class="pp-tabs" id="co-tabs">
+      <button class="pp-tab co-tab pp-tab-on" data-action="commShowTab" data-tab="send">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        Send
+      </button>
+      <button class="pp-tab co-tab" data-action="commShowTab" data-tab="history">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>
+        History
+      </button>
+    </div>
+
+    <!-- ── PESTAÑA 1: SEND ──────────────────────────────────── -->
+    <div class="co-tab-content" data-tab="send">
+      <div class="card">
+        <div class="card-title" style="margin-bottom:6px;">Where each email is sent from</div>
+        <div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:20px;">
+          Every email below is sent by the server and recorded in History.
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(232px,1fr));gap:12px;">
+
+          <button class="co-launch" data-action="showPage" data-page="promotions">
+            <span class="co-launch-t">Campaign</span>
+            <span class="co-launch-d">To your subscriber list</span>
+          </button>
+
+          <button class="co-launch" data-action="showPage" data-page="players">
+            <span class="co-launch-t">All Players</span>
+            <span class="co-launch-d">To every active player</span>
+          </button>
+
+          <button class="co-launch" data-action="showPage" data-page="ladders">
+            <span class="co-launch-t">Ladder Update</span>
+            <span class="co-launch-d">To one ladder&rsquo;s players</span>
+          </button>
+
+          <button class="co-launch" data-action="showPage" data-page="t-tournaments">
+            <span class="co-launch-t">Tournament Update</span>
+            <span class="co-launch-d">To one tournament&rsquo;s players</span>
+          </button>
+
+          <button class="co-launch" data-action="showPage" data-page="newsletter">
+            <span class="co-launch-t">Newsletter</span>
+            <span class="co-launch-d">The monthly newsletter</span>
+          </button>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ── PESTAÑA 2: HISTORY ───────────────────────────────── -->
+    <div class="co-tab-content" data-tab="history" style="display:none;">
+      <div class="card" style="padding:0;overflow:hidden;">
+
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:0.5px solid var(--divider-color);flex-wrap:wrap;gap:10px;">
+          <div class="card-title" style="margin:0;">Sent emails</div>
+          <select id="co-hist-type-filter" style="font-size:12px;padding:8px 14px;font-family:'Inter',sans-serif;font-weight:700;border:0.5px solid var(--border);border-radius:99px;outline:none;">
+            <option value="">All types</option>
+            <option value="promo">Campaign</option>
+            <option value="players_broadcast">All Players</option>
+            <option value="ladder_notify">Ladder Update</option>
+            <option value="tournament_notify">Tournament Update</option>
+            <option value="player_message">Single Player</option>
+            <option value="subscriber_confirm">Confirmation</option>
+          </select>
+        </div>
+
+        <div id="co-hist-table"><div class="loading" style="padding:20px;">Loading history...</div></div>
+
+        <!-- Load more: la misma fila que la tabla de suscriptores -->
+        <div id="co-hist-more-row" style="display:none;padding:14px 20px;border-top:0.5px solid var(--divider-color);align-items:center;justify-content:space-between;">
+          <span id="co-hist-info" style="font-size:11px;font-weight:600;color:var(--text-muted);"></span>
+          <button id="co-hist-more-btn" style="font-size:10px;font-weight:700;padding:7px 18px;border-radius:99px;border:0.5px solid #c5d6f5;background:white;color:var(--blue);cursor:pointer;">Load 25 more</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
   <div id="page-promotions" class="page">
 
     <!-- Page title -->
@@ -2594,6 +2729,67 @@
 </div>
 
 <!-- Notify Players Modal -->
+<!-- ════════════════════════════════════════════════════════════════
+     DETALLE DE UN ENVÍO
+     El mensaje tal como se escribió, y la lista persona por persona
+     con el motivo exacto de cada fallo. Misma estructura que las
+     demás ventanas: max-height 88vh y el cuerpo con su propio
+     scroll, para que el pie se pueda alcanzar en un portátil.
+     ════════════════════════════════════════════════════════════════ -->
+<div class="modal-bg" id="communications-detail-modal">
+  <div class="modal" style="max-width:760px;max-height:88vh;border-radius:14px;padding:0;overflow:hidden;display:flex;flex-direction:column;">
+
+    <!-- HEADER -->
+    <div style="padding:20px 24px 0;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-shrink:0;">
+      <div style="min-width:0;">
+        <div id="co-det-subject" style="font-family:'Inter',sans-serif;font-size:20px;color:var(--text);letter-spacing:.5px;line-height:1.25;margin-bottom:6px;word-break:break-word;"></div>
+        <div id="co-det-meta"></div>
+      </div>
+      <button type="button" data-action="closeCommDetail"
+        style="width:30px;height:30px;border-radius:8px;border:0.5px solid var(--divider-color);background:white;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;"
+        onmouseover="this.style.background='var(--orange-light)';this.style.borderColor='rgba(229,57,53,0.3)'"
+        onmouseout="this.style.background='white';this.style.borderColor='var(--divider-color)'">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#e53935" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <!-- CUERPO -->
+    <div style="padding:16px 24px 20px;overflow-y:auto;display:flex;flex-direction:column;gap:18px;">
+
+      <!-- El mensaje que se escribió -->
+      <div>
+        <div style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px;">Message</div>
+        <div id="co-det-body" style="background:#fafbff;border:0.5px solid var(--divider-color);border-radius:10px;padding:16px 18px;font-size:13px;font-weight:500;color:var(--text);line-height:1.7;max-height:220px;overflow-y:auto;word-break:break-word;"></div>
+      </div>
+
+      <!-- Quién lo recibió -->
+      <div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
+          <div style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);">Recipients</div>
+          <div id="co-det-filters" style="display:flex;gap:4px;flex-wrap:wrap;">
+            <button class="co-pfilter co-pfilter-on" data-action="filterCommPeople" data-pf="">All</button>
+            <button class="co-pfilter" data-action="filterCommPeople" data-pf="failed">Failed</button>
+            <button class="co-pfilter" data-action="filterCommPeople" data-pf="sent">Delivered</button>
+            <button class="co-pfilter" data-action="filterCommPeople" data-pf="pending">Pending</button>
+          </div>
+        </div>
+        <div id="co-det-people" style="border:0.5px solid var(--divider-color);border-radius:10px;overflow:hidden;"></div>
+      </div>
+
+      <!-- Reintento -->
+      <div id="co-det-retry-row" style="display:none;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;background:#fff8ec;border:0.5px solid #f0dcb8;border-radius:10px;padding:14px 16px;">
+        <div id="co-det-retry-text" style="font-size:12px;font-weight:600;color:var(--text);line-height:1.5;flex:1 1 300px;"></div>
+        <button id="co-det-retry-btn" type="button" data-action="retryComm"
+          style="padding:10px 20px;border:none;border-radius:99px;background:linear-gradient(180deg,#2456d3 0%,var(--blue) 100%);color:white;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;flex-shrink:0;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          Retry
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
 <div class="modal-bg" id="notify-modal">
   <div class="modal" style="max-width:680px;max-height:88vh;border-radius:14px;padding:0;overflow:hidden;display:flex;flex-direction:column;">
 
@@ -3522,6 +3718,7 @@
 <script src="admin-sessions.js?v=20260928b"></script>
 <script src="admin-print-roster.js?v=20260928b"></script>
 <script src="admin-ladder-management.js?v=20260928b"></script>
+<script src="admin-communications.js?v=20260929m"></script>
 <script src="admin-promotions.js?v=20260929i"></script>
 <script src="admin-newsletter.js?v=20260928b"></script>
 <!-- TEMPORARY: fills in missing dates of birth from a CSV import.
@@ -3533,7 +3730,7 @@
 <script src="admin-ftc-standings.js?v=20260928b"></script>
 <script src="admin-ftc-playoffs-schedule.js?v=20260928b"></script>
 <script src="admin-ftc-teams.js?v=20260928b"></script>
-<script src="app.js?v=20260929i"></script>
+<script src="app.js?v=20260929k"></script>
 <script src="tournament.js?v=20260928b"></script>
 <script>
   // ── Sidebar toggle — persisted in localStorage ──────────────────────
