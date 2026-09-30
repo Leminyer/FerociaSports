@@ -1483,7 +1483,7 @@
 
   // ── Expose / register with the shared infrastructure ──────────────────
   window.loadPromotionsPage = loadPromotionsPage; // called from the page router
-  window.loadSubscribers    = loadSubscribers;    // called by sendPendingReminder, which stays in app.js
+  window.loadSubscribers    = loadSubscribers;    // called by admin-subscriber-reminder.js
 
   Object.assign(window.CLICK_HANDLERS, {
     // CLICK_HANDLERS are called with ONE argument: the button element.

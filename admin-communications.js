@@ -584,10 +584,16 @@
   }
 
   /* Los tipos de envío que NUNCA llevan llave, por decisión y no por
-     ser antiguos: el mensaje a un jugador y el recordatorio de
-     confirmación se mandan a propósito más de una vez, y el ensayo
-     "solo a mí" va sin llave para que repetirlo siempre llegue. */
-  const SIN_LLAVE_A_PROPOSITO = new Set(['player_message', 'subscriber_confirm']);
+     ser antiguos: el mensaje a un jugador se manda a propósito más de
+     una vez, y el ensayo "solo a mí" va sin llave para que repetirlo
+     siempre llegue.
+
+     El recordatorio de confirmación SALIÓ de esta lista: desde que
+     vive en admin-subscriber-reminder.js sí lleva llave, así que se
+     puede reintentar desde aquí. Los recordatorios anteriores a ese
+     cambio siguen sin llave y caen en el mensaje genérico de abajo,
+     que para ellos es cierto. */
+  const SIN_LLAVE_A_PROPOSITO = new Set(['player_message']);
 
   function pintarReintento() {
     const fila = document.getElementById('co-det-retry-row');
