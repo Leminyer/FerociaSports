@@ -285,6 +285,9 @@
     }
 
     const btn = document.querySelector('[data-action="printStandings"]');
+    // Kept so the button goes back to its own icon and label from the page,
+    // instead of being renamed by this file.
+    const btnHTML = btn ? btn.innerHTML : '';
     if (btn) { btn.disabled = true; btn.textContent = '⏳ Generating...'; }
 
     try {
@@ -338,12 +341,51 @@
       // ── TABLE ────────────────────────────────────────────────
       let y = 28;
 
-      // Column definitions matching the image
+      // Column definitions matching the image. Age and Coach / Self were
+      // carved out of the Player column, so Gender and Points stay exactly
+      // where they were and the table still ends at the right margin.
       const COL = {
         rank:   { x: ML,          w: 14,  label: 'Rank',   align: 'center' },
-        player: { x: ML + 14,     w: 110, label: 'Player', align: 'left'   },
+        player: { x: ML + 14,     w: 64,  label: 'Player', align: 'left'   },
+        age:    { x: ML + 78,     w: 16,  label: 'Age',    align: 'center' },
+        rating: { x: ML + 94,     w: 30,  label: 'Coach / Self', align: 'center' },
         gender: { x: ML + 124,    w: 22,  label: 'Gender', align: 'center' },
         points: { x: ML + 146,    w: CW - 146, label: 'Points', align: 'center' },
+      };
+
+      // Age from date_of_birth, without shifting the day in western timezones.
+      const ageFrom = (iso) => {
+        if (!iso) return null;
+        const b = new Date(iso + 'T00:00:00');
+        if (isNaN(b.getTime())) return null;
+        const now = new Date();
+        let e = now.getFullYear() - b.getFullYear();
+        if (now.getMonth() < b.getMonth() ||
+           (now.getMonth() === b.getMonth() && now.getDate() < b.getDate())) e--;
+        return e;
+      };
+      // Three decimals, same as the players table. A dash when there is no value.
+      const ratingText = (v) =>
+        (v === null || v === undefined || v === '') ? '—' : Number(v).toFixed(3);
+
+      /* The standings RPC only returns name, gender and points, so the age and
+         the two ratings are read from the full player rows already loaded into
+         AdminState.allPlayers by loadLadder(). Subs already carry them. */
+      const playerById = new Map((AdminState.allPlayers || []).map((f) => [f.id, f]));
+      const extrasFor = (p) => {
+        const f = playerById.get(p.id) || p;
+        const e = ageFrom(f.date_of_birth);
+        return {
+          age:   e === null ? '—' : String(e),
+          rating: `${ratingText(f.coach_rating)} / ${ratingText(f.self_rating)}`,
+        };
+      };
+
+      // Shrinks a name just enough to keep it on one line inside its column.
+      const fitText = (text, width, base) => {
+        let s = base;
+        doc.setFontSize(s);
+        while (s > 6 && doc.getTextWidth(text) > width) { s -= 0.25; doc.setFontSize(s); }
       };
 
       // Page break threshold — stop before footer
@@ -438,15 +480,21 @@
         doc.text(`${rank}`, cx, cy + 1, { align: 'center' });
 
         // Player name
+        const name = `${p.first_name} ${p.last_name}`;
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(8.5);
         doc.setTextColor(...DARK);
-        doc.text(`${p.first_name} ${p.last_name}`, COL.player.x + 2, y + ROW_H / 2 + 1.2);
+        fitText(name, COL.player.w - 4, 8.5);
+        doc.text(name, COL.player.x + 2, y + ROW_H / 2 + 1.2);
 
-        // Gender
+        // Age and Coach / Self rating
+        const extra = extrasFor(p);
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(7.5);
         doc.setTextColor(...MUTED);
+        doc.text(extra.age, COL.age.x + COL.age.w / 2, y + ROW_H / 2 + 1.2, { align: 'center' });
+        doc.text(extra.rating, COL.rating.x + COL.rating.w / 2, y + ROW_H / 2 + 1.2, { align: 'center' });
+
+        // Gender
         const gender = p.gender === 'Male' ? 'M' : p.gender === 'Female' ? 'F' : '-';
         doc.text(gender, COL.gender.x + COL.gender.w / 2, y + ROW_H / 2 + 1.2, { align: 'center' });
 
@@ -487,14 +535,18 @@
             doc.setFillColor(248, 248, 248);
             doc.rect(ML, y, CW, ROW_H, 'F');
           }
+          const name = `${p.first_name} ${p.last_name}`;
           doc.setFont('helvetica', 'normal');
-          doc.setFontSize(8.5);
           doc.setTextColor(...DARK);
-          doc.text(`${p.first_name} ${p.last_name}`, COL.player.x + 2, y + ROW_H / 2 + 1.2);
+          fitText(name, COL.player.w - 4, 8.5);
+          doc.text(name, COL.player.x + 2, y + ROW_H / 2 + 1.2);
+          const extra = extrasFor(p);
           const gender = p.gender === 'Male' ? 'M' : p.gender === 'Female' ? 'F' : '-';
           doc.setFont('helvetica', 'normal');
           doc.setFontSize(7.5);
           doc.setTextColor(...MUTED);
+          doc.text(extra.age, COL.age.x + COL.age.w / 2, y + ROW_H / 2 + 1.2, { align: 'center' });
+          doc.text(extra.rating, COL.rating.x + COL.rating.w / 2, y + ROW_H / 2 + 1.2, { align: 'center' });
           doc.text(gender, COL.gender.x + COL.gender.w / 2, y + ROW_H / 2 + 1.2, { align: 'center' });
           doc.setDrawColor(220, 228, 245);
           doc.setLineWidth(0.15);
@@ -522,7 +574,7 @@
       toast(`Error generating PDF: ${err.message}`, true);
       console.error('[printStandings]', err);
     } finally {
-      if (btn) { btn.disabled = false; btn.textContent = '📄 Print Standings'; }
+      if (btn) { btn.disabled = false; btn.innerHTML = btnHTML; }
     }
   };
 

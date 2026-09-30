@@ -5178,28 +5178,28 @@ async function printTournamentRoster(btn) {
        Each player is drawn on their own line so the two value columns
        line up under their headers. Everything is positioned off ML and
        LEFT_W, so the column widths themselves are untouched. */
-    const DET_SIZE = 6.5 * NAME_SIZE;        // player detail text size
-    const FILA_BASE = 5.2;                   // team-name band of each row
-    const PASO      = 3.3;                   // one player line
-    const PASO_EQUIPO = 4.1;                 // one extra team-name line
-    const NOMBRE_X  = ML + 11;               // player names, left-aligned
-    const RATE_X    = ML + LEFT_W - 1.5;     // rating column, right-aligned
-    const AGE_X     = RATE_X - 20;           // age column, right-aligned
-    const NOMBRE_W  = AGE_X - 5.5 - NOMBRE_X;
+    const DET_SIZE    = 6.5 * NAME_SIZE;     // player detail text size
+    const ROW_BASE    = 5.2;                 // team-name band of each row
+    const LINE_H      = 3.3;                 // one player line
+    const TEAM_LINE_H = 4.1;                 // one extra team-name line
+    const NAME_X      = ML + 11;             // player names, left-aligned
+    const RATE_X      = ML + LEFT_W - 1.5;   // rating column, right-aligned
+    const AGE_X       = RATE_X - 20;         // age column, right-aligned
+    const NAME_W      = AGE_X - 5.5 - NAME_X;
 
     // Age from date_of_birth, without shifting the day in western timezones.
-    const edadDe = (iso) => {
+    const ageFrom = (iso) => {
       if (!iso) return null;
       const b = new Date(iso + 'T00:00:00');
       if (isNaN(b.getTime())) return null;
-      const hoy = new Date();
-      let e = hoy.getFullYear() - b.getFullYear();
-      if (hoy.getMonth() < b.getMonth() ||
-         (hoy.getMonth() === b.getMonth() && hoy.getDate() < b.getDate())) e--;
+      const now = new Date();
+      let e = now.getFullYear() - b.getFullYear();
+      if (now.getMonth() < b.getMonth() ||
+         (now.getMonth() === b.getMonth() && now.getDate() < b.getDate())) e--;
       return e;
     };
     // Three decimals, same as the players table. A dash when there is no value.
-    const nivelDe = (v) =>
+    const ratingText = (v) =>
       (v === null || v === undefined || v === '') ? '—' : Number(v).toFixed(3);
 
     for (let ci = 0; ci < categories.length; ci++) {
@@ -5230,9 +5230,9 @@ async function printTournamentRoster(btn) {
         doc.text('AGE', AGE_X, startY, { align: 'right' });
         doc.text('COACH / SELF', RATE_X, startY, { align: 'right' });
         let ty = startY + 5;
-        let sinSitio = 0;          // teams left out because the page ran out
+        let skipped = 0;          // teams left out because the page ran out
         teams.forEach((team, i) => {
-          if (sinSitio) { sinSitio++; return; }
+          if (skipped) { skipped++; return; }
           const seed = i + 1;
           const seedColor = seed === 1 ? GOLD : seed === 2 ? SILVER : seed === 3 ? BRONZE : BLUE;
           const isTop3 = seed <= 3;
@@ -5241,31 +5241,31 @@ async function printTournamentRoster(btn) {
           // row taller instead of running over the player below it.
           doc.setFont('helvetica', 'normal');
           doc.setFontSize(DET_SIZE);
-          const jugadores = [team.player1_id, team.player2_id, team.player3_id, team.player4_id]
+          const roster = [team.player1_id, team.player2_id, team.player3_id, team.player4_id]
             .filter(Boolean)
             .map(id => tAllPlayers.find(x => x.id === id))
             .filter(Boolean)
             .map(p => {
-              const edad = edadDe(p.date_of_birth);
+              const age = ageFrom(p.date_of_birth);
               return {
-                nombre: doc.splitTextToSize(`${p.first_name} ${p.last_name}`, NOMBRE_W),
-                edad: edad === null ? '—' : String(edad),
-                nivel: `${nivelDe(p.coach_rating)} / ${nivelDe(p.self_rating)}`,
+                name: doc.splitTextToSize(`${p.first_name} ${p.last_name}`, NAME_W),
+                age: age === null ? '—' : String(age),
+                rating: `${ratingText(p.coach_rating)} / ${ratingText(p.self_rating)}`,
               };
             });
-          const totalLineas = jugadores.reduce((n, j) => n + j.nombre.length, 0);
+          const nameLines = roster.reduce((n, pl) => n + pl.name.length, 0);
 
           // A team name too long for the column wraps too, and pushes the
           // players down instead of being printed on top of them.
           doc.setFont('helvetica', 'bold');
           doc.setFontSize(8 * NAME_SIZE);
-          const lineasEquipo = doc.splitTextToSize(team.name || '', LEFT_W - 14);
-          const ALTO_EQUIPO  = (lineasEquipo.length - 1) * PASO_EQUIPO;
-          const ROW_H = FILA_BASE + ALTO_EQUIPO + Math.max(1, totalLineas) * PASO;
+          const teamLines = doc.splitTextToSize(team.name || '', LEFT_W - 14);
+          const TEAM_EXTRA = (teamLines.length - 1) * TEAM_LINE_H;
+          const ROW_H = ROW_BASE + TEAM_EXTRA + Math.max(1, nameLines) * LINE_H;
 
           // Never print over the footer: the teams that do not fit are
           // counted and announced under the list instead of disappearing.
-          if (ty + ROW_H > PAGE_BOTTOM - 4) { sinSitio = 1; return; }
+          if (ty + ROW_H > PAGE_BOTTOM - 4) { skipped = 1; return; }
 
           if (i % 2 === 0) {
             doc.setFillColor(245, 247, 252);
@@ -5281,25 +5281,25 @@ async function printTournamentRoster(btn) {
           doc.setFont('helvetica', 'bold');
           doc.setFontSize(8 * NAME_SIZE);
           doc.setTextColor(...DARK);
-          lineasEquipo.forEach((ln, k) => doc.text(ln, NOMBRE_X, ty + 4 + k * PASO_EQUIPO));
+          teamLines.forEach((ln, k) => doc.text(ln, NAME_X, ty + 4 + k * TEAM_LINE_H));
 
-          let py = ty + 7.2 + ALTO_EQUIPO;
+          let py = ty + 7.2 + TEAM_EXTRA;
           doc.setFont('helvetica', 'normal');
           doc.setFontSize(DET_SIZE);
           doc.setTextColor(...MUTED);
-          jugadores.forEach(j => {
-            j.nombre.forEach((ln, k) => doc.text(ln, NOMBRE_X, py + k * PASO));
-            doc.text(j.edad,  AGE_X,  py, { align: 'right' });
-            doc.text(j.nivel, RATE_X, py, { align: 'right' });
-            py += j.nombre.length * PASO;
+          roster.forEach(pl => {
+            pl.name.forEach((ln, k) => doc.text(ln, NAME_X, py + k * LINE_H));
+            doc.text(pl.age,    AGE_X,  py, { align: 'right' });
+            doc.text(pl.rating, RATE_X, py, { align: 'right' });
+            py += pl.name.length * LINE_H;
           });
           ty += ROW_H;
         });
-        if (sinSitio) {
+        if (skipped) {
           doc.setFont('helvetica', 'italic');
           doc.setFontSize(6.5);
           doc.setTextColor(...MUTED);
-          doc.text(`+ ${sinSitio} more team${sinSitio > 1 ? 's' : ''} — no room on the page`,
+          doc.text(`+ ${skipped} more team${skipped > 1 ? 's' : ''} — no room on the page`,
                    ML, ty + 3.5);
         }
       };
