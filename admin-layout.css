@@ -206,7 +206,40 @@
     background:var(--dark);border-top:1px solid rgba(255,255,255,0.08);
     transform:translateY(100%);opacity:0;
     transition:transform .25s,opacity .25s;pointer-events:none;
+    /* Sin tope de altura el cajón crece hacia arriba hasta salirse de la
+       pantalla, y lo que queda fuera NO hay forma de alcanzarlo: un
+       elemento `fixed` no se arrastra con el dedo. Medido con las nueve
+       opciones actuales: en un iPhone SE de pie con la barra del
+       navegador visible quedaban dos fuera, y en cualquier móvil
+       pequeño en horizontal, entre cuatro y seis.
+
+       El tope se calcula con la MISMA expresión que `bottom`, para que
+       los dos no puedan separarse nunca: lo que ocupa la barra de abajo
+       más 12px de aire arriba. (Ese 56 no es la altura real de la barra
+       —mide 63— sino la constante que ya venía en `bottom`; y el
+       `env(safe-area-inset-bottom)` sólo suma en páginas con
+       `viewport-fit=cover`, que ésta no usa. Se mantienen tal cual para
+       no separarse de `bottom`.)
+
+       Las dos líneas de max-height son a propósito y en este orden: la
+       primera la entiende cualquier navegador; la segunda sólo los que
+       soportan `dvh`, que descuenta la barra de direcciones cuando está
+       a la vista. Donde no se entienda, se queda la primera. */
+    max-height:calc(100vh  - 56px - 3px - max(6px, env(safe-area-inset-bottom)) - 12px);
+    max-height:calc(100dvh - 56px - 3px - max(6px, env(safe-area-inset-bottom)) - 12px);
+    overflow-y:auto;
+    /* Explícito: al poner overflow-y, el horizontal pasa solo de
+       `visible` a `auto`. Fijándolo se evita que una etiqueta larga
+       del futuro convierta el cajón en algo que se arrastra de lado. */
+    overflow-x:hidden;
+    -webkit-overflow-scrolling:touch;
+    /* Al llegar al final del cajón el dedo no arrastra la página de
+       detrás. */
+    overscroll-behavior:contain;
   }
+  /* La misma barrita fina del menú lateral, para que se vean igual. */
+  .more-drawer::-webkit-scrollbar{width:4px;}
+  .more-drawer::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:99px;}
   .more-drawer.open{transform:translateY(0);opacity:1;pointer-events:all;}
   .more-drawer-item{
     display:flex;align-items:center;gap:14px;
