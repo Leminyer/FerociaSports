@@ -48,23 +48,6 @@
 
   const isSent = () => _current?.status === 'sent';
 
-  /* The newsletter spells the month out in full — "October 2, 2026" — while
-     the rest of the admin uses the short form.
-
-     fmtDate is a global shared by nine modules (players, sessions,
-     promotions, rosters and more). Changing it to suit the newsletter
-     would move dates on screens nobody asked about, so it is left alone
-     and the long form is built here, for this section only.
-
-     Noon rather than midnight: "2026-10-02" parsed as UTC midnight becomes
-     October 1st for anyone west of Greenwich. */
-  const fmtDateLong = (d) => {
-    if (!d) return '';
-    const dt = new Date(String(d).includes('T') ? d : d + 'T12:00:00');
-    return isNaN(dt) ? String(d)
-      : dt.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-  };
-
   /** Reads a value out of the content object by dotted path. */
   const get = (path, fallback = '') => {
     const parts = path.split('.');
@@ -106,48 +89,6 @@
         <div style="${FONT}font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;">${esc(label)}</div>
         ${el}
         ${opts.hint ? `<div style="${FONT}font-size:11px;font-weight:600;color:var(--text-light);margin-top:4px;line-height:1.5;">${esc(opts.hint)}</div>` : ''}
-      </div>`;
-  };
-
-  /* The icon that sits above each Around FEROCIA number.
-
-     These are the PNG files in the newsletter-images bucket, the same ones
-     the email itself loads — so what the dropdown previews is exactly what
-     the reader gets. A <select> cannot draw an image, so the chosen icon is
-     shown beside it.
-
-     Leaving it on "Default" gives the icon that matches the position, so
-     nothing has to be chosen for the section to look finished. A <select>
-     fires the same `input` event as the text fields, so it saves through
-     the one delegated listener already in place. */
-  const ICON_BASE = CFG.SUPABASE_URL + '/storage/v1/object/public/newsletter-images/icons/';
-
-  const ICON_CHOICES = [
-    ['num-players', 'Players'],
-    ['num-games',   'Games played'],
-    ['num-ladders', 'Ladders'],
-    ['num-new',     'New players'],
-  ];
-  const ICON_DEFAULTS = ICON_CHOICES.map((c) => c[0]);   // same order as the email
-
-  const iconField = (path, index) => {
-    const v    = get(path);
-    const dis  = isSent() ? 'disabled' : '';
-    // Drafts saved before the icons became images may still hold an emoji.
-    const name = /^[a-z][a-z0-9-]*$/.test(v) ? v : '';
-    const shown = name || ICON_DEFAULTS[index] || ICON_DEFAULTS[0];
-    return `
-      <div style="margin-bottom:12px;">
-        <div style="${FONT}font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;">Icon</div>
-        <div style="display:flex;align-items:center;gap:9px;">
-          <img src="${esc(ICON_BASE + shown + '.png')}" alt="" width="26" height="26"
-               style="flex-shrink:0;display:block;">
-          <select data-nlpath="${path}" ${dis} style="${inputStyle}cursor:pointer;">
-            <option value="" ${name ? '' : 'selected'}>Default</option>
-            ${ICON_CHOICES.map(([f, n]) =>
-              `<option value="${f}" ${name === f ? 'selected' : ''}>${esc(n)}</option>`).join('')}
-          </select>
-        </div>
       </div>`;
   };
 
@@ -220,11 +161,6 @@
     if (path && e.target.files?.[0]) {
       uploadImage(e.target.files[0], path, e.target.id + '_status');
     }
-    // A <select> fires `input` in every current browser, so the delegated
-    // input listener already covers the icon dropdown. This is the belt to
-    // that suspenders: writing the same value twice changes nothing.
-    const nlpath = e.target?.dataset?.nlpath;
-    if (nlpath && e.target.tagName === 'SELECT' && _current) set(nlpath, e.target.value);
   });
 
   window.nlImgClear = (path) => { set(path, ''); renderSections(); };
@@ -269,11 +205,6 @@
     arr.splice(idx, 1);
     set(path, arr);
     renderSections();
-    /* Removing something looks final — it even asks first — but like every
-       other edit here it has only changed the copy in the browser. Say so,
-       because a reload before saving quietly brings the item back and that
-       reads as the delete having failed. */
-    toast('Removed. Press Save Draft to keep the change.');
   };
   window.nlListRemove = listRemove;
 
@@ -296,13 +227,6 @@
 
   /* ─── SECTION RENDERERS ──────────────────────────────────── */
 
-  /* Sits above the banner, on the page background rather than inside the
-     white card — so it is its own card here too, before the Header, in the
-     order the reader meets it. */
-  const secIntro = () => sectionCard('I', 'Opening Note', 'Optional. A line from you, above the newsletter itself', `
-    ${field('Opening note', 'intro', { textarea: true, rows: 4,
-       hint: 'Shown at the very top of the email, outside the newsletter, in italics. Leave it empty and nothing is shown — no heading, no space. Blank lines become paragraphs.' })}`);
-
   const secHeader = () => sectionCard('H', 'Header', 'The banner image and the line printed over it', `
     ${imageField('Banner image', 'hero.image_url',
        'Appears at the top of the email, under the FEROCIA Monthly title. Landscape works best — about twice as wide as it is tall.')}
@@ -321,18 +245,12 @@
           Add from Events
         </button>
       </div>`)
-      // The line that sits under the heading. The email has always rendered
-      // it; there was simply no box to type it in, so it was always empty.
-      + field('Intro line', 'upcoming_sub',
-              { placeholder: 'New ladders. A spooky tournament. More pickleball.',
-                hint: 'One short line under the WHAT\'S COMING UP heading.' })
       + items.map((_, i) => itemBox(
         field('Name', `upcoming.${i}.title`) +
         field('Date', `upcoming.${i}.date`, { placeholder: 'Starts October 2, 2026' }) +
         field('Time', `upcoming.${i}.time`, { placeholder: '8:30 AM – 10:30 AM' }) +
         field('Location', `upcoming.${i}.location`) +
-        imageField(`Flyer (optional)`, `upcoming.${i}.image_url`,
-          'For a tournament with its own artwork. The flyer fills the top of the card; leave it empty and the card shows the calendar instead.') +
+        field('Short description', `upcoming.${i}.description`, { textarea: true, rows: 2 }) +
         field('Registration URL', `upcoming.${i}.url`, { hint: 'Leave empty if registration has not opened.' }) +
         field('Button label', `upcoming.${i}.cta_label`, { placeholder: 'Register Now — or "Registration coming soon" with no URL' }),
         'upcoming', i)).join('')
@@ -362,15 +280,6 @@
           Add a Ladder
         </button>
       </div>`)
-      /* The email has always rendered a subtitle and an intro line here —
-         there was simply no box to type either, so both were permanently
-         blank. Same gap the What's Coming Up intro had. */
-      + (items.length
-          ? field('Subtitle', 'spotlight_sub',
-                  { hint: 'Shown in caps under the PLAYER SPOTLIGHT heading.' })
-            + field('Intro line', 'spotlight_intro',
-                  { hint: 'One sentence under the subtitle. Example: Two ladders. Twelve standout performances. One competitive summer.' })
-          : '')
       + items.map((_, i) => itemBox(
         field('Ladder name', `spotlight.${i}.ladder`) +
         field('Period', `spotlight.${i}.period`, { placeholder: 'July – September 2026' }) +
@@ -396,8 +305,7 @@
       // and an "Add division" button up front asked the admin to do work
       // the importer was about to do for them.
       + (items.length
-          ? field('Tournament name', 'champions_sub', { placeholder: 'Mamba Day 2026 Pickleball Tournament' })
-            + field('Tournament date', 'champions_date', { placeholder: 'Sunday, August 23, 2026' })
+          ? field('Tournament name', 'champions_sub', { placeholder: 'Mamba Day 2026 · Sunday, August 23, 2026' })
           : '')
       + items.map((_, i) => {
         const pod = get(`champions.${i}.podium`, ['', '', '']);
@@ -409,25 +317,17 @@
                   { placeholder: 'Chris Berry & Emely Skiff' })).join(''),
           'champions', i);
       }).join('')
-      + (items.length ? `<div style="margin-bottom:18px;">${addBtn('Add division', 'nlAddChampion', 'champions')}</div>`
-                      : addBtn('Add manually', 'nlAddChampion', 'champions'))
-      + (items.length
-          ? field('Closing line', 'champions_footer',
-                  { placeholder: 'Congratulations to all our champions!' })
-          : ''));
+      + addBtn(items.length ? 'Add division' : 'Add manually', 'nlAddChampion', 'champions'));
   };
 
   const secCoach = () => sectionCard(4, "Coach's Corner", 'Real pickleball teaching — the reason to open the email', `
     ${field('Tip headline', 'coach.title', { placeholder: 'Win the point later, not on your third shot' })}
     ${field('Body', 'coach.body', { textarea: true, rows: 9, hint: 'Blank lines become paragraphs.' })}
     ${field('Signature', 'coach.author', { placeholder: 'Coach Leminyer' })}
-    ${field("This month's challenge", 'coach.challenge', { textarea: true, rows: 3 })}
-    ${field('Challenge goal', 'coach.goal', {
-       placeholder: 'Ten clean third-shot drops in a row',
-       hint: 'Optional. Shown on its own line, in bold, under the challenge.' })}`);
+    ${field("This month's challenge", 'coach.challenge', { textarea: true, rows: 3 })}`);
 
   const secPick = () => sectionCard(5, 'FEROCIA Pick of the Month', 'One product — never a carousel', `
-    ${field('Product name', 'pick.name', { placeholder: 'Selkirk SLK Halo Control' })}
+    ${field('Product name', 'pick.name')}
     ${imageField('Product photo', 'pick.image_url',
        'Optional. A photo of the product — the email still reads fine without one.')}
     ${field('Description', 'pick.description', { textarea: true, rows: 3 })}
@@ -440,7 +340,6 @@
       field('Subtitle', 'numbers.subtitle', { placeholder: 'September by the numbers' })
       + items.map((_, i) => `
         <div style="display:flex;gap:8px;align-items:flex-start;">
-          <div style="width:168px;flex-shrink:0;">${iconField(`numbers.items.${i}.icon`, i)}</div>
           <div style="flex:1;">${field('Value', `numbers.items.${i}.value`, { placeholder: '64' })}</div>
           <div style="flex:2;">${field('Label', `numbers.items.${i}.label`, { placeholder: 'Players on court' })}</div>
           <div style="padding-top:10px;">${removeBtn('numbers.items', i)}</div>
@@ -452,7 +351,7 @@
   const renderSections = () => {
     const el = document.getElementById('nl-sections');
     if (!el || !_current) return;
-    el.innerHTML = secIntro() + secHeader() + secUpcoming() + secSpotlight() + secChampions()
+    el.innerHTML = secHeader() + secUpcoming() + secSpotlight() + secChampions()
                  + secCoach() + secPick() + secNumbers();
   };
 
@@ -461,24 +360,6 @@
   document.addEventListener('input', (e) => {
     const path = e.target?.dataset?.nlpath;
     if (path && _current) set(path, e.target.value);
-  });
-
-  /* Nothing typed, added or removed here reaches the database until Save
-     Draft is pressed — that separation is deliberate, so a half-written
-     edition never becomes the saved one.
-
-     What was missing was the warning. Reloading with work in progress threw
-     it away in silence and the page came back showing the last saved copy,
-     which looks exactly like the edit never happened. The browser's own
-     "leave site?" prompt is the one thing that interrupts a reload, so it
-     is asked for whenever there is something unsaved.
-
-     Chrome and Safari need returnValue set as well as preventDefault, and
-     they show their own wording — the string below is never displayed. */
-  window.addEventListener('beforeunload', (e) => {
-    if (!_dirty || !_current || isSent()) return;
-    e.preventDefault();
-    e.returnValue = '';
   });
 
 
@@ -625,9 +506,6 @@
         top_women: women,
       });
       set('spotlight', arr);
-      // Written in rather than offered as grey placeholder text, which is
-      // easy to mistake for a filled-in value and never reaches the email.
-      if (!get('spotlight_sub')) set('spotlight_sub', 'Celebrating our ladder leaders');
       window.nlClosePick();
       renderSections();
       toast(`Added ${l.name} — ${men.length} men, ${women.length} women.`);
@@ -670,40 +548,6 @@
      drop to the bottom. Reimplemented here rather than imported because
      tournament.js keeps it inside a page-scoped closure — the ordering is
      copied exactly so both agree. */
-  /* WHO ACTUALLY FINISHED FIRST
-
-     Round-robin position is not the result. Once a division plays a
-     bracket, the tournament screen declares the champion the way
-     renderPodium does in tournament-results.html:
-
-       1st — winner of the match whose round_name is 'Final'
-       2nd — the other team in that Final
-       3rd — winner of the '3rd Place' match
-
-     Reading the round robin instead put whoever topped the group stage
-     first, so a team that won the group and then lost the final came out
-     ahead of the team that beat them. That is the swap that was reported.
-
-     Only when there is no completed Final does the round robin decide —
-     a division that never played a bracket has nothing else to go on. */
-  const finalPodium = (teams, rrMatches, bracketMatches) => {
-    const byId = new Map(teams.map((t) => [t.id, t]));
-    const fin = (bracketMatches || []).find(
-      (m) => m.round_name === 'Final' && m.status === 'completed' && m.winner_id);
-
-    if (fin) {
-      const champion = byId.get(fin.winner_id);
-      const runnerId = fin.team_a_id === fin.winner_id ? fin.team_b_id : fin.team_a_id;
-      const third = (bracketMatches || []).find(
-        (m) => m.round_name === '3rd Place' && m.status === 'completed' && m.winner_id);
-      // A division with no third-place match simply has two places, which
-      // is what the tournament screen shows too. Nothing is invented.
-      return [champion, runnerId ? byId.get(runnerId) : null,
-              third ? byId.get(third.winner_id) : null].filter(Boolean);
-    }
-    return calcPodium(teams, rrMatches).slice(0, 3).map((r) => r.team);
-  };
-
   const calcPodium = (teams, matches) => {
     const st = {};
     teams.forEach((t) => { st[t.id] = { team: t, w: 0, l: 0, pf: 0, pa: 0, ff: false }; });
@@ -734,45 +578,18 @@
         return;
       }
       const catIds = cats.map((c) => c.id).join(',');
-      /* tournament_teams.name is the SEED LABEL — "A1", "B4" — not the
-         players. Reading it straight is what put "A1" in the newsletter
-         where a champion's name belongs.
-
-         The players hang off player1_id … player4_id, exactly as the
-         tournament screen reads them, so those ids are fetched and turned
-         into "First Last & First Last". */
-      const [teams, matches, bracket] = await Promise.all([
-        api(`tournament_teams?category_id=in.(${catIds})`
-          + `&select=id,category_id,name,player1_id,player2_id,player3_id,player4_id`),
+      const [teams, matches] = await Promise.all([
+        api(`tournament_teams?category_id=in.(${catIds})&select=id,category_id,name`),
         api(`tournament_rr_matches?category_id=in.(${catIds})`
           + `&select=category_id,status,team_a_id,team_b_id,score_a,score_b,winner_id,forfeit_team_id`),
-        api(`tournament_bracket_matches?category_id=in.(${catIds})`
-          + `&select=category_id,round_name,status,team_a_id,team_b_id,winner_id`).catch(() => []),
       ]);
-
-      const playerIds = [...new Set((teams || []).flatMap((t2) =>
-        [t2.player1_id, t2.player2_id, t2.player3_id, t2.player4_id].filter(Boolean)))];
-      const roster = playerIds.length
-        ? await api(`players?id=in.(${playerIds.join(',')})&select=id,first_name,last_name`)
-        : [];
-      const byId = new Map((roster || []).map((pl) => [pl.id, `${pl.first_name} ${pl.last_name}`]));
-
-      /* A team with no players on it — a placeholder, or a format that
-         does not use them — keeps its label rather than coming through
-         blank. Better a seed code than an empty line. */
-      const teamLabel = (tm) => {
-        const names = [tm.player1_id, tm.player2_id, tm.player3_id, tm.player4_id]
-          .filter(Boolean).map((id) => byId.get(id)).filter(Boolean);
-        return names.length ? names.join(' & ') : (tm.name || '');
-      };
 
       const added = [];
       (cats || []).forEach((c) => {
         const ct = (teams || []).filter((x) => x.category_id === c.id);
         const cm = (matches || []).filter((m) => m.category_id === c.id);
         if (!ct.length) return;
-        const podium = finalPodium(ct, cm, (bracket || []).filter((m) => m.category_id === c.id))
-          .map(teamLabel);
+        const podium = calcPodium(ct, cm).slice(0, 3).map((r) => r.team.name);
         // A division with no completed matches produces no real podium.
         if (!podium.length) return;
         // tournament_categories has no skill/level column — the level is
@@ -788,15 +605,9 @@
       }
 
       set('champions', (get('champions', [])).concat(added));
-      // Name and date are two separate lines in the email now, so they are
-      // stored as two values rather than one string joined with a dot.
-      if (!get('champions_sub'))  set('champions_sub', t.name);
-      if (!get('champions_date') && t.date) set('champions_date', fmtDateLong(t.date));
-      /* The closing line was only a placeholder — grey ghost text that
-         looks filled in but is not, so the line never reached the email
-         and its absence read as a bug. It is written in for real now, and
-         can be edited or emptied like any other field. */
-      if (!get('champions_footer')) set('champions_footer', 'Congratulations to all our champions!');
+      if (!get('champions_sub')) {
+        set('champions_sub', `${t.name}${t.date ? ` · ${fmtDate(t.date)}` : ''}`);
+      }
       window.nlClosePick();
       renderSections();
       toast(`Added ${added.length} division${added.length !== 1 ? 's' : ''} from ${t.name}.`);
@@ -819,15 +630,10 @@
     const arr = get('upcoming', []);
     chosen.forEach((e) => arr.push({
       title: e.title,
-      // "Starts" comes in as part of the text so it can be taken out for a
-      // tournament, where the proposal shows the date on its own.
-      date: 'Starts ' + fmtDateLong(e.event_date),
+      date: fmtDate(e.event_date),
       time: [fmtT(e.event_time), fmtT(e.end_time)].filter(Boolean).join(' – '),
       location: '',
-      // The description is no longer imported: the card shows name, date
-      // and time, as the visual proposal does, so carrying the text across
-      // only left dead weight in the saved JSON.
-      image_url: '',
+      description: e.description || '',
       url: e.registration_url || '',
       // An event with no registration link gets the label the spec asks
       // for rather than a button that goes nowhere.
@@ -841,8 +647,17 @@
 
   /* ─── LIST VIEW ──────────────────────────────────────────── */
 
-  const statusPill = (s) => s === 'sent'
+  /* Un número a MEDIO enviar sigue siendo 'draft' a propósito, para que el
+     botón Enviar siga disponible y pueda terminarse. Pero entonces era
+     igualito a un borrador que nunca salió: misma pastilla, mismo "Last
+     edited", sin aviso de ninguna clase. Al día siguiente no había forma
+     de saber que media lista ya lo tenía. */
+  const aMedias = (n) => n.status !== 'sent' && (n.sent_count || 0) > 0;
+
+  const statusPill = (n) => n.status === 'sent'
     ? '<span style="font-size:10px;font-weight:800;color:#1D9E68;background:#EEF9F2;padding:3px 10px;border-radius:99px;text-transform:uppercase;">Sent</span>'
+    : aMedias(n)
+    ? '<span style="font-size:10px;font-weight:800;color:#c2410c;background:#FFF1E8;padding:3px 10px;border-radius:99px;text-transform:uppercase;">Half sent</span>'
     : '<span style="font-size:10px;font-weight:800;color:#9a6200;background:#FFF4E6;padding:3px 10px;border-radius:99px;text-transform:uppercase;">Draft</span>';
 
   const renderList = () => {
@@ -859,11 +674,13 @@
           <div style="font-size:11px;font-weight:600;color:var(--text-muted);margin-top:2px;">
             ${n.status === 'sent'
               ? `Sent ${fmtDate(String(n.sent_at).slice(0, 10))} · ${n.sent_count} recipient${n.sent_count !== 1 ? 's' : ''}${n.failed_count ? ` · ${n.failed_count} failed` : ''}`
+              : aMedias(n)
+              ? `<span style="color:#c2410c;">${n.sent_count} already received it · press Send to finish</span>`
               : `Last edited ${fmtDate(String(n.updated_at).slice(0, 10))}`}
           </div>
         </div>
-        ${statusPill(n.status)}
-        ${n.status === 'draft' ? `
+        ${statusPill(n)}
+        ${n.status === 'draft' && !(n.sent_count || 0) ? `
         <button type="button" data-action="nlDelete" data-id="${n.id}" title="Delete this draft"
           style="background:none;border:none;padding:4px 6px;cursor:pointer;color:var(--text-light);"
           onmouseover="this.style.color='#e53935'" onmouseout="this.style.color='var(--text-light)'">
@@ -960,17 +777,27 @@
     document.getElementById('nl-edit-view').style.display = 'block';
     // "October 2026 — Draft" on one line, with the status in a lighter
     // weight so the month still leads.
+    const medias = aMedias(n);
     document.getElementById('nl-edit-title').innerHTML =
-      `${esc(n.title)} <span style="font-size:15px;font-weight:600;color:var(--text-muted);letter-spacing:0;">— ${n.status === 'sent' ? 'Sent' : 'Draft'}</span>`;
+      `${esc(n.title)} <span style="font-size:15px;font-weight:600;color:var(--text-muted);letter-spacing:0;">— ${n.status === 'sent' ? 'Sent' : medias ? 'Half sent' : 'Draft'}</span>`;
 
     // A sent issue is what subscribers already received. Editing it would
     // make the archive disagree with their inbox.
     const banner = document.getElementById('nl-sent-banner');
     const sent = n.status === 'sent';
-    banner.style.display = sent ? 'block' : 'none';
+    banner.style.display = (sent || medias) ? 'block' : 'none';
     if (sent) {
       banner.textContent = `This edition was sent on ${fmtDate(String(n.sent_at).slice(0, 10))} to `
         + `${n.sent_count} subscriber${n.sent_count !== 1 ? 's' : ''}. It is kept exactly as it went out, so it cannot be edited.`;
+    } else if (medias) {
+      /* Sigue editable a propósito: si el envío se cortó por un enlace
+         roto, hay que poder arreglarlo. Pero el aviso tiene que decir lo
+         que cuesta cambiarlo ahora, porque la copia que queda guardada en
+         el historial es la que salió la primera vez. */
+      banner.textContent = `This edition is half sent: ${n.sent_count} subscriber`
+        + `${n.sent_count !== 1 ? 's' : ''} already received it. Press Send to deliver it to the rest — `
+        + `nobody gets it twice. If you change the content now, the people still waiting will get a `
+        + `different edition than the ones who already have it.`;
     }
     ['nl-save-btn', 'nl-test-btn', 'nl-send-btn'].forEach((bid) => {
       const b = document.getElementById(bid);
@@ -997,6 +824,16 @@
     if (!n) return;
     if (n.status === 'sent') {
       toast('Sent editions cannot be deleted — they are the record of what was sent.', true);
+      return;
+    }
+    /* Un número a MEDIO enviar sigue en borrador a propósito, para que el
+       botón Enviar siga disponible y pueda terminarse. Pero ya hay gente
+       que lo recibió: borrarlo destruiría el texto que les falta a los
+       demás, y un número nuevo arrancaría de cero y se lo mandaría otra
+       vez a quienes ya lo tienen. */
+    if ((n.sent_count || 0) > 0) {
+      toast(`${n.sent_count} subscriber${n.sent_count !== 1 ? 's' : ''} already received this edition, `
+          + 'so it cannot be deleted. Press Send to finish delivering it.', true);
       return;
     }
     const ok = await confirmModal({
@@ -1138,25 +975,38 @@
       count = (subs || []).length;
     } catch (_) { /* the confirmation still works without it */ }
 
-    // Already sent an issue this month? A warning, not a block: a special
-    // edition is legitimate, a duplicate by accident is not.
-    let dupWarning = '';
-    try {
-      const { data: prior } = await window.supabase.rpc('newsletter_sent_this_month',
-        { p_issue_date: _current.issue_date });
-      if (prior?.length) {
-        dupWarning = `A newsletter for this month was already sent on `
-          + `${fmtDate(String(prior[0].sent_at).slice(0, 10))} to ${prior[0].sent_count} subscribers. `
-          + `Sending this one means subscribers receive a second edition for the same month. `;
-      }
-    } catch (_) { /* non-fatal */ }
+    /* Reanudar no es lo mismo que enviar: este número ya salió a parte de
+       la lista y sólo le faltan los demás. */
+    const yaTiene = _current.sent_count || 0;
 
+    // Already sent an issue this month? A warning, not a block: a special
+    // edition is legitimate, a duplicate by accident is not. Al reanudar
+    // no se consulta: terminar de mandar este número no duplica nada.
+    let dupWarning = '';
+    if (!yaTiene) {
+      try {
+        const { data: prior } = await window.supabase.rpc('newsletter_sent_this_month',
+          { p_issue_date: _current.issue_date });
+        if (prior?.length) {
+          dupWarning = `A newsletter for this month was already sent on `
+            + `${fmtDate(String(prior[0].sent_at).slice(0, 10))} to ${prior[0].sent_count} subscribers. `
+            + `Sending this one means subscribers receive a second edition for the same month. `;
+        }
+      } catch (_) { /* non-fatal */ }
+    }
+
+    /* El texto no puede decir lo mismo en los dos casos: "se mandará a
+       450" asusta sin razón cuando sólo faltan 150, y además suena a que
+       los 300 lo recibirían por segunda vez. */
     const ok = await confirmModal({
-      title: `Send ${_current.title}?`,
-      message: `${dupWarning}This will be sent to ${count} active subscriber${count !== 1 ? 's' : ''}. `
-        + `Please confirm you have reviewed the content and every link. `
-        + `Once sent, the edition is locked as a historical record and cannot be edited.`,
-      okLabel: 'Confirm & send', cancelLabel: 'Cancel',
+      title: yaTiene ? `Finish sending ${_current.title}?` : `Send ${_current.title}?`,
+      message: yaTiene
+        ? `${yaTiene} of the ${count} active subscriber${count !== 1 ? 's' : ''} already received this `
+          + `edition. Only the ones still missing will be emailed — nobody gets it twice.`
+        : `${dupWarning}This will be sent to ${count} active subscriber${count !== 1 ? 's' : ''}. `
+          + `Please confirm you have reviewed the content and every link. `
+          + `Once sent, the edition is locked as a historical record and cannot be edited.`,
+      okLabel: yaTiene ? 'Finish sending' : 'Confirm & send', cancelLabel: 'Cancel',
     });
     if (!ok) return;
 
@@ -1171,10 +1021,44 @@
       if (error) throw new Error(error.message);
       if (data?.error) throw new Error(data.error);
 
-      const msg = `Sent to ${data.sent} subscriber${data.sent !== 1 ? 's' : ''}`
-        + (data.failed ? `, ${data.failed} failed` : '')
-        + (data.skipped ? `, ${data.skipped} already had it` : '') + '.';
-      toast(msg);
+      /* El aviso contaba sólo enviados, fallidos y saltados. Eso dejaba
+         invisible lo único que puede acabar en un correo repetido: que
+         el correo saliera y NO se pudiera apuntar quién lo recibió. Si
+         eso pasa, el siguiente Send se lo manda otra vez a esa gente, y
+         ella necesita enterarse en el momento, no después. */
+      const malo = (data.failed || 0) > 0 || (data.unrecorded || 0) > 0;
+
+      /* Todo lo que se quedó fuera, dicho por su motivo. Antes se perdían
+         dos cosas: a quién le falta el enlace de baja, y la frase que el
+         servidor compone cuando no quedaba nadie a quien escribir. Sin
+         ellas, un envío a cero no decía por qué. */
+      const detalles = [
+        data.failed            ? `${data.failed} failed` : '',
+        data.skipped           ? `${data.skipped} already had it` : '',
+        data.invalid_addresses ? `${data.invalid_addresses} invalid address${data.invalid_addresses !== 1 ? 'es' : ''} skipped` : '',
+        data.missing_token     ? `${data.missing_token} with no unsubscribe link skipped` : '',
+      ].filter(Boolean);
+
+      /* La cola es UNA frase, nunca dos. Antes se añadían las dos por
+         separado, y como un envío sin apuntar nunca sale "completo",
+         salían juntas: "no vuelvas a darle a Send" y justo detrás "dale a
+         Send otra vez para terminar". Ella haría lo último que leyó, y esa
+         gente lo recibiría dos veces. */
+      const cola = data.unrecorded
+        ? ` ⚠️ ${data.unrecorded} went out but could not be recorded. Do NOT press Send again — those people would get it twice. Check with me first.`
+        : (!data.complete && (data.sent || data.failed)
+            ? ' Some people are still missing — press Send again to finish.'
+            : '');
+
+      toast((data.message || `Sent to ${data.sent} subscriber${data.sent !== 1 ? 's' : ''}.`)
+        + (detalles.length ? ` ${detalles.join(', ')}.` : '')
+        + cola, malo);
+      if (data.errors && data.errors.length) console.warn('[newsletter] avisos del envio:', data.errors);
+      /* El botón se queda en "Sending..." si no se repone aquí. Antes no
+         se notaba porque un envío siempre dejaba el número cerrado; ahora
+         un envío a medias vuelve a dejarlo disponible, y al reabrirlo
+         aparecía habilitado pero con el texto de "mandando". */
+      btn.textContent = 'Send Newsletter';
       await loadNewsletterPage();
     } catch (err) {
       toast(`Send failed: ${err.message}`, true);

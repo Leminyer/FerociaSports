@@ -83,10 +83,13 @@
      Se piden las columnas por su nombre, no con un `*`. Así, si
      mañana la tabla gana una columna con algo que no debe salir a la
      pantalla, no aparece aquí sola. */
-  /* La LISTA no pide `body` ni `meta`. Un cuerpo puede llevar una imagen
-     pegada dentro (el editor la guarda en el propio texto), así que 25
-     cuerpos son megabytes en cada página — justo lo que la paginación
-     venía a evitar. Se piden al abrir un envío, que es cuando se ven. */
+  /* La LISTA no pide `body`. Un cuerpo puede llevar una imagen pegada
+     dentro (el editor la guarda en el propio texto), así que 25 cuerpos
+     son megabytes en cada página — justo lo que la paginación venía a
+     evitar. Se pide al abrir un envío, que es cuando se ve.
+
+     `meta` sí hace falta aquí: de ahí sale la marca de "ensayo sólo a
+     mí", que se enseña en la propia lista. */
   const COLS_LISTA = [
     'id', 'kind', 'subject', 'template', 'status',
     'sent_count', 'failed_count', 'created_at', 'sent_at', 'idempotency_key', 'meta',
@@ -96,7 +99,11 @@
      el reintento para que el correo se reconstruya igual. */
   const COLS_ENVIO = COLS_LISTA + ',body';
 
-  const COLS_PERSONA = ['id', 'email', 'status', 'error', 'sent_at', 'attempts', 'vars'].join(',');
+  /* `vars` se pedía aquí y no se usaba. Es un JSON por persona, así que
+     eran cuatrocientos trozos de texto cargados en cada página de la
+     lista para nada. El reintento sí lo necesita, y se lo pide él solo
+     cuando toca. */
+  const COLS_PERSONA = ['id', 'email', 'status', 'error', 'sent_at', 'attempts'].join(',');
 
   /* Los nombres que ve ella. En la base de datos son etiquetas
      técnicas; aquí se llaman como los llama la aplicación. */
@@ -107,6 +114,7 @@
     players_broadcast:  'All Players',
     player_message:     'Single Player',
     subscriber_confirm: 'Confirmation',
+    newsletter:         'Newsletter',
   };
 
   const COLOR_TIPO = {
@@ -116,6 +124,7 @@
     players_broadcast:  { bg: '#f0ecff', fg: '#5b42c4' },
     player_message:     { bg: '#f4f5f8', fg: '#6b7a99' },
     subscriber_confirm: { bg: '#e8f7fb', fg: '#0b7f98' },
+    newsletter:         { bg: '#fdf0f6', fg: '#a3316f' },
   };
 
   const ESTADO_ENVIO = {
@@ -605,6 +614,20 @@
 
     fila.style.display = 'flex';
 
+    /* El newsletter se reintenta desde SU pantalla, no desde aquí.
+       Tiene llave, así que sin esto saldría el botón — y ese botón
+       llama al motor de envío general, que no sabe armar un newsletter.
+       Su propia función sí sabe reanudarlo sin duplicar a nadie. */
+    if (_abierto.kind === 'newsletter') {
+      btn.style.display = 'none';
+      txt.innerHTML = '<strong>This is a newsletter.</strong> '
+                    + 'Finish it from the Newsletter screen: pressing Send there normally picks up '
+                    + 'only the people who did not get it. If the last send warned that some emails '
+                    + 'went out <em>without being recorded</em>, check before pressing — those people '
+                    + 'would get it twice.';
+      return;
+    }
+
     if (!_abierto.idempotency_key) {
       /* Sin llave guardada no se puede retomar: el servidor abriría una
          campaña NUEVA y le volvería a escribir a quien ya la tenía.
@@ -651,6 +674,10 @@
    * manda la llave GUARDADA y no una nueva.
    */
   async function reintentar() {
+    /* El newsletter no se reintenta desde aquí: su motor es otro. El
+       botón ya está oculto, pero que la garantía no dependa de una
+       propiedad de estilo. */
+    if (_abierto && _abierto.kind === 'newsletter') return;
     if (!_abierto || !_abierto.idempotency_key) return;
     if (window.envioEnCurso && window.envioEnCurso()) return;
 
