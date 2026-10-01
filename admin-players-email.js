@@ -6,14 +6,14 @@
    Sends one message to every ACTIVE player who has an email address.
 
    ── EL ENVÍO PASA POR EL SERVIDOR ─────────────────────────────────
-   Ya NO usa EmailJS. Manda con sendEmailServer() de
-   admin-email-utils.js: UNA petición para toda la lista en vez de una
-   por jugador.
+   Manda con sendEmailServer() de admin-email-utils.js: UNA petición
+   para toda la lista en vez de una por jugador.
 
-   Con eso desaparece la espera entre envíos. Aquella pausa de 600ms
-   no era lentitud que sobrara —EmailJS limita por segundo y correr más
-   acababa con los correos rechazados— pero era una pausa del
-   NAVEGADOR. El servidor manda en lotes de 100 y el ritmo lo lleva él.
+   El ritmo lo lleva el servidor, que manda en lotes de 100. Aquí no hay
+   ninguna pausa entre envíos, y es a propósito: los proveedores de
+   correo limitan cuántos se aceptan por segundo, pero ese freno tiene
+   que estar donde se manda —en el servidor—, no en una pestaña del
+   navegador que puede cerrarse a mitad.
 
    Consecuencias visibles, todas buscadas:
      · De ~4 minutos a segundos.

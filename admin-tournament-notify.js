@@ -7,11 +7,10 @@
    Extracted from app.js's TOURNAMENT NOTIFY section.
 
    ── EL ENVÍO PASA POR EL SERVIDOR ─────────────────────────────────
-   Ya NO usa EmailJS. Manda con sendEmailServer() de
-   admin-email-utils.js: una sola petición para todo el torneo, la
-   clave del proveedor fuera del navegador, y registro persona a
-   persona. El mensaje se escribe con formato y viaja como HTML, que
-   el servidor filtra antes de pintarlo.
+   Manda con sendEmailServer() de admin-email-utils.js: una sola
+   petición para todo el torneo, la clave del proveedor fuera del
+   navegador, y registro persona a persona. El mensaje se escribe con
+   formato y viaja como HTML, que el servidor filtra antes de pintarlo.
 
    Hay UN solo camino de envío. La casilla "Send only to me" es ese
    mismo camino con la lista reducida a una dirección.

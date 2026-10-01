@@ -31,10 +31,10 @@
 <script src="db.js?v=20261001c"></script>
 <script src="auth.js?v=20260928b"></script>
 <script src="assets.js?v=20260928b"></script>
-<!-- EmailJS se fue del admin: las cinco pantallas que mandan correo
-     pasan ahora por la Edge Function `send-email`. Sigue cargándose en
-     subscribe.html, el formulario público, que necesita su propia
-     función antes de poder soltarlo. -->
+<!-- En esta página no se carga ningún servicio de correo, y es a
+     propósito: las pantallas que mandan correo lo hacen a través de las
+     funciones del servidor (send-email, send-newsletter), donde vive la
+     credencial. El de abajo es para los códigos QR. -->
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 </head>
 <body>

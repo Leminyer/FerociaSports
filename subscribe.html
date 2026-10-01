@@ -29,9 +29,10 @@
 <script src="assets.js?v=20260926a"></script>
 <script src="country-codes.js?v=20260926a"></script>
 <script src="location-fields.js?v=20260929a"></script>
-<!-- Aquí se cargaba EmailJS. Ya no hace falta: el correo de
-     confirmación lo manda la función `subscribe-confirm` en el
-     servidor. Esta página ya no lleva ninguna credencial. -->
+<!-- Esta página es pública: cualquiera puede leer su código fuente. Por
+     eso no carga ningún servicio de correo ni lleva ninguna credencial.
+     El correo de confirmación lo manda la función `subscribe-confirm`
+     en el servidor. -->
 <style>
   /* Color/typography/radius tokens now come from design-tokens.css. */
   *{box-sizing:border-box;margin:0;padding:0;}
@@ -422,9 +423,14 @@
 (function () {
   'use strict';
 
-  /* Aquí estaba `const CFG = window.FEROCIA_CONFIG;`. Lo único que esta
-     página sacaba de ahí eran las claves de EmailJS, así que al
-     quitarlas se quedó sin usar. */
+  /* ESTE script no lee `window.FEROCIA_CONFIG`: lo único que sacaba de
+     ahí eran las claves del servicio de correo, y ésas se fueron al
+     servidor.
+
+     OJO, que no es lo mismo: config.js SÍ hace falta en la página. Lo
+     necesita db.js para crear el cliente de Supabase, así que su
+     <script> de arriba no se puede quitar — sin él esta página no
+     guarda a nadie. */
 
   const validateEmail = (email) => {
     const e = email.trim().toLowerCase();
@@ -670,22 +676,19 @@
 
     try {
       /* ── EL ALTA LA HACE EL SERVIDOR ─────────────────────────────
-         Antes esta página hacía dos cosas: guardaba a la persona con
-         supabase.rpc() y le mandaba el correo con EmailJS. Para eso
-         segundo tenía que llevar dentro el servicio, la clave pública
-         y el id de plantilla de EmailJS — y cualquiera que mirase el
-         código fuente de esta página los veía. Con esos tres datos se
-         puede mandar correo DESDE contact@ferociasports.com, con la
-         marca del club, A QUIEN SEA.
+         Las dos cosas —guardar a la persona y mandarle el correo de
+         confirmación— las hace la función `subscribe-confirm`.
 
-         Ahora las dos cosas las hace la función `subscribe-confirm`
-         en el servidor, donde las credenciales no se ven. Esta página
-         ya no lleva ninguna.
+         NO SE PUEDEN HACER DESDE AQUÍ, y conviene que quede escrito
+         por qué: para mandar un correo haría falta llevar la
+         credencial del proveedor dentro de esta página, que es
+         pública. Cualquiera que mire su código fuente la vería, y con
+         ella se puede mandar correo DESDE contact@ferociasports.com,
+         con la marca del club, A QUIEN SEA.
 
-         Y hay una segunda mejora, callada: el confirm_token ya no
-         viaja hasta aquí. Antes llegaba para poder construir el
-         enlace; ahora lo construye el servidor y el token no sale de
-         allí. */
+         Por lo mismo, el confirm_token tampoco viaja hasta aquí: el
+         enlace de confirmación lo arma el servidor y el token no sale
+         de allí. */
       const { data: result, error: fnError } = await supabase.functions.invoke('subscribe-confirm', {
         body: {
           first_name: first, last_name: last, email: email,

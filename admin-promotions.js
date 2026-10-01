@@ -7,9 +7,9 @@
    Extracted from app.js's PROMOTIONS section.
 
    ── EL ENVÍO PASA POR EL SERVIDOR ─────────────────────────────────
-   Este módulo ya NO usa EmailJS. Manda con sendEmailServer() de
-   admin-email-utils.js, que llama a la Edge Function `send-email`.
-   Sigue usando AdminState.emailInFlight, igual que antes.
+   Manda con sendEmailServer() de admin-email-utils.js, que llama a la
+   Edge Function `send-email`. Usa AdminState.emailInFlight para que
+   salir de la pantalla a media campaña pueda avisar.
 
    Lo que eso significa aquí:
      · Una sola petición para toda la campaña, no una por persona.
@@ -25,8 +25,6 @@
    además un botón de prueba que iba por otro lado y no dejaba
    registro; se quitó porque dos caminos que parecen lo mismo y no lo
    son es como se cuela un fallo sin que nadie lo vea.
-
-   Tournament Notify y Email Notifications siguen con EmailJS por ahora.
 
    _subsShown is local module state (how many subscriber rows are
    currently shown) — the status-filter and search inputs need to reset

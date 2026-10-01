@@ -9,10 +9,10 @@
    by admin-ladder-selector.js.
 
    ── EL ENVÍO PASA POR EL SERVIDOR ─────────────────────────────────
-   Ya NO usa EmailJS. Manda con sendEmailServer() de
-   admin-email-utils.js, que llama a la Edge Function `send-email`:
-   una sola petición para todo el grupo, la clave del proveedor fuera
-   del navegador, y registro persona a persona en la base de datos.
+   Manda con sendEmailServer() de admin-email-utils.js, que llama a la
+   Edge Function `send-email`: una sola petición para todo el grupo, la
+   clave del proveedor fuera del navegador, y registro persona a persona
+   en la base de datos.
 
    El mensaje se escribe en un editor con formato (admin-rich-editor.js)
    y viaja como HTML, que el servidor filtra antes de pintarlo.

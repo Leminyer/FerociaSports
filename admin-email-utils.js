@@ -1,12 +1,11 @@
 /* ============================================================
    FEROCIA SPORTS CENTER — ADMIN: SHARED EMAIL UTILITIES
    Depends on: config.js, db.js, admin-state.js
-   Load order: admin-state.js -> admin-email-utils.js -> (any module
-               that sends email: admin-tournament-notify.js, and later
-               Email Notifications / Promotions once those are extracted)
+   Load order: admin-state.js -> admin-email-utils.js -> cualquier
+               pantalla que mande correo.
 
-   Extracted from app.js (was defined inline in the EMAIL NOTIFICATIONS
-   section, but used by three different sections). Exposes:
+   Vivía dentro de app.js; se sacó aquí porque lo usaban varias
+   pantallas a la vez. Ofrece:
 
      window.sendEmailServer(payload)
          Manda por la Edge Function `send-email`, en el servidor.
@@ -16,27 +15,34 @@
          La clave contra envíos duplicados, una por pantalla.
 
      window.nombreDestinatario(p) / window.resumenEnvio(d)
-         Dos ayudantes que usaban las cuatro pantallas por igual.
+         Dos ayudantes que usan por igual todas las pantallas.
 
      AdminState.emailInFlight
          Shared boolean guard so a page navigation mid-send can warn
          the user, no matter which feature is currently sending.
 
-   ── SE ACABÓ EMAILJS, EN TODA LA APLICACIÓN ───────────────────────
-   Aquí vivía `sendOneEmail`, que mandaba un correo por EmailJS desde
-   el navegador. Las cinco pantallas que mandan correo ya pasan por el
-   servidor, así que no la llamaba nadie: se fue, y con ella el
-   <script> de EmailJS de admin.html.
+   ── TODO EL CORREO SALE DEL SERVIDOR ──────────────────────────────
+   Las pantallas del admin que mandan correo pasan por aquí, y de aquí a
+   la Edge Function `send-email`. A día de hoy son siete: Promotions,
+   avisos de ladder, avisos de torneo, correo a todos los jugadores,
+   mensaje a un jugador, el recordatorio de confirmación y el reintento
+   del historial.
 
-   El formulario público (subscribe.html) fue el último en migrar. No
-   puede usar ESTA función, porque ahí no hay ningún admin con sesión,
-   así que tiene la suya: `subscribe-confirm`, pública y de un solo
-   propósito. Con eso el bloque de claves salió de config.js, y ya no
-   queda ni una credencial de proveedor en el navegador.
+   Hay dos que NO pasan por aquí, y las dos por el mismo motivo —
+   necesitan su propia función del servidor:
+     · el Newsletter, que llama a `send-newsletter` porque arma el
+       correo con las secciones del mes;
+     · el formulario público (subscribe.html), que llama a
+       `subscribe-confirm` porque ahí no hay ningún admin con sesión.
 
-   Lo que se gana al mandar por el servidor:
-     · La clave del proveedor no está en el navegador. Es un secreto de
-       Supabase, y nadie que abra el código de la página la ve.
+   ⚠️  LA REGLA QUE SOSTIENE TODO ESTO: no queda ni una credencial de
+   proveedor de correo en el código del navegador — ni aquí, ni en
+   config.js, ni en ninguna página. Viven como secretos de Supabase y
+   sólo las ven las funciones del servidor. Si algún día hace falta
+   mandar correo desde una pantalla nueva, se hace a través de una
+   función del servidor; nunca metiendo una clave en el navegador.
+
+   Lo demás que da mandar desde el servidor:
      · Manda en lotes de 100. Una campaña de 450 tarda segundos, no
        minutos, y se puede cerrar la pestaña sin romper el envío.
      · Queda registro persona a persona, así que un reintento sabe a
@@ -142,10 +148,10 @@
    * @returns {Promise<{ok:boolean, data?:object, code?:string|null,
    *                    status?:number|null, detail?:string, message:string}>}
    *
-   * NUNCA lanza. Quien llama decide qué hacer con `ok`, igual que hacía
-   * con el true/false de sendOneEmail. Un throw suelto a mitad de un
-   * envío deja el botón bloqueado y `emailInFlight` en true, y desde
-   * ahí la página no vuelve a mandar nada hasta recargarla.
+   * NUNCA lanza: quien llama decide qué hacer mirando `ok`. Un throw
+   * suelto a mitad de un envío deja el botón bloqueado y
+   * `emailInFlight` en true, y desde ahí la página no vuelve a mandar
+   * nada hasta recargarla.
    */
   async function sendEmailServer(payload) {
     const sb = window.supabase;
