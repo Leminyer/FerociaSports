@@ -491,6 +491,18 @@
       const nuevas = filas.slice(0, PERSONAS_POR_PAGINA).filter((x) => !yaEstan.has(String(x.id)));
       _personas = _personas.concat(nuevas);
       pintarPersonas();
+
+      /* Puede pasar que una página entera venga repetida: la lista va
+         ordenada por estado, así que un reintento mueve a alguien de
+         'failed' a 'sent' —del principio al final— y las posiciones se
+         corren debajo de lo que ya se trajo.
+
+         Entonces no se añade nadie y la pantalla queda EXACTAMENTE igual,
+         que es justo la confusión que el contador vino a quitar. Así que
+         se dice en voz alta en vez de dejarla pulsando un botón mudo. */
+      if (!desdeElPrincipio && !nuevas.length) {
+        window.toast('Nothing new to show — reopen this send to see the current list.');
+      }
     } catch (err) {
       if (mia !== _vez) return;
       console.error('[communications] no se pudieron leer los destinatarios:', err);
@@ -551,14 +563,58 @@
           }).join('')}
         </tbody>
       </table>
-      ${_personasMas ? `
-        <div style="padding:12px 16px;border-top:0.5px solid var(--divider-color);text-align:center;">
-          <button data-action="loadMoreCommPeople"
-                  style="font-size:10px;font-weight:700;padding:7px 18px;border-radius:99px;border:0.5px solid #c5d6f5;background:white;color:var(--blue);cursor:pointer;">
-            Load ${PERSONAS_POR_PAGINA} more
-          </button>
-        </div>` : ''}`;
+      ${pieDeLista()}`;
     pintarReintento();
+  }
+
+  /**
+   * El pie de la lista: cuántos destinatarios se están viendo, y el botón
+   * de traer más.
+   *
+   * Sólo aparece cuando hay más de una página. Para un envío de tres
+   * personas un "Showing 3 of 3" no dice nada que no se vea ya.
+   */
+  function pieDeLista() {
+    const hayPaginas = _personasMas || _personas.length > PERSONAS_POR_PAGINA;
+    if (!hayPaginas) return '';
+
+    /* El total sale de lo que el propio envío tiene guardado, sin pedir
+       nada más a la base de datos. Pero esa suma SÓLO es el total de
+       verdad cuando el envío está 'sent', y conviene saber por qué:
+
+       el servidor guarda `sent_count` y `failed_count`, y una fila que se
+       quedó atascada a mitad no está en ninguno de los dos. Así que en un
+       envío interrumpido la suma se queda corta. Un envío de 120 personas
+       que murió con 80 hechas guarda 80, y aquí habríamos dicho
+       "Showing 50 of 80" — un total inventado, justo en la pantalla a la
+       que se viene a averiguar a quién le falta el correo.
+
+       El propio servidor sólo escribe 'sent' cuando llegó a todos, así
+       que ese estado es la garantía que hace falta. Las otras dos
+       condiciones son de pura coherencia: si queda gente por traer el
+       total tiene que ser mayor que lo que se ve, y si no queda nadie
+       tiene que ser exactamente lo que se ve.
+
+       Cuando algo de eso no se cumple se dice sólo cuántos van. Se pierde
+       el "de 431", que es bonito; no se pierde la razón de ser de esto,
+       que es ver que el número cambia al pulsar el botón. */
+    const total = (_abierto.sent_count || 0) + (_abierto.failed_count || 0);
+    const fiable = !_filtroPersona
+                && _abierto.status === 'sent'
+                && (_personasMas ? total > _personas.length
+                                 : total === _personas.length);
+    const cuenta = fiable
+      ? `Showing ${_personas.length} of ${total}`
+      : `Showing ${_personas.length}`;
+
+    return `
+      <div class="co-det-foot${_personasMas ? '' : ' co-det-foot-solo'}">
+        <span class="co-det-count">${cuenta}</span>
+        ${_personasMas ? `
+        <button type="button" class="co-det-more" data-action="loadMoreCommPeople">
+          Load ${PERSONAS_POR_PAGINA} more
+        </button>` : ''}
+      </div>`;
   }
 
   // ── EL REINTENTO ──────────────────────────────────────────

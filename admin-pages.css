@@ -435,6 +435,34 @@
   .co-pfilter:hover{border-color:#c5d6f5;color:var(--blue);}
   .co-pfilter-on{background:#e8f0ff;border-color:#c5d6f5;color:var(--blue);}
 
+  /* El pie de la lista de destinatarios: cuántos se ven y el botón de
+     traer más.
+
+     El número va AQUÍ ABAJO, pegado al botón, y no en la cabecera de la
+     lista. Con 100 filas el botón queda a unos 3700px de altura, así que
+     un contador arriba no se ve desde donde está el dedo o el ratón. Y
+     las filas nuevas entran POR ENCIMA del botón: sin un número al lado,
+     la pantalla no cambia nada en el sitio donde se está mirando y parece
+     que el botón no ha hecho nada.
+
+     `flex-wrap` porque en un móvil el texto y el botón no caben en una
+     línea; ahí el botón baja solo. */
+  .co-det-foot{display:flex;align-items:center;justify-content:space-between;
+               gap:10px;flex-wrap:wrap;padding:12px 16px;
+               border-top:0.5px solid var(--divider-color);}
+  /* La última fila de la tabla ya trae su propia rayita abajo, y el pie
+     trae la suya arriba: juntas se veían dos líneas casi pegadas, de
+     colores distintos. Se quita la de la fila y queda una sola. */
+  #co-det-people tbody tr:last-child td{border-bottom:none;}
+  .co-det-count{font-size:11px;font-weight:700;color:var(--text-muted);}
+  .co-det-more{font-size:10px;font-weight:700;padding:7px 18px;border-radius:99px;
+               border:0.5px solid #c5d6f5;background:white;color:var(--blue);
+               cursor:pointer;font-family:'Inter',sans-serif;}
+  .co-det-more:hover{background:#f4f8ff;}
+  /* Cuando ya no queda nada que traer, el número se queda solo y centrado
+     en vez de pegado a la izquierda esperando a un botón que no está. */
+  .co-det-foot-solo{justify-content:center;}
+
   /* El cuerpo del correo se guarda con el formato con el que se
      escribió. Se le quitan los márgenes de fuera para que no separe el
      texto del marco, y se le pone tope a las imágenes para que una foto

@@ -1,9 +1,14 @@
 /* ============================================================
    FEROCIA — Layout: shell, top bar, sidebar, main area, bottom nav
    ------------------------------------------------------------
-   Extracted verbatim from the <style> block that used to live inside
-   admin.html. Rules are byte-for-byte identical and in their original
-   order; only the container changed.
+   El grueso de este archivo salió tal cual del bloque <style> que vivía
+   dentro de admin.html: mismas reglas, mismo orden, sólo cambió el
+   contenedor.
+
+   LO QUE SE HA AÑADIDO DESPUÉS, y que por tanto nunca estuvo en
+   admin.html, va al final del archivo y se explica solo:
+     · @keyframes auth-boot-spin
+     · el bloqueo del scroll de la página cuando hay un modal abierto
 
    ⚠️  ORDER MATTERS. These files must stay linked in this sequence,
    after design-tokens.css / tournament.css / app.css / country-codes.css:
@@ -15,8 +20,15 @@
    Later rules of equal specificity override earlier ones, so
    reordering the <link> tags would change how the app looks.
 
-   Covers: .app-shell, .top-bar, .sidebar, main content area,
-   mobile bottom nav and the responsive breakpoints.
+   Covers: .app-shell, .top-bar, .sidebar, main content area, mobile
+   bottom nav, the responsive breakpoints, y el bloqueo del scroll de la
+   página mientras hay un modal abierto (al final).
+
+   Ese último está aquí y no junto a `.modal` en admin-components.css por
+   un motivo concreto: es la regla que decide QUÉ SE MUEVE en la página, y
+   eso es de este archivo —aquí vive ya la contención del scroll del cajón
+   móvil—. Si algún día se quiere junto al resto de lo de los modales,
+   mover el bloque entero del final; no depende de nada de aquí.
    ============================================================ */
 
 /* Color/typography/radius tokens now come from design-tokens.css
@@ -282,3 +294,127 @@
    irrelevant for a uniquely-named @keyframes — it is matched by name,
    not by cascade order — so it lives here with the rest of the shell. */
 @keyframes auth-boot-spin{to{transform:rotate(360deg);}}
+
+
+/* ── CON UN MODAL ABIERTO, LA PÁGINA DE DETRÁS NO SE MUEVE ───
+   Con un modal abierto, la rueda del ratón movía la página del fondo en
+   cuanto el contenido del modal llegaba a su final — o en cuanto el
+   cursor estaba sobre una parte del modal que no hace scroll. Medido en
+   el detalle de Communications: 14 vueltas de rueda bajaban el modal
+   1650px y la página de atrás 3600px.
+
+   Y tenía una segunda consecuencia menos evidente: el botón de "cargar
+   más" de una lista larga queda muy abajo —con 100 filas, a 3733px—, así
+   que para comprobar que había traído más filas había que bajar, y al
+   bajar se movía el fondo en lugar de la lista.
+
+   `:has()` pregunta "¿hay dentro de mí un modal abierto?", así que esto
+   se activa solo al abrir cualquiera y se desactiva al cerrarlo. No hace
+   falta tocar el HTML ni el JavaScript de ninguno.
+
+   HAY QUE NOMBRARLOS TODOS, porque los modales de esta aplicación no se
+   abren igual. Son cinco maneras distintas:
+
+     .modal-bg.open          los 23 del admin (Communications, jugadores,
+                             ladders, confirmaciones…)
+     .t-modal-bg             el de los torneos, que vino de tournament.js
+                             con sus propias clases
+     .modal-overlay          editar un evento
+     #lp-modal               los participantes de una ladder
+     #promo-modal            la campaña de Promotions
+
+   Los tres últimos no tienen una clase que diga "abierto": se abren
+   poniéndoles `display` a mano desde el JavaScript, así que se les
+   reconoce por eso mismo. El de Promotions además ya se bloquea por su
+   cuenta desde admin-promotions.js; estar aquí no le hace daño y le da
+   de paso la contención de abajo, que no tenía.
+
+   VA EN `html` Y NO EN `body` por la segunda propiedad. `overflow` funciona
+   igual en los dos —medido—, pero `overscroll-behavior` sólo llega a la
+   ventana desde el elemento raíz, y es la que hace falta para el dedo: en
+   un móvil, con la página ya quieta, arrastrar hacia abajo todavía puede
+   despegar la página entera y enseñar el fondo gris del navegador.
+
+   `overflow:hidden` y no `position:fixed`: hidden conserva la posición
+   del scroll, así que al cerrar el modal la página sigue donde estaba.
+   Comprobado, igual que que el modal sí sigue bajando hasta el final, en
+   móvil (375 y 390), tableta (768 y 1024) y escritorio (1280 y 1600).
+
+   Donde `:has()` no exista —un navegador muy viejo— la regla se ignora y
+   queda el comportamiento de hoy. No rompe nada. */
+html:has(.modal-bg.open),
+html:has(.t-modal-bg.t-modal-open),
+html:has(.modal-overlay[style*="display: flex"]),
+html:has(#lp-modal[style*="display: flex"]),
+html:has(#promo-modal[style*="display: flex"]){overflow:hidden;overscroll-behavior:none;}
+
+
+/* ── EL SCROLL DE UN MODAL NO SE ESCAPA HACIA FUERA ──────────
+   Lo de arriba resuelve el ratón. Con el dedo falta una pieza: al llegar
+   al final de una lista larga dentro del modal, el gesto se "encadena" al
+   contenedor de fuera y arrastra lo que haya detrás. `contain` corta esa
+   cadena en el borde del modal.
+
+   Las cajas que hacen scroll en esta aplicación son de tres tipos:
+     · `.modal` y `.t-modal`, que llevan el scroll ellos mismos;
+     · `.promo-message-editor`, que lo lleva por su clase;
+     · cajas sueltas de dentro de los modales que lo llevan escrito en su
+       propio `style="…overflow-y:auto…"`. En admin.html hay 26 así, de
+       las que 22 están dentro de un modal y son las que se cogen aquí
+       (el detalle de Communications es una de ellas).
+
+   Esas 22 se cogen por su `style` en lugar de ponerles una clase a mano a
+   todas, que sería un cambio grande en admin.html para un arreglo
+   pequeño. Comprobado que las 26 están escritas exactamente igual.
+
+   Las otras 4 se quedan fuera A PROPÓSITO: están en la página, no dentro
+   de un modal —el buscador de jugadores, la vista previa del CSV, la
+   lista de inscritos—, y ahí encadenar el scroll hacia la página es el
+   comportamiento normal y deseable.
+
+   En un elemento que no hace scroll esta propiedad no hace nada, así que
+   no puede estropear nada de lo que toca de más.
+
+   ⚠️  ESTA REGLA Y EL `overscroll-behavior` DE ARRIBA NO ESTÁN MEDIDOS,
+   al revés que todo lo demás de este archivo: el rebote del dedo es de
+   Safari en iPhone/iPad y no hay forma de reproducirlo desde aquí. Lo que
+   sí está comprobado es que llegan a los elementos correctos y que no
+   cambian nada en escritorio. */
+.modal,
+.t-modal,
+.promo-message-editor,
+.modal-bg [style*="overflow-y:auto"],
+.t-modal-bg [style*="overflow-y:auto"],
+.modal-overlay [style*="overflow-y:auto"],
+#lp-modal [style*="overflow-y:auto"],
+#promo-modal [style*="overflow-y:auto"]{overscroll-behavior:contain;}
+
+
+/* ── AL ABRIR UN MODAL, LA PÁGINA NO DA UN SALTO LATERAL ─────
+   Al bloquear el scroll desaparece la barra de la derecha, y con ella los
+   ~15px que ocupaba: todo el contenido se corría 15px a la derecha cada
+   vez que se abría un modal. Medido: 15px exactos.
+
+   Reservar siempre el hueco de la barra es lo único que lo evita. Se
+   probaron también las versiones que sólo lo reservan mientras hay un
+   modal abierto, y son peores: en una página corta —que no tenía barra—
+   el hueco APARECE al abrir el modal y el salto se produce igual, sólo
+   que hacia el otro lado.
+
+   LO QUE CUESTA, dicho claro, y sólo en páginas del admin tan cortas que
+   no necesiten barra:
+     · el contenido queda 15px más estrecho de lo que estaba;
+     · la barra superior deja de llegar al borde de la ventana y se ve
+       una franja de 15px del color del fondo a su derecha.
+   En las páginas que sí tienen barra —casi todas, son tablas largas— no
+   cuesta nada, porque esos 15px ya estaban ocupados. Y la barra superior
+   y el contenido se mueven juntos, que es lo que antes no pasaba.
+
+   No cuesta NADA en Mac, iPad ni iPhone: ahí la barra flota encima del
+   contenido y nunca ocupa sitio, así que ni había salto ni hay hueco que
+   reservar. Esto es un arreglo de Windows y Linux.
+
+   Va en `html` porque la barra de la ventana es del documento. Este
+   archivo sólo lo carga admin.html, así que las páginas públicas no se
+   enteran. */
+html{scrollbar-gutter:stable;}

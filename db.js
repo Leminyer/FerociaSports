@@ -71,13 +71,31 @@
     const query = qIdx === -1 ? '' : path.slice(qIdx + 1);
     const params = new URLSearchParams(query);
 
-    // Pull out PostgREST filter / select / order / limit params
+    // Pull out PostgREST filter / select / order / limit / offset params
     const select = params.get('select') || '*';
     const order = params.get('order');
     const limit = params.get('limit');
+    /* `offset` no se leía aquí, así que caía en applyFilters() y se mandaba
+       como si fuera un filtro de columna: `offset=eq.50`.
+
+       Y ahí está la explicación de por qué no daba error. `offset` es una
+       palabra reservada de PostgREST: el servidor no buscó ninguna columna
+       con ese nombre —eso sí habría dado error—, sino que lo tomó por SU
+       propio offset, no consiguió leer "eq.50" como número y lo ignoró.
+
+       Resultado: un "tráeme 50 EMPEZANDO POR EL 50" devolvía otra vez las
+       primeras 50. Los dos botones de "cargar más" de Communications no
+       hacían nada, y la consola no decía nada, porque nada había fallado:
+       simplemente no llegaba ninguna fila nueva.
+
+       Que la primera página SÍ funcionara es la prueba: también manda
+       `offset=0`, y si esto se hubiera tratado como una columna inexistente
+       habría fallado desde el primer momento. */
+    const offset = params.get('offset');
     params.delete('select');
     params.delete('order');
     params.delete('limit');
+    params.delete('offset');
 
     // Everything left is a filter: column=op.value (e.g. id=eq.5, id=in.(1,2,3))
     // Apply each filter to the query builder using the same operator names.
@@ -115,7 +133,10 @@
       return qb;
     };
 
-    // Apply order + limit to a select/update/delete builder
+    /* Apply order + limit/offset. SELECT only — PATCH and DELETE call
+       applyFilters and nothing else, which is as it should be: ordenar o
+       paginar un UPDATE no significa nada. (El comentario de antes decía
+       "select/update/delete" y no era cierto.) */
     const applyTrailing = (qb) => {
       if (order) {
         // PostgREST format: "col" or "col.desc" (or "col1,col2.desc")
@@ -124,7 +145,20 @@
           qb = qb.order(col, { ascending: dir !== 'desc' });
         }
       }
-      if (limit) qb = qb.limit(parseInt(limit, 10));
+      /* Con offset hay que usar .range(desde, hasta), que es como
+         supabase-js expresa "una página a partir de aquí". `.limit()` por
+         sí solo no sabe saltar.
+
+         La rama de abajo se deja EXACTAMENTE como estaba: sin offset, cada
+         consulta de la aplicación pide lo mismo que pedía antes. Hoy el
+         offset sólo lo usa la pantalla de Communications. */
+      if (offset) {
+        const desde   = parseInt(offset, 10);
+        const cuantas = limit ? parseInt(limit, 10) : 1000;
+        qb = qb.range(desde, desde + cuantas - 1);
+      } else if (limit) {
+        qb = qb.limit(parseInt(limit, 10));
+      }
       return qb;
     };
 
