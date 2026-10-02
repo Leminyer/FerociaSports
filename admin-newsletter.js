@@ -896,28 +896,143 @@
       if (!ok) return;
     }
     _current = null;
+    /* La bandera se apaga al salir. Hoy no se nota —al abrir un número
+       se vuelve a poner, y todo el que la lee comprueba `_current`
+       primero— pero dejar una marca global diciendo "hay cambios sin
+       guardar" cuando ya no hay número abierto es sembrar el fallo que
+       acabamos de tapar: una bandera que miente. */
+    setDirty(false);
     loadNewsletterPage();
   };
 
   /* ─── SAVE ───────────────────────────────────────────────── */
 
+  /* DEVUELVE SI SE GUARDÓ, y de eso depende que se pueda enviar.
+
+     Antes esto se tragaba el fallo: pintaba "Error saving" y volvía como
+     si nada. Y como Enviar, Probar y la Vista previa guardan primero
+     ("if (_dirty) await nlSave()"), ninguno de los tres se enteraba.
+
+     Lo que pasaba entonces: arreglas un enlace roto, pulsas Enviar, el
+     guardado falla —lo más común, la sesión caducada tras una hora con
+     la pantalla abierta—, y la función del servidor vuelve a LEER el
+     número de la base de datos, donde sigue el texto viejo. Salen 453
+     correos con el enlace roto, la pantalla dice "Sent to 453
+     subscribers", y en el editor sigues viendo tu texto corregido. No
+     hay forma de darse cuenta ni de deshacerlo.
+
+     Devolviendo true/false, quien llama puede pararse. */
+  /* POR QUÉ no se pudo guardar, cuando no se pudo: '' si fue bien,
+     'error' si la escritura falló, 'escribio' si se guardó pero se
+     siguió escribiendo durante el guardado.
+
+     Hace falta porque los dos casos piden mensajes distintos y
+     `guardarAntesDe` añadía el suyo encima del de `nlSave`. En el
+     segundo caso eso salía mal: el aviso decía "no se pudo guardar" —
+     falso, se guardó— y mandaba a cerrar sesión, que no tiene nada que
+     ver. Dos avisos y uno mintiendo. */
+  let _porQueNoSeGuardo = '';
+
   window.nlSave = async () => {
-    if (!_current || isSent()) return;
+    _porQueNoSeGuardo = '';
+    if (!_current || isSent()) return false;
     const btn = document.getElementById('nl-save-btn');
-    btn.disabled = true; btn.textContent = 'Saving...';
+    /* La búsqueda del botón va DENTRO del try. Fuera, si algún día no
+       existiera, el error saltaría por encima de quien llama —que no lo
+       espera— y el envío se quedaría mudo: sin aviso y sin explicación. */
     try {
+      if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
+
+      /* LO QUE SE MANDA SE CONGELA AQUÍ, y después se compara.
+
+         El botón Guardar se apaga mientras esto va, pero los campos del
+         editor NO: se puede seguir escribiendo durante el viaje de ida y
+         vuelta, y es lo normal. Antes, al volver, esto hacía
+         `setDirty(false)` sin mirar nada — así que las teclas escritas
+         durante el guardado se marcaban como guardadas sin estarlo.
+
+         Y esa bandera es justo la que decide si se puede enviar. O sea
+         que el agujero que este arreglo venía a tapar volvía a abrirse
+         por otra puerta: la base con el texto viejo, la pantalla con el
+         nuevo, la marca diciendo que todo está guardado, y 453 correos
+         con el texto viejo.
+
+         Comparando lo enviado con lo que hay al volver, la bandera deja
+         de poder mentir. Si no coinciden, sigue habiendo cambios sin
+         guardar — que es la verdad. */
+      const loQueSeManda = JSON.stringify(_current.content);
       await api(`newsletters?id=eq.${_current.id}`, 'PATCH', {
         content: _current.content,
         updated_at: new Date().toISOString(),
       });
-      setDirty(false);
-      toast('Draft saved.');
+
+      const sigueIgual = _current && JSON.stringify(_current.content) === loQueSeManda;
+      if (sigueIgual) {
+        setDirty(false);
+        toast('Draft saved.');
+        return true;
+      }
+      /* Se guardó bien, pero mientras tanto se escribió más. No es un
+         error —lo guardado está a salvo— pero NO se puede enviar: el
+         texto de la pantalla todavía no está en la base. */
+      _porQueNoSeGuardo = 'escribio';
+      toast('Saved, but you kept typing while it was saving. Press Save again '
+          + 'so the newest text is stored before sending — nothing was sent.', true);
+      return false;
     } catch (err) {
+      _porQueNoSeGuardo = 'error';
       toast(`Error saving: ${err.message}`, true);
+      return false;
     } finally {
-      btn.disabled = false;
-      if (!_dirty) btn.textContent = 'Save Draft';
+      if (btn) {
+        btn.disabled = false;
+        if (!_dirty) btn.textContent = 'Save Draft';
+      }
     }
+  };
+
+  /* Guarda si hace falta y dice si se puede seguir.
+
+     Vive en un solo sitio porque son TRES los que guardan antes de
+     actuar —Enviar, Probar y la Vista previa— y los tres tienen el mismo
+     problema si el guardado falla: trabajan sobre el texto viejo
+     creyendo que es el nuevo. Escrito tres veces, a la tercera ya no
+     diría lo mismo.
+
+     El aviso nombra lo que está en juego: que lo que saldría NO es lo
+     que ella está viendo. */
+  const guardarAntesDe = async (queIba) => {
+    if (!_dirty) return true;
+    const ok = await window.nlSave();
+    /* Sólo se añade el aviso cuando la escritura FALLÓ. Si se guardó y lo
+       que pasó es que se siguió escribiendo, `nlSave` ya lo ha explicado
+       con las palabras correctas, y repetirlo con otras —"no se pudo
+       guardar"— sería decir algo que no es verdad. */
+    if (!ok && _porQueNoSeGuardo === 'error') {
+      toast(`Your changes could not be saved, so ${queIba} would use the previous `
+          + 'version — not what you see on screen. Nothing was sent. Try saving again; '
+          + 'if it keeps failing, sign out and back in.', true);
+    }
+    return ok;
+  };
+
+  /* ÚLTIMA MIRADA, PEGADA AL ENVÍO.
+
+     Guardar al principio no basta, y ésta es la razón: entre el guardado
+     y el envío pasan tres esperas —contar los suscriptores, comprobar si
+     ya salió un número este mes, y la ventana de confirmación, que
+     espera a una persona y puede tardar lo que haga falta—. Durante las
+     dos primeras el editor está vivo, sin nada encima. Una tecla ahí y
+     lo que sale no es lo que se ve.
+
+     Aquí NO se guarda, se para. Ella ya confirmó un contenido concreto;
+     guardar y mandar algo escrito después sería mandar lo que no
+     confirmó. Se para, se dice, y vuelve a pulsar cuando quiera. */
+  const nadaSinGuardar = (queIba) => {
+    if (!_dirty) return true;
+    toast(`There are unsaved changes again, so ${queIba} was not sent. `
+        + 'Press Save Draft and then Send.', true);
+    return false;
   };
 
   /* ─── PREVIEW ────────────────────────────────────────────── */
@@ -934,7 +1049,12 @@
 
   window.nlPreview = async () => {
     if (!_current) return;
-    if (_dirty) { await window.nlSave(); }
+    /* La vista previa no manda nada, pero si muestra el texto viejo
+       diciendo que es el nuevo, es peor que no mostrar nada: la cabecera
+       de este archivo promete que la vista previa es lo que va a salir. */
+    if (!(await guardarAntesDe('the preview'))) return;
+    /* Igual que en Probar: sin esperas por el medio, no hace falta
+       volver a mirar. */
     const frame = document.getElementById('nl-preview-frame');
     frame.srcdoc = '<p style="font-family:sans-serif;padding:20px;color:#6b7a99;">Loading preview...</p>';
     document.getElementById('nl-preview-modal').classList.add('open');
@@ -979,7 +1099,12 @@
 
   window.nlTest = async () => {
     if (!_current || isSent()) return;
-    if (_dirty) { await window.nlSave(); }
+    /* Aquí NO hace falta la segunda mirada de `nadaSinGuardar`, y no es
+       un olvido: entre esta línea y la llamada de abajo no hay ninguna
+       espera, así que el navegador no puede atender ni una tecla por el
+       medio. En Enviar sí la hay —tres, una de ellas esperando a una
+       persona— y por eso allí se vuelve a mirar. */
+    if (!(await guardarAntesDe('the test email'))) return;
     const btn = document.getElementById('nl-test-btn');
     btn.disabled = true; btn.textContent = 'Sending...';
     try {
@@ -1000,7 +1125,9 @@
 
   window.nlSend = async () => {
     if (!_current || isSent()) return;
-    if (_dirty) { await window.nlSave(); }
+    /* AQUÍ ES DONDE IMPORTA DE VERDAD: esto manda 453 correos y no se
+       puede deshacer. */
+    if (!(await guardarAntesDe('the newsletter'))) return;
 
     // How many people this actually reaches, counted now rather than
     // quoted from a stale number.
@@ -1044,6 +1171,9 @@
       okLabel: yaTiene ? 'Finish sending' : 'Confirm & send', cancelLabel: 'Cancel',
     });
     if (!ok) return;
+
+    /* Pegado al envío, después de la confirmación: ver `nadaSinGuardar`. */
+    if (!nadaSinGuardar('the newsletter')) return;
 
     const btn = document.getElementById('nl-send-btn');
     btn.disabled = true; btn.textContent = 'Sending...';

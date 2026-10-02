@@ -38,9 +38,19 @@
 (function () {
   'use strict';
 
-  const CFG = window.FEROCIA_CONFIG;
-  if (!CFG) {
-    console.error('[Ferocia] config.js debe cargar antes de admin-communications.js');
+  /* Este archivo ya no lee ningún valor de la configuración: lo único que
+     usaba era la dirección del admin, y era para la sustitución del
+     reintento que se quitó.
+
+     La comprobación se queda porque sigue siendo cierta de otra manera:
+     aquí se llama a `window.api(...)`, que vive en db.js, y db.js no
+     puede montar su cliente sin config.js. Si config.js no cargó, es
+     mejor que esto se queje con un mensaje claro ahora que dejar que
+     reviente más tarde dentro de una consulta, donde la causa real ya no
+     se ve. */
+  if (!window.FEROCIA_CONFIG) {
+    console.error('[Ferocia] config.js debe cargar antes de admin-communications.js '
+                + '(lo necesita db.js, de donde sale window.api)');
     return;
   }
 
@@ -64,6 +74,15 @@
   let _abierto       = null;   // el envío que está abierto en la ventana
   let _personas      = [];     // sus destinatarios
   let _personasMas   = false;
+  /* ¿Se LEYERON los destinatarios sin tropiezos? No es lo mismo que
+     `_personas.length === 0`.
+
+     "La lista está vacía porque este envío no apuntó a nadie" y "la
+     lista está vacía porque la consulta falló" se parecen en el código y
+     no se parecen en nada en la pantalla: con la primera hay que decir
+     que no se puede retomar, y con la segunda decir eso sería mentir —
+     puede haber 453 personas ahí que no se han podido leer. */
+  let _personasOk    = false;
   let _filtroPersona = '';     // '' | 'sent' | 'failed' | 'pending'
 
   /* CONTRA LAS RESPUESTAS QUE LLEGAN TARDE.
@@ -465,7 +484,7 @@
 
     const mia = _vez;
     const deQuien = _abierto.id;
-    if (desdeElPrincipio) { _personas = []; _personasMas = false; }
+    if (desdeElPrincipio) { _personas = []; _personasMas = false; _personasOk = false; }
 
     const filtro = _filtroPersona ? `&status=eq.${encodeURIComponent(_filtroPersona)}` : '';
     const ruta = `communication_recipients?select=${COLS_PERSONA}`
@@ -490,6 +509,7 @@
       const yaEstan = new Set(_personas.map((x) => String(x.id)));
       const nuevas = filas.slice(0, PERSONAS_POR_PAGINA).filter((x) => !yaEstan.has(String(x.id)));
       _personas = _personas.concat(nuevas);
+      _personasOk = true;
       pintarPersonas();
 
       /* Puede pasar que una página entera venga repetida: la lista va
@@ -506,8 +526,13 @@
     } catch (err) {
       if (mia !== _vez) return;
       console.error('[communications] no se pudieron leer los destinatarios:', err);
+      /* Se queda en falso A PROPÓSITO: no sabemos si hay destinatarios o
+         no, y la fila de reintento no puede afirmar ninguna de las dos
+         cosas. */
+      _personasOk = false;
       const caja = document.getElementById('co-det-people');
       if (caja) caja.innerHTML = vacio('Could not load the recipients. Please try again in a moment.');
+      pintarReintento();
     } finally {
       _cargandoPersonas = false;
     }
@@ -708,6 +733,32 @@
       return;
     }
 
+    /* ── LO QUE NO SE PUEDE RETOMAR, SE DICE AQUÍ ──────────────
+       Una campaña SIN NINGÚN destinatario apuntado no se puede retomar:
+       la lista a la que iba vivía sólo en la pestaña del navegador que
+       se murió, y el servidor no tiene de dónde sacarla —no calcula
+       audiencias, usa la que se le pasa—.
+
+       Antes esto sólo se descubría al pulsar: la fila decía "Retrying
+       picks up where it left off", y el clic contestaba "no hay nada que
+       retomar". Un botón cuya única función es explicarse a sí mismo,
+       cada vez. Y la condición que lo detectaba miraba el estado
+       ('sending'), que no es el discriminador: una campaña cuyo apuntado
+       falló queda en 'failed' con las cuentas a cero, y entonces el
+       mensaje del clic decía "ya lo recibieron todos o se intentó tres
+       veces" — de gente que no recibió nada y a la que nunca se intentó.
+
+       El discriminador de verdad es "no hay ni una fila de
+       destinatario", y la pantalla ya lo sabe: acaba de cargarlos. */
+    if (_personasOk && !_personas.length && !_personasMas && !_filtroPersona) {
+      btn.style.display = 'none';
+      txt.innerHTML = '<strong>This send has no recipients recorded,</strong> so there is '
+                    + 'nothing to pick up — it stopped before it saved the list it was meant '
+                    + 'for, and that list cannot be recovered. Send it again from the screen '
+                    + 'it came from.';
+      return;
+    }
+
     btn.style.display = '';
     if (_abierto.status === 'sending') {
       /* Se distingue a propósito: "no llegó a nadie" no es lo mismo que
@@ -777,16 +828,41 @@
       if (!pendientes.length) {
         /* Que no haya filas pendientes tiene DOS causas muy distintas, y
            confundirlas sería mentir: o ya se intentó todo lo intentable,
-           o la campaña nunca llegó a tener destinatarios (se murió antes
-           de escribirlos). En el segundo caso el servidor SÍ sabe
-           arreglarlo, así que se le manda igual. */
-        if (e.status === 'sending' && !(e.sent_count || 0) && !(e.failed_count || 0)) {
-          pendientes = [{ email: CFG.ADMIN_EMAIL, vars: {} }];
+           o la campaña nunca llegó a tener destinatarios porque se murió
+           antes de escribirlos.
+
+           ── LO QUE ESTO HACÍA ANTES, Y POR QUÉ SE QUITÓ ──────────
+           En el segundo caso se sustituía la lista por la dirección del
+           propio admin, con el comentario de que "el servidor sabe
+           arreglarlo". NO lo sabe: el servidor no tiene de dónde sacar
+           la audiencia —lo dice su propia cabecera—, construye la lista
+           con los destinatarios que se le pasan, y nada más.
+
+           Así que lo que pasaba de verdad: se mandaba UN correo al
+           admin, el servidor apuntaba UNA fila (la suya), cerraba la
+           campaña como 'sent' con 1 de 1, y el botón de reintentar
+           desaparecía para siempre. Los 453 destinatarios de verdad
+           vivían sólo en la pestaña que se murió. El mensaje quedaba
+           imposible de mandar a la gente para la que era, y el historial
+           afirmaba que se había enviado.
+
+           Un botón que destruye una lista de destinatarios y miente
+           sobre el resultado es peor que un botón que no existe. */
+        /* Se mira si hay FILAS, no el estado. Una campaña cuyo apuntado
+           falló queda en 'failed' con las cuentas a cero, no en
+           'sending': con la condición anterior caía en el `else` y se le
+           decía "ya lo recibieron todos o se intentó tres veces" a gente
+           que no recibió nada y a la que nunca se intentó. */
+        const sinFilas = _personasOk && !_personas.length && !_personasMas;
+        if (sinFilas) {
+          window.toast('This send has no recipients recorded, so there is nothing here to '
+                     + 'pick up — the list it was meant for was never saved. '
+                     + 'Send it again from the screen it came from.', true);
         } else {
           window.toast('There is nobody left to retry — everyone either received it '
                      + 'or has already been tried three times.', true);
-          return;
         }
+        return;
       }
 
       btn.innerHTML = `Retrying ${pendientes.length}...`;
