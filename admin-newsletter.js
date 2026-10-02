@@ -654,6 +654,27 @@
      de saber que media lista ya lo tenía. */
   const aMedias = (n) => n.status !== 'sent' && (n.sent_count || 0) > 0;
 
+  /* ¿Se puede borrar? SÓLO si nunca se intentó enviar.
+
+     Antes esto miraba sólo `sent_count`, que es un contador copiado en la
+     tabla `newsletters`. Y hay un camino en el que ese contador se queda
+     en cero DESPUÉS de que los correos salgan: si al terminar el envío
+     falla la consulta que cuenta los destinatarios, el servidor —a
+     propósito— no escribe ninguna cuenta, para no borrar el registro de
+     un envío que sí ocurrió. Lo mismo si la función se muere por tiempo
+     en el último paso.
+
+     El resultado era que un número que ya tenían 453 personas aparecía
+     como borrador intacto, con la papelera disponible y un mensaje que
+     decía "no se envió a nadie, nadie se ve afectado". Si se borraba y se
+     creaba otro, esas 453 personas lo recibían DOS VECES.
+
+     `communication_id` no tiene ese problema: se escribe ANTES de mandar
+     el primer correo y no se borra nunca. Si el número tiene uno, hubo un
+     envío y esto no es un borrador. */
+  const nuncaSeIntentoEnviar = (n) =>
+    n.status === 'draft' && !(n.sent_count || 0) && !n.communication_id;
+
   const statusPill = (n) => n.status === 'sent'
     ? '<span style="font-size:10px;font-weight:800;color:#1D9E68;background:#EEF9F2;padding:3px 10px;border-radius:99px;text-transform:uppercase;">Sent</span>'
     : aMedias(n)
@@ -680,7 +701,7 @@
           </div>
         </div>
         ${statusPill(n)}
-        ${n.status === 'draft' && !(n.sent_count || 0) ? `
+        ${nuncaSeIntentoEnviar(n) ? `
         <button type="button" data-action="nlDelete" data-id="${n.id}" title="Delete this draft"
           style="background:none;border:none;padding:4px 6px;cursor:pointer;color:var(--text-light);"
           onmouseover="this.style.color='#e53935'" onmouseout="this.style.color='var(--text-light)'">
@@ -834,6 +855,20 @@
     if ((n.sent_count || 0) > 0) {
       toast(`${n.sent_count} subscriber${n.sent_count !== 1 ? 's' : ''} already received this edition, `
           + 'so it cannot be deleted. Press Send to finish delivering it.', true);
+      return;
+    }
+    /* Y LA MISMA PUERTA, CERRADA POR EL OTRO LADO. El contador de arriba
+       puede quedarse en cero aunque los correos hayan salido (está
+       explicado en `nuncaSeIntentoEnviar`). `communication_id` no: se
+       escribe antes del primer correo. Si lo tiene, hubo un envío, y
+       borrar esto llevaría a mandarlo otra vez a quien ya lo tiene.
+
+       El botón de la papelera ya no aparece en este caso, pero la
+       garantía no puede depender de que un botón esté escondido. */
+    if (n.communication_id) {
+      toast('This edition already has a send on record, so it cannot be deleted from here. '
+          + 'Even if it shows 0 recipients, that count can be wrong — the emails may have gone out. '
+          + 'Check with me before doing anything else.', true);
       return;
     }
     const ok = await confirmModal({
@@ -1026,7 +1061,8 @@
          el correo saliera y NO se pudiera apuntar quién lo recibió. Si
          eso pasa, el siguiente Send se lo manda otra vez a esa gente, y
          ella necesita enterarse en el momento, no después. */
-      const malo = (data.failed || 0) > 0 || (data.unrecorded || 0) > 0;
+      const malo = (data.failed || 0) > 0 || (data.unrecorded || 0) > 0
+                || (data.unrecorded_failures || 0) > 0;
 
       /* Todo lo que se quedó fuera, dicho por su motivo. Antes se perdían
          dos cosas: a quién le falta el enlace de baja, y la frase que el
@@ -1037,6 +1073,12 @@
         data.skipped           ? `${data.skipped} already had it` : '',
         data.invalid_addresses ? `${data.invalid_addresses} invalid address${data.invalid_addresses !== 1 ? 'es' : ''} skipped` : '',
         data.missing_token     ? `${data.missing_token} with no unsubscribe link skipped` : '',
+        /* La ventana de confirmación cuenta PERSONAS ("se mandará a 453")
+           y el envío cuenta DIRECCIONES, porque hasta cuatro personas
+           pueden compartir un correo. El servidor calcula esta diferencia
+           justo para poder explicarla, y aquí no se estaba leyendo: la
+           pantalla prometía 453 y luego decía 450 sin decir por qué. */
+        data.shared_addresses  ? `${data.shared_addresses} share an address with someone else` : '',
       ].filter(Boolean);
 
       /* La cola es UNA frase, nunca dos. Antes se añadían las dos por
