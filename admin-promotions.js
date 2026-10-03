@@ -1456,7 +1456,11 @@
          servidor ya no sabía quién tenía el correo: los 462 repetían;
        - cerrar el modal se llevaba por delante la campaña escrita,
          justo cuando hacía falta para reintentar. */
-    const limpio = d.status === 'sent' && !d.failed && !d.unconfirmed;
+    /* Se mira la COBERTURA, no la etiqueta: 'sent' ya no quiere decir
+       "le llegó a todos" sino "no queda nada que intentar". Ver
+       `envioLlegoATodos` en admin-email-utils.js — de esto cuelga lo
+       único que impide que alguien reciba el correo dos veces. */
+    const limpio = window.envioLlegoATodos(d) && !d.failed && !d.unconfirmed;
     if (limpio) {
       const modal = document.getElementById('promo-modal');
       if (modal) { modal.style.display = 'none'; document.body.style.overflow = ''; }

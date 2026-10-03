@@ -57,6 +57,28 @@
   /* Cuántas filas se piden de golpe. Mismo número que la tabla de
      suscriptores, para que la aplicación se comporte igual en todas
      partes. */
+  /* ── CÓMO SE RECONOCE A QUIEN SE DIO DE BAJA ───────────────
+     El servidor marca esa fila con un texto (`MARCA_BAJA` en
+     _shared/motor-envio.ts), y aquí hay que reconocerlo para no llamar
+     "dirección que rebota" a alguien que sólo pidió que no le
+     escribieran.
+
+     ⚠️  ESTO ES UNA SEGUNDA COPIA DE ESE TEXTO, y el motor dice —con
+     razón— que tener el texto en dos sitios es como se desincronizan las
+     cosas. Lo correcto de verdad es que el servidor guarde un código
+     aparte de la frase (algo como `error_code: 'unsubscribed'`), y que
+     la frase se pueda corregir sin romper nada. Eso necesita una columna
+     nueva, o sea tu aprobación, y está propuesto.
+
+     Mientras tanto se compara de forma TOLERANTE: sin mayúsculas, sin
+     espacios de sobra, y por el principio de la frase. Así una tilde o
+     un espacio de más degradan el reconocimiento en vez de darlo la
+     vuelta de golpe. Si algún día el texto cambia de raíz, esta fila
+     vuelve a enseñar el motivo crudo — feo, pero no mentiroso. */
+  const MARCA_BAJA = 'se dio de baja';
+  const esBaja = (motivo) =>
+    String(motivo || '').trim().toLowerCase().startsWith(MARCA_BAJA);
+
   const POR_PAGINA = 25;
 
   /* Y cuántas personas se enseñan de un envío antes de pedir más. Una
@@ -572,14 +594,47 @@
                enseñar. Si la dirección ya agotó los intentos se dice
                aquí, y no después de que ella pulse reintentar. */
             const agotada = (p.attempts || 0) >= MAX_INTENTOS && p.status !== 'sent';
+            /* QUIEN SE DIO DE BAJA NO ES UNA DIRECCIÓN QUE REBOTA, y hay
+               que distinguirlo en los dos sitios donde se nota.
+
+               Al barrer a alguien que se dio de baja a mitad del envío se
+               le ponen los intentos al tope — es la forma de que la
+               reserva no vuelva a cogerlo—. Pero eso hacía que su fila
+               dijera "se intentó 3 veces" de una persona a la que no se
+               intentó NI UNA, y además enseñaba el texto interno, que
+               está en español dentro de una pantalla en inglés.
+
+               Su dirección está perfecta. Lo que pasó es que pidió que no
+               se le escribiera, y eso es lo que tiene que leerse. */
+            const seDioDeBaja = esBaja(p.error);
             const detalle = p.status === 'sent'
               ? `<span style="font-size:11px;color:var(--text-muted);">${window.esc(cuando(p.sent_at))}</span>`
-              : p.error
-                ? `<span style="font-size:11px;color:#c62828;">${window.esc(String(p.error).slice(0, 160))}</span>`
-                : '<span style="font-size:11px;color:var(--text-muted);">—</span>';
-            const aviso = agotada
-              ? `<div style="font-size:10px;font-weight:700;color:var(--text-muted);margin-top:3px;">Tried ${p.attempts} times — will not retry again</div>`
-              : '';
+              : seDioDeBaja
+                ? '<span style="font-size:11px;color:var(--text-muted);">Unsubscribed before this went out</span>'
+                : p.error
+                  ? `<span style="font-size:11px;color:#c62828;">${window.esc(String(p.error).slice(0, 160))}</span>`
+                  : '<span style="font-size:11px;color:var(--text-muted);">—</span>';
+            /* LA ETIQUETA GENÉRICA TIENE QUE SER CIERTA PARA TODA FILA
+               EN LA QUE PUEDA SALIR, y "se intentó 3 veces" no lo era.
+
+               A quien se da de baja a mitad se le ponen los intentos al
+               tope — es el truco para que la reserva no vuelva a
+               cogerlo—, así que ese 3 es una señal, no una cuenta. Decir
+               "se intentó 3 veces" de alguien al que no se intentó ni
+               una es inventarse un hecho.
+
+               Y no basta con tratarlo aparte cuando se reconoce el
+               motivo: si algún día el texto del servidor cambia y aquí
+               deja de reconocerse, la fila volvería a soltar esa
+               mentira. Así que la etiqueta dice lo que SIEMPRE es
+               verdad —que no se va a reintentar— y el caso reconocido
+               añade el porqué. Si el reconocimiento falla, se degrada a
+               algo feo pero cierto. */
+            const aviso = seDioDeBaja
+              ? '<div style="font-size:10px;font-weight:700;color:var(--text-muted);margin-top:3px;">Not a bad address — they asked not to be emailed</div>'
+              : agotada
+                ? '<div style="font-size:10px;font-weight:700;color:var(--text-muted);margin-top:3px;">Will not be retried again</div>'
+                : '';
             return `<tr ${FILA}>
               <td style="${TD}font-size:12px;color:var(--text);">${window.esc(p.email)}</td>
               <td style="${TD}white-space:nowrap;">${pastillaPersona(p.status)}</td>
@@ -614,11 +669,20 @@
        "Showing 50 of 80" — un total inventado, justo en la pantalla a la
        que se viene a averiguar a quién le falta el correo.
 
-       El propio servidor sólo escribe 'sent' cuando llegó a todos, así
-       que ese estado es la garantía que hace falta. Las otras dos
-       condiciones son de pura coherencia: si queda gente por traer el
-       total tiene que ser mayor que lo que se ve, y si no queda nadie
-       tiene que ser exactamente lo que se ve.
+       Esperar a 'sent' es la garantía que hace falta, y conviene saber
+       por qué sigue valiendo: ese estado quiere decir "no queda nada por
+       hacer", o sea que cada fila está o enviada o dada por perdida tras
+       sus tres intentos. Las dos cuentas juntas cubren entonces TODAS las
+       filas, y su suma es el total de verdad.
+
+       (Antes 'sent' quería decir "llegó a todos", que también servía. La
+       aritmética aguanta el cambio; el motivo es otro. Se deja escrito
+       porque un comentario que justifica algo con una razón caducada es
+       como se rompe esto la próxima vez.)
+
+       Las otras dos condiciones son de pura coherencia: si queda gente
+       por traer el total tiene que ser mayor que lo que se ve, y si no
+       queda nadie tiene que ser exactamente lo que se ve.
 
        Cuando algo de eso no se cumple se dice sólo cuántos van. Se pierde
        el "de 431", que es bonito; no se pierde la razón de ser de esto,
@@ -691,7 +755,38 @@
     const btn  = document.getElementById('co-det-retry-btn');
     if (!fila || !txt || !btn || !_abierto) return;
 
-    if (!hayQueReintentar()) { fila.style.display = 'none'; return; }
+    /* ── UN ENVÍO TERMINADO CON FALLOS NO SE QUEDA CALLADO ─────
+       Desde que "terminado" quiere decir "no queda nada por hacer" (y no
+       "le llegó a todos"), un envío con una dirección muerta se marca
+       como enviado — que es la verdad— y la fila de reintento
+       desaparece, que también es correcto: no hay nada que reintentar.
+
+       Pero desaparecer del todo deja la pregunta sin responder. Ella ve
+       "Sent · 451 · 2 failed" y no sabe si esos 2 están esperando algo.
+       Así que se dice: terminado, y a cuántos no se pudo llegar.
+
+       Sin botón, porque no hay nada que pulsar. */
+    if (!hayQueReintentar()) {
+      const fallidos = _abierto.failed_count || 0;
+      if (_abierto.status === 'sent' && fallidos > 0) {
+        fila.style.display = 'flex';
+        btn.style.display = 'none';
+        /* El motivo se dice según lo que ESTE tipo de correo puede
+           producir de verdad. Sólo el newsletter saca de la lista a quien
+           se dio de baja a mitad; en una campaña ese motivo no existe, y
+           nombrarlo sería inventarse una explicación. */
+        const porQue = _abierto.kind === 'newsletter'
+          ? 'either the mailbox rejected it three times, or the person unsubscribed before it went out'
+          : 'the mailbox rejected it three times';
+        txt.innerHTML = '<strong>This send is finished.</strong> '
+                      + `${fallidos} address${fallidos !== 1 ? 'es' : ''} could not be reached — `
+                      + `${porQue}. There is nothing left to send. `
+                      + 'The list below says which, and why.';
+        return;
+      }
+      fila.style.display = 'none';
+      return;
+    }
 
     fila.style.display = 'flex';
 

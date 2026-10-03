@@ -295,6 +295,42 @@
                          se recuperan solos en el siguiente intento
        invalid_addresses descartados antes de empezar por no ser un
                          correo válido — nunca se intentaron */
+  /**
+   * ¿Le llegó el correo a TODOS los destinatarios?
+   *
+   * ── POR QUÉ ESTO NO MIRA `d.status` ──────────────────────────
+   * Porque esa etiqueta cambió de significado y esto NO puede cambiar
+   * con ella.
+   *
+   * Antes, el servidor escribía 'sent' sólo cuando el correo había
+   * llegado a todas y cada una de las direcciones. Desde que las dos
+   * pantallas (historial y newsletter) usan la misma definición de
+   * "terminado", 'sent' quiere decir otra cosa: "no queda nada que
+   * intentar". Un envío con una dirección muerta —que con 453 personas
+   * es lo normal cada mes— ahora sale 'sent' aunque falte uno.
+   *
+   * Y de esta respuesta cuelga lo único que impide un envío doble: la
+   * llave anti-duplicados sólo se suelta cuando el envío llegó a todos.
+   * Soltarla antes de tiempo hace que el siguiente envío con el mismo
+   * texto abra una campaña NUEVA — el servidor ya no sabe quién tenía
+   * el correo— y TODOS reciban una segunda copia.
+   *
+   * Así que esto se calcula con las CUENTAS, que no han cambiado de
+   * significado nunca: a cuántos les llegó ahora, más a cuántos ya les
+   * había llegado antes, contra el total.
+   *
+   * Si las cuentas no se pudieron leer, el servidor manda `total: 0` y
+   * esto devuelve `false`. Es la dirección correcta del error: ante la
+   * duda, la llave se queda puesta y nadie recibe nada dos veces.
+   */
+  function envioLlegoATodos(d) {
+    if (!d) return false;
+    const total = Number(d.total) || 0;
+    if (total <= 0) return false;
+    const cubiertos = (Number(d.sent) || 0) + (Number(d.already_sent) || 0);
+    return cubiertos >= total;
+  }
+
   function resumenEnvio(d) {
     const partes = [];
     if (d.sent)         partes.push(`${d.sent} sent`);
@@ -359,8 +395,18 @@
                                  viejo y mandado el texto ANTERIOR)
      Falla y reintentas        → misma clave → RETOMA el mismo envío y
                                  se salta a quien ya recibió. ✔
-     Terminó bien y reenvías   → la clave se limpió al terminar, así
+     LLEGÓ A TODOS y reenvías  → la clave se limpió al terminar, así
        a propósito                que sale un envío nuevo. ✔
+
+     Ojo con esa última línea, que es la que sostiene todo lo demás: la
+     clave se suelta cuando el correo LLEGÓ A TODOS, no cuando el
+     servidor dice "terminado". Desde el 3 de octubre esas dos cosas no
+     son lo mismo — 'sent' quiere decir "no queda nada que intentar", y
+     un envío con una dirección muerta lo cumple aunque falte uno.
+     Soltar la clave ahí abriría una campaña NUEVA en el siguiente envío
+     con el mismo texto, y todos los que ya lo tenían recibirían otra
+     copia. Por eso la decisión se toma con las cuentas, en
+     `envioLlegoATodos`, y no con la etiqueta.
 
      Vive aquí y no en cada módulo porque son cuatro pantallas que
      mandan en lote, y esto escrito cuatro veces es lo mismo escrito
@@ -458,6 +504,7 @@
   window.nombreDestinatario = nombreDestinatario;
   window.resumenEnvio       = resumenEnvio;
   window.mensajeExito       = mensajeExito;
+  window.envioLlegoATodos   = envioLlegoATodos;
   window.vincularEnsayo     = vincularEnsayo;
   window.envioEnCurso       = envioEnCurso;
 })();

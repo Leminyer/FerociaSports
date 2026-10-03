@@ -258,7 +258,11 @@
       return;
     }
 
-    const limpio = d.status === 'sent' && !d.failed && !d.unconfirmed;
+    /* Se mira la COBERTURA, no la etiqueta: 'sent' ya no quiere decir
+       "le llegó a todos" sino "no queda nada que intentar". Ver
+       `envioLlegoATodos` en admin-email-utils.js — de esto cuelga lo
+       único que impide que alguien reciba el correo dos veces. */
+    const limpio = window.envioLlegoATodos(d) && !d.failed && !d.unconfirmed;
 
     /* La clave SOLO se tira cuando el envío salió LIMPIO.
 

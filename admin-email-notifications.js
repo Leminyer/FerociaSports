@@ -362,7 +362,11 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
          servidor ya no sabía quién tenía el correo: todos repetían;
        - cerrar la ventana se llevaba por delante el mensaje escrito,
          justo cuando hacía falta para reintentar. */
-    const limpio = d.status === 'sent' && !d.failed && !d.unconfirmed;
+    /* Se mira la COBERTURA, no la etiqueta: 'sent' ya no quiere decir
+       "le llegó a todos" sino "no queda nada que intentar". Ver
+       `envioLlegoATodos` en admin-email-utils.js — de esto cuelga lo
+       único que impide que alguien reciba el correo dos veces. */
+    const limpio = window.envioLlegoATodos(d) && !d.failed && !d.unconfirmed;
     if (limpio) {
       claveador.limpiar();   // el siguiente aviso será uno nuevo
       document.getElementById('notify-modal').classList.remove('open');

@@ -187,7 +187,11 @@
          contesta 200 también con 'partial' o 'failed', así que `r.ok` no
          quiere decir "salió bien": tirándola ahí, el reintento abriría
          una campaña NUEVA y todos recibirían otra copia. */
-      const limpio = d.status === 'sent' && !d.failed && !d.unconfirmed;
+      /* Se mira la COBERTURA, no la etiqueta: 'sent' ya no quiere decir
+         "le llegó a todos" sino "no queda nada que intentar". Ver
+         `envioLlegoATodos` en admin-email-utils.js — de esto cuelga lo
+         único que impide que alguien reciba el correo dos veces. */
+      const limpio = window.envioLlegoATodos(d) && !d.failed && !d.unconfirmed;
       if (limpio) {
         claveador.limpiar();
         /* Los casos raros los cuenta mensajeExito, que existe justo para
