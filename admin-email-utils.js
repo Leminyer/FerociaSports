@@ -296,38 +296,52 @@
        invalid_addresses descartados antes de empezar por no ser un
                          correo válido — nunca se intentaron */
   /**
-   * ¿Le llegó el correo a TODOS los destinatarios?
+   * ¿Está TERMINADA esta campaña? O sea: ¿se puede asegurar que de ella
+   * no va a salir ni un correo más, nunca?
    *
-   * ── POR QUÉ ESTO NO MIRA `d.status` ──────────────────────────
-   * Porque esa etiqueta cambió de significado y esto NO puede cambiar
-   * con ella.
+   * De esto depende cuándo se renueva la llave anti-duplicados, y las
+   * dos formas de equivocarse hacen daño en direcciones opuestas:
    *
-   * Antes, el servidor escribía 'sent' sólo cuando el correo había
-   * llegado a todas y cada una de las direcciones. Desde que las dos
-   * pantallas (historial y newsletter) usan la misma definición de
-   * "terminado", 'sent' quiere decir otra cosa: "no queda nada que
-   * intentar". Un envío con una dirección muerta —que con 453 personas
-   * es lo normal cada mes— ahora sale 'sent' aunque falte uno.
+   * · RENOVARLA ANTES DE TIEMPO → el siguiente envío con el mismo texto
+   *   abre una campaña NUEVA, el servidor ya no sabe quién tenía el
+   *   correo, y todos reciben una segunda copia.
+   * · NO RENOVARLA NUNCA → la pantalla se queda enganchada a una
+   *   campaña vieja. Pulsar Enviar reanuda aquélla, no sale nada, y el
+   *   aviso te dice que lo vuelvas a intentar. El recordatorio de
+   *   confirmación es el caso peor: su lista de destinatarios cambia
+   *   cada vez (los pendientes de hoy), así que quedarse enganchado lo
+   *   deja mudo para siempre.
    *
-   * Y de esta respuesta cuelga lo único que impide un envío doble: la
-   * llave anti-duplicados sólo se suelta cuando el envío llegó a todos.
-   * Soltarla antes de tiempo hace que el siguiente envío con el mismo
-   * texto abra una campaña NUEVA — el servidor ya no sabe quién tenía
-   * el correo— y TODOS reciban una segunda copia.
+   * ── POR QUÉ NO VALE MIRAR `d.status` ─────────────────────────
+   * Porque esa etiqueta cambió de significado el 3 de octubre y esto no
+   * puede cambiar con ella. Hoy 'sent' quiere decir "no queda nada que
+   * intentar", que es casi lo que hace falta — pero se escribe también
+   * cuando el envío no pudo contar las filas, y entonces mentiría. Esto
+   * se calcula con las CUENTAS, que no han cambiado de significado
+   * nunca.
    *
-   * Así que esto se calcula con las CUENTAS, que no han cambiado de
-   * significado nunca: a cuántos les llegó ahora, más a cuántos ya les
-   * había llegado antes, contra el total.
+   * ── LA CUENTA ────────────────────────────────────────────────
+   * Terminada = a cada destinatario le llegó, o ya se le había enviado
+   * antes, o se agotaron sus tres intentos y no se le va a volver a
+   * escribir. Fíjate en que los agotados CUENTAN: ignorarlos es lo que
+   * dejaba la campaña enganchada para siempre en cuanto una dirección
+   * se muere — y con 453 personas, eso pasa casi todos los meses.
    *
    * Si las cuentas no se pudieron leer, el servidor manda `total: 0` y
    * esto devuelve `false`. Es la dirección correcta del error: ante la
    * duda, la llave se queda puesta y nadie recibe nada dos veces.
+   *
+   * Y si el servidor es anterior a este cambio no manda `gave_up`:
+   * cuenta como cero, o sea que esto se comporta como antes —
+   * conservador— en vez de romperse.
    */
-  function envioLlegoATodos(d) {
+  function envioTerminado(d) {
     if (!d) return false;
     const total = Number(d.total) || 0;
     if (total <= 0) return false;
-    const cubiertos = (Number(d.sent) || 0) + (Number(d.already_sent) || 0);
+    const cubiertos = (Number(d.sent) || 0)
+                    + (Number(d.already_sent) || 0)
+                    + (Number(d.gave_up) || 0);
     return cubiertos >= total;
   }
 
@@ -376,6 +390,28 @@
     return `✅ Sent successfully — ${nuevos} email${nuevos === 1 ? '' : 's'}, your copy included.`;
   }
 
+  /**
+   * Lo que NO llegó, para pegarlo detrás del aviso de éxito.
+   *
+   * Hace falta desde que una campaña se da por terminada aunque alguna
+   * dirección se haya dado por perdida: sin esto, el aviso diría
+   * "✅ Enviado correctamente" de un envío al que le faltó gente, y ella
+   * no tendría forma de enterarse. Un ✅ que esconde algo es peor que un
+   * aviso feo.
+   */
+  function loQueFalto(d) {
+    const partes = [];
+    const perdidas = Number(d && d.gave_up) || 0;
+    const malas    = Number(d && d.invalid_addresses) || 0;
+    if (perdidas) {
+      partes.push(`${perdidas} address${perdidas === 1 ? '' : 'es'} could not be reached`);
+    }
+    if (malas) {
+      partes.push(`${malas} invalid address${malas === 1 ? '' : 'es'} skipped`);
+    }
+    return partes.length ? ` ${partes.join(', ')}.` : '';
+  }
+
   /* ════════════════════════════════════════════════════════════
      CONTRA EL ENVÍO DUPLICADO
 
@@ -405,8 +441,13 @@
      un envío con una dirección muerta lo cumple aunque falte uno.
      Soltar la clave ahí abriría una campaña NUEVA en el siguiente envío
      con el mismo texto, y todos los que ya lo tenían recibirían otra
-     copia. Por eso la decisión se toma con las cuentas, en
-     `envioLlegoATodos`, y no con la etiqueta.
+     copia.
+
+     Y esperar a que llegue a TODOS tampoco vale: con una dirección
+     muerta eso no pasa nunca, y la pantalla se queda enganchada a una
+     campaña que ya no puede mandar nada. Lo correcto es renovarla
+     cuando la campaña está TERMINADA. Esa cuenta vive en
+     `envioTerminado`, con el porqué entero.
 
      Vive aquí y no en cada módulo porque son cuatro pantallas que
      mandan en lote, y esto escrito cuatro veces es lo mismo escrito
@@ -504,7 +545,8 @@
   window.nombreDestinatario = nombreDestinatario;
   window.resumenEnvio       = resumenEnvio;
   window.mensajeExito       = mensajeExito;
-  window.envioLlegoATodos   = envioLlegoATodos;
+  window.loQueFalto         = loQueFalto;
+  window.envioTerminado     = envioTerminado;
   window.vincularEnsayo     = vincularEnsayo;
   window.envioEnCurso       = envioEnCurso;
 })();

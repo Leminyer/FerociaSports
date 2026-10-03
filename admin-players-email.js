@@ -258,11 +258,13 @@
       return;
     }
 
-    /* Se mira la COBERTURA, no la etiqueta: 'sent' ya no quiere decir
-       "le llegó a todos" sino "no queda nada que intentar". Ver
-       `envioLlegoATodos` en admin-email-utils.js — de esto cuelga lo
-       único que impide que alguien reciba el correo dos veces. */
-    const limpio = window.envioLlegoATodos(d) && !d.failed && !d.unconfirmed;
+    /* La llave se renueva cuando la campaña está TERMINADA —no va a
+       salir ni un correo más de ella— y no cuando llegó a todos. Las
+       dos formas de equivocarse hacen daño en direcciones opuestas:
+       renovar antes de tiempo duplica correos; no renovar nunca deja
+       la pantalla enganchada a una campaña vieja. Ver `envioTerminado`
+       en admin-email-utils.js. */
+    const limpio = window.envioTerminado(d) && !d.failed && !d.unconfirmed;
 
     /* La clave SOLO se tira cuando el envío salió LIMPIO.
 
@@ -292,7 +294,7 @@
         ensayo.sync();   // por la casilla real, no por una foto
         sendBtn.disabled = false;
         sendBtn.style.background = 'linear-gradient(180deg,#2456d3,var(--blue))';
-        toast(window.mensajeExito(d));
+        toast(window.mensajeExito(d) + window.loQueFalto(d));
       }, 1400);
     } else {
       /* La ventana NO se cierra: si algo falló, el mensaje escrito sigue

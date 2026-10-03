@@ -58,26 +58,29 @@
      suscriptores, para que la aplicación se comporte igual en todas
      partes. */
   /* ── CÓMO SE RECONOCE A QUIEN SE DIO DE BAJA ───────────────
-     El servidor marca esa fila con un texto (`MARCA_BAJA` en
-     _shared/motor-envio.ts), y aquí hay que reconocerlo para no llamar
-     "dirección que rebota" a alguien que sólo pidió que no le
-     escribieran.
+     El servidor marca esa fila con un motivo que empieza por un CÓDIGO
+     fijo, y detrás una frase que se puede reescribir libremente:
 
-     ⚠️  ESTO ES UNA SEGUNDA COPIA DE ESE TEXTO, y el motor dice —con
-     razón— que tener el texto en dos sitios es como se desincronizan las
-     cosas. Lo correcto de verdad es que el servidor guarde un código
-     aparte de la frase (algo como `error_code: 'unsubscribed'`), y que
-     la frase se pueda corregir sin romper nada. Eso necesita una columna
-     nueva, o sea tu aprobación, y está propuesto.
+         unsubscribed: la persona se dio de baja antes de que le llegara
 
-     Mientras tanto se compara de forma TOLERANTE: sin mayúsculas, sin
-     espacios de sobra, y por el principio de la frase. Así una tilde o
-     un espacio de más degradan el reconocimiento en vez de darlo la
-     vuelta de golpe. Si algún día el texto cambia de raíz, esta fila
-     vuelve a enseñar el motivo crudo — feo, pero no mentiroso. */
-  const MARCA_BAJA = 'se dio de baja';
-  const esBaja = (motivo) =>
-    String(motivo || '').trim().toLowerCase().startsWith(MARCA_BAJA);
+     Aquí se compara el código, nunca la frase. Eso importa: antes se
+     comparaba el texto entero, y corregir una tilde en el servidor
+     habría hecho que esta pantalla dejara de reconocerlo —sin que nada
+     fallara en voz alta— y esa persona volvería a aparecer como una
+     dirección que rebota.
+
+     El código vive en `CODIGO_BAJA`, en _shared/motor-envio.ts, con la
+     explicación completa. Si alguna vez cambia ALLÍ, hay que cambiarlo
+     aquí; la frase, no.
+
+     Se acepta además el texto antiguo, el de antes de que existiera el
+     código, por si quedan filas guardadas con él. Esa segunda condición
+     se puede borrar cuando no queden. */
+  const CODIGO_BAJA = 'unsubscribed';
+  const esBaja = (motivo) => {
+    const t = String(motivo || '').trim().toLowerCase();
+    return t.startsWith(CODIGO_BAJA + ':') || t.startsWith('se dio de baja');
+  };
 
   const POR_PAGINA = 25;
 

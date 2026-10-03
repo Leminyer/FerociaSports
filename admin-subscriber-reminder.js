@@ -187,11 +187,20 @@
          contesta 200 también con 'partial' o 'failed', así que `r.ok` no
          quiere decir "salió bien": tirándola ahí, el reintento abriría
          una campaña NUEVA y todos recibirían otra copia. */
-      /* Se mira la COBERTURA, no la etiqueta: 'sent' ya no quiere decir
-         "le llegó a todos" sino "no queda nada que intentar". Ver
-         `envioLlegoATodos` en admin-email-utils.js — de esto cuelga lo
-         único que impide que alguien reciba el correo dos veces. */
-      const limpio = window.envioLlegoATodos(d) && !d.failed && !d.unconfirmed;
+      /* La llave se renueva cuando la campaña está TERMINADA —no va a
+         salir ni un correo más de ella— y no cuando llegó a todos. Las
+         dos formas de equivocarse hacen daño en direcciones opuestas:
+         renovar antes de tiempo duplica correos; no renovar nunca deja
+         la pantalla enganchada a una campaña vieja.
+
+         ESTA PANTALLA ES LA QUE MÁS LO SUFRE, y por eso conviene que
+         esté escrito aquí: su lista de destinatarios cambia cada vez
+         —son los pendientes de hoy— y su llave no lleva contenido que la
+         distinga. Si la llave no se renovara, la campaña vieja quedaría
+         fija y los pendientes nuevos no entrarían nunca: pulsar Enviar
+         no mandaría nada y el aviso te diría que lo volvieras a
+         intentar. Ver `envioTerminado` en admin-email-utils.js. */
+      const limpio = window.envioTerminado(d) && !d.failed && !d.unconfirmed;
       if (limpio) {
         claveador.limpiar();
         /* Los casos raros los cuenta mensajeExito, que existe justo para
@@ -200,9 +209,10 @@
            Su última frase dice "your copy included", que aquí sería
            mentira —esta pantalla no se manda copia—, así que ese caso,
            el normal, se escribe aparte. */
-        toast((d.already_sent || !d.sent)
+        toast(((d.already_sent || !d.sent)
           ? window.mensajeExito(d) + saltados
-          : `✅ Confirmation reminder sent to ${d.sent} subscriber${d.sent === 1 ? '' : 's'}.${saltados}`);
+          : `✅ Confirmation reminder sent to ${d.sent} subscriber${d.sent === 1 ? '' : 's'}.${saltados}`)
+          + window.loQueFalto(d));
       } else {
         console.warn('[confirm-reminder] no salio limpio:', d);
         toast(`Finished: ${window.resumenEnvio(d)}.${saltados} `

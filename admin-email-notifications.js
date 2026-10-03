@@ -362,15 +362,17 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
          servidor ya no sabía quién tenía el correo: todos repetían;
        - cerrar la ventana se llevaba por delante el mensaje escrito,
          justo cuando hacía falta para reintentar. */
-    /* Se mira la COBERTURA, no la etiqueta: 'sent' ya no quiere decir
-       "le llegó a todos" sino "no queda nada que intentar". Ver
-       `envioLlegoATodos` en admin-email-utils.js — de esto cuelga lo
-       único que impide que alguien reciba el correo dos veces. */
-    const limpio = window.envioLlegoATodos(d) && !d.failed && !d.unconfirmed;
+    /* La llave se renueva cuando la campaña está TERMINADA —no va a
+       salir ni un correo más de ella— y no cuando llegó a todos. Las
+       dos formas de equivocarse hacen daño en direcciones opuestas:
+       renovar antes de tiempo duplica correos; no renovar nunca deja
+       la pantalla enganchada a una campaña vieja. Ver `envioTerminado`
+       en admin-email-utils.js. */
+    const limpio = window.envioTerminado(d) && !d.failed && !d.unconfirmed;
     if (limpio) {
       claveador.limpiar();   // el siguiente aviso será uno nuevo
       document.getElementById('notify-modal').classList.remove('open');
-      toast(window.mensajeExito(d));
+      toast(window.mensajeExito(d) + window.loQueFalto(d));
     } else {
       console.warn('[ladder-notify] no salio limpio:', d);
       toast(`Finished: ${window.resumenEnvio(d)}. Press Send again to retry the ones that failed.`, true);
