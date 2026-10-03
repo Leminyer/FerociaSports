@@ -115,8 +115,8 @@
      es el último, la respuesta se tira.
 
      Sin esto pasaba lo siguiente, y con dos clics: se pulsa "Failed" y
-     enseguida "Delivered"; la respuesta de Failed llega la segunda y se
-     pinta debajo del filtro que dice Delivered. La pantalla acababa
+     enseguida "Sent"; la respuesta de Failed llega la segunda y se
+     pinta debajo del filtro que dice Sent. La pantalla acababa
      enseñando gente que NO recibió el correo bajo la etiqueta de que sí.
      En una pantalla cuyo único trabajo es decir a quién le llegó, eso no
      es un detalle. */
@@ -178,8 +178,18 @@
     sending: { txt: 'Sending…',  bg: '#e8f0ff', fg: '#174CCC' },
   };
 
+  /* ⚠️  DICE 'Sent', NO 'Delivered', Y ES A PROPÓSITO.
+     Lo único que sabemos es que Resend ACEPTÓ el correo. Si el buzón lo
+     rebota media hora después, nadie nos lo cuenta: esa vuelta la manda
+     Resend a una dirección nuestra que todavía no existe (los
+     "webhooks", en la lista de pendientes). Así que esta pantalla no
+     puede afirmar que a alguien le llegó.
+
+     Decía 'Delivered', en la pantalla cuyo único trabajo es decir quién
+     recibió el correo. Prometer entrega sin poder comprobarla es lo que
+     hace que una pantalla deje de servir para decidir. */
   const ESTADO_PERSONA = {
-    sent:    { txt: 'Delivered', bg: '#eaf7f1', fg: '#1d9e68' },
+    sent:    { txt: 'Sent',      bg: '#eaf7f1', fg: '#1d9e68' },
     failed:  { txt: 'Failed',    bg: '#fdeceb', fg: '#c62828' },
     pending: { txt: 'Pending',   bg: '#f4f5f8', fg: '#6b7a99' },
     sending: { txt: 'Sending…',  bg: '#e8f0ff', fg: '#174CCC' },
@@ -347,7 +357,7 @@
             <th style="${TH}">When</th>
             <th style="${TH}">Type</th>
             <th style="${TH}">Subject</th>
-            <th style="${TH}">Delivered</th>
+            <th style="${TH}">Sent</th>
             <th style="${TH}">Status</th>
             <th style="${TH}text-align:right;">&nbsp;</th>
           </tr>
@@ -364,7 +374,7 @@
                El servidor arregló exactamente este error en su día; no
                vamos a reintroducirlo aquí. Se enseña lo que se sabe. */
             const entrega = e.sent_count
-              ? `${e.sent_count} delivered`
+              ? `${e.sent_count} sent`
               : (e.status === 'sending' ? 'in progress' : '—');
             const fallos = e.failed_count
               ? `<div style="font-size:10px;font-weight:700;color:#c62828;margin-top:2px;">${e.failed_count} failed</div>`
@@ -988,7 +998,14 @@
         window.toast(r.message, true);
       } else {
         const d = r.data || {};
-        window.toast(window.mensajeExito(d), !d.sent);
+        /* `loQueFalto` y el motivo del corte también aquí: este reintento
+           usa el mismo motor que las cinco pantallas de envío y se corta
+           por lo mismo. Sin esto, el reintento era la única puerta por la
+           que esas dos cosas no se nombraban — y la peor, porque es la
+           puerta a la que se llega justamente cuando algo ya falló. */
+        const corte = window.motivoDelCorte(d);
+        window.toast(corte || (window.mensajeExito(d) + window.loQueFalto(d)),
+                     !!corte || !d.sent || window.huboPerdidas(d));
       }
 
       /* Se vuelve a leer SIEMPRE, salga bien o mal.

@@ -264,7 +264,17 @@
        renovar antes de tiempo duplica correos; no renovar nunca deja
        la pantalla enganchada a una campaña vieja. Ver `envioTerminado`
        en admin-email-utils.js. */
-    const limpio = window.envioTerminado(d) && !d.failed && !d.unconfirmed;
+    /* Ya NO se mira `d.failed`. Esa condición sobraba y costaba una
+       pulsación: `d.failed` son los fallos de ESTA pulsación, y en la
+       única pulsación donde cambiaba algo —la que agota el tercer
+       intento de una dirección muerta— la campaña ya estaba terminada.
+       El aviso te mandaba a reintentar algo que no se va a reintentar
+       nunca, y había que pulsar una cuarta vez para cerrarla.
+
+       Mientras queden intentos no hace falta: esa fila no está ni en
+       los enviados ni en los agotados, así que `envioTerminado` ya es
+       falso por su cuenta. */
+    const limpio = window.envioTerminado(d) && !d.unconfirmed;
 
     /* La clave SOLO se tira cuando el envío salió LIMPIO.
 
@@ -276,8 +286,38 @@
        que esas personas tenían el correo, y TODAS recibían otra copia. */
     if (limpio) {
       claveador.limpiar();
-      sendBtn.style.background = 'linear-gradient(180deg,#2ab87a,#1d9e68)';
-      sendBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Sent ${d.sent} emails!`;
+      /* ── EL BOTÓN NO ENSEÑA EL NÚMERO CRUDO ───────────────────
+         `d.sent` es lo que salió EN ESTA pulsación, no cuánta gente
+         tiene el correo. En un reintento que ya no tenía nada que
+         mandar vale cero, y el botón se ponía verde diciendo
+         "Sent 0 emails!" — un ✅ con un cero dentro. Y cuando sí
+         quedaba algo, decía "Sent 5 emails!" de un envío que llegó a
+         44: el número es cierto y lo que se entiende es falso.
+
+         Así que el botón, que sólo tiene sitio para tres palabras, dice
+         lo que es cierto en los tres casos. El aviso de después ya da
+         las cuentas completas (`mensajeExito`). Y de paso: antes decía
+         "1 emails". */
+      const nuevos = d.sent || 0;
+      const antes  = d.already_sent || 0;
+      const etiqueta = !nuevos ? 'Nothing left to send'
+                     : antes   ? `Sent to the remaining ${nuevos}!`
+                     : `Sent ${nuevos} email${nuevos === 1 ? '' : 's'}!`;
+
+      /* ── Y NO SE PONE VERDE SI SE QUEDÓ ALGUIEN FUERA ──────────
+         El aviso de abajo pierde el ✅ en ese caso (`mensajeExito`), pero
+         el botón se ponía verde con un ✓ de todas formas — y el botón es
+         lo que ella está mirando cuando pulsa. El ✓ se cambia por un
+         signo de atención y el verde por ámbar: mismo sitio, misma
+         forma, otra lectura. */
+      const falto = window.huboPerdidas(d);
+      sendBtn.style.background = falto
+        ? 'linear-gradient(180deg,#f0a132,#d97708)'
+        : 'linear-gradient(180deg,#2ab87a,#1d9e68)';
+      const icono = falto
+        ? '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>'
+        : '<polyline points="20 6 9 17 4 12"/>';
+      sendBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">${icono}</svg> ${etiqueta}`;
       /* El botón se APAGA durante el aviso verde. El `finally` de arriba
          ya lo había vuelto a habilitar, así que durante 1,4 s decía
          "Sent 50 emails!" y seguía siendo pulsable: un clic ahí
@@ -294,14 +334,19 @@
         ensayo.sync();   // por la casilla real, no por una foto
         sendBtn.disabled = false;
         sendBtn.style.background = 'linear-gradient(180deg,#2456d3,var(--blue))';
-        toast(window.mensajeExito(d) + window.loQueFalto(d));
+        toast(window.mensajeExito(d) + window.loQueFalto(d), window.huboPerdidas(d));
       }, 1400);
     } else {
       /* La ventana NO se cierra: si algo falló, el mensaje escrito sigue
          ahí y se puede reintentar. Con la misma clave, el servidor
          retoma el mismo envío y se salta a quien ya recibió. */
       console.warn('[players-email] no salio limpio:', d);
-      toast(`Finished: ${window.resumenEnvio(d)}. Press Send again to retry the ones that failed.`, true);
+      /* Si el envío se CORTÓ, eso es lo único que importa, y la
+         respuesta dice por qué. Sin esto el aviso mandaba a reintentar
+         un corte que no se arregla reintentando. */
+      const corte = window.motivoDelCorte(d);
+      toast(corte
+        || `Finished: ${window.resumenEnvio(d)}. Press Send again to retry the ones that failed.`, true);
     }
   };
 

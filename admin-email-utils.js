@@ -380,14 +380,50 @@
     const antes  = d.already_sent || 0;
     const total  = nuevos + antes;
 
+    /* ── NI UN ✅ NI UN "TODOS" CUANDO ALGUIEN SE QUEDÓ FUERA ──
+       Desde el 3 de octubre una campaña se da por terminada aunque
+       alguna dirección se haya dado por perdida, y entonces dos de
+       estas frases pasaron a ser falsas de la peor manera:
+
+         · "Everyone had already received this" seguido de
+           "1 address could not be reached" se contradice a sí mismo;
+         · "there was nobody to send to" de un envío en el que SÍ había
+           gente, y a toda le falló la dirección.
+
+       Lo que falte lo nombra `loQueFalto`, que se pega detrás. Lo que
+       hace falta aquí es no afirmar lo contrario, y no poner el ✅. */
+    const perdidas = (Number(d && d.gave_up) || 0)
+                   + (Number(d && d.invalid_addresses) || 0);
+    const ok = perdidas ? '' : '✅ ';
+
     if (!nuevos && antes) {
-      return `Everyone had already received this — nothing new was sent.`;
+      return perdidas
+        ? `Nothing new was sent — everyone else had already received this.`
+        : `Everyone had already received this — nothing new was sent.`;
     }
     if (antes) {
-      return `✅ Sent to the remaining ${nuevos}. ${total} people have now received it.`;
+      return `${ok}Sent to the remaining ${nuevos}. ${total} people have now received it.`;
     }
-    if (!nuevos) return `Nothing was sent — there was nobody to send to.`;
-    return `✅ Sent successfully — ${nuevos} email${nuevos === 1 ? '' : 's'}, your copy included.`;
+    if (!nuevos) {
+      return perdidas
+        ? `Nothing was sent.`
+        : `Nothing was sent — there was nobody to send to.`;
+    }
+    return `${ok}Sent successfully — ${nuevos} email${nuevos === 1 ? '' : 's'}, your copy included.`;
+  }
+
+  /**
+   * ¿Se quedó alguien fuera de este envío?
+   *
+   * Sirve para el COLOR del aviso, no para su texto. Un envío que
+   * terminó dejando a tres personas sin el correo no es un fallo —no
+   * hay nada que reintentar— pero tampoco es un ✅ verde: es algo que
+   * ella tiene que ver. Pintarlo verde escondía justo el dato por el
+   * que existe `loQueFalto`.
+   */
+  function huboPerdidas(d) {
+    return ((Number(d && d.gave_up) || 0)
+          + (Number(d && d.invalid_addresses) || 0)) > 0;
   }
 
   /**
@@ -410,6 +446,117 @@
       partes.push(`${malas} invalid address${malas === 1 ? '' : 'es'} skipped`);
     }
     return partes.length ? ` ${partes.join(', ')}.` : '';
+  }
+
+  /**
+   * SI EL ENVÍO SE CORTÓ, POR QUÉ — Y SI PULSAR SIRVE DE ALGO.
+   *
+   * El servidor distingue tres motivos de corte y los manda en
+   * `stopped_because`. Ninguna de las cinco pantallas los leía: con la
+   * clave del proveedor caducada, lo que salía era "Finished: 100
+   * failed. Press Send again to retry the ones that failed."
+   *
+   * Y eso no se acaba nunca. En ese corte los intentos NO suben a
+   * propósito (esas direcciones no tienen nada de malo), así que se
+   * puede pulsar indefinidamente y pasa siempre lo mismo. El único
+   * dato que sirve —el proveedor rechazó nuestra contraseña, y hasta
+   * arreglarla no va a salir nada— estaba en la respuesta y se tiraba.
+   *
+   * De los tres motivos, sólo uno se arregla volviendo a pulsar, y cada
+   * frase lo dice.
+   *
+   * ⚠️  ESTA FUNCIÓN ES LA ÚNICA VOZ DEL CORTE, TAMBIÉN PARA EL
+   * NEWSLETTER. El servidor compone su propia frase (`mensajeCorte`, en
+   * send-newsletter), y la segunda revisión demostró que las dos no
+   * coincidían: la del servidor decía "vuelve a pulsar" para los tres
+   * motivos y sin mirar si algo salió sin apuntarse. Así que la pantalla
+   * del Newsletter ignora `message` cuando hay corte y usa esto. Un
+   * aviso, un sitio.
+   *
+   * @param   {object} d  lo que contesta la Edge Function
+   * @returns {string}    el aviso entero, o '' si no se cortó
+   */
+  function motivoDelCorte(d) {
+    const motivo = d && d.stopped_because;
+    const razon =
+        motivo === 'credenciales'
+          ? 'the email provider rejected our login — the RESEND_API_KEY secret needs checking'
+      : motivo === 'lote_grande'
+          ? 'the provider says this email is too large to send in batches of 100'
+      : motivo === 'proveedor_caido'
+          ? 'the email provider is not responding'
+      : '';
+    if (!razon) return '';
+
+    /* Correos que SALIERON y no se pudieron apuntar. Es el único dato de
+       toda la respuesta que puede acabar en una copia repetida, así que
+       manda sobre el resto.
+
+       Dos nombres para lo mismo: `send-email` lo llama `unconfirmed` y
+       `send-newsletter` lo llama `unrecorded`. Se aceptan los dos para
+       que esta función sirva a las seis pantallas.
+
+       (Aquí NO se cuentan los FALLOS sin apuntar: ésos no salieron.) */
+    const sinApuntar = (Number(d && d.unconfirmed) || 0)
+                    || (Number(d && d.unrecorded) || 0);
+    const enviados   = Number(d && d.sent) || 0;
+    /* Los que ya lo tenían de una vuelta anterior. Sin esto, el segundo
+       corte de un envío de 453 decía "Sent to 50" y no había forma de
+       saber que 400 ya estaban hechos. */
+    const antes      = (Number(d && d.already_sent) || 0)
+                    || (Number(d && d.skipped) || 0);
+
+    const cuantos = antes
+      ? `${enviados} now and ${antes} earlier`
+      : `${enviados}`;
+    const cabecera = sinApuntar
+      ? `Sent to ${cuantos} that could be recorded, then stopped: `
+      : `Sent to ${cuantos}, then stopped: `;
+
+    /* ── EL AVISO DE LOS NO APUNTADOS GANA A TODO LO DEMÁS ─────
+       Y hace falta decirlo aquí: la revisión encontró que, al enseñar el
+       motivo del corte EN LUGAR del resumen, este dato desaparecía — era
+       el único sitio donde se nombraba (`resumenEnvio`).
+
+       Lo malo no es que desapareciera un número. Es que el corte por
+       proveedor caído dice "espera unos minutos y vuelve a pulsar", y a
+       los 15 minutos el rescate del servidor recoge esas filas y les
+       vuelve a escribir. O sea que la frase tranquilizadora llevaba a la
+       copia repetida, que es lo peor que puede pasar aquí.
+
+       La misma regla que ya usa la pantalla del Newsletter: si algo salió
+       sin apuntarse, eso es lo único que importa y NO se vuelve a mandar.
+
+       ⚠️  LA FRASE NO NOMBRA NINGÚN BOTÓN. Decía "Do NOT press Send
+       again", y de las seis pantallas que la enseñan dos no tienen
+       ningún botón que se llame Send: en Promotions dice "Launch
+       Campaign" y en Communications dice "Retry". Mandarla a no pulsar
+       un botón que no existe es mandarla a no hacer nada. */
+    if (sinApuntar) {
+      return `${cabecera}${razon}. `
+        + `⚠️ ${sinApuntar}${enviados ? ' more' : ''} email${sinApuntar === 1 ? '' : 's'} `
+        + 'went out but could not be recorded. Do not send this again from any screen — '
+        + 'those people would get it twice. Check with me first.'
+        + loQueFalto(d);
+    }
+
+    /* De los tres cortes, sólo uno se arregla volviendo a pulsar. Los
+       otros dos acaban en "dímelo y lo arreglo": ella no tiene por qué
+       saber qué es un secreto de Supabase ni cómo se acorta un correo.
+
+       Tampoco se nombra el botón, por lo mismo de arriba: "send it
+       again" vale para Send, para Launch Campaign y para Retry. */
+    const queHacer =
+        motivo === 'proveedor_caido'
+          ? ' Wait a few minutes and send it again — the rest will go out, and nobody gets it twice.'
+      : motivo === 'lote_grande'
+          ? ' Nothing more will go out until it is made shorter — tell me and I will fix it.'
+      : ' Sending it again will not help until it is fixed — tell me and I will sort it out.';
+
+    /* Y las direcciones mal escritas se nombran también aquí: en un corte
+       nunca se llega al aviso verde, que es el único sitio donde se
+       decían (`loQueFalto`), así que desaparecían sin dejar rastro. */
+    return `${cabecera}${razon}.${queHacer}${loQueFalto(d)}`;
   }
 
   /* ════════════════════════════════════════════════════════════
@@ -546,6 +693,8 @@
   window.resumenEnvio       = resumenEnvio;
   window.mensajeExito       = mensajeExito;
   window.loQueFalto         = loQueFalto;
+  window.huboPerdidas       = huboPerdidas;
+  window.motivoDelCorte     = motivoDelCorte;
   window.envioTerminado     = envioTerminado;
   window.vincularEnsayo     = vincularEnsayo;
   window.envioEnCurso       = envioEnCurso;

@@ -1462,7 +1462,17 @@
        renovar antes de tiempo duplica correos; no renovar nunca deja
        la pantalla enganchada a una campaña vieja. Ver `envioTerminado`
        en admin-email-utils.js. */
-    const limpio = window.envioTerminado(d) && !d.failed && !d.unconfirmed;
+    /* Ya NO se mira `d.failed`. Esa condición sobraba y costaba una
+       pulsación: `d.failed` son los fallos de ESTA pulsación, y en la
+       única pulsación donde cambiaba algo —la que agota el tercer
+       intento de una dirección muerta— la campaña ya estaba terminada.
+       El aviso te mandaba a reintentar algo que no se va a reintentar
+       nunca, y había que pulsar una cuarta vez para cerrarla.
+
+       Mientras queden intentos no hace falta: esa fila no está ni en
+       los enviados ni en los agotados, así que `envioTerminado` ya es
+       falso por su cuenta. */
+    const limpio = window.envioTerminado(d) && !d.unconfirmed;
     if (limpio) {
       const modal = document.getElementById('promo-modal');
       if (modal) { modal.style.display = 'none'; document.body.style.overflow = ''; }
@@ -1470,10 +1480,28 @@
          lanzar la misma campaña más tarde chocaría con la de este
          envío y no mandaría nada. */
       claveador.limpiar();
-      toast(`Campaign launched! ${window.mensajeExito(d)}${window.loQueFalto(d)}`);
+      /* "Campaign launched!" sólo si LANZÓ algo. Con todas las
+         direcciones agotadas, `mensajeExito` ya dice "Nothing was sent"
+         —y le quita el ✅ a propósito— pero este prefijo volvía a
+         afirmar lo contrario, y más fuerte: "Campaign launched! Nothing
+         was sent. 60 addresses could not be reached." */
+      const falto = window.huboPerdidas(d);
+      /* MÁS DE UNO, no más de cero: a esta campaña se le añade siempre
+         una copia para ella (`copiaAdmin`), y esa copia cuenta en
+         `d.sent`. Con todas las direcciones de la lista agotadas y sólo
+         su copia entregada, `d.sent` vale 1 y el aviso decía "Campaign
+         launched!" de una campaña que no llegó a ningún suscriptor. */
+      const salio = (d.sent || 0) + (d.already_sent || 0) > 1;
+      toast(`${salio ? 'Campaign launched! ' : ''}`
+            + `${window.mensajeExito(d)}${window.loQueFalto(d)}`, falto);
     } else {
       console.warn('[promotions] no salio limpio:', d);
-      toast(`Campaign finished: ${resumenEnvio(d)}. Press Launch again to retry the ones that failed.`, true);
+      /* Si el envío se CORTÓ, eso es lo único que importa, y la
+         respuesta dice por qué. Sin esto el aviso mandaba a reintentar
+         un corte que no se arregla reintentando. */
+      const corte = window.motivoDelCorte(d);
+      toast(corte
+        || `Campaign finished: ${resumenEnvio(d)}. Press Launch again to retry the ones that failed.`, true);
     }
   };
 

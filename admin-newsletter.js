@@ -696,7 +696,22 @@
             ${n.status === 'sent'
               ? `Sent ${fmtDate(String(n.sent_at).slice(0, 10))} · ${n.sent_count} recipient${n.sent_count !== 1 ? 's' : ''}${n.failed_count ? ` · ${n.failed_count} failed` : ''}`
               : aMedias(n)
-              ? `<span style="color:#c2410c;">${n.sent_count} already received it · press Send to finish</span>`
+              /* ── ESTA FILA NO TE MANDA PULSAR ENVIAR ─────────────
+                 Decía "press Send to finish", y hay un caso en el que
+                 eso es exactamente lo que NO hay que hacer: si el último
+                 envío salió y no se pudo apuntar a quién, el aviso dice
+                 "no vuelvas a pulsar Enviar — esa gente lo recibiría dos
+                 veces". El aviso se va a los pocos segundos; esta fila
+                 se queda, contradiciéndolo.
+
+                 Y no se puede arreglar dándole el dato: ese "salió sin
+                 apuntarse" viaja en la respuesta de un envío, no está
+                 guardado en la tabla, así que esta fila no puede
+                 saberlo nunca.
+
+                 Así que la fila dice el HECHO y no la orden. Abrir el
+                 número siempre es seguro; pulsar Enviar, no siempre. */
+              ? `<span style="color:#c2410c;">${n.sent_count} already received it · open to finish</span>`
               : `Last edited ${fmtDate(String(n.updated_at).slice(0, 10))}`}
           </div>
         </div>
@@ -815,10 +830,24 @@
          roto, hay que poder arreglarlo. Pero el aviso tiene que decir lo
          que cuesta cambiarlo ahora, porque la copia que queda guardada en
          el historial es la que salió la primera vez. */
+      /* ⚠️  LA ÚNICA EXCEPCIÓN A "NADIE LO RECIBE DOS VECES" SE DICE AQUÍ.
+         Este aviso es el sitio al que llevan la fila de la lista y el
+         aviso de borrar desde que ninguno de los dos ordena pulsar. Si
+         aquí se promete "nobody gets it twice" a secas, el arreglo no
+         sirve de nada: la contradicción sólo se habría movido un clic
+         más adentro, y encima dicha con más fuerza.
+
+         El caso es real: cuando un envío sale y NO se puede apuntar a
+         quién, el aviso de ESE envío dice "no vuelvas a pulsar Enviar".
+         Ese dato viaja en la respuesta del envío y no se guarda, así que
+         este aviso no puede saberlo — pero sí puede nombrar la
+         excepción, que es lo único honesto a su alcance. */
       banner.textContent = `This edition is half sent: ${n.sent_count} subscriber`
-        + `${n.sent_count !== 1 ? 's' : ''} already received it. Press Send to deliver it to the rest — `
-        + `nobody gets it twice. If you change the content now, the people still waiting will get a `
-        + `different edition than the ones who already have it.`;
+        + `${n.sent_count !== 1 ? 's' : ''} already received it. Pressing Send delivers it to the `
+        + `rest, and nobody gets it twice — unless the last send warned that some emails went out `
+        + `without being recorded. If it did, check with me before pressing. If you change the `
+        + `content now, the people still waiting will get a different edition than the ones who `
+        + `already have it.`;
     }
     ['nl-save-btn', 'nl-test-btn', 'nl-send-btn'].forEach((bid) => {
       const b = document.getElementById(bid);
@@ -853,8 +882,11 @@
        demás, y un número nuevo arrancaría de cero y se lo mandaría otra
        vez a quienes ya lo tienen. */
     if ((n.sent_count || 0) > 0) {
+      /* Tampoco aquí se ordena pulsar Enviar, por lo mismo que en la
+         fila de la lista: hay un caso en el que pulsar es justo lo que
+         no se debe hacer, y este aviso no tiene forma de saberlo. */
       toast(`${n.sent_count} subscriber${n.sent_count !== 1 ? 's' : ''} already received this edition, `
-          + 'so it cannot be deleted. Press Send to finish delivering it.', true);
+          + 'so it cannot be deleted. Open it to finish delivering it.', true);
       return;
     }
     /* Y LA MISMA PUERTA, CERRADA POR EL OTRO LADO. El contador de arriba
@@ -1191,16 +1223,91 @@
          el correo saliera y NO se pudiera apuntar quién lo recibió. Si
          eso pasa, el siguiente Send se lo manda otra vez a esa gente, y
          ella necesita enterarse en el momento, no después. */
+      /* Y una dirección que AGOTÓ sus tres intentos también lo pinta.
+         Si no, el envío que acaba de perder tres buzones salía en verde
+         aquí y en naranja en las otras cinco pantallas (`huboPerdidas`):
+         el mismo hecho con dos colores según por dónde hubiera pulsado.
+
+         Las bajas NO cuentan para el color, a propósito: quien se dio de
+         baja no es un problema que arreglar, y pintarlo de naranja la
+         manda a buscar algo que no existe. Se nombran en el texto, que es
+         donde corresponde. */
+      /* ── SI SE CORTÓ, LO DICE LA MISMA FUNCIÓN QUE EN LAS OTRAS CINCO
+         Y el `message` del servidor se ignora.
+
+         La segunda revisión encontró por qué hace falta: el servidor
+         compone su frase mirando SÓLO el motivo, y decía "espera unos
+         minutos y vuelve a pulsar — nadie lo recibe dos veces" incluso
+         cuando había correos que salieron sin poder apuntarse. El
+         navegador le añadía detrás su propio "NO vuelvas a pulsar", así
+         que el aviso llevaba las dos instrucciones contrarias en la misma
+         línea, y ella haría la última que leyó. Con 453 personas.
+
+         Y para la contraseña caducada el servidor decía que volviera a
+         pulsar, que es justo lo que no sirve. Un aviso, un sitio. */
+      const corte = window.motivoDelCorte(data);
+
+      /* Y una dirección que AGOTÓ sus tres intentos también lo pinta.
+         Si no, el envío que acaba de perder tres buzones salía en verde
+         aquí y en naranja en las otras cinco pantallas (`huboPerdidas`):
+         el mismo hecho con dos colores según por dónde hubiera pulsado.
+
+         Igual las direcciones mal escritas y las que no tienen enlace de
+         baja: esas personas no reciben NADA, y salían en verde aquí
+         mientras las otras cinco pantallas las pintaban.
+
+         Las bajas NO cuentan para el color, a propósito: quien se dio de
+         baja no es un problema que arreglar, y pintarlo de naranja la
+         manda a buscar algo que no existe. Se nombran en el texto, que es
+         donde corresponde. */
       const malo = (data.failed || 0) > 0 || (data.unrecorded || 0) > 0
-                || (data.unrecorded_failures || 0) > 0;
+                || (data.unrecorded_failures || 0) > 0
+                || (data.dead_addresses || 0) > 0
+                || (data.invalid_addresses || 0) > 0
+                || (data.missing_token || 0) > 0
+                || !!corte;
 
       /* Todo lo que se quedó fuera, dicho por su motivo. Antes se perdían
          dos cosas: a quién le falta el enlace de baja, y la frase que el
          servidor compone cuando no quedaba nadie a quien escribir. Sin
          ellas, un envío a cero no decía por qué. */
       const detalles = [
-        data.failed            ? `${data.failed} failed` : '',
+        /* ── "failed" Y "will not be retried" PUEDEN SER LA MISMA GENTE ──
+           `failed` son los fallos de ESTA pulsación; los dos desgloses de
+           abajo son el estado final, acumulado. En la pulsación que agota
+           el tercer intento de tres buzones muertos, los dos números son
+           3 — y el aviso decía "3 failed, 3 will not be retried", que ella
+           lee como seis direcciones con problema.
+
+           Cuando el envío ha TERMINADO (`complete`), cualquier fila
+           fallida está por definición agotada, así que ya la nombra el
+           desglose y repetirla sólo suma de mentira. Y cuando NO ha
+           terminado, "on this attempt" frente a "in total" deja ver que
+           pueden ser los mismos. */
+        (data.failed && !data.complete) ? `${data.failed} failed on this attempt` : '',
         data.skipped           ? `${data.skipped} already had it` : '',
+        /* ── LOS QUE YA NO VAN A RECIBIRLO ────────────────────────
+           El servidor manda estos dos números desde que existe el motor
+           compartido, y esta pantalla no leía ninguno. Era el agujero
+           que dejó el cambio del 3 de octubre: desde que un envío se da
+           por terminado aunque falte gente, callarse a quién falta
+           convierte el aviso en un ✅ que esconde algo.
+
+           Van los DOS desgloses y no el total (`gave_up`), que es la
+           suma de ambos: nombrar los tres sería contar a la misma
+           persona dos veces.
+
+           Y se distinguen a propósito. Una baja NO es una dirección
+           mala: no hay nada que arreglar, y meterla en el mismo saco
+           hace que ella busque un problema donde no hay ninguno. Las
+           palabras son las mismas que usa la lista de destinatarios de
+           Communications, para que signifiquen lo mismo en las dos
+           pantallas.
+
+           `failed` (arriba) es de ESTA pulsación y puede reintentarse;
+           esto es definitivo. Por eso lo dice: "will not be retried". */
+        data.dead_addresses    ? `${data.dead_addresses} in total will not be retried — the mailbox rejected it 3 times` : '',
+        data.unsubscribed_midway ? `${data.unsubscribed_midway} unsubscribed before this went out` : '',
         data.invalid_addresses ? `${data.invalid_addresses} invalid address${data.invalid_addresses !== 1 ? 'es' : ''} skipped` : '',
         data.missing_token     ? `${data.missing_token} with no unsubscribe link skipped` : '',
         /* La ventana de confirmación cuenta PERSONAS ("se mandará a 453")
@@ -1215,15 +1322,33 @@
          separado, y como un envío sin apuntar nunca sale "completo",
          salían juntas: "no vuelvas a darle a Send" y justo detrás "dale a
          Send otra vez para terminar". Ella haría lo último que leyó, y esa
-         gente lo recibiría dos veces. */
-      const cola = data.unrecorded
-        ? ` ⚠️ ${data.unrecorded} went out but could not be recorded. Do NOT press Send again — those people would get it twice. Check with me first.`
-        : (!data.complete && (data.sent || data.failed)
-            ? ' Some people are still missing — press Send again to finish.'
-            : '');
+         gente lo recibiría dos veces.
 
-      toast((data.message || `Sent to ${data.sent} subscriber${data.sent !== 1 ? 's' : ''}.`)
-        + (detalles.length ? ` ${detalles.join(', ')}.` : '')
+         Y si hubo CORTE, no hay cola: `corte` ya dice qué pasó y qué
+         hacer —incluido el aviso de los no apuntados— y añadirle algo
+         detrás es volver a meter dos instrucciones en una línea. */
+      const cola = corte ? ''
+        : data.unrecorded
+          ? ` ⚠️ ${data.unrecorded} went out but could not be recorded. Do not send this again from any screen — those people would get it twice. Check with me first.`
+          : (!data.complete && (data.sent || data.failed)
+              ? ' Some people are still missing — press Send again to finish.'
+              : '');
+
+      /* El desglose se calla cuando el servidor YA lo ha explicado en su
+         frase. `message` lleva dentro el mismo recuento (`porQue`) en dos
+         de sus tres casos, así que ponerlo también aquí nombraba a la
+         misma gente dos veces con dos redacciones distintas: "Finished.
+         3 addresses gave up after 3 tries." y detrás "3 in total will not
+         be retried". Se queda la del servidor, que es la que encabeza. */
+      const yaLoExplica = !corte && !!data.message
+                       && ((data.gave_up || 0) > 0 || (data.dead_addresses || 0) > 0
+                           || (data.unsubscribed_midway || 0) > 0);
+      const visibles = yaLoExplica
+        ? detalles.filter((t) => !/will not be retried|unsubscribed before/.test(t))
+        : detalles;
+
+      toast((corte || data.message || `Sent to ${data.sent} subscriber${data.sent !== 1 ? 's' : ''}.`)
+        + (visibles.length ? ` ${visibles.join(', ')}.` : '')
         + cola, malo);
       if (data.errors && data.errors.length) console.warn('[newsletter] avisos del envio:', data.errors);
       /* El botón se queda en "Sending..." si no se repone aquí. Antes no

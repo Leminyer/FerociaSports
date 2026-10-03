@@ -285,14 +285,29 @@
        renovar antes de tiempo duplica correos; no renovar nunca deja
        la pantalla enganchada a una campaña vieja. Ver `envioTerminado`
        en admin-email-utils.js. */
-    const limpio = window.envioTerminado(d) && !d.failed && !d.unconfirmed;
+    /* Ya NO se mira `d.failed`. Esa condición sobraba y costaba una
+       pulsación: `d.failed` son los fallos de ESTA pulsación, y en la
+       única pulsación donde cambiaba algo —la que agota el tercer
+       intento de una dirección muerta— la campaña ya estaba terminada.
+       El aviso te mandaba a reintentar algo que no se va a reintentar
+       nunca, y había que pulsar una cuarta vez para cerrarla.
+
+       Mientras queden intentos no hace falta: esa fila no está ni en
+       los enviados ni en los agotados, así que `envioTerminado` ya es
+       falso por su cuenta. */
+    const limpio = window.envioTerminado(d) && !d.unconfirmed;
     if (limpio) {
       claveador.limpiar();   // el siguiente aviso será uno nuevo
       closeTournamentNotifyModal();
-      toast(window.mensajeExito(d) + window.loQueFalto(d));
+      toast(window.mensajeExito(d) + window.loQueFalto(d), window.huboPerdidas(d));
     } else {
       console.warn('[tournament-notify] no salio limpio:', d);
-      toast(`Finished: ${window.resumenEnvio(d)}. Press Send again to retry the ones that failed.`, true);
+      /* Si el envío se CORTÓ, eso es lo único que importa, y la
+         respuesta dice por qué. Sin esto el aviso mandaba a reintentar
+         un corte que no se arregla reintentando. */
+      const corte = window.motivoDelCorte(d);
+      toast(corte
+        || `Finished: ${window.resumenEnvio(d)}. Press Send again to retry the ones that failed.`, true);
     }
   };
 

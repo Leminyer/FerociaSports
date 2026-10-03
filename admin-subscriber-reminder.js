@@ -200,7 +200,17 @@
          fija y los pendientes nuevos no entrarían nunca: pulsar Enviar
          no mandaría nada y el aviso te diría que lo volvieras a
          intentar. Ver `envioTerminado` en admin-email-utils.js. */
-      const limpio = window.envioTerminado(d) && !d.failed && !d.unconfirmed;
+      /* Ya NO se mira `d.failed`. Esa condición sobraba y costaba una
+         pulsación: `d.failed` son los fallos de ESTA pulsación, y en la
+         única pulsación donde cambiaba algo —la que agota el tercer
+         intento de una dirección muerta— la campaña ya estaba
+         terminada. El aviso te mandaba a reintentar algo que no se va a
+         reintentar nunca, y había que pulsar una cuarta vez.
+
+         Mientras queden intentos no hace falta: esa fila no está ni en
+         los enviados ni en los agotados, así que `envioTerminado` ya es
+         falso por su cuenta. */
+      const limpio = window.envioTerminado(d) && !d.unconfirmed;
       if (limpio) {
         claveador.limpiar();
         /* Los casos raros los cuenta mensajeExito, que existe justo para
@@ -209,14 +219,23 @@
            Su última frase dice "your copy included", que aquí sería
            mentira —esta pantalla no se manda copia—, así que ese caso,
            el normal, se escribe aparte. */
+        /* El ✅ se cae si alguien se quedó fuera, igual que en
+           `mensajeExito`: un visto bueno verde con una pérdida escrita
+           detrás es justo lo que no queremos. */
+        const falto = window.huboPerdidas(d);
         toast(((d.already_sent || !d.sent)
           ? window.mensajeExito(d) + saltados
-          : `✅ Confirmation reminder sent to ${d.sent} subscriber${d.sent === 1 ? '' : 's'}.${saltados}`)
-          + window.loQueFalto(d));
+          : `${falto ? '' : '✅ '}Confirmation reminder sent to ${d.sent} `
+            + `subscriber${d.sent === 1 ? '' : 's'}.${saltados}`)
+          + window.loQueFalto(d), falto);
       } else {
         console.warn('[confirm-reminder] no salio limpio:', d);
-        toast(`Finished: ${window.resumenEnvio(d)}.${saltados} `
-          + `Press Send Reminder again to retry the ones that failed.`, true);
+        /* Si el envío se CORTÓ, eso es lo único que importa, y la
+           respuesta dice por qué. Sin esto el aviso mandaba a reintentar
+           un corte que no se arregla reintentando. */
+        const corte = window.motivoDelCorte(d);
+        toast(corte || (`Finished: ${window.resumenEnvio(d)}.${saltados} `
+          + `Press Send Reminder again to retry the ones that failed.`), true);
       }
 
       /* Refresca el contador de pendientes de la tarjeta. Va con su
