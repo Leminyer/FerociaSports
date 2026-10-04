@@ -28,7 +28,7 @@
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="config.js?v=20260929j"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="db.js?v=20261001c"></script>
+<script src="db.js?v=20261003f"></script>
 <script src="auth.js?v=20260928b"></script>
 <script src="assets.js?v=20260928b"></script>
 <!-- En esta página no se carga ningún servicio de correo, y es a
@@ -2132,6 +2132,16 @@
             <option value="all">All Statuses</option>
             <option value="active">Active</option>
             <option value="pending">Pending</option>
+            <!-- NO es un estado: el estado de éstas sigue siendo
+                 'pending'. Son las fichas a las que el freno del
+                 formulario público no les mandó el correo de
+                 confirmación. Va en este desplegable, y no en un cuarto
+                 filtro, porque es un subconjunto de Pending y es aquí
+                 donde se busca por estado. El valor lleva dos guiones
+                 bajos delante para que no se pueda confundir nunca con
+                 un valor real de la columna `status`.
+                 La lógica está en _renderSubsTable, admin-promotions.js. -->
+            <option value="__frenadas">Pending — no email sent</option>
             <option value="unsubscribed">Unsubscribed</option>
           </select>
           <svg style="position:absolute;right:12px;top:50%;transform:translateY(-50%);pointer-events:none;" width="10" height="6" viewBox="0 0 10 6"><path d="M0 0l5 6 5-6z" fill="var(--text-muted)"/></svg>
@@ -2160,6 +2170,18 @@
           <svg style="position:absolute;right:12px;top:50%;transform:translateY(-50%);pointer-events:none;" width="10" height="6" viewBox="0 0 10 6"><path d="M0 0l5 6 5-6z" fill="var(--text-muted)"/></svg>
         </div>
       </div>
+      <!-- EL AVISO DEL FRENO DEL FORMULARIO.
+
+           Va ARRIBA DE TODO y no en una esquina, porque el freno tiene
+           un coste que de otra forma no se ve: mientras está puesto, la
+           gente nueva de VERDAD tampoco recibe su correo de
+           confirmación, y bastan 61 altas en 24 horas para dejarlo así.
+           Sin este aviso, el único rastro estaría en los registros de
+           Supabase — o sea, en ninguna parte.
+
+           Lo rellena _renderSubsTable (admin-promotions.js). Está
+           escondido mientras no haya nada que decir. -->
+      <div id="sub-brake-banner" style="display:none;"></div>
       <!-- Resumen por origen. Va encima de la tabla porque responde la
            pregunta que se hace primero: de donde viene la gente nueva. -->
       <div id="sub-source-summary" style="padding:14px 20px;border-bottom:0.5px solid var(--divider-color);"></div>
@@ -3702,8 +3724,8 @@
 <script src="admin-print-roster.js?v=20260928b"></script>
 <script src="admin-ladder-management.js?v=20260928b"></script>
 <script src="admin-communications.js?v=20261003d"></script>
-<script src="admin-promotions.js?v=20261003d"></script>
-<script src="admin-subscriber-reminder.js?v=20261003d"></script>
+<script src="admin-promotions.js?v=20261003f"></script>
+<script src="admin-subscriber-reminder.js?v=20261003f"></script>
 <script src="admin-newsletter.js?v=20261003d"></script>
 <!-- TEMPORARY: fills in missing dates of birth from a CSV import.
      Delete this line and temp-dob-backfill.js once every player has one.

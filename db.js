@@ -218,10 +218,35 @@
   const esc = escapeHtml;
 
   // ─── DATE FORMATTING ──────────────────────────────────────
+  /* El 'T12:00:00' NO es un adorno: una fecha suelta ('2026-10-03') se
+     interpreta como medianoche UTC, que en Florida son las 8 de la
+     tarde del día ANTERIOR, así que la fecha salía un día antes.
+     Poniéndola al mediodía, ninguna zona horaria del mundo la mueve.
+
+     ⚠️  PERO SÓLO SIRVE PARA FECHAS SUELTAS. Si lo que llega ya trae la
+     hora —cualquier columna `timestamptz`, que es como PostgREST manda
+     '2026-10-03T22:00:05+00:00'— pegarle 'T12:00:00' deja un texto que
+     no se puede interpretar, y esto devolvía literalmente
+     «Invalid Date». Y lo devolvía EN PANTALLA: la columna "Subscribed"
+     de la lista de suscriptores y la fila "Subscribed" de cada ficha
+     llevaban tiempo enseñando eso, porque `subscribed_at` trae la hora.
+
+     Lo encontró una revisión el 3 de octubre. Se arregla aquí, en la
+     función compartida, y no en cada sitio que la llama: así queda
+     arreglado también en cualquier pantalla que caiga en lo mismo más
+     adelante. Para una fecha suelta se comporta exactamente igual que
+     antes. */
   const DEFAULT_DATE_OPTS = { month: 'short', day: 'numeric', year: 'numeric' };
   function fmtDate(dateStr, opts = DEFAULT_DATE_OPTS) {
     if (!dateStr) return '';
-    return new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', opts);
+    const t = String(dateStr);
+    /* ¿Trae ya la hora? Entonces se interpreta tal cual. */
+    const d = /[T ]\d{2}:/.test(t) ? new Date(t) : new Date(t + 'T12:00:00');
+    /* Y si no se puede interpretar, no se enseña «Invalid Date»: se
+       devuelve vacío, que es lo que ya hace esta función cuando no le
+       dan nada, y lo que quien la llama sabe pintar como un guion. */
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleDateString('en-US', opts);
   }
 
   // ─── MISC ─────────────────────────────────────────────────

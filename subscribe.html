@@ -25,7 +25,7 @@
 <script src="attribution.js?v=20260926a"></script>
 <script src="config.js?v=20260929j"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="db.js?v=20261001c"></script>
+<script src="db.js?v=20261003f"></script>
 <script src="assets.js?v=20260926a"></script>
 <script src="country-codes.js?v=20260926a"></script>
 <script src="location-fields.js?v=20260929a"></script>
@@ -743,7 +743,17 @@
         if (status === 'active') {
           showFieldError('s-email', 'err-email', 'You are already subscribed! Check your inbox for updates.');
         } else if (status === 'pending') {
-          showFieldError('s-email', 'err-email', 'You have a pending subscription. Please check your email and click the confirmation link.');
+          /* ── EL CALLEJÓN SIN SALIDA QUE ABRIÓ EL FRENO ───────────
+             Desde que existe el freno del formulario hay un estado que
+             antes no podía existir: pendiente Y SIN CORREO MANDADO. A
+             esa persona la primera pantalla sí le dice que escriba a
+             contact@ — pero lo natural es pensar que el correo tarda y
+             volver a rellenar el formulario. Y entonces caía aquí, que
+             le decía "mira tu correo y pulsa el enlace" de un correo
+             que nunca salió, sin darle ninguna salida.
+             Lo encontró la revisión. Ahora la frase vale para los dos
+             casos y nunca deja a nadie sin a quién escribir. */
+          showFieldError('s-email', 'err-email', 'You already have a pending subscription. Please check your email — including your spam folder — and click the confirmation link. If it never arrived, write to contact@ferociasports.com and we will send it again.');
         } else if (status === 'limit_reached') {
           // subscribe_signup allows several people to share one email address
           // (a parent and their children), capped at 4 to stop the form being

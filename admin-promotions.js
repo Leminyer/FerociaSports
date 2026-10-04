@@ -158,13 +158,99 @@
       <div style="display:flex;gap:8px;flex-wrap:wrap;">${cuerpo}</div>`;
   };
 
+  /* ════════════════════════════════════════════════════════════
+     EL AVISO DEL FRENO DEL FORMULARIO
+
+     El freno del formulario público (`subscribe-confirm`) deja de
+     mandar correos de confirmación cuando entran demasiadas altas en 24
+     horas. Eso protege la cuota y la reputación del dominio, y tiene un
+     coste que hay que decir en voz alta: MIENTRAS ESTÁ PUESTO, LA GENTE
+     DE VERDAD TAMPOCO RECIBE SU CORREO. Bastan 61 altas en un día para
+     dejarlo así, y a un script eso le cuesta nada.
+
+     Sin este aviso, el único rastro estaría en los registros de
+     Supabase. Con 453 suscriptores se pueden perder todas las altas de
+     una semana y esta pantalla parecería normal: el contador de
+     pendientes sube, que es lo que hace siempre.
+
+     ⚠️  AQUÍ NO SE REPITE EL NÚMERO 60. Eso vive en la función del
+     servidor, y tener el mismo número en dos archivos es la forma más
+     segura de que un día no coincidan. Este aviso no recalcula la
+     decisión: mira la PRUEBA de que se tomó —fichas marcadas en las
+     últimas 24 horas— que es un dato, no una copia de una regla.
+     ════════════════════════════════════════════════════════════ */
+  const pintarAvisoDelFreno = () => {
+    const caja = document.getElementById('sub-brake-banner');
+    if (!caja) return;
+
+    const desde    = Date.now() - 24 * 60 * 60 * 1000;
+    const enVentana = (iso) => {
+      if (!iso) return false;
+      const t = new Date(iso).getTime();
+      return !isNaN(t) && t >= desde;
+    };
+
+    const frenadas = _allSubs.filter((s) => enVentana(s.confirm_email_skipped_at)).length;
+    if (!frenadas) { caja.style.display = 'none'; caja.innerHTML = ''; return; }
+
+    const altas = _allSubs.filter((s) => enVentana(s.subscribed_at)).length;
+
+    /* ── LOS NÚMEROS SON UN MÍNIMO, NO UN TOTAL, Y SE DICE ─────
+       `_allSubs` no son todos los suscriptores: la consulta que los trae
+       no pide tope, y el servidor devuelve 1.000 filas como máximo sin
+       avisar. O sea que justo en el caso para el que existe este aviso
+       —una ráfaga de miles de altas— el número estaría cortado.
+
+       Y aquí eso importa: si entraron 3.000 y el aviso dice "1.000",
+       ella decide con un número tres veces menor que el real. Cuando se
+       llega al tope se dice "al menos", que es lo único cierto que se
+       puede afirmar sin pedir otra consulta. Lo señaló la segunda
+       revisión. */
+    const alMenos = _allSubs.length >= 1000 ? 'at least ' : '';
+
+    caja.style.display = 'block';
+    caja.innerHTML = `
+      <div style="padding:14px 20px;background:#FFF1E8;border-bottom:0.5px solid #f3c9ae;">
+        <div style="font-size:13px;font-weight:800;color:#9a3d0e;margin-bottom:4px;">
+          ⚠️ The signup brake is on
+        </div>
+        <div style="font-size:12px;font-weight:600;color:#9a3d0e;line-height:1.5;">
+          ${alMenos}${altas} signup${altas === 1 ? '' : 's'} came in over the last 24 hours,
+          and ${alMenos}<strong>${frenadas}</strong> of them did not get a confirmation
+          email, so those people cannot join the list. This protects the monthly email
+          quota, but while it lasts <strong>new real signups are being blocked too</strong>.
+          Use the <em>Pending — no email sent</em> filter to see who, and tell me so I can
+          look at it.
+        </div>
+      </div>`;
+  };
+
   const _renderSubsTable = () => {
     const search = (document.getElementById('sub-search')?.value || '').toLowerCase().trim();
     const filter = document.getElementById('sub-status-filter')?.value || 'all';
     const srcFil = document.getElementById('sub-source-filter')?.value || 'all';
     const filtered = _allSubs.filter(s => {
       const nameMatch = `${s.first_name} ${s.last_name} ${s.email} ${s.phone || ''} ${FerociaPhone.searchable(s.country_code, s.phone)}`.toLowerCase().includes(search);
-      const statusMatch = filter === 'all' || s.status === filter;
+      /* '__frenadas' no es un estado: son las fichas a las que el freno
+         del formulario público no les mandó el correo de confirmación.
+         Su estado sigue siendo 'pending', así que se mira la marca y no
+         la columna de estado. Los dos guiones bajos del valor están
+         para que no pueda chocar nunca con un estado real. */
+      /* Y SE EXIGE QUE SIGA PENDIENTE. La marca del freno no se borra
+         nunca, así que sin esto una persona a la que frenaron, que
+         escribió, a la que rescataste y que ya confirmó seguiría
+         saliendo para siempre en una lista que se llama "no email
+         sent" — y trabajando esa lista te encontrarías una y otra vez
+         a gente que ya rescataste, sin forma de distinguirla.
+
+         Es además la MISMA definición que usa el SQL de limpieza
+         (sql/62: `status = 'pending' and confirm_email_skipped_at is
+         not null`). Dos definiciones de lo mismo en el mismo cambio era
+         justo lo que no quería dejar. */
+      const statusMatch = filter === 'all' ? true
+        : filter === '__frenadas'
+            ? (s.status === 'pending' && !!s.confirm_email_skipped_at)
+        : s.status === filter;
       /* Los tres filtros se combinan (Y, no O): buscar "maria", estado
          Active y origen Instagram devuelve las Marías activas que
          llegaron por Instagram, no la suma de las tres listas. */
@@ -174,6 +260,8 @@
     });
     const slice   = filtered.slice(0, _subsShown);
     const total   = filtered.length;
+
+    pintarAvisoDelFreno();
 
     const avColors = ['var(--blue)','var(--teal)','var(--orange)','#7c3aed','#0891b2','#d97706'];
     const getAv = (s) => {
@@ -390,6 +478,30 @@
       <div style="font-size:13px;font-weight:600;color:var(--text);text-align:right;word-break:break-word;">${value || '—'}</div>
     </div>`;
 
+  /* ── UNA FECHA CON HORA, QUE `fmtDate` NO SABE HACER ──────────
+     `fmtDate` (db.js) es para fechas SUELTAS: le pega 'T12:00:00' al
+     texto para que la zona horaria no la mueva un día. Si lo que le
+     llegan son fecha Y hora —como `confirm_email_skipped_at`, que es
+     un `timestamptz`— el texto resultante no se puede interpretar y
+     devuelve literalmente «Invalid Date». Lo comprobé ejecutándolo.
+
+     Y mi prueba no lo pilló porque su banco tenía una versión FALSA de
+     `fmtDate` que sí funcionaba. Simular una función cuyo
+     comportamiento real ES el fallo es la forma más limpia de no
+     encontrarlo nunca; el banco ahora usa la de verdad.
+
+     Esto se escribe aquí y no en db.js para no tocar un archivo que
+     cargan las cinco páginas por una etiqueta de una ficha. Es el mismo
+     patrón que usa `cuando()` en admin-communications.js, que tenía
+     este problema resuelto desde el principio. */
+  const fechaYHora = (iso) => {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+         + ' · ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  };
+
   const svSection = (title) => `
     <div style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--blue);margin:18px 0 4px;">${title}</div>`;
 
@@ -492,6 +604,26 @@
       + svRow('Status', esc(s.status))
       + svRow('Subscribed', fmtDate(s.subscribed_at))
       + svRow('Confirmed', s.confirm_token ? 'Pending confirmation' : 'Yes')
+      /* Si el freno del formulario público le quitó el correo de
+         confirmación, se dice AQUÍ y no en la tabla: la tabla se lee de
+         un vistazo y una columna más la volvería ilegible en el móvil.
+         Sin esto, una ficha pendiente a la que se le mandó el correo y
+         otra a la que no son idénticas en pantalla.
+
+         ⚠️  LA FILA SÓLO SALE CUANDO HUBO FRENO, y en el resto no sale
+         nada. Mi primera versión ponía "Sent" para todos los demás, y
+         eso es afirmar algo que no sabemos: el correo también se queda
+         sin salir cuando Resend lo rechaza, cuando la ficha vuelve sin
+         token, o cuando el propio apuntado del freno falla — y en esos
+         tres casos esta columna está vacía. Lo encontró la revisión, y
+         el caso que lo hace grave es el peor posible: alguien escribe
+         diciendo que no le llegó, ella abre la ficha, y la ficha le
+         dice que sí se mandó. */
+      + (s.confirm_email_skipped_at
+          ? svRow('Confirmation email',
+              '<span style="color:#c04a0e;">Not sent — the signup brake was on '
+              + `${esc(fechaYHora(s.confirm_email_skipped_at))}</span>`)
+          : '')
       // Surfaces the legacy rows that have no token and therefore cannot
       // use the unsubscribe link in a campaign.
       + svRow('Can unsubscribe', s.unsubscribe_token ? 'Yes' : '<span style="color:#c04a0e;">No — no token</span>');

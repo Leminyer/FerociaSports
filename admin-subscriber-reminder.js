@@ -86,9 +86,55 @@
           vars:  { confirm_url: enlaceConfirmar(TOKEN_ENSAYO) },
         }];
       } else {
-        const pendientes = await api(
-          'subscribers?status=eq.pending'
-          + '&select=id,first_name,last_name,email,confirm_token');
+        /* ── SE LEEN TODOS, POR TRAMOS ──────────────────────────
+           Antes era UNA consulta sin orden ni tramos. El servidor
+           devuelve 1.000 filas como máximo y no avisa, así que con 1.900
+           pendientes pasaban tres cosas, y las tres malas:
+
+             · la ventana decía "Send a reminder to 1000 subscribers?"
+               cuando había 1.900 — un número falso, en el único sitio
+               que existe para que tú decidas;
+             · salían 1.000 correos, el 20% de la cuota del mes;
+             · y sin `order`, una segunda pulsación traía OTRAS 1.000 de
+               las mismas 1.900, solapadas, así que parte de la gente lo
+               recibía dos veces.
+
+           Esto no era alcanzable hasta que existió el freno del
+           formulario: con él, 1.900 pendientes de golpe es justo lo que
+           deja un ataque. Lo encontró la revisión del 3 de octubre.
+
+           Se para cuando un tramo viene VACÍO, no cuando viene corto, y
+           se avanza por lo que LLEGÓ: es la misma regla que `leerTodo`
+           en el motor de envío, por los mismos motivos. */
+        /* SE PAGINA POR EL ÚLTIMO id, no por un número de salto.
+
+           Con `offset=1000`, si alguien confirma su suscripción entre el
+           primer tramo y el segundo, la lista se corre un sitio y la
+           persona que estaba en la posición 1.000 NO SE LEE NUNCA: se
+           queda sin recordatorio y nadie se enbtera. Pidiendo "los
+           siguientes a este id" eso no puede pasar, porque el punto de
+           partida es una fila concreta y no una posición. Lo señaló la
+           segunda revisión. */
+        const pendientes = [];
+        let ultimoId = 0;
+        for (;;) {
+          const tramo = await api(
+            'subscribers?status=eq.pending'
+            + '&select=id,first_name,last_name,email,confirm_token,confirm_email_skipped_at'
+            + '&order=id.asc'
+            + `&id=gt.${ultimoId}`
+            + '&limit=1000');
+          if (!tramo.length) break;
+          pendientes.push(...tramo);
+          ultimoId = tramo[tramo.length - 1].id;
+          /* Freno de mano: si el filtro por id dejara de funcionar, cada
+             tramo traería lo mismo y esto giraría para siempre dentro
+             del navegador. */
+          if (pendientes.length >= 20000) {
+            console.error('[confirm-reminder] lectura cortada en 20.000: ¿falla el id=gt?');
+            break;
+          }
+        }
 
         if (!pendientes.length) {
           toast('No pending subscribers to remind.', true);
@@ -102,6 +148,34 @@
         sinEnlace = pendientes.length - conEnlace.length;
         if (!conEnlace.length) {
           toast('None of the pending subscribers has a valid confirmation link.', true);
+          return;
+        }
+
+        /* ── MÁS DE 1.000 NO CABEN EN UN ENVÍO, Y SE DICE ANTES ───
+           El servidor rechaza un envío de más de 1.000 destinatarios
+           (`MAX_DESTINATARIOS`, en send-email). Sin esto, la ventana te
+           pedía aprobar 1.900, pulsabas, y el servidor contestaba que
+           no: te hacía aprobar algo que no podía pasar.
+
+           Y partirlo en dos tandas NO es el arreglo: la lista de una
+           campaña se guarda UNA vez, así que la segunda tanda se
+           descartaría y esas personas no recibirían nada — o peor, con
+           una llave nueva, los primeros 1.000 lo recibirían dos veces.
+
+           Además, llegar a 1.000 pendientes sólo pasa después de una
+           ráfaga de altas falsas, y ahí mandar el recordatorio es
+           justamente lo que no hay que hacer. Así que se para y se
+           explica. Lo señaló la segunda revisión. */
+        const TOPE_ENVIO = 1000;
+        if (conEnlace.length > TOPE_ENVIO) {
+          const delFrenoAhora = conEnlace.filter((s) => s.confirm_email_skipped_at).length;
+          toast(`There are ${conEnlace.length} pending subscribers, more than one send can `
+              + `take (${TOPE_ENVIO}).`
+              + (delFrenoAhora
+                  ? ` ${delFrenoAhora} of them never got a confirmation email because the `
+                    + `signup brake was on, which usually means a burst of fake signups.`
+                  : '')
+              + ' Nothing was sent — tell me and we will clean up the list first.', true);
           return;
         }
 
@@ -119,9 +193,28 @@
           vars: { confirm_url: enlaceConfirmar(s.confirm_token) },
         }));
 
+        /* ── Y SE DICE CUÁNTOS VIENEN DEL FRENO ─────────────────
+           Si el freno del formulario saltó, la mayoría de estos
+           pendientes pueden ser basura de un script. Mandarles el
+           recordatorio sería hacer a mano el daño que el freno acaba de
+           evitar: cientos de correos a direcciones inventadas, con sus
+           rebotes y sus quejas de spam.
+
+           No se les quita de la lista por su cuenta —entre ellos puede
+           haber gente de verdad, y nadie puede distinguirlos mirando—
+           pero se dice el número ANTES de que pulses, que es cuando
+           sirve. */
+        const delFreno = conEnlace.filter((s) => s.confirm_email_skipped_at).length;
+
         const seguro = await confirmModal({
           title:   `Send a reminder to ${cuantos} subscriber${cuantos === 1 ? '' : 's'}?`,
-          message: `Each one gets a link to confirm their subscription`
+          message: (delFreno
+                     ? `⚠️ ${delFreno} of these never got a confirmation email because the `
+                       + `signup brake was on, which usually means a burst of fake signups. `
+                       + `Sending to them would email invented addresses. Cancel and tell me `
+                       + `first if you are not sure. `
+                     : '')
+                 + `Each one gets a link to confirm their subscription`
                  + (sinEnlace ? `, skipping ${sinEnlace} with no valid link` : '')
                  + `. This cannot be undone.`
                  /* Una sola frase seguida: confirmModal pinta con
