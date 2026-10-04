@@ -2119,10 +2119,19 @@
 
     <!-- Subscribers table card -->
     <div class="card" style="padding:0;overflow:hidden;">
-      <!-- Toolbar -->
-      <div style="display:flex;align-items:center;gap:10px;padding:14px 20px;border-bottom:0.5px solid var(--divider-color);">
+      <!-- Toolbar.
+
+           `flex-wrap:wrap` es lo que hace que esto se pueda usar en un
+           móvil. Sin él, los controles se quedaban en una sola fila que
+           no cabe: a 375px el buscador se quedaba en 9px de ancho y el
+           filtro de origen acababa en el píxel 502 — fuera de la
+           pantalla y, por el `overflow:hidden` de la tarjeta, cortado y
+           sin forma de llegar a él. Medido con el navegador, no
+           supuesto. Al buscador se le da un ancho mínimo de 200px para
+           que se baje a su propia fila en vez de estrangularse. -->
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:14px 20px;border-bottom:0.5px solid var(--divider-color);">
         <div style="font-size:12px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text);flex-shrink:0;">Subscribers</div>
-        <div style="flex:1;display:flex;align-items:center;gap:8px;background:var(--bg);border:0.5px solid var(--divider-color);border-radius:8px;padding:7px 12px;">
+        <div style="flex:1 1 200px;display:flex;align-items:center;gap:8px;background:var(--bg);border:0.5px solid var(--divider-color);border-radius:8px;padding:7px 12px;">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           <input type="text" id="sub-search" placeholder="Search subscribers, email, or phone..."
             style="border:none;background:transparent;outline:none;font-family:'Inter',sans-serif;font-size:12px;font-weight:600;color:var(--text);width:100%;padding:0;line-height:1.4;">
@@ -2166,6 +2175,22 @@
             <option value="direct">Direct</option>
             <option value="other">Other</option>
             <option value="__none">Not recorded</option>
+          </select>
+          <svg style="position:absolute;right:12px;top:50%;transform:translateY(-50%);pointer-events:none;" width="10" height="6" viewBox="0 0 10 6"><path d="M0 0l5 6 5-6z" fill="var(--text-muted)"/></svg>
+        </div>
+        <!-- Filtro de fecha. Las dos palabras ("all" y "month") son las
+             MISMAS que usa el interruptor del resumen de origen, porque
+             al pulsar una tarjeta el resumen le pasa su periodo a este
+             desplegable. Si alguien renombrara un valor aquí y no allí,
+             la tarjeta volvería a enseñar un número y la tabla otro. Una
+             prueba lo comprueba contra admin-promotions.js.
+             Arranca en "all" para que la tabla siga enseñando todo
+             mientras nadie lo toque.
+             La lógica está en _renderSubsTable, admin-promotions.js. -->
+        <div style="position:relative;">
+          <select id="sub-period-filter" style="font-family:'Inter',sans-serif;font-size:12px;font-weight:700;padding:8px 32px 8px 12px;border:0.5px solid var(--divider-color);border-radius:99px;color:var(--text);background:white;outline:none;appearance:none;cursor:pointer;">
+            <option value="all">All Time</option>
+            <option value="month">This Month</option>
           </select>
           <svg style="position:absolute;right:12px;top:50%;transform:translateY(-50%);pointer-events:none;" width="10" height="6" viewBox="0 0 10 6"><path d="M0 0l5 6 5-6z" fill="var(--text-muted)"/></svg>
         </div>
@@ -3724,7 +3749,7 @@
 <script src="admin-print-roster.js?v=20260928b"></script>
 <script src="admin-ladder-management.js?v=20260928b"></script>
 <script src="admin-communications.js?v=20261003d"></script>
-<script src="admin-promotions.js?v=20261003f"></script>
+<script src="admin-promotions.js?v=20261004a"></script>
 <script src="admin-subscriber-reminder.js?v=20261003f"></script>
 <script src="admin-newsletter.js?v=20261003d"></script>
 <!-- TEMPORARY: fills in missing dates of birth from a CSV import.

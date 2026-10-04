@@ -92,18 +92,89 @@
      Los suscriptores sin origen se cuentan aparte y NO entran en los
      porcentajes: meter 429 filas de las que no se sabe nada dentro del
      cálculo haría que cualquier canal real pareciera insignificante. */
+  /* ⚠️  UNA SOLA DEFINICIÓN DE "ESTE MES", Y LA USAN LOS TRES SITIOS:
+     el resumen por origen, el filtro de fecha de la tabla, y el
+     "+N this month" de las tarjetas de arriba.
+
+     Los tres tienen que cortar por el MISMO instante. Si cada uno se lo
+     calculara aparte, el día que uno pasara a hora local y otro a UTC
+     la tarjeta diría un número y la tabla enseñaría otro — que es
+     exactamente el fallo que este filtro vino a arreglar.
+
+     Es la medianoche del día 1 en la hora de Florida, no en UTC: la
+     pregunta es "este mes" para quien mira la pantalla. En Florida eso
+     son las 4 o 5 de la mañana en UTC, así que una alta de las 2 de la
+     madrugada del día 1 cuenta como de este mes, que es lo que
+     cualquiera esperaría. */
+  const _inicioDeMes = () => {
+    const n = new Date();
+    return new Date(n.getFullYear(), n.getMonth(), 1).getTime();
+  };
+
+  /* ⚠️  SE COMPARAN INSTANTES, NO TEXTOS. Y NO ES UN DETALLE.
+
+     La versión anterior comparaba las dos fechas como cadenas de texto.
+     Eso sólo funciona si están escritas EXACTAMENTE igual, y no lo
+     están: PostgREST manda '2026-10-03T22:00:05+00:00' —con '+00:00' y
+     recortando los ceros de los decimales, como ya está documentado en
+     db.js— mientras que `toISOString()` escribe
+     '2026-10-01T04:00:00.000Z'. Comparando texto, el '+' va antes que
+     el '.' y antes que la 'Z', así que un alta del segundo exacto del
+     corte se caía fuera.
+
+     Y lo grave no es ese milisegundo al mes. Es que el día que una
+     consulta devuelva la columna con el desfase local
+     ('2026-10-01T00:30:00-04:00'), la comparación de texto decide antes
+     de llegar al desfase: compararía un reloj local contra uno UTC y se
+     comería las primeras cuatro horas de cada mes, sin un solo error en
+     ninguna parte.
+
+     Comparando instantes eso no puede pasar, venga el formato que
+     venga. Las 453 lecturas por pintada no cuestan nada. */
+  const _momento = (iso) => {
+    if (iso === null || iso === undefined || iso === '') return null;
+    /* Postgres puede mandar el desfase corto ('+00' o '-04' en vez de
+       '+00:00'), que `new Date()` no sabe leer: devuelve NaN. Se
+       completa antes de interpretarlo.
+
+       ⚠️  EL PATRÓN EXIGE UNA HORA DELANTE, Y NO SOBRA. La primera
+       versión era `/([+-]\d{2})$/` a secas, y eso se comía el DÍA de
+       una fecha sin hora: '2026-10-03' se convertía en '2026-10-03:00',
+       que no se puede interpretar, y la función devolvía null. Hoy sólo
+       se la llama con columnas que traen la hora, así que no habría
+       roto nada — pero es una mina para el siguiente que la use. Lo
+       encontró la segunda revisión del 4 de octubre.
+
+       Y sólo se toca si es texto: un número o una fecha ya hecha pasan
+       enteros. */
+    const t = typeof iso === 'string'
+      ? new Date(iso.replace(/(\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?)([+-]\d{2})$/, '$1$2:00')).getTime()
+      : new Date(iso).getTime();
+    return isNaN(t) ? null : t;
+  };
+
+  /* El corte que toca para un periodo: null = sin corte, o sea "todo".
+     Se le pasa el valor del interruptor del resumen o el del
+     desplegable de la tabla, que usan las mismas dos palabras. */
+  const _desdeDelPeriodo = (periodo) =>
+    periodo === 'month' ? _inicioDeMes() : null;
+
+  /* Sin fecha, o con una fecha que no se puede interpretar, NO es de
+     este mes: no sabemos cuándo entró esa persona. Sigue saliendo en
+     "All Time", que es donde tiene que salir. */
+  const _enPeriodo = (s, desde) => {
+    if (desde === null) return true;
+    const t = _momento(s.subscribed_at);
+    return t !== null && t >= desde;
+  };
+
   const _renderSourceSummary = () => {
     const cont = document.getElementById('sub-source-summary');
     if (!cont) return;
 
-    const desde = (() => {
-      if (_summaryPeriod !== 'month') return null;
-      const n = new Date();
-      return new Date(n.getFullYear(), n.getMonth(), 1).toISOString();
-    })();
+    const desde = _desdeDelPeriodo(_summaryPeriod);
 
-    const enPeriodo = _allSubs.filter(s =>
-      !desde || (s.subscribed_at && s.subscribed_at >= desde));
+    const enPeriodo = _allSubs.filter(s => _enPeriodo(s, desde));
 
     const cuenta = new Map();
     let sinOrigen = 0;
@@ -184,10 +255,16 @@
     if (!caja) return;
 
     const desde    = Date.now() - 24 * 60 * 60 * 1000;
+    /* Lee la fecha con `_momento`, LA MISMA que usa el filtro de la
+       tabla. Tenía su propio `new Date(iso)`, y eso dejaba una
+       contradicción fea: con el desfase corto de Postgres ('+00'),
+       `new Date` devuelve NaN y este aviso se APAGABA mientras la
+       persona frenada seguía saliendo en la tabla. O sea, la única
+       alarma que avisa de que el formulario está bloqueando a gente de
+       verdad, muda. Lo encontró la segunda revisión del 4 de octubre. */
     const enVentana = (iso) => {
-      if (!iso) return false;
-      const t = new Date(iso).getTime();
-      return !isNaN(t) && t >= desde;
+      const t = _momento(iso);
+      return t !== null && t >= desde;
     };
 
     const frenadas = _allSubs.filter((s) => enVentana(s.confirm_email_skipped_at)).length;
@@ -208,6 +285,20 @@
        revisión. */
     const alMenos = _allSubs.length >= 1000 ? 'at least ' : '';
 
+    /* ⚠️  EL AVISO LLEVA UN BOTÓN, NO UNA INSTRUCCIÓN.
+
+       Antes decía "usa el filtro Pending — no email sent", y ahí se
+       abría un hueco: los OTROS tres filtros se quedaban como
+       estuvieran. Con una búsqueda escrita, o con el origen que una
+       tarjeta del resumen acababa de poner, esa lista salía corta o
+       directamente vacía. Una lista de alarma que se ve completa y no lo
+       está es peor que no tener alarma.
+
+       Las dos revisiones del 4 de octubre llegaron a esto por tres
+       caminos distintos. La lección: la respuesta no era poner
+       inteligencia en el desplegable de estado —eso además saltaba al
+       pasar por encima con las flechas del teclado— sino que el aviso
+       deje la pantalla ENTERA en el estado correcto de una vez. */
     caja.style.display = 'block';
     caja.innerHTML = `
       <div style="padding:14px 20px;background:#FFF1E8;border-bottom:0.5px solid #f3c9ae;">
@@ -219,9 +310,12 @@
           and ${alMenos}<strong>${frenadas}</strong> of them did not get a confirmation
           email, so those people cannot join the list. This protects the monthly email
           quota, but while it lasts <strong>new real signups are being blocked too</strong>.
-          Use the <em>Pending — no email sent</em> filter to see who, and tell me so I can
-          look at it.
+          Tell me so I can look at it.
         </div>
+        <button type="button" data-action="verFrenadas"
+          style="margin-top:10px;font-family:'Inter',sans-serif;font-size:11px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;padding:11px 16px;border-radius:99px;border:0.5px solid #c88a5e;background:white;color:#9a3d0e;cursor:pointer;">
+          Show me who
+        </button>
       </div>`;
   };
 
@@ -229,6 +323,14 @@
     const search = (document.getElementById('sub-search')?.value || '').toLowerCase().trim();
     const filter = document.getElementById('sub-status-filter')?.value || 'all';
     const srcFil = document.getElementById('sub-source-filter')?.value || 'all';
+    /* El filtro de fecha. 'all' por defecto, para que la tabla siga
+       enseñando todo mientras nadie lo toque.
+
+       Se calcula el corte UNA VEZ, aquí fuera, y no dentro del filtro:
+       con 453 filas, hacerlo dentro crearía 453 objetos de fecha para
+       devolver siempre lo mismo. */
+    const perFil = document.getElementById('sub-period-filter')?.value || 'all';
+    const desde  = _desdeDelPeriodo(perFil);
     const filtered = _allSubs.filter(s => {
       const nameMatch = `${s.first_name} ${s.last_name} ${s.email} ${s.phone || ''} ${FerociaPhone.searchable(s.country_code, s.phone)}`.toLowerCase().includes(search);
       /* '__frenadas' no es un estado: son las fichas a las que el freno
@@ -251,12 +353,16 @@
         : filter === '__frenadas'
             ? (s.status === 'pending' && !!s.confirm_email_skipped_at)
         : s.status === filter;
-      /* Los tres filtros se combinan (Y, no O): buscar "maria", estado
-         Active y origen Instagram devuelve las Marías activas que
-         llegaron por Instagram, no la suma de las tres listas. */
+      /* Los CUATRO filtros se combinan (Y, no O): buscar "maria", estado
+         Active, origen Instagram y este mes devuelve las Marías activas
+         que llegaron por Instagram este mes, no la suma de las cuatro
+         listas. */
       const srcMatch = srcFil === 'all'
         || (srcFil === SOURCE_NONE ? !s.source : s.source === srcFil);
-      return nameMatch && statusMatch && srcMatch;
+      /* Quien no tenga fecha de alta NO sale en "este mes". Es la misma
+         regla que usa el resumen de arriba, por `_enPeriodo`. */
+      const perMatch = _enPeriodo(s, desde);
+      return nameMatch && statusMatch && srcMatch && perMatch;
     });
     const slice   = filtered.slice(0, _subsShown);
     const total   = filtered.length;
@@ -913,10 +1019,15 @@
     setEl('promo-stat-total',   countTotal);
     setEl('promo-stat-unsub',   countUnsub);
 
-    // Trend: count subscribers joined this month
-    const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-    const newThisMonth = subs.filter(s => s.subscribed_at && s.subscribed_at >= monthStart).length;
+    /* Los de este mes, para el "+N this month" y el porcentaje de abajo.
+       Usa LA MISMA definición que el resumen de origen y que el filtro
+       de la tabla (`_desdeDelPeriodo` / `_enPeriodo`). Tenía su propia
+       copia, byte a byte igual pero aparte, así que los tres números
+       podían separarse en cuanto alguien tocara uno — y arrastraba el
+       mismo fallo de comparar fechas como texto. Lo encontró la
+       revisión del 4 de octubre. */
+    const desdeMes = _desdeDelPeriodo('month');
+    const newThisMonth = subs.filter(s => _enPeriodo(s, desdeMes)).length;
     const growthPct = countTotal > 0 ? Math.round((newThisMonth / countTotal) * 100) : 0;
 
     // Update ctx lines with real trend data
@@ -1644,6 +1755,7 @@
   document.getElementById('sub-status-filter')?.addEventListener('change', () => { _subsShown = 25; _renderSubsTable(); });
   document.getElementById('sub-search')?.addEventListener('input', () => { _subsShown = 25; _renderSubsTable(); });
   document.getElementById('sub-source-filter')?.addEventListener('change', () => { _subsShown = 25; _renderSubsTable(); });
+  document.getElementById('sub-period-filter')?.addEventListener('change', () => { _subsShown = 25; _renderSubsTable(); });
 
   // ── Expose / register with the shared infrastructure ──────────────────
   window.loadPromotionsPage = loadPromotionsPage; // called from the page router
@@ -1661,11 +1773,76 @@
     filterBySource: (btn) => {
       const sel = document.getElementById('sub-source-filter');
       if (!sel) return;
+      /* ⚠️  SI ESE ORIGEN NO ESTÁ EN EL DESPLEGABLE, NO SE FINGE.
+
+         Asignarle a un `<select>` un valor que no tiene deja el valor
+         en cadena vacía, y más abajo `'' || 'all'` lo convierte en
+         "todos los orígenes": la tarjeta diría 2 y la tabla enseñaría
+         los 453, con el desplegable en blanco y sin explicación. El
+         mismo fallo que esto vino a arreglar, por otra puerta.
+
+         Puede pasar de verdad: el resumen pinta a propósito una
+         tarjeta para un origen que no reconozca, y añadir un origen
+         nuevo se hace en la base y en el enlace, sin tocar admin.html.
+         Lo encontró la revisión del 4 de octubre. */
+      const existe = [...sel.options].some((o) => o.value === btn.dataset.source);
+      if (!existe) {
+        toast(`"${btn.dataset.source}" is not in the Sources filter yet, `
+            + 'so the table cannot be narrowed to it. Tell your developer to add it.', true);
+        return;
+      }
       sel.value = btn.dataset.source;
+      /* ⚠️  AQUÍ ESTABA EL FALLO, Y ES EL MOTIVO DE TODO ESTE FILTRO.
+
+         La tarjeta cuenta el periodo del resumen; la tabla no tenía
+         periodo ninguno. Así que pulsar "Direct (2)" con "This month"
+         puesto enseñaba los 26 Direct de la historia. Un botón que dice
+         2 y te da 26 es un botón que miente.
+
+         LOS CUATRO FILTROS, NO DOS. La primera versión de este arreglo
+         sincronizaba el origen y la fecha y se dejaba el estado y el
+         buscador como estuvieran. Eso es PEOR que el fallo original:
+         con el filtro "Pending — no email sent" puesto —que es el que
+         el propio aviso del freno te manda usar— pulsar "Direct (4)"
+         dejaba la tabla en "No subscribers found". Un número equivocado
+         es un número equivocado; "no hay nadie de Direct" es una
+         afirmación falsa. Lo encontró la revisión del 4 de octubre.
+
+         El resumen cuenta por origen y por periodo, y por nada más. Así
+         que la tabla tiene que quedarse exactamente así: esos dos
+         puestos, y los otros dos abiertos. Los cuatro controles están a
+         la vista, así que se ve lo que pasó. */
+      const per = document.getElementById('sub-period-filter');
+      if (per) per.value = _summaryPeriod === 'month' ? 'month' : 'all';
+      const est = document.getElementById('sub-status-filter');
+      if (est) est.value = 'all';
+      const bus = document.getElementById('sub-search');
+      if (bus) bus.value = '';
       _subsShown = 25;
       _renderSubsTable();
       // Sin esto la tabla se filtra fuera de la pantalla y parece que
       // el botón no hizo nada.
+      document.getElementById('subscribers-table')
+        ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    },
+    /* El botón del aviso del freno. Deja los CUATRO filtros en el único
+       estado en que esa lista está completa: el estado en "no email
+       sent" y los otros tres abiertos.
+
+       Los tres se abren a propósito, y el de fecha es el que más
+       importa: el aviso mira las últimas 24 HORAS y el filtro de fecha
+       corta por MES, así que el 1 de noviembre el aviso habla de
+       frenadas del 31 de octubre y "This Month" las esconde. Esa lista
+       nunca es una pregunta de calendario: es "a quién le falta su
+       correo ahora mismo". */
+    verFrenadas: () => {
+      const poner = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+      poner('sub-status-filter', '__frenadas');
+      poner('sub-period-filter', 'all');
+      poner('sub-source-filter', 'all');
+      poner('sub-search', '');
+      _subsShown = 25;
+      _renderSubsTable();
       document.getElementById('subscribers-table')
         ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     },
