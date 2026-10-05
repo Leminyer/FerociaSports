@@ -195,6 +195,8 @@
       const cuantos = _emailPlayers.length;
       const seguro = await confirmModal({
         title:   `Notify ${cuantos} player${cuantos === 1 ? '' : 's'}?`,
+        /* Empieza con el cursor en Cancel: manda correos y eso no se deshace. */
+        focusCancel: true,
         message: `"${subject}" will be emailed to ${cuantos} player`
                + `${cuantos === 1 ? '' : 's'} from ${_tournamentName}`
                + `, plus a copy to you. This cannot be undone.`

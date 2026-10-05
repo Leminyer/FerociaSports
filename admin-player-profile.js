@@ -937,6 +937,8 @@
     if (!AdminState.currentAdminId) { toast('Could not identify the current admin — try refreshing the page.', true); return; }
     const ok = await window.confirmModal({
       title: 'Log late cancellation?',
+      /* Empieza con el cursor en Cancel: el propio aviso dice que no se puede deshacer, y queda en el historial de esa persona. */
+      focusCancel: true,
       message: `This will mark today as a late cancellation for ${_ppCurrent.p.first_name} ${_ppCurrent.p.last_name}. This action cannot be undone — are you sure?`,
       okLabel: 'Log Cancellation',
     });
@@ -963,6 +965,8 @@
     if (!AdminState.currentAdminId) { toast('Could not identify the current admin — try refreshing the page.', true); return; }
     const ok = await window.confirmModal({
       title: 'Log on-time cancellation?',
+      /* Empieza con el cursor en Cancel: el propio aviso dice que no se puede deshacer, y queda en el historial de esa persona. */
+      focusCancel: true,
       message: `This will mark today as an on-time cancellation for ${_ppCurrent.p.first_name} ${_ppCurrent.p.last_name}. This action cannot be undone — are you sure?`,
       okLabel: 'Log Cancellation',
     });
@@ -1254,6 +1258,8 @@
     const id = parseInt(btn.dataset.id, 10);
     const ok = await window.confirmModal({
       title: 'Delete this file?',
+      /* Empieza con el cursor en Cancel: esto borra y no hay papelera. */
+      focusCancel: true,
       message: 'This removes the file permanently and cannot be undone. Are you sure?',
       okLabel: 'Delete File',
     });
@@ -2282,6 +2288,8 @@
        ficha de jugador es fácil tener otra abierta en la cabeza. */
     const seguro = await confirmModal({
       title:   `Send this email to ${nombre}?`,
+      /* Empieza con el cursor en Cancel: manda correos y eso no se deshace. */
+      focusCancel: true,
       message: `"${subject}" will be sent to ${p.email}. This cannot be undone.`,
       okLabel: 'Send email',
       cancelLabel: 'Cancel',
@@ -2357,6 +2365,8 @@
     if (!_ppCurrent) return;
     const ok = await window.confirmModal({
       title: 'Reset Player DNA link?',
+      /* Empieza con el cursor en Cancel: esto borra y no hay papelera. */
+      focusCancel: true,
       message: 'This generates a new Player DNA link for this player. Any link they (or you) already shared stops working immediately.',
       okLabel: 'Reset Link',
     });

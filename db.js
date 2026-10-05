@@ -294,7 +294,50 @@
     return modal;
   }
 
-  function confirmModal({ title = 'Are you sure?', message = '', okLabel = 'Confirm', cancelLabel = 'Cancel', danger = false } = {}) {
+  /* ⚠️  LA TECLA ENTER EN ESTA VENTANA. LÉELO ANTES DE TOCARLA.
+
+     Hasta el 4 de octubre esta ventana escuchaba Enter en TODA la página
+     y confirmaba, mirara donde mirase el cursor. O sea que con el cursor
+     en Cancel, Enter mandaba igual — y ésta es la ventana que pregunta
+     antes de mandar 453 correos que no se pueden recuperar.
+
+     Ahora no escucha Enter: los botones ya responden a Enter ellos solos
+     cuando tienen el cursor encima, así que Enter hace lo que diga el
+     botón donde estás. Escape sigue cancelando.
+
+     `focusCancel` es la otra mitad, y es la que de verdad cierra el
+     agujero: la ventana le pone el cursor a Confirm al abrirse, así que
+     sin esto un Enter despistado seguiría mandando. Las ventanas que
+     mandan correos o borran algo piden `focusCancel: true` y empiezan
+     con el cursor en Cancel — para confirmar hay que mover el dedo o dar
+     un Tab, que es un gesto deliberado.
+
+     Por defecto sigue siendo `false`, así que las ventanas inofensivas
+     (cerrar sesión, descartar cambios) se comportan igual que siempre. */
+  /* ⚠️  SÓLO PUEDE HABER UNA VENTANA ABIERTA A LA VEZ.
+
+     Todas las preguntas usan EL MISMO trozo de pantalla. Si se abre una
+     segunda encima de otra, las dos quedan escuchando los mismos dos
+     botones, y un solo clic en Confirm contesta que SÍ a las dos.
+
+     Pasaba de verdad, con el teclado y sin forzar nada: con la pregunta
+     de los 462 correos abierta, el Tab se salía de la ventana, el
+     espacio pulsaba un botón de la pantalla de atrás, ese botón abría
+     "Sign out?" encima, y un Enter mandaba los 462 correos con la
+     pantalla diciendo "Sign out?". Lo encontró la revisión del 4 de
+     octubre.
+
+     Ahora la segunda se contesta que NO en el acto. "No" es la respuesta
+     segura: no se hace nada. */
+  let _ventanaAbierta = false;
+
+  function confirmModal({ title = 'Are you sure?', message = '', okLabel = 'Confirm', cancelLabel = 'Cancel', danger = false, focusCancel = false } = {}) {
+    if (_ventanaAbierta) {
+      console.warn('[Ferocia] ya hay una ventana de confirmación abierta; '
+                 + 'la nueva se contesta que no:', title);
+      return Promise.resolve(false);
+    }
+    _ventanaAbierta = true;
     return new Promise((resolve) => {
       const modal = ensureConfirmModal();
       modal.querySelector('#confirm-modal-title').textContent = title;
@@ -311,20 +354,59 @@
         cancelBtn.removeEventListener('click', onCancel);
         modal.removeEventListener('click', onBackdrop);
         document.removeEventListener('keydown', onKey);
+        _ventanaAbierta = false;
         resolve(result);
       };
       const onOk = () => cleanup(true);
       const onCancel = () => cleanup(false);
       const onBackdrop = (e) => { if (e.target === modal) cleanup(false); };
       const onKey = (e) => {
-        if (e.key === 'Escape') cleanup(false);
-        if (e.key === 'Enter') cleanup(true);
+        if (e.key === 'Escape') { cleanup(false); return; }
+
+        /* ⚠️  EL CURSOR NO SE SALE DE LA VENTANA.
+
+           Sin esto, el Tab se iba a la pantalla de atrás y desde ahí se
+           podían pulsar botones con el teclado mientras la pregunta
+           seguía abierta — incluido uno que abría otra ventana encima.
+           La ventana tiene exactamente dos botones, así que el Tab da
+           la vuelta entre ellos y ya está. */
+        if (e.key === 'Tab') {
+          e.preventDefault();
+          const botones = [cancelBtn, okBtn];
+          const i = botones.indexOf(document.activeElement);
+          /* Si el cursor andaba fuera, se recupera al primero. */
+          const siguiente = i === -1 ? 0
+            : (i + (e.shiftKey ? botones.length - 1 : 1)) % botones.length;
+          botones[siguiente].focus();
+          return;
+        }
+
+        /* Enter YA NO CONFIRMA DESDE AQUÍ. Lo hace el botón que tenga el
+           cursor, él solo.
+
+           Lo que queda es una red por si algo se lleva el cursor fuera
+           de la ventana a la fuerza (el Tab ya no puede): Enter y el
+           espacio se tragan aquí. Mientras el cursor esté DENTRO, no se
+           tocan: si no, los botones dejarían de responder.
+
+           ⚠️  Y HASTA AHÍ LLEGA. `preventDefault` sólo cancela lo que
+           hace el navegador por su cuenta —pulsar un botón, mandar un
+           formulario—; no para el código de otro que esté escuchando esa
+           misma tecla antes que nosotros. Quien de verdad cierra esa
+           puerta es la trampa del Tab de arriba, que impide que el
+           cursor llegue ahí. Esto es el segundo cinturón, no el
+           primero. */
+        if ((e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar')
+            && !modal.contains(document.activeElement)) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
       };
       okBtn.addEventListener('click', onOk);
       cancelBtn.addEventListener('click', onCancel);
       modal.addEventListener('click', onBackdrop);
       document.addEventListener('keydown', onKey);
-      setTimeout(() => okBtn.focus(), 50);
+      setTimeout(() => (focusCancel ? cancelBtn : okBtn).focus(), 50);
     });
   }
 

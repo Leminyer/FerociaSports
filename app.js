@@ -808,6 +808,8 @@ window.selectLadderType = (type) => {
     const flyerUrl = btn.dataset.evflyer;
     const ok = await confirmModal({
       title: 'Delete event?',
+      /* Empieza con el cursor en Cancel: esto borra y no hay papelera. */
+      focusCancel: true,
       message: 'This will permanently delete the event and its flyer.',
       okLabel: 'Delete',
     });

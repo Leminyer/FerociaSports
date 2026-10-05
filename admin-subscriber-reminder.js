@@ -208,6 +208,8 @@
 
         const seguro = await confirmModal({
           title:   `Send a reminder to ${cuantos} subscriber${cuantos === 1 ? '' : 's'}?`,
+          /* Empieza con el cursor en Cancel: manda correos y eso no se deshace. */
+          focusCancel: true,
           message: (delFreno
                      ? `⚠️ ${delFreno} of these never got a confirmation email because the `
                        + `signup brake was on, which usually means a burst of fake signups. `

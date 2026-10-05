@@ -877,6 +877,8 @@
     // sentence rather than a formatted block.
     const ok = await confirmModal({
       title: 'Create a player record?',
+      /* Empieza con el cursor en Cancel: el propio aviso dice que no se puede deshacer — no hay forma de borrar un jugador desde la aplicación. */
+      focusCancel: true,
       message: `A player record will be created for ${s.first_name} ${s.last_name}. `
              + `This cannot be undone from the app — there is no option to delete a player, `
              + `so reversing it would need direct database access. They stay on the mailing list.`,
@@ -1598,6 +1600,8 @@
       const cuantos = subs.length;
       const seguro = await confirmModal({
         title:   `Send this campaign to ${cuantos} subscriber${cuantos === 1 ? '' : 's'}?`,
+        /* Empieza con el cursor en Cancel: manda correos y eso no se deshace. */
+        focusCancel: true,
         message: `"${datos.subject}" will be emailed to ${cuantos} active subscriber`
                + `${cuantos === 1 ? '' : 's'}, plus a copy to you. This cannot be undone.`
                /* Una sola frase seguida: confirmModal pinta con

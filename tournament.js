@@ -8,7 +8,11 @@
 const tApi     = (...args) => (window.app?.api || window.api)(...args);
 const tEsc     = (...args) => (window.app?.esc || window.esc || (s => s))(...args);
 const tFmtDate = (...args) => (window.app?.fmtDate || window.fmtDate || (d => d))(...args);
-const tConfirm = (...args) => (window.app?.confirmModal || window.confirmModal || (() => Promise.resolve(true)))(...args);
+/* Si por lo que sea no hay ventana de confirmar (db.js no llegó a
+   cargar), la respuesta es NO. Decía que sí, o sea que una pregunta que
+   no se puede hacer se daba por contestada que sí — y una de ellas borra
+   una categoría. Lo encontró la revisión del 4 de octubre. */
+const tConfirm = (...args) => (window.app?.confirmModal || window.confirmModal || (() => Promise.resolve(false)))(...args);
 
 function tToast(msg, isError = false) {
   // Use the shared toast if available; otherwise fall back to native alert.
@@ -1140,14 +1144,14 @@ async function tToggleStatus(id, currentStatus) {
     await completeTournamentFromList(id);
   } else if (currentStatus === 'draft') {
     // Draft → Activate
-    const confirmed = await tConfirm({ title: 'Activate Tournament?', message: 'Start this tournament? Players will be able to see it.', okLabel: 'Activate' });
+    const confirmed = await tConfirm({ title: 'Activate Tournament?', message: 'Start this tournament? Players will be able to see it.', okLabel: 'Activate', focusCancel: true });
     if (!confirmed) return;
     await tApi(`tournaments?id=eq.${id}`, 'PATCH', { status: 'active' });
     tToast('Tournament activated!');
     renderTournamentList();
   } else {
     // Completed → Reopen
-    const confirmed = await tConfirm({ title: 'Reopen Tournament?', message: 'Reopen this tournament as active?', okLabel: 'Reopen' });
+    const confirmed = await tConfirm({ title: 'Reopen Tournament?', message: 'Reopen this tournament as active?', okLabel: 'Reopen', focusCancel: true });
     if (!confirmed) return;
     await tApi(`tournaments?id=eq.${id}`, 'PATCH', { status: 'active', completed_at: null });
     tToast('Tournament reopened.');
@@ -1591,6 +1595,8 @@ async function tRemoveExistingCat(idx) {
     // white-space:pre-line, so this has to be one flowing sentence.
     const ok = await tConfirm({
       title: 'Remove this category?',
+      /* Empieza con el cursor en Cancel: esto borra y no hay papelera. */
+      focusCancel: true,
       message: parts.length
         ? `"${cat.name}" has ${parts.join(' and ')}. Removing it will permanently delete them when you click Apply Updates. This cannot be undone.`
         : `"${cat.name}" will be permanently removed when you click Apply Updates.`,
@@ -5226,7 +5232,9 @@ async function printTournamentRoster(btn) {
          over — the same way the schedule continues in the right column. */
       let teamCursor = 0;
       const drawTeamsList = (startY) => {
-        if (teamCursor >= teams.length) return;
+        // Nothing left to continue: leave the column blank rather than
+        // printing a header with no teams under it.
+        if (teams.length && teamCursor >= teams.length) return;
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(8);
         doc.setTextColor(...MUTED);
@@ -5317,8 +5325,8 @@ async function printTournamentRoster(btn) {
 
       const MATCH_H = 9;
 
-      // Add a new page — repeat teams list on left, schedule continues on right
-      // so both columns always match page 1 layout exactly.
+      // Add a new page — both columns carry on where they stopped: the teams
+      // list on the left, the schedule on the right.
       const addSchedulePage = () => {
         drawFooter();
         doc.addPage();

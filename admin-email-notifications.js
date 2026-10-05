@@ -263,6 +263,8 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
       const cuantos = emailPlayers.length;
       const seguro = await confirmModal({
         title:   `Notify ${cuantos} player${cuantos === 1 ? '' : 's'}?`,
+        /* Empieza con el cursor en Cancel: manda correos y eso no se deshace. */
+        focusCancel: true,
         message: `"${subject}" will be emailed to ${cuantos} active player`
                + `${cuantos === 1 ? '' : 's'} in ${AdminState.currentLadder.name}`
                + `, plus a copy to you. This cannot be undone.`

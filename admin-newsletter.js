@@ -197,6 +197,8 @@
     if (isSent()) return;
     const ok = await confirmModal({
       title: 'Remove this item?',
+      /* Empieza con el cursor en Cancel: esto borra y no hay papelera. */
+      focusCancel: true,
       message: 'It will be taken out of this edition. Nothing is sent or deleted elsewhere.',
       okLabel: 'Remove', cancelLabel: 'Cancel',
     });
@@ -905,6 +907,8 @@
     }
     const ok = await confirmModal({
       title: `Delete the ${n.title} draft?`,
+      /* Empieza con el cursor en Cancel: esto borra y no hay papelera. */
+      focusCancel: true,
       message: 'This draft and everything written in it will be removed. Nothing was sent to subscribers, so nobody is affected — but the text cannot be recovered.',
       okLabel: 'Delete draft', cancelLabel: 'Keep it',
     });
@@ -922,6 +926,8 @@
     if (_dirty) {
       const ok = await confirmModal({
         title: 'Leave without saving?',
+        /* Empieza con el cursor en Cancel, que aquí es "Stay": confirmar BORRA el texto sin guardar, que es justo lo que esta pregunta existe para proteger. */
+        focusCancel: true,
         message: 'This edition has unsaved changes. Leaving now discards them.',
         okLabel: 'Discard changes', cancelLabel: 'Stay',
       });
@@ -1194,6 +1200,8 @@
        los 300 lo recibirían por segunda vez. */
     const ok = await confirmModal({
       title: yaTiene ? `Finish sending ${_current.title}?` : `Send ${_current.title}?`,
+      /* Empieza con el cursor en Cancel: manda correos y eso no se deshace. */
+      focusCancel: true,
       message: yaTiene
         ? `${yaTiene} of the ${count} active subscriber${count !== 1 ? 's' : ''} already received this `
           + `edition. Only the ones still missing will be emailed — nobody gets it twice.`

@@ -910,6 +910,8 @@
     try {
       const seguro = await window.confirmModal({
         title:   'Retry this send?',
+        /* Empieza con el cursor en Cancel: manda correos y eso no se deshace. */
+        focusCancel: true,
         message: `"${e.subject || '(no subject)'}" will be sent again, but only to the people who did not `
                + 'receive it. Everyone who already got it will be skipped.'
                + ' Addresses that have already failed three times are not tried again.',
