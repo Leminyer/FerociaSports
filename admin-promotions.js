@@ -1740,7 +1740,7 @@
          launched!" de una campaña que no llegó a ningún suscriptor. */
       const salio = (d.sent || 0) + (d.already_sent || 0) > 1;
       toast(`${salio ? 'Campaign launched! ' : ''}`
-            + `${window.mensajeExito(d)}${window.loQueFalto(d)}`, falto);
+            + `${window.mensajeExito(d)}${window.loQueFalto(d)}${window.loQueEntro(d)}`, falto);
     } else {
       console.warn('[promotions] no salio limpio:', d);
       /* Si el envío se CORTÓ, eso es lo único que importa, y la

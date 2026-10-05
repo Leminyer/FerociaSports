@@ -336,7 +336,8 @@
         ensayo.sync();   // por la casilla real, no por una foto
         sendBtn.disabled = false;
         sendBtn.style.background = 'linear-gradient(180deg,#2456d3,var(--blue))';
-        toast(window.mensajeExito(d) + window.loQueFalto(d), window.huboPerdidas(d));
+        toast(window.mensajeExito(d) + window.loQueFalto(d) + window.loQueEntro(d),
+              window.huboPerdidas(d));
       }, 1400);
     } else {
       /* La ventana NO se cierra: si algo falló, el mensaje escrito sigue

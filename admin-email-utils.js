@@ -85,6 +85,13 @@
     kind_invalido:     'Internal error: unknown email type. Nothing was sent.',
     template_invalido: 'Internal error: unknown email template. Nothing was sent.',
 
+    /* El envío se corta cuando no se puede comprobar quién se dio de
+       baja. Sin esta línea salía el texto crudo de la base de datos, que
+       no dice ninguna de las dos cosas que ella necesita saber: que no
+       salió nada, y que puede volver a pulsar. */
+    baja_check_failed: 'Could not check who has unsubscribed, so nothing was sent — '
+                     + 'press Send again and it will pick up where it left off.',
+
     sin_destinatarios:        'There is nobody to send to.',
     demasiados_destinatarios: 'Too many recipients for one send (limit is 1000). Nothing was sent.',
     ningun_email_valido:      'None of the addresses are valid. Nothing was sent.',
@@ -449,6 +456,46 @@
   }
 
   /**
+   * LO QUE CAMBIÓ EN LA LISTA AL RETOMAR UN ENVÍO.
+   *
+   * Cuando un envío no termina del todo, la aplicación se queda
+   * enganchada a él y la siguiente pulsación lo retoma. Hasta el 5 de
+   * octubre eso DESCARTABA EN SILENCIO a quien se hubiera apuntado
+   * entremedias: la ventana decía "a 15 suscriptores", no les llegaba a
+   * 5 de ellos, y el aviso decía "ya lo habían recibido todos".
+   *
+   * Ahora el servidor los añade, y esto lo cuenta. Sin esta frase el
+   * arreglo seguiría siendo silencioso, sólo que al revés: la lista
+   * cambiaría sola y nadie se enteraría.
+   *
+   * Los dos números son CERO en un envío nuevo, así que esto no dice
+   * nada salvo cuando de verdad se retomó algo y la lista se movió.
+   *
+   * Va pegada detrás del resultado, igual que `loQueFalto`, en las siete
+   * pantallas que mandan por `send-email`.
+   *
+   * @param   {object} d  lo que contesta la Edge Function
+   * @returns {string}    la frase, o '' si no cambió nada
+   */
+  function loQueEntro(d) {
+    const partes = [];
+    const nuevos  = Number(d && d.added) || 0;
+    const fuera   = Number(d && d.removed) || 0;
+    if (nuevos) {
+      partes.push(`${nuevos} ${nuevos === 1 ? 'person had' : 'people had'} signed up `
+                + 'since the last attempt and been added');
+    }
+    /* Se nombra aparte y SIEMPRE, aunque no se añadiera a nadie: que una
+       persona se haya dado de baja a mitad de un envío es justo lo que
+       hay que poder ver en el historial. */
+    if (fuera) {
+      partes.push(`${fuera} ${fuera === 1 ? 'person' : 'people'} unsubscribed `
+                + 'in the meantime and been taken off');
+    }
+    return partes.length ? ` ${partes.join(', ')}.` : '';
+  }
+
+  /**
    * SI EL ENVÍO SE CORTÓ, POR QUÉ — Y SI PULSAR SIRVE DE ALGO.
    *
    * El servidor distingue tres motivos de corte y los manda en
@@ -693,6 +740,7 @@
   window.resumenEnvio       = resumenEnvio;
   window.mensajeExito       = mensajeExito;
   window.loQueFalto         = loQueFalto;
+  window.loQueEntro         = loQueEntro;
   window.huboPerdidas       = huboPerdidas;
   window.motivoDelCorte     = motivoDelCorte;
   window.envioTerminado     = envioTerminado;

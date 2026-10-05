@@ -384,7 +384,8 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     if (limpio) {
       claveador.limpiar();   // el siguiente aviso será uno nuevo
       document.getElementById('notify-modal').classList.remove('open');
-      toast(window.mensajeExito(d) + window.loQueFalto(d), window.huboPerdidas(d));
+      toast(window.mensajeExito(d) + window.loQueFalto(d) + window.loQueEntro(d),
+            window.huboPerdidas(d));
     } else {
       console.warn('[ladder-notify] no salio limpio:', d);
       /* Si el envío se CORTÓ, eso es lo único que importa, y la

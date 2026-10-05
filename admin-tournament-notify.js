@@ -301,7 +301,8 @@
     if (limpio) {
       claveador.limpiar();   // el siguiente aviso será uno nuevo
       closeTournamentNotifyModal();
-      toast(window.mensajeExito(d) + window.loQueFalto(d), window.huboPerdidas(d));
+      toast(window.mensajeExito(d) + window.loQueFalto(d) + window.loQueEntro(d),
+            window.huboPerdidas(d));
     } else {
       console.warn('[tournament-notify] no salio limpio:', d);
       /* Si el envío se CORTÓ, eso es lo único que importa, y la

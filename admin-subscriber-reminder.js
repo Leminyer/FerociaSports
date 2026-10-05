@@ -322,7 +322,7 @@
           ? window.mensajeExito(d) + saltados
           : `${falto ? '' : '✅ '}Confirmation reminder sent to ${d.sent} `
             + `subscriber${d.sent === 1 ? '' : 's'}.${saltados}`)
-          + window.loQueFalto(d), falto);
+          + window.loQueFalto(d) + window.loQueEntro(d), falto);
       } else {
         console.warn('[confirm-reminder] no salio limpio:', d);
         /* Si el envío se CORTÓ, eso es lo único que importa, y la

@@ -1006,7 +1006,8 @@
            que esas dos cosas no se nombraban — y la peor, porque es la
            puerta a la que se llega justamente cuando algo ya falló. */
         const corte = window.motivoDelCorte(d);
-        window.toast(corte || (window.mensajeExito(d) + window.loQueFalto(d)),
+        window.toast(corte || (window.mensajeExito(d) + window.loQueFalto(d)
+                              + window.loQueEntro(d)),
                      !!corte || !d.sent || window.huboPerdidas(d));
       }
 
