@@ -760,6 +760,30 @@
           // used to inflate the list. Without this branch the visitor would
           // fall through to "already registered", which is not what happened.
           showFieldError('s-email', 'err-email', 'This email address has reached the maximum number of subscriptions. Please contact us at contact@ferociasports.com.');
+        } else if (status === 'unsubscribed') {
+          /* ⚠️  ESTA RAMA EXISTE PORQUE LE MENTÍAMOS A ESTA PERSONA.
+
+             `subscribe_signup` reconoce a quien ya existe por correo +
+             nombre + apellido, y devuelve "ya existe" sin mirar su
+             estado — la palabra "unsubscribed" no aparece ni una vez en
+             toda la función. Así que quien se dio de baja y se arrepiente,
+             y vuelve a rellenar esto escribiendo su nombre igual que la
+             primera vez, caía en el "else" de abajo y leía "este nombre y
+             correo ya están registrados". Para ella es falso: no está
+             registrada, está fuera. Y se quedaba sin saber qué hacer.
+
+             Peor aún: la página de bajas le promete, con estas palabras,
+             que "si cambias de opinión puedes volver a suscribirte en
+             ferociasports.com". Le prometíamos una puerta que no existe.
+
+             Comprobado contra un PostgreSQL de verdad el 6 de octubre,
+             con la función que corre en producción.
+
+             Esto NO la reactiva: eso sería meter sola a una dirección en
+             la lista, y la vuelta tiene que pasar por una persona. Lo que
+             hace es decirle la verdad y darle a dónde escribir — y ahora
+             hay un botón en el admin para atenderla cuando escriba. */
+          showFieldError('s-email', 'err-email', 'You unsubscribed from this list. To start receiving our emails again, write to contact@ferociasports.com and we will add you back.');
         } else {
           showFieldError('s-email', 'err-email', 'This name and email are already registered.');
         }

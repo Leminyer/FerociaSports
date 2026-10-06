@@ -546,10 +546,22 @@
        · unsubscribed       → NO convert icon at all (approved): someone
                               who left the mailing list is not converted
                               into a player from here
-       · otherwise          → person-with-plus, opens the convert modal */
+       · otherwise          → person-with-plus, opens the convert modal
+
+     Y desde el 6 de octubre uno más, el de la suscripción:
+       · activa o pendiente → sobre tachado, para darla de baja
+       · dada de baja       → flecha de vuelta, para volver a activarla
+
+     ⚠️  NINGUNO DE LOS DOS HACE NADA AL PULSARLO. Los dos abren una
+     ventana que dice de quién se trata y pide confirmación. Están en la
+     fila, al lado del de convertir, porque así se pidió; la ventana es
+     lo que hace que pulsar en la fila equivocada no tenga consecuencias. */
   const ICON_EYE   = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>';
   const ICON_ADD   = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>';
   const ICON_CHECK = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></svg>';
+  // Sobre tachado = "deja de recibir correo". Flecha de vuelta = "vuelve".
+  const ICON_UNSUB = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 13V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h9"/><polyline points="22 7 12 13 2 7"/><line x1="16" y1="19" x2="22" y2="19"/></svg>';
+  const ICON_BACK  = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>';
 
   const iconBtn = (action, extra, title, icon, color) =>
     `<button type="button" data-action="${action}" ${extra} title="${title}"
@@ -560,7 +572,12 @@
     let html = iconBtn('viewSubscriber', `data-subid="${s.id}"`,
                        'View details', ICON_EYE, 'var(--text-muted)');
 
-    if (s.status === 'unsubscribed') return html;   // no conversion
+    if (s.status === 'unsubscribed') {
+      // Sigue sin icono de convertir (decidido el 3 de octubre): a quien
+      // se fue de la lista no se le convierte en jugador desde aquí.
+      return html + iconBtn('resubscribeSubscriber', `data-subid="${s.id}"`,
+                            'Subscribe again', ICON_BACK, 'var(--teal)');
+    }
 
     const pid = _playerIndex.get(_personKey(s));
     html += pid
@@ -568,6 +585,8 @@
                 'Already a player — view profile', ICON_CHECK, 'var(--teal)')
       : iconBtn('convertSubscriber', `data-subid="${s.id}"`,
                 'Convert to player', ICON_ADD, 'var(--blue)');
+    html += iconBtn('unsubscribeSubscriber', `data-subid="${s.id}"`,
+                    'Unsubscribe', ICON_UNSUB, '#c04a0e');
     return html;
   };
 
@@ -732,13 +751,311 @@
           : '')
       // Surfaces the legacy rows that have no token and therefore cannot
       // use the unsubscribe link in a campaign.
-      + svRow('Can unsubscribe', s.unsubscribe_token ? 'Yes' : '<span style="color:#c04a0e;">No — no token</span>');
+      + svRow('Can unsubscribe', s.unsubscribe_token ? 'Yes' : '<span style="color:#c04a0e;">No — no token</span>')
+      /* Cuándo y por qué se fue. Sólo se enseña a quien está fuera: a
+         quien está dentro, estos dos datos son del pasado y leerlos en
+         su ficha haría pensar que está de baja. */
+      + (s.status === 'unsubscribed'
+          ? svRow('Unsubscribed', esc(_cuandoSeDioDeBaja(s)))
+            + svRow('Reason', esc(_porQueSeDioDeBaja(s)))
+          : '');
 
     document.getElementById('sub-view-modal').classList.add('open');
   };
 
   window.closeSubView = () =>
     document.getElementById('sub-view-modal').classList.remove('open');
+
+
+  /* ─── DAR DE BAJA / VOLVER A ACTIVAR ──────────────────────────
+
+     Dos botones en la fila de la tabla, y los dos pasan por aquí.
+     NINGUNO actúa al pulsarlo: los dos abren esta ventana, que dice de
+     quién se trata y espera una confirmación.
+
+     Por qué una ventana propia y no la compartida (`confirmModal`, en
+     db.js): ésa tiene exactamente dos botones, y su trampa del cursor
+     —la que impide que un Enter despistado confirme algo -- cuenta con
+     eso. Meterle un campo de texto obligaría a tocar la pieza que
+     protege las 22 confirmaciones de la aplicación, por una pantalla.
+     No merece la pena. Ésta sigue el patrón de la ventana de convertir
+     a jugador, que ya es una ventana aparte con su propio formulario.
+
+     Y por eso el motivo va en un `textarea` y no en un `input`: en un
+     campo de una línea, Enter puede llegar a confirmar; en éste sólo
+     hace un salto de línea. El dedo tiene que ir al botón. */
+
+  /* Las TRES situaciones de una baja, y ninguna se puede confundir con
+     otra, porque de eso depende que decidas con un dato y no con una
+     suposición:
+       · con motivo escrito  → la diste de baja tú
+       · con fecha y sin motivo → se dio de baja ella desde el enlace,
+         donde no se le pregunta nada
+       · sin fecha → es anterior al 6 de octubre de 2026, que es cuando
+         empezamos a guardarla. Ese dato no existe y no me lo invento. */
+  /* Sin fecha entre paréntesis a propósito: la frontera no es el día que
+     se subió esto, es el día que ella corre el `sql/69` — y eso el código
+     no lo sabe. Una fecha concreta aquí sería una afirmación que puede
+     salir falsa por una semana. */
+  const _cuandoSeDioDeBaja = (s) =>
+    s.unsubscribed_at
+      ? fechaYHora(s.unsubscribed_at)
+      : 'Before we started recording it';
+
+  const _porQueSeDioDeBaja = (s) => {
+    if (s.unsubscribe_note) return s.unsubscribe_note;
+    if (s.unsubscribed_at) {
+      return 'They unsubscribed themselves from the link in an email. '
+           + 'That page does not ask for a reason.';
+    }
+    return 'Not recorded — this was before we started saving it.';
+  };
+
+  /* Las OTRAS fichas que comparten esa misma dirección y siguen dentro.
+     Hasta cuatro personas pueden compartir buzón (una familia), y la
+     lista de envío se arma por FICHA, no por dirección. */
+  const _otrasEnEseBuzon = (s) => {
+    const correo = String(s.email || '').trim().toLowerCase();
+    if (!correo) return 0;
+    return _allSubs.filter((x) => x.id !== s.id
+      && String(x.email || '').trim().toLowerCase() === correo
+      && x.status !== 'unsubscribed').length;
+  };
+
+  let _ssSub  = null;   // de quién habla la ventana abierta
+  let _ssModo = null;   // 'baja' | 'alta'
+  let _ssTecla = null;  // el oyente del teclado mientras está abierta
+
+  const closeSubStatus = () => {
+    document.getElementById('sub-status-modal').classList.remove('open');
+    if (_ssTecla) { document.removeEventListener('keydown', _ssTecla); _ssTecla = null; }
+    _ssSub = null;
+    _ssModo = null;
+  };
+
+  /* ⚠️  EL CURSOR NO SE SALE DE ESTA VENTANA, Y ESCAPE LA CIERRA.
+
+     La ventana compartida (`confirmModal`, en db.js) lleva esto desde el
+     4 de octubre, y lo lleva por un motivo concreto: sin ello el Tab se
+     iba a la pantalla de atrás, el espacio pulsaba un botón de allí, se
+     abría otra ventana encima, y un Enter contestaba que sí a las dos —
+     462 correos saliendo con la pantalla diciendo otra cosa.
+
+     Ésta es una ventana aparte, así que no heredaba nada de eso. Y es
+     además la que más invita a usar el teclado, porque es la única con
+     un campo de texto del que se sale con el Tab. Lo señaló la revisión
+     del 6 de octubre, con el recorrido del cursor medido: dos tabulado-
+     res y el foco estaba en los botones de la tabla de atrás.
+
+     Aquí la trampa no puede dar por hecho que hay dos botones, como la
+     compartida: hay dos botones Y un campo de texto. Se recorre lo que
+     haya dentro. */
+  const _atraparCursor = (modal) => {
+    _ssTecla = (e) => {
+      if (e.key === 'Escape') { closeSubStatus(); return; }
+      if (e.key !== 'Tab') return;
+      const foco = [...modal.querySelectorAll('button, textarea')]
+        .filter((el) => !el.disabled && el.offsetParent !== null);
+      if (!foco.length) return;
+      e.preventDefault();
+      const i = foco.indexOf(document.activeElement);
+      const sig = i === -1 ? 0
+        : (i + (e.shiftKey ? foco.length - 1 : 1)) % foco.length;
+      foco[sig].focus();
+    };
+    document.addEventListener('keydown', _ssTecla);
+    /* Pulsar fuera de la ventana también la cierra, como las demás.
+       Cerrar es la respuesta segura: no hace nada. */
+    modal.onclick = (e) => { if (e.target === modal) closeSubStatus(); };
+  };
+
+  /* ⚠️  LOS DOS BOTONES LLEVAN BORDE, aunque el de confirmar lo lleve
+     transparente. Con `border:none` el botón medía 2px menos de alto
+     que el de Cancelar, y a 320px de ancho eso lo dejaba por debajo del
+     tamaño mínimo para tocarlo con el dedo. Lo midió la prueba de
+     móvil; a simple vista no se nota. */
+  const _ssBoton = (accion, texto, fondo, extra = '') =>
+    `<button type="button" data-action="${accion}" ${extra}
+       style="padding:10px 22px;border:1px solid ${fondo === 'white' ? 'var(--divider-color)' : 'transparent'};border-radius:99px;background:${fondo};color:${fondo === 'white' ? 'var(--text)' : 'white'};font-family:'Inter',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">${texto}</button>`;
+
+  const _abrirSubStatus = (subId, modo) => {
+    const s = _allSubs.find(x => String(x.id) === String(subId));
+    if (!s) { toast('Subscriber not found. Refresh the page.', true); return; }
+
+    /* La tabla puede llevar minutos pintada. Si esta persona ya está en
+       el estado al que ibas a llevarla, no se pregunta nada: se dice y
+       se recarga. Mejor que confirmar un cambio que no hace nada. */
+    const yaEsta = (modo === 'baja' && s.status === 'unsubscribed')
+                || (modo === 'alta'  && s.status !== 'unsubscribed');
+    if (yaEsta) {
+      toast(`${s.first_name} ${s.last_name} is already `
+          + `${modo === 'baja' ? 'unsubscribed' : 'subscribed'}. Refreshing the list.`);
+      loadSubscribers();
+      return;
+    }
+
+    _ssSub  = s;
+    _ssModo = modo;
+
+    document.getElementById('ss-title').textContent =
+      modo === 'baja' ? 'Unsubscribe this person?' : 'Subscribe this person again?';
+    document.getElementById('ss-subtitle').textContent =
+      `${s.first_name} ${s.last_name} · ${s.email}`;
+
+    const aviso = (fondo, borde, html) =>
+      `<div style="padding:14px 16px;background:${fondo};border:1px solid ${borde};border-radius:10px;font-size:13px;font-weight:600;color:var(--text);line-height:1.6;">${html}</div>`;
+
+    const body = document.getElementById('ss-body');
+
+    if (modo === 'baja') {
+      body.innerHTML =
+        aviso('rgba(192,74,14,0.06)', 'rgba(192,74,14,0.25)',
+            'They will stop receiving campaigns and the newsletter from now on. '
+          + 'Nothing is deleted: their record, their history and where they came '
+          + 'from all stay.'
+          + (_playerIndex.get(_personKey(s))
+              ? '<div style="margin-top:10px;font-weight:700;color:#c04a0e;">'
+                + 'This person is also a player, so they will still get ladder '
+                + 'and tournament emails. Those are not part of the mailing list.</div>'
+              : '')
+          /* ⚠️  EL BUZÓN COMPARTIDO. 19 de sus 490 direcciones llevan más
+             de una ficha —familias que comparten correo— y la lista de
+             envío se arma por FICHA, no por dirección. Sin este aviso,
+             alguien escribe "quitadme de la lista", ella da de baja a esa
+             ficha, la ventana le dice que esa persona deja de recibir, y
+             al buzón le siguen llegando los correos a nombre de otro. Lo
+             siguiente que se pulsa ahí es spam. Lo señaló la revisión del
+             6 de octubre. */
+          + (() => {
+              const n = _otrasEnEseBuzon(s);
+              if (!n) return '';
+              return '<div style="margin-top:10px;font-weight:700;color:#c04a0e;">'
+                + (n === 1
+                    ? '1 other subscription shares this email address and will keep '
+                      + 'receiving campaigns. Unsubscribe it too if the whole inbox '
+                      + 'should stop.'
+                    : `${n} other subscriptions share this email address and will keep `
+                      + 'receiving campaigns. Unsubscribe them too if the whole inbox '
+                      + 'should stop.')
+                + '</div>';
+            })())
+        + '<div style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);margin:18px 0 4px;">'
+        + 'Why are you unsubscribing them? <span style="color:#e53935;">*</span></div>'
+        + '<textarea id="ss-note" rows="3" maxlength="200"'
+        + ' placeholder="They asked by email on Oct 6"'
+        + ' style="width:100%;padding:10px 12px;border:1px solid var(--divider-color);border-radius:8px;font-family:\'Inter\',sans-serif;font-size:13px;font-weight:600;color:var(--text);outline:none;resize:vertical;box-sizing:border-box;"></textarea>'
+        + '<div style="font-size:11px;font-weight:600;color:var(--text-muted);margin-top:6px;line-height:1.5;">'
+        + 'Required. In six months this is the only thing that will explain why '
+        + 'they are out of the list.</div>'
+        + `<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px;flex-wrap:wrap;">
+             ${_ssBoton('closeSubStatus', 'Cancel', 'white')}
+             ${_ssBoton('confirmSubStatus', 'Unsubscribe', '#c04a0e', 'id="ss-ok"')}
+           </div>`;
+
+      /* El botón se apaga mientras no haya texto, y se enciende cuando
+         lo hay. Así "obligatorio" se ve antes de pulsar, en vez de ser
+         un error después.
+
+         ⚠️  LO APAGA `mirar()`, Y NADA MÁS. Lo tenía además escrito como
+         `disabled` en el propio botón, y eso era código muerto: `mirar()`
+         corre justo después de pintarlo y decide igual. La mutación lo
+         demostró — quitar ese `disabled` no ponía roja ninguna prueba,
+         porque no hacía nada. Dos sitios decidiendo lo mismo es como se
+         empieza a tener dos que no coinciden. */
+      const nota = document.getElementById('ss-note');
+      const ok   = document.getElementById('ss-ok');
+      const mirar = () => {
+        const hay = nota.value.trim().length > 0;
+        ok.disabled = !hay;
+        ok.style.opacity = hay ? '1' : '0.45';
+        ok.style.cursor  = hay ? 'pointer' : 'not-allowed';
+      };
+      nota.addEventListener('input', mirar);
+      mirar();
+      setTimeout(() => nota.focus(), 50);
+    } else {
+      body.innerHTML =
+        aviso('rgba(36,188,150,0.06)', 'rgba(36,188,150,0.25)',
+            '<div style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);">Unsubscribed</div>'
+          + `<div style="margin-bottom:10px;">${esc(_cuandoSeDioDeBaja(s))}</div>`
+          + '<div style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);">Reason</div>'
+          + `<div>${esc(_porQueSeDioDeBaja(s))}</div>`)
+        /* ⚠️  QUIEN NUNCA CONFIRMÓ SU CORREO NO VUELVE COMO ACTIVO.
+
+           Esta pantalla también deja dar de baja a una ficha pendiente
+           (una alta falsa, por ejemplo). Devolverla como "activa" la
+           metería en los envíos sin que nadie haya comprobado nunca que
+           esa dirección existe y que su dueño la quiere — justo lo que
+           el doble paso del alta está para impedir, y una dirección sin
+           comprobar en un envío masivo es lo que hunde la reputación
+           del dominio. Vuelve como pendiente, y se lo dice. Lo señaló la
+           revisión del 6 de octubre. */
+        + '<div style="font-size:13px;font-weight:600;color:var(--text);line-height:1.6;margin-top:16px;">'
+        + (s.confirm_token
+            ? 'They never confirmed their email, so they go back to '
+              + '<strong>Pending</strong>. They will receive campaigns once they '
+              + 'confirm — you can send them the confirmation link again from '
+              + 'this screen.'
+            : 'They will go back to <strong>Active</strong> and will receive campaigns '
+              + 'and the newsletter again, starting with the next one.')
+        + '</div>'
+        + '<div style="font-size:11px;font-weight:600;color:var(--text-muted);margin-top:8px;line-height:1.5;">'
+        + 'Only do this if this person asked you to. Writing to someone who chose '
+        + 'to leave is what gets a sender marked as spam.</div>'
+        + `<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px;flex-wrap:wrap;">
+             ${_ssBoton('closeSubStatus', 'Cancel', 'white')}
+             ${_ssBoton('confirmSubStatus', 'Subscribe Again', 'linear-gradient(180deg,#2456d3,var(--blue))', 'id="ss-ok"')}
+           </div>`;
+    }
+
+    const modal = document.getElementById('sub-status-modal');
+    modal.classList.add('open');
+    _atraparCursor(modal);
+  };
+
+  const confirmSubStatus = async () => {
+    const s    = _ssSub;
+    const modo = _ssModo;
+    if (!s || !modo) return;
+
+    const ok = document.getElementById('ss-ok');
+    let nota = '';
+    if (modo === 'baja') {
+      nota = (document.getElementById('ss-note')?.value || '').trim();
+      /* Segundo cinturón: el botón ya nace apagado sin nota, pero si
+         algún día ese enganche se rompiera, aquí no pasa igual. */
+      if (!nota) { toast('Write why you are unsubscribing them first.', true); return; }
+    }
+
+    if (ok) { ok.disabled = true; ok.textContent = 'Saving...'; }
+    try {
+      /* La fecha NO se manda desde aquí: la pone la base de datos sola,
+         con la regla del `sql/69`. Así vale igual para este botón, para
+         el enlace del correo y para un SQL a mano, y no puede olvidarse
+         en ninguno de los tres. */
+      await api(`subscribers?id=eq.${s.id}`, 'PATCH',
+        modo === 'baja'
+          ? { status: 'unsubscribed', unsubscribe_note: nota }
+          /* Pendiente vuelve a pendiente: nunca confirmó su correo, y
+             devolverla como activa la metería en los envíos sin que
+             nadie haya comprobado que esa dirección existe. */
+          : { status: s.confirm_token ? 'pending' : 'active' });
+
+      closeSubStatus();
+      toast(modo === 'baja'
+        ? `${s.first_name} ${s.last_name} will not receive any more emails.`
+        : (s.confirm_token
+            ? `${s.first_name} ${s.last_name} is back, pending their email confirmation.`
+            : `${s.first_name} ${s.last_name} is back on the mailing list.`));
+      await loadSubscribers();
+    } catch (err) {
+      toast(`Error: ${err.message}`, true);
+      if (ok) {
+        ok.disabled = false;
+        ok.textContent = modo === 'baja' ? 'Unsubscribe' : 'Subscribe Again';
+      }
+    }
+  };
 
   window.convertSubscriber = (subId) => {
     const s = _allSubs.find(x => String(x.id) === String(subId));
@@ -1811,6 +2128,11 @@
   Object.assign(window.CLICK_HANDLERS, {
     // CLICK_HANDLERS are called with ONE argument: the button element.
     viewSubscriber:      (btn) => window.viewSubscriber(btn.dataset.subid),
+    // Los dos abren la ventana; ninguno cambia nada por sí solo.
+    unsubscribeSubscriber: (btn) => _abrirSubStatus(btn.dataset.subid, 'baja'),
+    resubscribeSubscriber: (btn) => _abrirSubStatus(btn.dataset.subid, 'alta'),
+    closeSubStatus:        () => closeSubStatus(),
+    confirmSubStatus:      () => confirmSubStatus(),
     // El resumen por origen: cambiar de periodo, y saltar de una
     // tarjeta al listado filtrado de esa misma gente.
     setSourcePeriod: (btn) => {
