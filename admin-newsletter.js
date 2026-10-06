@@ -1171,8 +1171,12 @@
     // quoted from a stale number.
     let count = 0;
     try {
-      const subs = await api('subscribers?status=eq.active&select=id');
-      count = (subs || []).length;
+      /* Se pide también el código de baja: el servidor se salta a quien
+         no lo tiene, así que contarlos aquí prometía 453 y salían 451.
+         Es el mismo fallo que se arregló en Promotions, y aquí se había
+         quedado sin arreglar. Lo encontró la revisión del 5 de octubre. */
+      const subs = await api('subscribers?status=eq.active&select=id,unsubscribe_token');
+      count = (subs || []).filter((x) => x && x.unsubscribe_token).length;
     } catch (_) { /* the confirmation still works without it */ }
 
     /* Reanudar no es lo mismo que enviar: este número ya salió a parte de
@@ -1317,7 +1321,11 @@
         data.dead_addresses    ? `${data.dead_addresses} in total will not be retried — the mailbox rejected it 3 times` : '',
         data.unsubscribed_midway ? `${data.unsubscribed_midway} unsubscribed before this went out` : '',
         data.invalid_addresses ? `${data.invalid_addresses} invalid address${data.invalid_addresses !== 1 ? 'es' : ''} skipped` : '',
-        data.missing_token     ? `${data.missing_token} with no unsubscribe link skipped` : '',
+        /* La gente sin enlace de baja ya la nombra `avisoSinEnlaceDeBaja`,
+           que además dice a quién avisar. Decirlo aquí también dejaba el
+           mismo hecho dos veces en la misma frase y con dos redacciones
+           distintas — justo lo que los comentarios de este archivo
+           advierten dos veces. Lo encontró la revisión del 5 de octubre. */
         /* La ventana de confirmación cuenta PERSONAS ("se mandará a 453")
            y el envío cuenta DIRECCIONES, porque hasta cuatro personas
            pueden compartir un correo. El servidor calcula esta diferencia
@@ -1355,8 +1363,17 @@
         ? detalles.filter((t) => !/will not be retried|unsubscribed before/.test(t))
         : detalles;
 
+      /* ⚠️  LOS QUE SE QUEDARON FUERA POR NO TENER ENLACE DE BAJA.
+
+         El servidor se los salta desde siempre y manda el número en
+         `missing_token`, pero esta pantalla NO LO LEÍA: esas personas
+         desaparecían del envío sin que nadie se enterara. Lo mismo que
+         pasaba en Promotions, sólo que al revés — allí se les mandaba
+         con un enlace muerto, y aquí se les dejaba fuera en silencio.
+         Ahora las dos pantallas dicen lo mismo. */
       toast((corte || data.message || `Sent to ${data.sent} subscriber${data.sent !== 1 ? 's' : ''}.`)
         + (visibles.length ? ` ${visibles.join(', ')}.` : '')
+        + window.avisoSinEnlaceDeBaja(data.missing_token)
         + cola, malo);
       if (data.errors && data.errors.length) console.warn('[newsletter] avisos del envio:', data.errors);
       /* El botón se queda en "Sending..." si no se repone aquí. Antes no

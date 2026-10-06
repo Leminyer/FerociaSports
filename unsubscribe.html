@@ -101,12 +101,49 @@
 
   const validToken = token && /^[A-Za-z0-9_-]+$/.test(token);
 
-  if (!validToken) {
-    document.getElementById('title').textContent = 'Invalid Link';
-    document.getElementById('msg').textContent = 'This unsubscribe link is invalid.';
+  /* ⚠️  ESTA PANTALLA ERA UN CALLEJÓN SIN SALIDA.
+
+     Decía "Invalid Link. This unsubscribe link is invalid." y nada más:
+     ni por qué, ni qué hacer. Y lo decía por CUALQUIER motivo — un
+     enlace que el programa de correo partió en dos, uno copiado a
+     medias, uno viejo. En todos esos casos la persona quiere darse de
+     baja, no puede, y lo siguiente que pulsa es "spam". Una queja de
+     spam baja la reputación del dominio para todos los demás.
+
+     Ahora dice qué puede haber pasado y A DÓNDE ESCRIBIR, que es lo
+     único que de verdad la saca del paso.
+
+     NO se le pide aquí su dirección para darla de baja: cualquiera
+     podría escribir la de otro y darlo de baja sin permiso. Por eso la
+     salida es escribir al club, donde hay una persona que lo comprueba. */
+  /* La salida, en UN solo sitio, porque hacen falta DOS caminos:
+
+       · el enlace no trae código, o trae algo que no lo parece;
+       · el enlace SÍ parece bien formado pero el servidor lo rechaza.
+
+     ⚠️  Y EL SEGUNDO ES EL IMPORTANTE, que es el que yo me dejé fuera.
+     Cuando un programa de correo corta un enlace, lo corta POR LA
+     MITAD: queda un código más corto, que sigue siendo letras y
+     números y por tanto pasa la comprobación de aquí arriba. O sea que
+     el caso que mi propio texto nombraba —"puede que tu programa de
+     correo lo haya cortado"— no llegaba nunca a este texto: caía abajo,
+     en el aviso de error, que decía "inténtalo otra vez" (y volver a
+     pulsar no puede funcionar) y ponía la dirección de contacto como
+     texto suelto, sin poder pulsarla. Lo encontró la revisión del 5 de
+     octubre. */
+  function sinSalida() {
+    document.getElementById('icon').textContent = '✉️';
+    document.getElementById('title').textContent = 'This link did not work';
+    document.getElementById('msg').innerHTML =
+      'The link may have been cut short by your email program, or copied only '
+      + 'part way. We can still take you off the list — just write to '
+      + '<a href="mailto:contact@ferociasports.com?subject=Unsubscribe" '
+      + 'style="color:inherit;font-weight:700;">contact@ferociasports.com</a> '
+      + 'and we will do it right away.';
     document.getElementById('unsub-btn').style.display = 'none';
-    return;
   }
+
+  if (!validToken) { sinSalida(); return; }
 
   document.getElementById('unsub-btn').addEventListener('click', async () => {
     const btn = document.getElementById('unsub-btn');
@@ -124,10 +161,14 @@
         "You have been successfully removed from our mailing list. We're sorry to see you go! If you change your mind, you can always subscribe again at ferociasports.com";
       btn.style.display = 'none';
     } catch (err) {
-      btn.disabled = false;
-      btn.textContent = 'Yes, unsubscribe me';
-      document.getElementById('msg').textContent =
-        'Something went wrong. Please try again or contact us at contact@ferociasports.com';
+      /* El mismo texto que arriba, y el botón se esconde.
+         Antes se volvía a habilitar con "inténtalo otra vez": si el
+         código está cortado o caducado, volver a pulsar hace exactamente
+         lo mismo, así que esa frase sólo servía para que la persona
+         pulsara tres veces y después el botón de spam.
+         El motivo técnico se queda en la consola, no en su pantalla. */
+      console.warn('[unsubscribe]', err && err.message);
+      sinSalida();
     }
   });
 })();

@@ -1550,6 +1550,10 @@
     };
 
     let recipients;
+    /* Fuera del bloque a propósito: el aviso del final también lo nombra,
+       y ahí ya no se ve lo de dentro del `else`. En el ensayo "solo a mí"
+       se queda en cero, que es lo correcto: ahí no hay lista. */
+    let sinEnlace = [];
     if (soloAdmin) {
       recipients = [copiaAdmin];
     } else {
@@ -1566,8 +1570,37 @@
         ensayo.bloquear(false);   // soltar la casilla al salir por aquí
         return;
       }
+      /* ⚠️  A QUIEN NO TIENE ENLACE DE BAJA NO SE LE MANDA.
+
+         Cada enlace lleva el código de SU dueño. Sin código, esa persona
+         se queda con las dos salidas cerradas: el enlace del correo la
+         lleva a una página que dice "Invalid Link", y tampoco recibe el
+         botón de darse de baja de Gmail, porque la cabecera que lo
+         activa sólo se pone cuando el enlace lleva código. Lo único que
+         le queda es el botón de spam, y una queja de spam baja la
+         reputación del dominio para los otros 452.
+
+         Antes se le mandaba igual, con el enlace pelado. El newsletter
+         ya se los saltaba; ahora las dos pantallas hacen lo mismo.
+
+         Y NO ES SILENCIOSO: el número se dice en la ventana de
+         confirmación y otra vez en el aviso del final. Dejar a alguien
+         fuera sin decirlo es el otro fallo, no el arreglo.
+
+         Desde `sql/64` la base no deja crear a nadie sin código, así que
+         esto es la red de seguridad, no el camino normal: si algún día
+         salta, es que hay un dato raro y hay que mirarlo. */
+      sinEnlace = subs.filter((s) => !s.unsubscribe_token);
+      const conEnlace = subs.filter((s) => s.unsubscribe_token);
+      if (!conEnlace.length) {
+        toast(`None of the ${subs.length} active subscribers has a working `
+            + 'unsubscribe link, so nothing was sent. Tell your developer.', true);
+        ensayo.bloquear(false);
+        return;
+      }
+
       recipients = [
-        ...subs.map((s) => ({
+        ...conEnlace.map((s) => ({
           email: s.email,
           name:  nombreDe(s),
           subscriber_id: s.id,
@@ -1576,9 +1609,7 @@
              el servidor lo guarda con su fila y así puede pintar el
              correo de cualquiera sin volver a preguntar al navegador. */
           vars: {
-            unsubscribe_url: s.unsubscribe_token
-              ? `${baseUrl}unsubscribe.html?t=${s.unsubscribe_token}`
-              : `${baseUrl}unsubscribe.html`,
+            unsubscribe_url: `${baseUrl}unsubscribe.html?t=${s.unsubscribe_token}`,
           },
         })),
         copiaAdmin,
@@ -1597,13 +1628,17 @@
          no: preguntar por un correo a tu propia dirección no protege
          de nada y enseña a darle a Confirmar sin leer, que es
          exactamente lo que no queremos. */
-      const cuantos = subs.length;
+      /* El número es el de los que DE VERDAD van a recibirlo. Antes era
+         `subs.length`, que contaba también a quien no tiene enlace de
+         baja: la ventana prometía 453 y salían 452. */
+      const cuantos = conEnlace.length;
       const seguro = await confirmModal({
         title:   `Send this campaign to ${cuantos} subscriber${cuantos === 1 ? '' : 's'}?`,
         /* Empieza con el cursor en Cancel: manda correos y eso no se deshace. */
         focusCancel: true,
         message: `"${datos.subject}" will be emailed to ${cuantos} active subscriber`
                + `${cuantos === 1 ? '' : 's'}, plus a copy to you. This cannot be undone.`
+               + window.avisoSinEnlaceDeBaja(sinEnlace.length)
                /* Una sola frase seguida: confirmModal pinta con
                   textContent y sin white-space:pre-line, así que un
                   \n\n se queda en un espacio y la frase se pega a la
@@ -1740,15 +1775,23 @@
          launched!" de una campaña que no llegó a ningún suscriptor. */
       const salio = (d.sent || 0) + (d.already_sent || 0) > 1;
       toast(`${salio ? 'Campaign launched! ' : ''}`
-            + `${window.mensajeExito(d)}${window.loQueFalto(d)}${window.loQueEntro(d)}`, falto);
+            + `${window.mensajeExito(d)}${window.loQueFalto(d)}${window.loQueEntro(d)}`
+            + window.avisoSinEnlaceDeBaja(sinEnlace.length),
+            falto || sinEnlace.length > 0);
     } else {
       console.warn('[promotions] no salio limpio:', d);
       /* Si el envío se CORTÓ, eso es lo único que importa, y la
          respuesta dice por qué. Sin esto el aviso mandaba a reintentar
          un corte que no se arregla reintentando. */
       const corte = window.motivoDelCorte(d);
-      toast(corte
-        || `Campaign finished: ${resumenEnvio(d)}. Press Launch again to retry the ones that failed.`, true);
+      /* ⚠️  Y AQUÍ TAMBIÉN. Lo tenía sólo en el camino limpio, así que si
+         el envío se cortaba, los que se quedaron fuera por no tener
+         enlace de baja desaparecían del aviso — y en los reintentos que
+         también se cortaran, para siempre. Lo encontró la revisión del 5
+         de octubre. */
+      toast((corte
+        || `Campaign finished: ${resumenEnvio(d)}. Press Launch again to retry the ones that failed.`)
+        + window.avisoSinEnlaceDeBaja(sinEnlace.length), true);
     }
   };
 

@@ -456,6 +456,31 @@
   }
 
   /**
+   * A QUIEN SE DEJÓ FUERA POR NO TENER ENLACE DE BAJA.
+   *
+   * Un correo con un "Unsubscribe" que lleva a "Invalid Link" deja a esa
+   * persona con una sola salida: el botón de spam. Y una queja de spam
+   * baja la reputación del dominio para todos los demás. Así que a quien
+   * no tiene su código no se le manda.
+   *
+   * Pero dejar a alguien fuera EN SILENCIO es el otro fallo, no el
+   * arreglo: por eso esta frase. Sale en la ventana de confirmación
+   * (antes de mandar) y en el aviso del final.
+   *
+   * Desde `sql/64` la base no deja crear a nadie sin código, así que
+   * esto no debería salir nunca. Si sale, hay un dato raro.
+   *
+   * @param   {number} n  cuántos se quedaron fuera
+   * @returns {string}    la frase, o '' si no se quedó nadie
+   */
+  function avisoSinEnlaceDeBaja(n) {
+    const c = Number(n) || 0;
+    if (c <= 0) return '';
+    return ` ${c} ${c === 1 ? 'subscriber was' : 'subscribers were'} left out `
+         + 'because they have no working unsubscribe link — tell your developer.';
+  }
+
+  /**
    * LO QUE CAMBIÓ EN LA LISTA AL RETOMAR UN ENVÍO.
    *
    * Cuando un envío no termina del todo, la aplicación se queda
@@ -741,6 +766,7 @@
   window.mensajeExito       = mensajeExito;
   window.loQueFalto         = loQueFalto;
   window.loQueEntro         = loQueEntro;
+  window.avisoSinEnlaceDeBaja = avisoSinEnlaceDeBaja;
   window.huboPerdidas       = huboPerdidas;
   window.motivoDelCorte     = motivoDelCorte;
   window.envioTerminado     = envioTerminado;
