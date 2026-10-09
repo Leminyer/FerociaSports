@@ -1,0 +1,98 @@
+/* ============================================================
+   FEROCIA SPORTS CENTER — ADMIN: COMMUNICATIONS HUB
+   El panel de la pestaña Send donde se elige a quién se le escribe.
+
+   Las medidas y los colores son los de las ventanas que ya existen
+   (Send Ladder Update, Send Tournament Update): el mismo rótulo con la
+   barrita azul, la misma caja de contexto, el mismo campo. Aquí están
+   como clases; allí siguen escritos dentro del HTML.
+
+   El prefijo `hub-` no se usa en ninguna otra pantalla. Los chips son
+   los `.co-pfilter` de la pantalla Communications, no una copia.
+   ============================================================ */
+
+/* `hidden` tiene que ganar siempre. Sin esto, una fila de la lista para
+   elegir (que pone `display:flex`) seguiría viéndose aunque el buscador
+   la haya ocultado. */
+.hub-panel [hidden]{display:none !important;}
+
+/* ── Cabecera ─────────────────────────────────────────────── */
+.hub-head{margin-bottom:20px;}
+.hub-back{display:inline-flex;align-items:center;gap:6px;margin-bottom:14px;
+          font-size:10px;font-weight:700;padding:6px 14px;border-radius:99px;
+          border:0.5px solid #c5d6f5;background:white;color:var(--blue);
+          cursor:pointer;font-family:'Inter',sans-serif;}
+.hub-back:hover{background:#f4f8ff;}
+.hub-title{font-family:'Inter',sans-serif;font-size:24px;color:var(--text);
+           letter-spacing:1px;line-height:1;margin-bottom:4px;}
+.hub-sub{font-size:12px;font-weight:600;color:var(--text-muted);}
+
+/* ── Pasos ────────────────────────────────────────────────── */
+.hub-step{margin-bottom:20px;}
+.hub-step:last-child{margin-bottom:0;}
+.hub-label{display:flex;align-items:center;gap:6px;margin-bottom:8px;
+           font-size:9px;font-weight:800;letter-spacing:1px;
+           text-transform:uppercase;color:var(--text-muted);}
+.hub-label-bar{width:3px;height:13px;border-radius:99px;background:var(--blue);
+               display:inline-block;flex-shrink:0;}
+.hub-hint{font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:8px;}
+.hub-sub-step{margin-top:14px;}
+
+/* ── Campos ───────────────────────────────────────────────── */
+.hub-select,
+.hub-input{width:100%;max-width:520px;padding:9px 12px;border:1px solid var(--divider-color);
+           border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;
+           color:var(--text);background:white;outline:none;box-sizing:border-box;}
+.hub-select:focus,
+.hub-input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(23,76,204,0.08);}
+.hub-chips{display:flex;flex-wrap:wrap;gap:6px;}
+
+/* ── Selected Players: la lista para marcar ───────────────── */
+.hub-pick-list{max-width:520px;max-height:320px;overflow-y:auto;margin-top:8px;
+               border:1px solid var(--divider-color);border-radius:10px;}
+/* Cada fila es un <label> para que pulsar el nombre marque la casilla. La
+   regla general de `label` (mayúsculas pequeñas, para los rótulos de los
+   formularios) se anula aquí: esto es un nombre, no un rótulo. */
+.hub-pick{display:flex;align-items:center;gap:10px;padding:9px 14px;cursor:pointer;
+          border-bottom:0.5px solid #f4f5f8;font-size:13px;font-weight:600;color:var(--text);
+          text-transform:none;letter-spacing:normal;}
+.hub-pick:last-child{border-bottom:none;}
+.hub-pick:hover{background:rgba(23,76,204,0.02);}
+/* La regla general de `input` (relleno y borde de los campos de texto)
+   también alcanza a las casillas; aquí se anula. */
+.hub-pick input{width:16px;height:16px;margin:0;padding:0;border:0;
+                accent-color:var(--blue);flex-shrink:0;}
+.hub-pick-text{display:flex;align-items:center;gap:10px;flex:1;min-width:0;}
+.hub-pick-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.hub-pick-mail{margin-left:auto;font-size:11px;font-weight:600;color:var(--text-muted);
+               overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;}
+.hub-pick-empty{padding:14px;font-size:12px;font-weight:600;color:var(--text-muted);text-align:center;}
+
+/* ── Vista previa ─────────────────────────────────────────── */
+.hub-preview{max-width:520px;background:#f8f9ff;border:0.5px solid var(--divider-color);
+             border-radius:10px;padding:14px 16px;}
+.hub-count{font-size:14px;font-weight:800;color:var(--text);}
+.hub-note{font-size:11px;font-weight:600;color:var(--text-muted);margin-top:6px;line-height:1.5;}
+.hub-error{font-size:12px;font-weight:700;color:var(--danger);}
+.hub-view-btn{margin-top:10px;}
+
+/* ── La lista de destinatarios ────────────────────────────── */
+.hub-people{max-width:720px;margin-top:10px;border:1px solid var(--divider-color);
+            border-radius:10px;overflow-x:auto;}
+.hub-table{width:100%;border-collapse:collapse;font-size:12px;}
+.hub-table th{text-align:left;padding:9px 14px;font-size:9px;font-weight:800;letter-spacing:1px;
+              text-transform:uppercase;color:var(--text-muted);background:#f8f9ff;
+              border-bottom:0.5px solid var(--divider-color);white-space:nowrap;}
+.hub-table td{padding:9px 14px;border-bottom:0.5px solid #f4f5f8;font-weight:600;color:var(--text);}
+.hub-table tbody tr:last-child td{border-bottom:none;}
+.hub-table td.hub-td-mail{color:var(--text-muted);word-break:break-all;}
+.hub-row-out td{color:var(--text-muted);}
+.pill.hub-pill-warn{background:var(--orange-light);color:var(--orange-dark);}
+
+/* En el móvil el correo baja debajo del nombre, más pequeño: no cabe al
+   lado, y sin él dos jugadores con el mismo nombre se verían iguales. */
+@media (max-width:600px){
+  .hub-pick-text{flex-direction:column;align-items:flex-start;gap:1px;}
+  .hub-pick-mail{margin-left:0;max-width:100%;}
+  .hub-title{font-size:20px;}
+}

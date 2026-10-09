@@ -1051,7 +1051,10 @@
   window.openCommunications = () => {
     /* Al abrir la pantalla se enseña SEND, que es lo que se viene a
        hacer la mayoría de las veces. El historial se carga cuando se
-       pincha su pestaña, no antes. */
+       pincha su pestaña, no antes.
+       Y el panel del Hub se cierra: una vista previa de destinatarios
+       de hace un rato puede no ser ya la de verdad. */
+    window.hubCerrar?.();
     mostrarTab('send');
   };
 

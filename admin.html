@@ -24,6 +24,7 @@
 <link rel="stylesheet" href="admin-components.css?v=20261008a">
 <link rel="stylesheet" href="admin-pages.css?v=20261001c">
 <link rel="stylesheet" href="admin-ftc.css?v=20260928b">
+<link rel="stylesheet" href="admin-comms-hub.css?v=20261008b">
 
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="config.js?v=20260929j"></script>
@@ -1923,7 +1924,7 @@
 
     <!-- ── PESTAÑA 1: SEND ──────────────────────────────────── -->
     <div class="co-tab-content" data-tab="send">
-      <div class="card">
+      <div class="card" id="co-send-home">
         <div class="card-title" style="margin-bottom:6px;">Where each email is sent from</div>
         <div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:20px;">
           Every email below is sent by the server and recorded in History.
@@ -1936,17 +1937,17 @@
             <span class="co-launch-d">To your subscriber list</span>
           </button>
 
-          <button class="co-launch" data-action="showPage" data-page="players">
+          <button class="co-launch" data-action="hubOpen" data-audience="all_players">
             <span class="co-launch-t">All Players</span>
             <span class="co-launch-d">To every active player</span>
           </button>
 
-          <button class="co-launch" data-action="showPage" data-page="ladders">
+          <button class="co-launch" data-action="hubOpen" data-audience="ladder">
             <span class="co-launch-t">Ladder Update</span>
             <span class="co-launch-d">To one ladder&rsquo;s players</span>
           </button>
 
-          <button class="co-launch" data-action="showPage" data-page="t-tournaments">
+          <button class="co-launch" data-action="hubOpen" data-audience="tournament">
             <span class="co-launch-t">Tournament Update</span>
             <span class="co-launch-d">To one tournament&rsquo;s players</span>
           </button>
@@ -1957,6 +1958,53 @@
           </button>
 
         </div>
+      </div>
+
+      <!-- COMMUNICATIONS HUB: a quién se le escribe.
+           Lo maneja admin-comms-hub.js; los estilos, admin-comms-hub.css.
+           Los textos que cambian según la audiencia los pone el script. -->
+      <div class="card hub-panel" id="hub-panel" hidden>
+
+        <div class="hub-head">
+          <button type="button" class="hub-back" data-action="hubClose">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            All channels
+          </button>
+          <div class="hub-title" id="hub-title"></div>
+          <div class="hub-sub" id="hub-sub"></div>
+        </div>
+
+        <div class="hub-step" id="hub-step-audience">
+          <label class="hub-label" for="hub-audience-select"><span class="hub-label-bar"></span><span id="hub-audience-label"></span></label>
+          <select class="hub-select" id="hub-audience-select"></select>
+        </div>
+
+        <div class="hub-step" id="hub-step-recipients" hidden>
+          <div class="hub-label"><span class="hub-label-bar"></span>Recipients</div>
+          <div class="hub-chips" id="hub-segments" role="group" aria-label="Recipients">
+            <button type="button" class="co-pfilter" aria-pressed="false" data-action="hubSegment" data-segment="all" id="hub-seg-all"></button>
+            <button type="button" class="co-pfilter" aria-pressed="false" data-action="hubSegment" data-segment="divisions" id="hub-seg-divisions">Specific Divisions</button>
+            <button type="button" class="co-pfilter" aria-pressed="false" data-action="hubSegment" data-segment="selected" id="hub-seg-selected">Selected Players</button>
+          </div>
+
+          <div class="hub-sub-step" id="hub-divisions-wrap" hidden>
+            <div class="hub-hint">Choose one or more divisions.</div>
+            <div class="hub-chips" id="hub-divisions" role="group" aria-label="Divisions"></div>
+          </div>
+
+          <div class="hub-sub-step" id="hub-selected-wrap" hidden>
+            <input type="search" class="hub-input" id="hub-search" placeholder="Search players..." autocomplete="off" aria-label="Search players">
+            <div class="hub-pick-list" id="hub-pick-list"></div>
+          </div>
+        </div>
+
+        <div class="hub-step" id="hub-step-preview" hidden>
+          <div class="hub-label"><span class="hub-label-bar"></span>Recipient Preview</div>
+          <div class="hub-preview" id="hub-preview" aria-live="polite"></div>
+          <button type="button" class="co-det-more hub-view-btn" id="hub-view-btn" data-action="hubTogglePeople" aria-controls="hub-people" aria-expanded="false" hidden>View recipients</button>
+          <div class="hub-people" id="hub-people" hidden></div>
+        </div>
+
       </div>
     </div>
 
@@ -3761,7 +3809,7 @@
 <script src="admin-incident-reports.js?v=20260928b"></script>
 <script src="admin-ladder-selector.js?v=20260928b"></script>
 <script src="admin-orders.js?v=20260928b"></script>
-<script src="admin-email-utils.js?v=20261005b"></script>
+<script src="admin-email-utils.js?v=20261008b"></script>
 <script src="admin-rich-editor.js?v=20260929a"></script>
 <script src="admin-share.js?v=20260928b"></script>
 <script src="admin-tournament-notify.js?v=20261005a"></script>
@@ -3772,7 +3820,8 @@
 <script src="admin-sessions.js?v=20260928b"></script>
 <script src="admin-print-roster.js?v=20260928b"></script>
 <script src="admin-ladder-management.js?v=20261008a"></script>
-<script src="admin-communications.js?v=20261005a"></script>
+<script src="admin-communications.js?v=20261008b"></script>
+<script src="admin-comms-hub.js?v=20261008b"></script>
 <script src="admin-promotions.js?v=20261006a"></script>
 <script src="admin-subscriber-reminder.js?v=20261005a"></script>
 <script src="admin-newsletter.js?v=20261005b"></script>

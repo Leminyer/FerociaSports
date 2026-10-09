@@ -760,6 +760,7 @@
   window.addEventListener('beforeunload', beforeUnloadGuard);
 
   window.sendEmailServer = sendEmailServer;
+  window.leerErrorDeFuncion = leerError;   // el Hub lee igual los errores de sus funciones
   window.crearClaveador  = crearClaveador;
   window.nombreDestinatario = nombreDestinatario;
   window.resumenEnvio       = resumenEnvio;
