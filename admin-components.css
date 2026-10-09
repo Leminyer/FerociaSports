@@ -324,6 +324,7 @@
   .lp-av{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:white;flex-shrink:0;}
   .lp-pname{font-size:13px;font-weight:700;color:var(--text);flex:1;}
   .lp-pname.lp-unenrolled{color:var(--text-muted);}
+  .lp-inactive-tag{margin-left:8px;flex-shrink:0;}
   /* Segmented status toggle */
   .lp-seg{display:flex;border-radius:99px;overflow:hidden;border:0.5px solid var(--divider-color);background:#f4f5f8;flex-shrink:0;}
   .lp-seg-btn{padding:4px 12px;font-size:10px;font-weight:700;cursor:pointer;border:none;background:transparent;font-family:'Inter',sans-serif;color:var(--text-muted);transition:all 0.15s;line-height:1.4;}

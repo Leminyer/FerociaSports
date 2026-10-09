@@ -464,7 +464,11 @@
     ]);
     AdminState.allPlayers = allP;
     const enrolledIds  = enrolled.map((r) => Number(r.player_id));
-    const activePlayers = AdminState.allPlayers.filter((p) => p.status !== 'inactive');
+    /* Inactive players are hidden so they can't be ADDED, but anyone already
+       enrolled is always listed, even if inactive. Hiding them made Save read
+       them as unticked and silently remove them from the ladder. */
+    const listedPlayers = AdminState.allPlayers.filter((p) =>
+      p.status !== 'inactive' || enrolledIds.includes(Number(p.id)));
     const subCount     = enrolled.filter(r => r.status === 'sub').length;
 
     // Bulk-fetch which of these players have negative notes (warning/
@@ -472,7 +476,7 @@
     // row, so we can show a warning icon proactively next to the name.
     let flaggedIds = new Set();
     try {
-      const { data } = await supabase.rpc('get_players_note_alerts', { p_player_ids: activePlayers.map((p) => p.id) });
+      const { data } = await supabase.rpc('get_players_note_alerts', { p_player_ids: listedPlayers.map((p) => p.id) });
       flaggedIds = new Set((data || []).filter((r) => r.has_any_flag).map((r) => r.player_id));
     } catch (e) { console.warn('[note alerts] bulk fetch failed:', e.message); }
 
@@ -484,7 +488,7 @@
     if (summaryEl) summaryEl.textContent = `${enrolledIds.length} enrolled • ${subCount} subs`;
 
     // Select-all row
-    const allChecked = activePlayers.every((p) => enrolledIds.includes(Number(p.id)));
+    const allChecked = listedPlayers.every((p) => enrolledIds.includes(Number(p.id)));
     const checkSVG = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
 
     const headerHtml = `<div class="lp-select-all-row">
@@ -492,10 +496,10 @@
         ${allChecked ? checkSVG : ''}
       </div>
       <span style="font-size:10px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--blue);cursor:pointer;flex:1;" onclick="lpToggleAllNew(document.getElementById('lp-cb-all-box'))">Select All</span>
-      <span style="font-size:11px;font-weight:700;color:var(--text-muted);">${enrolledIds.length} of ${activePlayers.length} enrolled</span>
+      <span style="font-size:11px;font-weight:700;color:var(--text-muted);">${enrolledIds.length} of ${listedPlayers.length} enrolled</span>
     </div>`;
 
-    const rowsHtml = activePlayers.map((p) => {
+    const rowsHtml = listedPlayers.map((p) => {
       const isEnrolled   = enrolledIds.includes(Number(p.id));
       const enrolledRow  = enrolled.find((r) => Number(r.player_id) === Number(p.id));
       const ladderStatus = enrolledRow?.status || 'active';
@@ -516,6 +520,9 @@
       const flagIcon = flaggedIds.has(p.id)
         ? `<span title="This player has warning/incident/suspension notes on file" style="display:inline-flex;margin-left:6px;flex-shrink:0;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>`
         : '';
+      const inactiveTag = p.status === 'inactive'
+        ? '<span class="pill pill-inactive lp-inactive-tag">Inactive</span>'
+        : '';
       return `<div class="lp-player-row-new ${isEnrolled ? 'lp-selected' : ''}"
           data-name="${esc(fullName.toLowerCase())}" data-pid="${p.id}" data-gender="${esc(gender)}"
           onclick="lpRowClick(event,${p.id})">
@@ -523,7 +530,7 @@
           ${isEnrolled ? checkSVG : ''}
         </div>
         <div class="lp-av" style="background:${avColor};">${esc(initials)}</div>
-        <div class="lp-pname ${isEnrolled ? '' : 'lp-unenrolled'}" style="display:flex;align-items:center;flex:1;">${esc(fullName)}${flagIcon}</div>
+        <div class="lp-pname ${isEnrolled ? '' : 'lp-unenrolled'}" style="display:flex;align-items:center;flex:1;">${esc(fullName)}${inactiveTag}${flagIcon}</div>
         ${segToggle}
       </div>`;
     }).join('');
@@ -636,11 +643,15 @@
       .split(',').filter(Boolean).map(Number);
 
     // Read currently selected rows (new UI — use lp-selected class)
-    const nowCheckedIds = [...document.querySelectorAll('.lp-player-row-new.lp-selected')]
+    const rows = [...document.querySelectorAll('.lp-player-row-new')];
+    const listedIds = rows.map(row => parseInt(row.dataset.pid, 10)).filter(Boolean);
+    const nowCheckedIds = rows.filter(row => row.classList.contains('lp-selected'))
       .map(row => parseInt(row.dataset.pid, 10)).filter(Boolean);
 
     const toAdd    = nowCheckedIds.filter(id => !prevEnrolledIds.includes(id));
-    const toRemove = prevEnrolledIds.filter(id => !nowCheckedIds.includes(id));
+    // Only someone whose row was on screen and got unticked is removed.
+    // An enrolled player with no row is never touched, whatever the reason.
+    const toRemove = prevEnrolledIds.filter(id => listedIds.includes(id) && !nowCheckedIds.includes(id));
 
     // Still proceed even if only status changed (no enrollment changes)
     // Only bail if nothing at all is selected

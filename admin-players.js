@@ -2301,6 +2301,40 @@
 
   window.closeModal = () => document.getElementById('edit-modal').classList.remove('open');
 
+  /* Making a player inactive does NOT take them out of their ladders: they
+     stay enrolled, shown as Inactive in Manage Players, until removed there.
+     Says so before saving, naming each active ladder. Resolves true when it
+     is fine to go ahead. If the ladders can't be checked it stops, because
+     saving without the warning is exactly what this is here to prevent. */
+  const confirmInactiveInLadders = async (playerId, playerName) => {
+    let ladderNames;
+    try {
+      const enrolled = await api(`ladder_players?player_id=eq.${playerId}&select=ladder_id`);
+      const ladderIds = [...new Set(enrolled.map((r) => r.ladder_id))];
+      ladderNames = ladderIds.length
+        ? (await api(`ladders?id=in.(${ladderIds.join(',')})&status=eq.active&select=name&order=name`))
+            .map((l) => l.name)
+        : [];
+    } catch (err) {
+      toast(`Could not check this player's ladders — nothing was saved. ${err.message}`, true);
+      return false;
+    }
+    if (!ladderNames.length) return true;
+
+    const plural = ladderNames.length > 1;
+    return confirmModal({
+      title: plural ? 'Player is in active ladders' : 'Player is in an active ladder',
+      message: `${playerName} is enrolled in ${ladderNames.join(', ')}. `
+        + `Making them inactive will not remove them from ${plural ? 'these ladders' : 'this ladder'}: `
+        + `they stay enrolled (and keep getting ${plural ? 'their' : 'its'} emails), shown as Inactive in Manage Players, `
+        + 'until you remove them there. While inactive, they won\'t appear when adding players '
+        + 'to ladders or tournament teams, or when logging matches.',
+      okLabel: 'Make inactive',
+      cancelLabel: 'Cancel',
+      focusCancel: true,
+    });
+  };
+
   const saveEditPlayer = async (e) => {
     e.preventDefault();
     const id = parseInt(document.getElementById('edit-id').value, 10);
@@ -2374,6 +2408,11 @@
         cancelLabel: 'Let me fix it',
       });
       if (!okDob) return;
+    }
+
+    if (becomingInactive) {
+      const editName = `${document.getElementById('edit-first').value.trim()} ${document.getElementById('edit-last').value.trim()}`;
+      if (!(await confirmInactiveInLadders(id, editName))) return;
     }
 
     const body = {
