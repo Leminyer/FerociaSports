@@ -452,8 +452,11 @@
   }
 
   /** Abre un envío: el mensaje que se escribió y a quién le llegó. */
-  async function abrirDetalle(id) {
-    const enLista = _envios.find((x) => String(x.id) === String(id));
+  /* `fila` la pasa el historial de una escalera o un torneo, en el
+     panel del Hub: ese envío no tiene por qué estar en la lista de la
+     pestaña History. Trae las mismas columnas (COLS_LISTA). */
+  async function abrirDetalle(id, fila) {
+    const enLista = _envios.find((x) => String(x.id) === String(id)) || fila;
     if (!enLista) { window.toast('That send is no longer on screen. Reload the list.', true); return; }
 
     const mia = ++_vez;
@@ -1047,6 +1050,16 @@
   }
 
   // ── REGISTRO ──────────────────────────────────────────────
+
+  /* Lo que usa el panel del Hub para su historial: las mismas columnas,
+     las mismas etiquetas de estado y la misma ventana de detalle, con
+     su reintento. Así un envío se ve igual desde los dos sitios. */
+  window.commColumnasLista = COLS_LISTA;
+  /* El texto del estado, para pintarlo con clases propias (el Hub no
+     lleva estilos dentro del HTML). */
+  window.commTextoEstado = (s) => (ESTADO_ENVIO[s] || { txt: s }).txt;
+  window.commCuando = cuando;
+  window.commAbrirEnvio = (fila) => abrirDetalle(fila.id, fila);
 
   window.openCommunications = () => {
     /* Al abrir la pantalla se enseña SEND, que es lo que se viene a

@@ -89,10 +89,68 @@
 .hub-row-out td{color:var(--text-muted);}
 .pill.hub-pill-warn{background:var(--orange-light);color:var(--orange-dark);}
 
-/* En el móvil el correo baja debajo del nombre, más pequeño: no cabe al
-   lado, y sin él dos jugadores con el mismo nombre se verían iguales. */
+/* ── Escribir el mensaje ──────────────────────────────────── */
+/* Los mismos valores que la ventana "Send Ladder Update". */
+.hub-field{max-width:680px;margin-bottom:12px;}
+.hub-field-label{display:block;margin-bottom:4px;font-size:9px;font-weight:700;letter-spacing:.5px;
+                 text-transform:uppercase;color:var(--text-muted);}
+.hub-req{color:#e53935;}
+.hub-field .hub-select,
+.hub-field .hub-input{max-width:none;}
+.hub-editor{border:1px solid var(--divider-color);border-radius:10px;overflow:hidden;background:white;}
+.hub-toolbar{flex-wrap:wrap;gap:4px;padding:6px 8px;background:#fcfdff;}
+.hub-editor-area{min-height:160px;max-height:340px;overflow-y:auto;padding:14px;outline:none;
+                 font-family:'Inter',sans-serif;font-size:13px;font-weight:500;color:var(--text);
+                 line-height:1.7;background:white;}
+.hub-editor:focus-within{border-color:var(--blue);box-shadow:0 0 0 3px rgba(23,76,204,0.08);}
+.hub-hint-after{margin:5px 0 0;font-size:10px;color:#b0bbd6;}
+
+/* La casilla de ensayo y el botón de enviar */
+.hub-send-row{max-width:680px;display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;
+              gap:8px;padding-top:12px;margin-top:4px;border-top:0.5px solid var(--divider-color);}
+.hub-test{display:flex;align-items:flex-start;gap:9px;padding:10px 12px;margin-right:auto;
+          border:1px solid var(--divider-color);border-radius:10px;background:#f8f9ff;cursor:pointer;
+          flex:0 1 auto;max-width:330px;min-width:0;text-transform:none;letter-spacing:normal;}
+.hub-test input{margin:1px 0 0;padding:0;border:0;width:14px;height:14px;accent-color:var(--blue);
+                cursor:pointer;flex-shrink:0;}
+.hub-test-text{font-family:'Inter',sans-serif;font-size:11px;font-weight:700;color:var(--text);line-height:1.45;}
+.hub-test-help{display:block;margin-top:2px;font-size:10px;font-weight:600;color:var(--text-muted);}
+.hub-send-btn{display:inline-flex;align-items:center;gap:7px;padding:10px 24px;border:none;border-radius:99px;
+              background:linear-gradient(180deg,#2456d3,var(--blue));color:white;font-family:'Inter',sans-serif;
+              font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;}
+.hub-send-btn:disabled{opacity:.6;cursor:default;}
+
+/* ── El historial de esta audiencia ──────────────────────── */
+.hub-history{max-width:720px;border:1px solid var(--divider-color);border-radius:10px;overflow:hidden;}
+.hub-hist-row{display:flex;align-items:center;gap:12px;width:100%;padding:10px 14px;border:none;
+              border-bottom:0.5px solid #f4f5f8;background:white;cursor:pointer;text-align:left;
+              font-family:'Inter',sans-serif;}
+.hub-hist-row:last-child{border-bottom:none;}
+.hub-hist-row:hover{background:#fafbff;}
+.hub-hist-main{flex:1;min-width:0;}
+.hub-hist-subject{display:block;font-size:13px;font-weight:700;color:var(--text);
+                  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.hub-hist-when{display:block;margin-top:2px;font-size:11px;font-weight:600;color:var(--text-muted);}
+.hub-hist-count{font-size:11px;font-weight:700;color:var(--text-muted);white-space:nowrap;}
+/* El estado de cada envío: los colores de la pestaña History. */
+.hub-st{flex-shrink:0;font-size:9px;font-weight:800;background:#f4f5f8;color:#6b7a99;}
+.hub-st-sent{background:#eaf7f1;color:#1d9e68;}
+.hub-st-partial{background:#fff4e5;color:#b26a00;}
+.hub-st-failed{background:#fdeceb;color:#c62828;}
+.hub-st-sending{background:#e8f0ff;color:#174CCC;}
+.hub-hist-empty{padding:14px;font-size:12px;font-weight:600;color:var(--text-muted);text-align:center;}
+
+/* En el móvil:
+   · el correo de la lista para elegir baja debajo del nombre: no cabe al
+     lado, y sin él dos jugadores con el mismo nombre se verían iguales;
+   · la casilla de ensayo y el botón de enviar ocupan todo el ancho;
+   · en el historial se esconde el número de correos para que quepa el
+     asunto. */
 @media (max-width:600px){
   .hub-pick-text{flex-direction:column;align-items:flex-start;gap:1px;}
   .hub-pick-mail{margin-left:0;max-width:100%;}
   .hub-title{font-size:20px;}
+  .hub-test{max-width:none;margin-right:0;flex:1 1 100%;}
+  .hub-send-btn{flex:1 1 100%;justify-content:center;}
+  .hub-hist-count{display:none;}
 }

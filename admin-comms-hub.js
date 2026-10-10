@@ -1,14 +1,20 @@
 /* ============================================================
    FEROCIA SPORTS CENTER — ADMIN: COMMUNICATIONS HUB
-   Depende de: db.js (api, esc, fmtDate, supabase, toast),
-               admin-state.js (CLICK_HANDLERS),
-               admin-email-utils.js (leerErrorDeFuncion, nombreDestinatario)
+   Depende de: config.js, db.js (api, esc, fmtDate, supabase, toast,
+               confirmModal), admin-state.js (CLICK_HANDLERS, AdminState),
+               admin-rich-editor.js (FerociaEditor),
+               admin-email-utils.js (sendEmailServer, crearClaveador,
+               vincularEnsayo, envioEnCurso, leerErrorDeFuncion,
+               nombreDestinatario y los textos del resultado),
+               admin-communications.js (la ventana de detalle de un envío)
 
-   El panel de la pestaña Send donde se elige A QUIÉN se le escribe:
+   El panel de la pestaña Send desde donde se escribe a los jugadores:
      1. la audiencia: una escalera, un torneo, o All Players;
      2. los destinatarios: todos, unas divisiones o unos jugadores;
      3. la vista previa: cuántas personas, cuántos correos, y quién se
-        queda fuera y por qué.
+        queda fuera y por qué;
+     4. el mensaje, y enviarlo;
+     5. lo que ya se le ha mandado a esa escalera o a ese torneo.
 
    ── QUIÉN DECIDE LA LISTA ──────────────────────────────────────────
    Esta pantalla NO arma la lista de destinatarios. La pide al servidor
@@ -28,8 +34,12 @@
    divisiones que aún venía de camino, y "Specific Divisions" se quedaba
    vacío para siempre.
 
-   ── LO QUE TODAVÍA NO HACE ─────────────────────────────────────────
-   Escribir y enviar. Eso es el entregable 3.
+   ── QUIÉN ENVÍA ────────────────────────────────────────────────────
+   El servidor (función comms-send). Desde aquí sólo se le dice qué
+   audiencia, qué destinatarios y qué mensaje; la lista la vuelve a
+   calcular él con la misma función que la vista previa, y le pasa el
+   envío a send-email, que manda como siempre. La respuesta es la misma
+   que la de las ventanas de antes, y se lee con las mismas piezas.
    ============================================================ */
 
 (function () {
@@ -82,6 +92,122 @@
   const SESION_CADUCADA = 'Your session has ended. Sign in again.';
   const ERROR_GENERAL = 'Could not load the recipients. Try again.';
 
+  /* Las plantillas de la ventana "Send Ladder Update", tal cual (decidido
+     el 9 de octubre). {{ladder}} se cambia por el nombre de la escalera. */
+  const PLANTILLAS_ESCALERA = {
+    welcome: {
+      subject: '🏓 Welcome to the {{ladder}} — Guidelines & Schedule',
+      message: `I hope this message finds you well.
+
+I'm excited to share that our upcoming Pickleball Ladder will officially begin on Saturday, April 18, 2026, with sessions taking place every Saturday from 1:30 PM to 3:00 PM for six consecutive weeks.
+
+Saturday April, 18 2026 (1:30 pm to 3:00 pm)
+Saturday April, 25 2026 (1:30 pm to 3:00 pm)
+Saturday May, 2 2026 (1:30 pm to 3:00 pm)
+Saturday May, 9 2026 (1:30 pm to 3:00 pm)
+Saturday May, 16 2026 (1:30 pm to 3:00 pm)
+Saturday May, 23 2026 (1:30 pm to 3:00 pm)
+
+🏓 Ladder Structure Overview
+
+Format: Players will be randomly organized into groups of 4 or 5 for the first week. Starting from week 2, players will be organized based on their performance and points earned.
+
+Match Style: Round-robin format within each group. Players will partner with and against everyone in their group.
+
+Scoring: Games are played to 11 points (WIN BY 1).
+
+Ranking Updates: Player rankings will be updated weekly according to total points earned.
+
+Co-ed Participation: All players are welcome, regardless of gender.
+
+Attendance: If you are unable to attend on a given week, please notify the organizer by the app (TeamReach) or by texting or calling to 786-241-7035 (Leminyer Zapata).
+
+🧮 New Ladder Scoring System
+
+✅ Win a match: +4 points
+🤝🏼 Lose by 1-2 points (11-10, 11-9): +3 points
+🎯 Lose by 3-4 points (11-8, 11-7): +2 points
+🎁 Lose by 5-8 points (11-6 to 11-3): +1 points
+🚫 Lose by 9-11 points (11-2, 11-1, 11-0): 0 points
+⚠️ Default / No-Show: –1 points per match (applies if the player does not notify the organizer at least 24 hours before the time the ladder starts).
+
+This new system is designed to reward not just wins but also competitive performance and tight matches.
+
+📋 Additional Guidelines
+
+Court Etiquette: Please be respectful and avoid interrupting play on adjacent courts.
+
+Punctuality: Matches start promptly at 1:30 PM. Late arrivals may result in forfeits. You can get to the park earlier (around 1:00 pm).
+
+Sportsmanship: Great sportsmanship is expected from all. Let's keep it friendly, fun, and welcoming!
+
+Disputes, questions or concerns: Any issues should be reported directly to the organizer immediately. His decision will be final.
+
+Line Calls: Are made by the team on the side the ball lands. Let's be fair and respectful.
+
+Warnings/Penalties: Use of profanity is not allowed. Throwing paddles, aggressive behavior, or any form of violence will not be tolerated. Any player who engages in these actions will receive a warning for the first offense; a second offense will result in a one-week suspension. If the behavior persists, the player will be removed from the ladder.
+
+Bring Your Own Balls 🏓
+Stay Hydrated! Don't forget your water bottle! 💧
+
+Conduct Policy — Profanity & Unsportsmanlike Behavior
+
+Profanity, verbal abuse, aggressive behavior, and throwing paddles or other equipment are strictly prohibited.
+
+Penalties:
+• First offense: Formal warning
+• Second offense: Match forfeiture
+• Further offenses: Removal from the ladder
+
+If you have any questions please feel free to reach out.
+
+I'm looking forward to an amazing season of friendly competition and good vibes on the courts! 🎾🔥`,
+    },
+    scores: {
+      subject: '🏆 Scores Updated — {{ladder}}',
+      message:
+        'The scores for the {{ladder}} ladder have just been updated!\n\nCheck the latest standings and see where you stand on the leaderboard.',
+    },
+    reminder: {
+      subject: '⏰ Session Reminder — {{ladder}}',
+      message:
+        "This is a friendly reminder that your next pickleball session for the {{ladder}} ladder is coming up soon.\n\nMake sure you're ready to play your best game!",
+    },
+    end: {
+      subject: '🏆 End of {{ladder}} — Congratulations!',
+      message:
+        'The {{ladder}} ladder has officially come to an end!\n\nThank you for your participation and great sportsmanship. Check the final standings to see how you finished.',
+    },
+    custom: {
+      subject: '',
+      message: '',
+    },
+  };
+
+  /* El texto de siempre del aviso de un torneo. Sin "Hi {{player_name}},":
+     el correo ya saluda por el nombre. */
+  const textoTorneo = (nombre) => ({
+    subject: `🏆 ${nombre} — Your Results Are Ready`,
+    message: `The results for ${nombre} are now available. `
+      + 'Click the link below to view your standings, bracket results, and more.'
+      + '\n\nThank you for participating and congratulations to all players '
+      + 'on a great tournament!\n\nFerocia Sports Center',
+  });
+
+  /* Lo que se añade solo a cada correo, según la audiencia. */
+  const AVISO_MENSAJE = {
+    ladder:      'A button to the ladder standings is added to every email automatically.',
+    tournament:  'A button to the tournament results is added to every email automatically.',
+    all_players: 'Each player is greeted by name automatically — just write your message.',
+  };
+  /* Los estados de un envío que tienen color propio (admin-comms-hub.css). */
+  const ESTADOS = new Set(['sent', 'partial', 'failed', 'sending']);
+  const ROTULO_HISTORIAL = {
+    ladder:      'Sent to this ladder',
+    tournament:  'Sent to this tournament',
+    all_players: 'Sent to All Players',
+  };
+
   /* ── ESTADO ─────────────────────────────────────────────── */
   let _tipo        = null;       // 'ladder' | 'tournament' | 'all_players'
   let _audiencia   = null;       // id de la escalera o del torneo
@@ -95,8 +221,19 @@
   let _turnoAudiencia = 0;
   let _turnoVista     = 0;
   let _espera = null;
+  let _nombres     = new Map();  // id → nombre de cada escalera o torneo de la lista
+  let _ultimaVista = null;       // la vista previa que se ve AHORA; null mientras carga
+  let _plantilla   = { subject: '', html: '' };  // lo último que puso una plantilla
+  let _historial   = new Map();  // id → envío, para abrir su detalle
 
   const $ = (id) => document.getElementById(id);
+
+  const CFG = window.FEROCIA_CONFIG;
+  const editor = window.FerociaEditor
+    ? window.FerociaEditor.mount('hub-message', { barraId: 'hub-fmt-bar' }) : null;
+  if (!editor) console.error('[Ferocia] admin-rich-editor.js must load before admin-comms-hub.js');
+  const claveador = window.crearClaveador('hub');
+  const ensayo = window.vincularEnsayo('hub-only-me', 'hub-send-btn', 'Send Email');
 
   /* ── LLAMAR AL SERVIDOR ─────────────────────────────────── */
   async function pedirAudiencia(segmento, extra) {
@@ -123,10 +260,23 @@
   /* ── ABRIR Y CERRAR ─────────────────────────────────────── */
   async function abrir(tipo, boton) {
     if (!TEXTOS[tipo]) return;
+    if (window.envioEnCurso('abrir')) return;
     _tipo = tipo;
     _origen = boton || null;
     _audiencia = null;
     olvidarAudiencia();
+
+    /* El mensaje empieza en blanco cada vez, como en las ventanas de
+       antes. La casilla de ensayo se desmarca SIEMPRE: una casilla que
+       se queda puesta de la vez anterior es la forma más fácil de creer
+       que se avisó a todos cuando sólo se lo mandó una a sí misma.
+       La llave, en cambio, NO se renueva si hay una pendiente: reintentar
+       un envío que falló tiene que retomarlo, no crear otro. */
+    ponerTexto('', '');
+    _plantilla = { subject: '', html: '' };
+    $('hub-preset').value = 'welcome';   // la escalera empieza con la de bienvenida, como antes
+    ensayo.reset();
+    claveador.asegurar();
 
     const t = TEXTOS[tipo];
     $('hub-title').textContent = t.titulo;
@@ -139,14 +289,17 @@
     if (tipo === 'all_players') {
       $('hub-step-audience').hidden = true;
       mostrarDestinatarios(true);
+      mostrarMensaje(true);
       $('hub-seg-all').focus();
       ponerSegmento('all');
+      cargarHistorial();
       return;
     }
 
     $('hub-step-audience').hidden = false;
     $('hub-audience-label').textContent = t.rotulo;
     mostrarDestinatarios(false);
+    mostrarMensaje(false);
     $('hub-audience-select').focus();
     await cargarAudiencias();
   }
@@ -156,6 +309,7 @@
      vieja. */
   function cerrar() {
     if ($('hub-panel').hidden) return;
+    if (window.envioEnCurso('cerrar')) return;
     olvidarAudiencia();
     $('hub-panel').hidden = true;
     $('co-send-home').hidden = false;
@@ -175,6 +329,7 @@
     _divisiones = new Set();
     _elegidos = new Set();
     _verPersonas = false;
+    _ultimaVista = null;
     $('hub-search').value = '';
     $('hub-pick-list').replaceChildren();
     $('hub-divisions').replaceChildren();
@@ -231,6 +386,7 @@
       lista.forEach((f) => grupo.append(new Option(etiqueta(f), String(f.id))));
       opciones.push(grupo);
     });
+    _nombres = new Map(filas.map((f) => [f.id, f.name]));
     sel.replaceChildren(...opciones);
     sel.value = '';
     sel.disabled = false;
@@ -239,10 +395,12 @@
   function alElegirAudiencia() {
     const valor = $('hub-audience-select').value;
     olvidarAudiencia();
-    if (!valor) { _audiencia = null; mostrarDestinatarios(false); return; }
+    if (!valor) { _audiencia = null; mostrarDestinatarios(false); mostrarMensaje(false); return; }
 
     _audiencia = Number(valor);
     mostrarDestinatarios(true);
+    mostrarMensaje(true);
+    cargarHistorial();
     /* Las divisiones se piden aparte y sin esperar: la vista previa de
        "todos" no las necesita, y el botón aparece cuando llegan. */
     if (_tipo === 'tournament') cargarDivisiones();
@@ -276,6 +434,9 @@
   async function ponerSegmento(segmento) {
     _segmento = segmento;
     _turnoVista++;
+    /* La vista previa del segmento anterior deja de valer YA: mientras
+       carga la lista de jugadores, "Send" no puede usar sus números. */
+    _ultimaVista = null;
     clearTimeout(_espera);
     limpiarVista();
     document.querySelectorAll('#hub-segments [data-segment]').forEach((b) => {
@@ -318,6 +479,18 @@
     if (!r.ok) { lista.replaceChildren(nota('hub-pick-empty', r.mensaje)); return; }
     guardarCandidatos(r.data.people);
     pintarCandidatos();
+  }
+
+  /* Alguien elegido ya no puede recibir: la lista se vuelve a pedir, sin
+     él, y con ella la vista previa — si no, "Send" seguiría sin saber a
+     quién va hasta que se tocara otra casilla. */
+  async function rehacerCandidatos() {
+    const turno = _turnoAudiencia;
+    _candidatos = null;
+    await cargarCandidatos();
+    /* Sólo si la lista llegó: si no, la vista volvería a fallar igual y
+       se pedirían las dos cosas una y otra vez. */
+    if (turno === _turnoAudiencia && _segmento === 'selected' && _candidatos) pedirVista();
   }
 
   /* La regla de quién se puede elegir, en un solo sitio: la usan la
@@ -371,6 +544,7 @@
      no tiene que hacer seis peticiones. */
   function pedirVista() {
     clearTimeout(_espera);
+    _ultimaVista = null;
     const turno = ++_turnoVista;
     $('hub-view-btn').hidden = true;
     $('hub-people').hidden = true;
@@ -398,10 +572,7 @@
       $('hub-preview').replaceChildren(nota('hub-error', r.mensaje));
       /* Alguien de la selección ya no puede recibir: la lista para
          elegir se rehace con lo que hay ahora. */
-      if (r.codigo === 'player_not_in_audience' && segmento === 'selected') {
-        _candidatos = null;
-        cargarCandidatos();
-      }
+      if (r.codigo === 'player_not_in_audience' && segmento === 'selected') rehacerCandidatos();
       return;
     }
     if (segmento === 'all' && !_candidatos) guardarCandidatos(r.data.people);
@@ -413,6 +584,7 @@
   }
 
   function pintarVista(datos) {
+    _ultimaVista = datos;
     const { people: gente, summary: s } = datos;
     const partes = [];
 
@@ -478,9 +650,297 @@
     return d;
   }
 
+  /* ── EL MENSAJE ─────────────────────────────────────────── */
+  function ponerTexto(asunto, html) {
+    $('hub-subject').value = asunto;
+    if (editor) editor.setHTML(html);
+  }
+
+  /* El mensaje y el historial se ven en cuanto hay audiencia. */
+  function mostrarMensaje(si) {
+    $('hub-step-compose').hidden = !si;
+    $('hub-step-history').hidden = !si;
+    if (si) { prepararMensaje(); return; }
+    _historial = new Map();
+    $('hub-history').replaceChildren();
+  }
+
+  /* ¿Sigue el mensaje tal como lo dejó la última plantilla? Si ella ya
+     escribió algo, cambiar de escalera NO se lo borra. */
+  function sinTocar() {
+    return $('hub-subject').value === _plantilla.subject
+        && (editor ? editor.getHTML() : '') === _plantilla.html;
+  }
+
+  /* Pone una plantilla y recuerda cómo quedó, para saber después si se
+     ha tocado. Se guarda lo que devuelve el editor, no lo que se le
+     dio: el navegador puede escribir el mismo HTML de otra forma. */
+  function aplicarPlantilla(asunto, texto) {
+    ponerTexto(asunto, window.FerociaEditor.textoAHTML(texto));
+    _plantilla = { subject: $('hub-subject').value, html: editor ? editor.getHTML() : '' };
+  }
+
+  /* Las plantillas de la escalera, con su nombre puesto. */
+  function aplicarPreset() {
+    const t = PLANTILLAS_ESCALERA[$('hub-preset').value];
+    if (!t) return;
+    const nombre = _nombres.get(_audiencia) || '';
+    aplicarPlantilla(t.subject.replaceAll('{{ladder}}', nombre),
+                     t.message.replaceAll('{{ladder}}', nombre));
+  }
+
+  /* El texto de partida de cada audiencia. Sólo si el mensaje está como
+     lo dejó la plantilla anterior: lo escrito a mano no se pisa. */
+  function prepararMensaje() {
+    $('hub-preset-wrap').hidden = _tipo !== 'ladder';
+    $('hub-message-hint').textContent = AVISO_MENSAJE[_tipo] || '';
+    if (!sinTocar()) return;
+    if (_tipo === 'ladder') aplicarPreset();
+    else if (_tipo === 'tournament') {
+      const t = textoTorneo(_nombres.get(_audiencia) || '');
+      aplicarPlantilla(t.subject, t.message);
+    }
+  }
+
+  /* Tras un envío que salió bien: el mensaje se vacía, para que no se
+     pueda mandar dos veces el mismo sin querer. */
+  function vaciarMensaje() {
+    $('hub-preset').value = 'custom';
+    ponerTexto('', '');
+    _plantilla = { subject: '', html: '' };
+  }
+
+  /* ── ENVIAR ─────────────────────────────────────────────── */
+  /* Los errores después de los cuales la lista que se ve ya no vale:
+     se vuelve a pedir para que enseñe lo que hay ahora. */
+  const REFRESCAR_VISTA = new Set([
+    'player_not_in_audience', 'division_not_in_tournament', 'no_recipients',
+    'audience_changed',
+  ]);
+  /* El mismo tope que el servidor (comms-send, MAX_CUERPO). */
+  const MAX_MENSAJE = 200000;
+
+  async function enviar() {
+    if (window.AdminState.emailInFlight) {
+      toast('Please wait for the current send to finish.', true);
+      return;
+    }
+    const asunto = $('hub-subject').value.trim();
+    const html   = editor ? editor.getHTML() : '';
+    /* Se valida con el TEXTO: un editor "vacío" suele tener un <br>. */
+    const texto  = editor ? editor.getText() : '';
+    if (!asunto || !texto) { toast('Please fill in subject and message.', true); return; }
+    if (html.length > MAX_MENSAJE) {
+      toast('The message is too long. Pasted images are the usual cause — remove them and try again.', true);
+      return;
+    }
+
+    /* Se manda a quien se está viendo. Mientras la lista carga, o si dio
+       error, no se sabe a quién iría: no se deja enviar. */
+    const vista = _ultimaVista;
+    if (!vista) {
+      toast('The recipient list is not ready. Wait a moment, or fix the recipients above.', true);
+      return;
+    }
+    const s = vista.summary;
+    if (!s.people) { toast('No one in this group can receive email.', true); return; }
+
+    /* La foto de lo que se va a mandar, tomada AHORA. Nada de lo de
+       abajo vuelve a leer la pantalla. */
+    const tipo = _tipo;
+    const pedido = {
+      audience_type: tipo,
+      audience_id:   tipo === 'all_players' ? null : _audiencia,
+      segment:       _segmento,
+      ...(_segmento === 'divisions' ? { division_ids: [..._divisiones].sort((a, b) => a - b) } : {}),
+      ...(_segmento === 'selected'  ? { player_ids:   [..._elegidos].sort((a, b) => a - b) }   : {}),
+      subject: asunto,
+      body:    html,
+      /* Lo que ella ve y confirma. Si al enviar ya no cuadra con lo que
+         calcula el servidor, no se manda nada ('audience_changed'). */
+      expected_people: s.people,
+      expected_emails: s.emails,
+    };
+    const donde = tipo === 'all_players' ? 'All Players' : (_nombres.get(_audiencia) || '');
+
+    /* Se lee la casilla y se bloquea en el mismo paso (ver
+       admin-email-notifications.js: entre leerla y bloquearla no puede
+       haber un await). */
+    const soloAdmin = !!$('hub-only-me').checked;
+    ensayo.bloquear(true);
+
+    if (!soloAdmin) {
+      /* La misma regla que el servidor (comms-send, `unaPersona`):
+         elegir a mano a UNA persona es escribirle a un jugador, y va sin
+         copia para ti. Si no, es un aviso de grupo y la lleva. */
+      const uno = pedido.segment === 'selected' && s.people === 1
+        ? vista.people.find((p) => p.included) : null;
+      const seguro = await confirmModal(uno ? {
+        title:   `Send this email to ${window.nombreDestinatario(uno)}?`,
+        message: `"${asunto}" will be emailed to ${window.nombreDestinatario(uno)} (${uno.email}). `
+               + 'This cannot be undone. To check it first, cancel and use "Send only to me".',
+        okLabel: 'Send',
+        cancelLabel: 'Cancel',
+        danger: true,
+        focusCancel: true,
+      } : {
+        title:   `Send to ${s.people} player${s.people === 1 ? '' : 's'}?`,
+        message: `"${asunto}" will be emailed to ${s.people} player${s.people === 1 ? '' : 's'} `
+               + `(${s.emails} email address${s.emails === 1 ? '' : 'es'}) in ${donde}, `
+               + 'plus a copy to you. This cannot be undone. '
+               + 'To check it first, cancel and use "Send only to me".',
+        okLabel: `Send to ${s.people}`,
+        cancelLabel: 'Cancel',
+        danger: true,
+        focusCancel: true,
+      });
+      if (!seguro) { ensayo.bloquear(false); return; }
+    }
+
+    /* Mientras se manda, el panel entero queda quieto: cambiar de
+       audiencia o de texto a mitad no cambiaría el envío, pero la
+       pantalla diría otra cosa que lo que salió. */
+    const btn = $('hub-send-btn');
+    const panel = $('hub-panel');
+    btn.disabled = true;
+    btn.textContent = soloAdmin ? 'Sending rehearsal to you…'
+      : `Sending to ${s.emails} email${s.emails === 1 ? '' : 's'}…`;
+    panel.inert = true;
+    window.AdminState.emailInFlight = true;
+
+    let r;
+    try {
+      /* El ensayo va sin llave: un segundo ensayo del mismo texto tiene
+         que llegar. El de verdad la lleva SIEMPRE: con la misma audiencia
+         y el mismo texto, pulsar otra vez retoma el mismo envío. */
+      const llave = soloAdmin ? null : await claveador.clave([
+        tipo, pedido.audience_id, pedido.segment,
+        (pedido.division_ids || []).join(','), (pedido.player_ids || []).join(','),
+        asunto, html,
+      ]);
+      if (!soloAdmin && !llave) {
+        r = { ok: false, message: 'This browser could not prepare the send. Reload the page and try again.' };
+      } else {
+        r = await window.sendEmailServer({
+          ...pedido,
+          test_only: soloAdmin,
+          ...(soloAdmin ? {} : { idempotency_key: llave }),
+        }, 'comms-send');
+      }
+    } finally {
+      window.AdminState.emailInFlight = false;
+      panel.inert = false;
+      btn.disabled = false;
+      ensayo.bloquear(false);
+      ensayo.sync();
+      btn.focus();
+    }
+
+    if (!r.ok) {
+      console.error('[comms-hub] send failed:', r);
+      toast(r.message, true);
+      if (REFRESCAR_VISTA.has(r.code)) {
+        if (_segmento === 'selected') rehacerCandidatos(); else pedirVista();
+      }
+      return;
+    }
+
+    const d = r.data || {};
+    if (soloAdmin) {
+      ensayo.reset();
+      toast(d.sent
+        ? `✅ Rehearsal sent to ${CFG.ADMIN_EMAIL} only. Nobody else received it. The checkbox is now off — press Send again to send it for real.`
+        : `Rehearsal did not go out: ${window.resumenEnvio(d)}`, !d.sent);
+      return;
+    }
+
+    /* La llave se renueva sólo cuando el envío está TERMINADO (ver
+       envioTerminado en admin-email-utils.js). Si no, se deja el texto
+       como está: pulsar otra vez retoma el mismo envío. */
+    if (window.envioTerminado(d) && !d.unconfirmed) {
+      claveador.limpiar();
+      vaciarMensaje();
+      toast(window.mensajeExito(d) + window.loQueFalto(d) + window.loQueEntro(d),
+            window.huboPerdidas(d));
+    } else {
+      console.warn('[comms-hub] no salio limpio:', d);
+      const corte = window.motivoDelCorte(d);
+      toast(corte
+        || `Finished: ${window.resumenEnvio(d)}. Press Send again to retry the ones that failed.`, true);
+    }
+    cargarHistorial();
+  }
+
+  /* ── LO QUE YA SE LE MANDÓ A ESTA AUDIENCIA ─────────────── */
+  /* Los diez últimos envíos del Hub a esta escalera, este torneo o All
+     Players. Los ensayos no salen: no se le mandaron a nadie de aquí.
+     Los envíos de las ventanas de antes no guardaban la audiencia, así
+     que sólo están en la pestaña History. */
+  async function cargarHistorial() {
+    const turno = _turnoAudiencia;
+    const tipo = _tipo;
+    const lista = $('hub-history');
+    $('hub-history-label').textContent = ROTULO_HISTORIAL[tipo] || 'Sent from the Hub';
+    lista.replaceChildren(nota('hub-hist-empty', 'Loading…'));
+
+    let filas;
+    try {
+      filas = await api(`communications?select=${window.commColumnasLista}`
+        + `&meta->audience->>type=eq.${tipo}`
+        + (tipo === 'all_players' ? '' : `&meta->audience->>id=eq.${_audiencia}`)
+        + '&meta->>solo_admin=is.null&order=created_at.desc&limit=10');
+    } catch (e) {
+      if (turno !== _turnoAudiencia) return;
+      lista.replaceChildren(nota('hub-hist-empty', 'Could not load what was sent before.'));
+      return;
+    }
+    if (turno !== _turnoAudiencia) return;
+
+    _historial = new Map(filas.map((f) => [String(f.id), f]));
+    if (!filas.length) {
+      lista.replaceChildren(nota('hub-hist-empty',
+        'Nothing sent from here yet. Older emails are in the History tab.'));
+      return;
+    }
+    lista.replaceChildren(...filas.map((f) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'hub-hist-row';
+      b.dataset.action = 'hubOpenSend';
+      b.dataset.id = String(f.id);
+      const main = document.createElement('span');
+      main.className = 'hub-hist-main';
+      const asunto = document.createElement('span');
+      asunto.className = 'hub-hist-subject';
+      asunto.textContent = f.subject || '(no subject)';
+      const fecha = document.createElement('span');
+      fecha.className = 'hub-hist-when';
+      fecha.textContent = window.commCuando(f.sent_at || f.created_at);
+      main.append(asunto, fecha);
+      const cuenta = document.createElement('span');
+      cuenta.className = 'hub-hist-count';
+      const n = f.sent_count || 0;
+      cuenta.textContent = `${n} sent`;
+      /* El mismo texto y los mismos colores que en la pestaña History,
+         con clases en vez de estilos dentro del HTML. */
+      const estado = document.createElement('span');
+      estado.className = `pill hub-st ${ESTADOS.has(f.status) ? `hub-st-${f.status}` : ''}`;
+      estado.textContent = window.commTextoEstado(f.status);
+      b.append(main, cuenta, estado);
+      return b;
+    }));
+  }
+
+  function abrirEnvio(btn) {
+    const fila = _historial.get(btn.dataset.id);
+    if (fila) window.commAbrirEnvio(fila);
+  }
+
   /* ── EVENTOS ────────────────────────────────────────────── */
   $('hub-audience-select')?.addEventListener('change', alElegirAudiencia);
   $('hub-search')?.addEventListener('input', filtrarCandidatos);
+  /* Elegir otra plantilla la pone, como en la ventana de antes. */
+  $('hub-preset')?.addEventListener('change', aplicarPreset);
   $('hub-pick-list')?.addEventListener('change', (e) => {
     const caja = e.target.closest('input[type="checkbox"]');
     if (!caja) return;
@@ -497,5 +957,7 @@
     hubSegment:      (btn) => ponerSegmento(btn.dataset.segment),
     hubDivision:     (btn) => cambiarDivision(btn),
     hubTogglePeople: () => verPersonas(),
+    hubSend:         () => enviar(),
+    hubOpenSend:     (btn) => abrirEnvio(btn),
   });
 })();

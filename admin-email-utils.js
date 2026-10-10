@@ -104,6 +104,22 @@
 
     network:   'Could not reach the server. Check your connection, then try again.',
     no_client: 'Internal error: the Supabase client is not ready.',
+
+    /* Los del Communications Hub (función comms-send). */
+    invalid_request:            'Internal error: the request was not valid. Nothing was sent.',
+    invalid_message:            'Write a subject (up to 200 characters) and a message. Nothing was sent.',
+    no_recipients:              'No one in this group can receive email. Nothing was sent.',
+    audience_changed:           'The recipients changed since the list was loaded. Nothing was sent — check the updated list and press Send again.',
+    no_selection:               'Select at least one player or division. Nothing was sent.',
+    too_many_recipients:        'This group is larger than one send allows (1,000 email addresses). Nothing was sent — choose a smaller group.',
+    audience_not_found:         'That ladder or tournament no longer exists. Nothing was sent.',
+    division_not_in_tournament: 'One of those divisions is no longer part of this tournament. Nothing was sent.',
+    player_not_in_audience:     'One of the selected players is no longer in this group, or can\'t receive email. Review the selection — nothing was sent.',
+    audience_check_failed:      'Could not work out who should receive it. Nothing was sent — try again.',
+    snapshot_failed:            'Could not record who this goes to, so nothing was sent — press Send again.',
+    server_misconfigured:       'The server is missing a setting (SITE_URL). Nothing was sent.',
+    send_unreachable:           'The sending service did not answer. Press Send again — nobody will get it twice.',
+    server_error:               'Unexpected server error. Check the Supabase logs.',
   };
 
   /**
@@ -152,6 +168,9 @@
    * @param {object} payload  Lo que espera la función: kind, template,
    *                          subject, body, meta, recipients[], y
    *                          opcionalmente idempotency_key.
+   * @param {string} [funcion] La función del servidor. Por defecto
+   *                          send-email; el Hub usa comms-send, que
+   *                          contesta igual.
    * @returns {Promise<{ok:boolean, data?:object, code?:string|null,
    *                    status?:number|null, detail?:string, message:string}>}
    *
@@ -160,7 +179,7 @@
    * `emailInFlight` en true, y desde ahí la página no vuelve a mandar
    * nada hasta recargarla.
    */
-  async function sendEmailServer(payload) {
+  async function sendEmailServer(payload, funcion = FUNCION) {
     const sb = window.supabase;
     if (!sb || !sb.functions || typeof sb.functions.invoke !== 'function') {
       console.error('[Ferocia] db.js must load before sendEmailServer is called');
@@ -190,7 +209,7 @@
       const conTope = new Promise((_, rechaza) =>
         setTimeout(() => rechaza(new Error(`sin respuesta en ${TOPE_MS / 1000}s`)), TOPE_MS));
       ({ data, error } = await Promise.race([
-        sb.functions.invoke(FUNCION, { body: payload }),
+        sb.functions.invoke(funcion, { body: payload }),
         conTope,
       ]));
     } catch (e) {

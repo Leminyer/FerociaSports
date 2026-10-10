@@ -24,7 +24,7 @@
 <link rel="stylesheet" href="admin-components.css?v=20261008a">
 <link rel="stylesheet" href="admin-pages.css?v=20261001c">
 <link rel="stylesheet" href="admin-ftc.css?v=20260928b">
-<link rel="stylesheet" href="admin-comms-hub.css?v=20261008b">
+<link rel="stylesheet" href="admin-comms-hub.css?v=20261009a">
 
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="config.js?v=20260929j"></script>
@@ -2005,6 +2005,55 @@
           <div class="hub-people" id="hub-people" hidden></div>
         </div>
 
+        <div class="hub-step" id="hub-step-compose" hidden>
+          <div class="hub-label"><span class="hub-label-bar"></span>Message</div>
+
+          <div class="hub-field" id="hub-preset-wrap" hidden>
+            <label class="hub-field-label" for="hub-preset">Notification Type</label>
+            <select class="hub-select" id="hub-preset">
+              <option value="welcome">👋 Welcome &amp; Guidelines</option>
+              <option value="scores">📊 Scores Updated</option>
+              <option value="reminder">⏰ Session Reminder</option>
+              <option value="end">🏆 End of Ladder</option>
+              <option value="custom">✏️ Custom Message</option>
+            </select>
+          </div>
+
+          <div class="hub-field">
+            <label class="hub-field-label" for="hub-subject">Email Subject <span class="hub-req">*</span></label>
+            <input type="text" class="hub-input" id="hub-subject" maxlength="200" autocomplete="off">
+          </div>
+
+          <div class="hub-field">
+            <div class="hub-field-label" id="hub-message-label">Message <span class="hub-req">*</span></div>
+            <div class="hub-editor">
+              <!-- La barra de formato la fabrica admin-rich-editor.js. -->
+              <div class="promo-fmt-toolbar hub-toolbar" id="hub-fmt-bar"></div>
+              <div class="hub-editor-area" id="hub-message" contenteditable="true" role="textbox" aria-multiline="true" aria-labelledby="hub-message-label" aria-describedby="hub-message-hint"></div>
+            </div>
+            <div class="hub-hint hub-hint-after" id="hub-message-hint"></div>
+          </div>
+
+          <div class="hub-send-row">
+            <label class="hub-test" for="hub-only-me">
+              <input type="checkbox" id="hub-only-me" aria-describedby="hub-only-me-help">
+              <span class="hub-test-text">
+                Send only to me
+                <span class="hub-test-help" id="hub-only-me-help">Real send, fully logged &mdash; but only you receive it.</span>
+              </span>
+            </label>
+            <button type="button" class="hub-send-btn" id="hub-send-btn" data-action="hubSend">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+              Send Email
+            </button>
+          </div>
+        </div>
+
+        <div class="hub-step" id="hub-step-history" hidden>
+          <div class="hub-label"><span class="hub-label-bar"></span><span id="hub-history-label">Sent from the Hub</span></div>
+          <div class="hub-history" id="hub-history"></div>
+        </div>
+
       </div>
     </div>
 
@@ -3809,7 +3858,7 @@
 <script src="admin-incident-reports.js?v=20260928b"></script>
 <script src="admin-ladder-selector.js?v=20260928b"></script>
 <script src="admin-orders.js?v=20260928b"></script>
-<script src="admin-email-utils.js?v=20261008b"></script>
+<script src="admin-email-utils.js?v=20261009a"></script>
 <script src="admin-rich-editor.js?v=20260929a"></script>
 <script src="admin-share.js?v=20260928b"></script>
 <script src="admin-tournament-notify.js?v=20261005a"></script>
@@ -3820,8 +3869,8 @@
 <script src="admin-sessions.js?v=20260928b"></script>
 <script src="admin-print-roster.js?v=20260928b"></script>
 <script src="admin-ladder-management.js?v=20261008a"></script>
-<script src="admin-communications.js?v=20261008b"></script>
-<script src="admin-comms-hub.js?v=20261008b"></script>
+<script src="admin-communications.js?v=20261009a"></script>
+<script src="admin-comms-hub.js?v=20261009a"></script>
 <script src="admin-promotions.js?v=20261006a"></script>
 <script src="admin-subscriber-reminder.js?v=20261005a"></script>
 <script src="admin-newsletter.js?v=20261005b"></script>
