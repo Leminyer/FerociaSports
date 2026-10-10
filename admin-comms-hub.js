@@ -468,6 +468,13 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
   function alElegirAudiencia() {
     const valor = $('hub-audience-select').value;
     olvidarAudiencia();
+    /* El PDF es de la escalera o el torneo de antes (un roster): al
+       cambiar, se quita, para que no se cuele el de otra (decidido el 10
+       de octubre). El texto escrito sí se queda. */
+    if (_adjunto || _subiendo) {
+      quitarAdjunto();
+      toast(`The PDF was removed because you changed the ${_tipo === 'tournament' ? 'tournament' : 'ladder'}. Attach the right one.`);
+    }
     if (!valor) { _audiencia = null; mostrarDestinatarios(false); mostrarMensaje(false); return; }
 
     _audiencia = Number(valor);
