@@ -307,6 +307,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
        un envío que falló tiene que retomarlo, no crear otro. */
     ponerTexto('', '');
     _plantilla = { subject: '', html: '' };
+    quitarAdjunto();
     $('hub-preset').replaceChildren(...(OPCIONES[tipo] || []).map(([v, t]) => new Option(t, v)));
     $('hub-preset').value = '';   // "Select one": se empieza en blanco
     ensayo.reset();
@@ -338,17 +339,54 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     await cargarAudiencias();
   }
 
-  /* Cierra el panel y vuelve a la rejilla. También lo llama la pantalla
-     Communications al entrar, para que nunca se vea una vista previa
-     vieja. */
-  function cerrar() {
+  /* "All channels": cierra el panel y vuelve a la rejilla. Si hay un
+     mensaje a medio escribir, pregunta antes (aprobado el 10 de
+     octubre): cerrar lo perdería. */
+  async function cerrar() {
     if ($('hub-panel').hidden) return;
     if (window.envioEnCurso('cerrar')) return;
+    if (!(await puedeDescartar())) return;
+    cerrarYa();
+  }
+
+  function cerrarYa() {
     olvidarAudiencia();
     $('hub-panel').hidden = true;
     $('co-send-home').hidden = false;
     if (_origen && document.contains(_origen)) _origen.focus();
     _origen = null;
+  }
+
+  /* Al volver a la pantalla Communications. Sin borrador, el panel se
+     cierra, para que nunca se vea una vista previa vieja. Con borrador
+     se queda como estaba —volver a él es justo a lo que se viene— y la
+     vista previa se pide otra vez para que esté al día. */
+  function alVolver() {
+    if ($('hub-panel').hidden || window.AdminState.emailInFlight) return;
+    if (!hayBorrador()) { cerrarYa(); return; }
+    if (_tipo === 'all_players' || _audiencia) pedirVista();
+  }
+
+  /* ¿Hay algo escrito que se perdería? Una plantilla sin tocar no
+     cuenta: se vuelve a poner sola. */
+  function hayBorrador() {
+    if ($('hub-panel').hidden) return false;
+    const escrito = $('hub-subject').value.trim() || (editor ? editor.getText() : '');
+    return !!_adjunto || _subiendo || (!!escrito && !sinTocar());
+  }
+
+  async function puedeDescartar() {
+    if (!hayBorrador()) return true;
+    return confirmModal({
+      title: 'Discard the message you were writing?',
+      message: (_adjunto || _subiendo)
+        ? 'The subject, message and attached PDF you were working on will be lost.'
+        : 'The subject and message you were writing will be lost.',
+      okLabel: 'Discard',
+      cancelLabel: 'Keep writing',
+      danger: true,
+      focusCancel: true,
+    });
   }
 
   /* Todo lo que depende de la audiencia elegida se descarta, y las
@@ -731,6 +769,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
      lo dejó la plantilla anterior: lo escrito a mano no se pisa. */
   function prepararMensaje() {
     $('hub-preset-wrap').hidden = !OPCIONES[_tipo];
+    pintarAdjunto();
     $('hub-message-hint').textContent = AVISO_MENSAJE[_tipo] || '';
     if (OPCIONES[_tipo] && sinTocar()) aplicarPreset();
   }
@@ -745,11 +784,109 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     $('hub-preset').value = '';
     ponerTexto('', '');
     _plantilla = { subject: '', html: '' };
+    quitarAdjunto();
     if (_segmento === 'selected') {
       _elegidos = new Set();
       $('hub-search').value = '';
       ponerSegmento('all');
     }
+  }
+
+  /* ── EL PDF ADJUNTO ─────────────────────────────────────── */
+  /* Sólo en escaleras y torneos, uno, PDF y 10 MB como máximo (decidido
+     el 10 de octubre). Se sube en cuanto se elige, a la carpeta privada
+     `comms-attachments` (sql/75), y al enviar el servidor vuelve a
+     comprobarlo todo: aquí sólo se avisa antes, para no hacer esperar. */
+  const CARPETA_ADJUNTOS = 'comms-attachments';
+  const MAX_ADJUNTO = 10 * 1024 * 1024;
+  const CON_ADJUNTO = new Set(['ladder', 'tournament']);
+  let _adjunto = null;       // { path, filename, size } cuando ya está subido
+  let _subiendo = false;
+  let _turnoAdjunto = 0;     // quitar o reabrir mientras sube: la subida vieja no se pinta
+
+  const tamano = (b) => (b < 1024 * 1024
+    ? `${Math.max(1, Math.round(b / 1024))} KB` : `${(b / (1024 * 1024)).toFixed(1)} MB`);
+
+  /* El nombre con el que lo verá el jugador: el del archivo, sin los
+     caracteres que un buzón no admite. */
+  function nombreVisible(n) {
+    let v = String(n || '').replace(/[\x00-\x1f\u202a-\u202e\u2066-\u2069\\/:*?"<>|]/g, '').trim();
+    if (!/\.pdf$/i.test(v)) v += '.pdf';
+    if (v.length > 120) v = `${v.slice(0, 116).trim()}.pdf`;
+    return v.length > 4 ? v : 'attachment.pdf';
+  }
+
+  /* El nombre dentro de la carpeta: letras sin acentos, números y . _ - */
+  function nombreEnCarpeta(n) {
+    const base = String(n || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/\.pdf$/i, '').replace(/[^A-Za-z0-9._-]+/g, '-')
+      .replace(/^[-.]+|[-.]+$/g, '').slice(0, 100);
+    return `${base || 'attachment'}.pdf`;
+  }
+
+  function pintarAdjunto() {
+    $('hub-attach-wrap').hidden = !CON_ADJUNTO.has(_tipo);
+    $('hub-attach-btn').hidden = !!_adjunto;
+    $('hub-attach-btn').disabled = _subiendo;
+    $('hub-attach-btn-text').textContent = _subiendo ? 'Uploading…' : 'Attach PDF';
+    $('hub-attach-file').hidden = !_adjunto;
+    $('hub-attach-hint').hidden = !_adjunto;
+    if (_adjunto) {
+      $('hub-attach-name').textContent = _adjunto.filename;
+      $('hub-attach-size').textContent = tamano(_adjunto.size);
+    }
+  }
+
+  /* El archivo se queda en la carpeta (desde el navegador no se puede
+     borrar nada de ella); sólo deja de ir en este correo. */
+  function quitarAdjunto() {
+    _turnoAdjunto++;
+    _adjunto = null;
+    _subiendo = false;
+    $('hub-attach-input').value = '';
+    pintarAdjunto();
+  }
+
+  async function subirAdjunto(archivo) {
+    $('hub-attach-input').value = '';   // así, elegir el mismo archivo otra vez también avisa
+    if (!archivo) return;
+    /* Por el nombre y por el contenido, NO por el tipo que dice el
+       navegador: en algunos ordenadores un .pdf llega sin tipo. */
+    if (!/\.pdf$/i.test(archivo.name)) {
+      toast('Only PDF files can be attached.', true);
+      return;
+    }
+    if (archivo.size > MAX_ADJUNTO) {
+      toast('This PDF is larger than 10 MB. Make it smaller and try again.', true);
+      return;
+    }
+    /* La marca de un PDF, "%PDF-", va en su primer kilobyte. */
+    let cabecera = '';
+    try { cabecera = await archivo.slice(0, 1024).text(); } catch (e) { /* se queda vacía */ }
+    if (!cabecera.includes('%PDF-')) { toast('This file is not a valid PDF.', true); return; }
+
+    const turno = ++_turnoAdjunto;
+    _subiendo = true;
+    pintarAdjunto();
+    const path = `hub/${crypto.randomUUID()}/${nombreEnCarpeta(archivo.name)}`;
+    let error = null;
+    try {
+      /* Se sube con el tipo puesto a mano: supabase-js manda el tipo que
+         trae el archivo, y si el navegador no puso ninguno, la carpeta
+         (que sólo acepta PDF) lo rechazaría. */
+      const comoPDF = new Blob([archivo], { type: 'application/pdf' });
+      ({ error } = await window.supabase.storage.from(CARPETA_ADJUNTOS)
+        .upload(path, comoPDF, { contentType: 'application/pdf', upsert: false }));
+    } catch (e) { error = e; }
+    if (turno !== _turnoAdjunto) return;
+    _subiendo = false;
+    if (error) {
+      pintarAdjunto();
+      toast(`Could not upload the PDF: ${error.message || 'try again'}.`, true);
+      return;
+    }
+    _adjunto = { path, filename: nombreVisible(archivo.name), size: archivo.size };
+    pintarAdjunto();
   }
 
   /* ── ENVIAR ─────────────────────────────────────────────── */
@@ -772,6 +909,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     /* Se valida con el TEXTO: un editor "vacío" suele tener un <br>. */
     const texto  = editor ? editor.getText() : '';
     if (!asunto || !texto) { toast('Please fill in subject and message.', true); return; }
+    if (_subiendo) { toast('Wait for the PDF to finish uploading.', true); return; }
     if (html.length > MAX_MENSAJE) {
       toast('The message is too long. Pasted images are the usual cause — remove them and try again.', true);
       return;
@@ -803,6 +941,9 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
       expected_people: s.people,
       expected_emails: s.emails,
     };
+    const adjunto = CON_ADJUNTO.has(tipo) ? _adjunto : null;
+    if (adjunto) pedido.attachment = { path: adjunto.path, filename: adjunto.filename };
+    const conAdjunto = adjunto ? `, with the attachment "${adjunto.filename}"` : '';
     const donde = tipo === 'all_players' ? 'All Players' : (_nombres.get(_audiencia) || '');
 
     /* Se lee la casilla y se bloquea en el mismo paso: entre leerla y
@@ -820,7 +961,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     if (!soloAdmin) {
       const seguro = await confirmModal(uno ? {
         title:   `Send this email to ${window.nombreDestinatario(uno)}?`,
-        message: `"${asunto}" will be emailed to ${window.nombreDestinatario(uno)} (${uno.email}). `
+        message: `"${asunto}" will be emailed to ${window.nombreDestinatario(uno)} (${uno.email})${conAdjunto}. `
                + 'This cannot be undone. To check it first, cancel and use "Send only to me".',
         okLabel: 'Send',
         cancelLabel: 'Cancel',
@@ -829,7 +970,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
       } : {
         title:   `Send to ${s.people} player${s.people === 1 ? '' : 's'}?`,
         message: `"${asunto}" will be emailed to ${s.people} player${s.people === 1 ? '' : 's'} `
-               + `(${s.emails} email address${s.emails === 1 ? '' : 'es'}) in ${donde}, `
+               + `(${s.emails} email address${s.emails === 1 ? '' : 'es'}) in ${donde}${conAdjunto}, `
                + 'plus a copy to you. This cannot be undone. '
                + 'To check it first, cancel and use "Send only to me".',
         okLabel: `Send to ${s.people}`,
@@ -847,7 +988,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     const panel = $('hub-panel');
     btn.disabled = true;
     btn.textContent = soloAdmin ? 'Sending rehearsal to you…'
-      : `Sending to ${s.emails} email${s.emails === 1 ? '' : 's'}…`;
+      : `Sending to ${s.emails} email${s.emails === 1 ? '' : 's'}${adjunto ? ' one by one' : ''}…`;
     panel.inert = true;
     window.AdminState.emailInFlight = true;
 
@@ -859,7 +1000,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
       const llave = soloAdmin ? null : await claveador.clave([
         tipo, pedido.audience_id, pedido.segment,
         (pedido.division_ids || []).join(','), (pedido.player_ids || []).join(','),
-        asunto, html,
+        asunto, html, adjunto ? adjunto.path : '',
       ]);
       if (!soloAdmin && !llave) {
         r = { ok: false, message: 'This browser could not prepare the send. Reload the page and try again.' };
@@ -1010,6 +1151,12 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
 
   async function abrirCon(tipo, id, jugador) {
     if (window.envioEnCurso('abrir')) return;
+    /* Un mensaje a medio escribir en el Hub: se pregunta. "Keep writing"
+       lleva a él en vez de abrir lo nuevo. */
+    if (hayBorrador()) {
+      if (!(await puedeDescartar())) { window.showPage('communications'); return; }
+      cerrarYa();
+    }
     window.showPage('communications');
     await abrir(tipo, null);
     if (_tipo !== tipo) return;   // no se abrió (otro envío en curso)
@@ -1056,6 +1203,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
   /* ── EVENTOS ────────────────────────────────────────────── */
   $('hub-audience-select')?.addEventListener('change', alElegirAudiencia);
   $('hub-search')?.addEventListener('input', filtrarCandidatos);
+  $('hub-attach-input')?.addEventListener('change', (e) => subirAdjunto(e.target.files?.[0]));
   /* Elegir otra plantilla la pone, como en la ventana de antes. */
   $('hub-preset')?.addEventListener('change', aplicarPreset);
   $('hub-pick-list')?.addEventListener('change', (e) => {
@@ -1066,7 +1214,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     pedirVista();
   });
 
-  window.hubCerrar = cerrar;
+  window.hubAlVolver = alVolver;
 
   Object.assign(window.CLICK_HANDLERS, {
     hubOpen:         (btn) => abrir(btn.dataset.audience, btn),
@@ -1076,6 +1224,8 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     hubTogglePeople: () => verPersonas(),
     hubSend:         () => enviar(),
     hubOpenSend:     (btn) => abrirEnvio(btn),
+    hubAttachPick:   () => $('hub-attach-input').click(),
+    hubAttachRemove: () => quitarAdjunto(),
     /* Los botones de las otras pantallas. */
     hubNotifyLadder: () => {
       const escalera = window.AdminState.currentLadder;

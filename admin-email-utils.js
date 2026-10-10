@@ -111,6 +111,10 @@
     invalid_message:            'Write a subject (up to 200 characters) and a message. Nothing was sent.',
     no_recipients:              'No one in this group can receive email. Nothing was sent.',
     audience_changed:           'The recipients changed since the list was loaded. Nothing was sent — check the updated list and press Send again.',
+    attachment_not_allowed:     'A PDF can only be attached to ladder and tournament emails. Nothing was sent.',
+    attachment_invalid:         'The attached file is not a valid PDF of 10 MB or less. Nothing was sent — remove it and attach it again.',
+    attachment_missing:         'The attached PDF could not be found. Nothing was sent — remove it and attach it again.',
+    attachment_unavailable:     'The attached PDF could not be prepared for sending. Nothing was sent — try again in a moment.',
     no_selection:               'Select at least one player or division. Nothing was sent.',
     too_many_recipients:        'This group is larger than one send allows (1,000 email addresses). Nothing was sent — choose a smaller group.',
     audience_not_found:         'That ladder or tournament no longer exists. Nothing was sent.',
@@ -578,6 +582,10 @@
           ? 'the provider says this email is too large to send in batches of 100'
       : motivo === 'proveedor_caido'
           ? 'the email provider is not responding'
+      : motivo === 'adjunto_grande'
+          ? 'the provider says the email with its attachment is too large'
+      : motivo === 'tiempo'
+          ? 'emails with an attachment go out one by one, and this round ran out of time'
       : '';
     if (!razon) return '';
 
@@ -633,15 +641,20 @@
         + loQueFalto(d);
     }
 
-    /* De los tres cortes, sólo uno se arregla volviendo a pulsar. Los
-       otros dos acaban en "dímelo y lo arreglo": ella no tiene por qué
-       saber qué es un secreto de Supabase ni cómo se acorta un correo.
+    /* Dos cortes se arreglan volviendo a pulsar: el proveedor caído y
+       el tiempo (los correos con adjunto, que van de uno en uno). Los
+       demás acaban en "dímelo y lo arreglo": ella no tiene por qué saber
+       qué es un secreto de Supabase ni cómo se acorta un correo.
 
        Tampoco se nombra el botón, por lo mismo de arriba: "send it
        again" vale para Send, para Launch Campaign y para Retry. */
     const queHacer =
         motivo === 'proveedor_caido'
           ? ' Wait a few minutes and send it again — the rest will go out, and nobody gets it twice.'
+      : motivo === 'tiempo'
+          ? ' Send it again without changing anything to continue — the rest will go out, and nobody gets it twice.'
+      : motivo === 'adjunto_grande'
+          ? ' Nothing more will go out with that file — attach a smaller PDF, or tell me and I will look at it.'
       : motivo === 'lote_grande'
           ? ' Nothing more will go out until it is made shorter — tell me and I will fix it.'
       : ' Sending it again will not help until it is fixed — tell me and I will sort it out.';

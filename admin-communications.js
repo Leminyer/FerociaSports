@@ -469,6 +469,7 @@
     document.getElementById('co-det-meta').innerHTML =
       `${pastillaTipo(enLista.kind)} <span style="font-size:11px;font-weight:600;color:var(--text-muted);margin-left:8px;">${window.esc(cuando(enLista.sent_at || enLista.created_at))}</span>`;
     document.getElementById('co-det-body').innerHTML = cargando('Loading message...');
+    document.getElementById('co-det-attach').hidden = true;
 
     document.querySelectorAll('#co-det-filters .co-pfilter').forEach((b) => {
       b.classList.toggle('co-pfilter-on', (b.dataset.pf || '') === '');
@@ -499,6 +500,15 @@
       _abierto.body
         ? limpiarCuerpo(_abierto.body)
         : '<em style="color:var(--text-muted);">(no message body)</em>';
+
+    /* El PDF que fue adjunto, si lo hubo (entregable 4). */
+    const adj = _abierto.meta && _abierto.meta.attachment;
+    document.getElementById('co-det-attach').hidden = !adj;
+    if (adj) {
+      const mb = (Number(adj.size) || 0) / (1024 * 1024);
+      document.getElementById('co-det-attach-name').textContent =
+        `${adj.filename} · ${mb >= 1 ? `${mb.toFixed(1)} MB` : `${Math.max(1, Math.round(mb * 1024))} KB`}`;
+    }
 
     await cargarPersonas(true);
   }
@@ -1065,13 +1075,37 @@
     /* Al abrir la pantalla se enseña SEND, que es lo que se viene a
        hacer la mayoría de las veces. El historial se carga cuando se
        pincha su pestaña, no antes.
-       Y el panel del Hub se cierra: una vista previa de destinatarios
-       de hace un rato puede no ser ya la de verdad. */
-    window.hubCerrar?.();
+       Y el panel del Hub se cierra —una vista previa de destinatarios
+       de hace un rato puede no ser ya la de verdad— salvo que haya un
+       mensaje a medio escribir: entonces se queda, con la vista previa
+       pedida otra vez (admin-comms-hub.js, alVolver). */
+    window.hubAlVolver?.();
     mostrarTab('send');
   };
 
+  /* Descargar el PDF que se adjuntó: un enlace de un minuto, como los
+     archivos de la ficha del jugador. La carpeta es privada. */
+  async function descargarAdjunto() {
+    const adj = _abierto && _abierto.meta && _abierto.meta.attachment;
+    if (!adj) return;
+    /* La pestaña se abre YA, con el clic, y luego se le da la dirección:
+       abierta después de esperar al servidor, Safari la bloquea sin
+       avisar. */
+    const pestana = window.open('about:blank', '_blank');
+    if (pestana) pestana.opener = null;
+    try {
+      const { data, error } = await window.supabase.storage.from(adj.bucket).createSignedUrl(adj.path, 60);
+      if (error) throw error;
+      if (pestana) pestana.location.href = data.signedUrl;
+      else window.location.href = data.signedUrl;
+    } catch (e) {
+      if (pestana) pestana.close();
+      window.toast(`Could not open the PDF: ${e.message}`, true);
+    }
+  }
+
   Object.assign(window.CLICK_HANDLERS, {
+    commDownloadAttachment: () => descargarAdjunto(),
     commShowTab:        (btn) => mostrarTab(btn.dataset.tab),
     openCommDetail:     (btn) => abrirDetalle(btn.dataset.commid),
     closeCommDetail:    () => cerrarDetalle(),

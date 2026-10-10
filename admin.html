@@ -24,7 +24,7 @@
 <link rel="stylesheet" href="admin-components.css?v=20261008a">
 <link rel="stylesheet" href="admin-pages.css?v=20261001c">
 <link rel="stylesheet" href="admin-ftc.css?v=20260928b">
-<link rel="stylesheet" href="admin-comms-hub.css?v=20261010b">
+<link rel="stylesheet" href="admin-comms-hub.css?v=20261010c">
 
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="config.js?v=20260929j"></script>
@@ -2029,6 +2029,25 @@
             <div class="hub-hint hub-hint-after" id="hub-message-hint"></div>
           </div>
 
+          <!-- El PDF adjunto: sólo en escaleras y torneos. -->
+          <div class="hub-field" id="hub-attach-wrap" hidden>
+            <div class="hub-field-label" id="hub-attach-label">Attachment <span class="hub-attach-opt">(optional · PDF, max 10 MB)</span></div>
+            <input type="file" id="hub-attach-input" accept="application/pdf,.pdf" aria-labelledby="hub-attach-label" hidden>
+            <button type="button" class="hub-attach-btn" id="hub-attach-btn" data-action="hubAttachPick">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+              <span id="hub-attach-btn-text">Attach PDF</span>
+            </button>
+            <div class="hub-attach-file" id="hub-attach-file" hidden>
+              <span class="hub-attach-icon">PDF</span>
+              <span class="hub-attach-text">
+                <span class="hub-attach-name" id="hub-attach-name"></span>
+                <span class="hub-attach-size" id="hub-attach-size"></span>
+              </span>
+              <button type="button" class="hub-attach-remove" data-action="hubAttachRemove">Remove</button>
+            </div>
+            <div class="hub-hint hub-hint-after" id="hub-attach-hint" hidden>With an attachment, the emails go out one by one — about a second each.</div>
+          </div>
+
           <div class="hub-send-row">
             <label class="hub-test" for="hub-only-me">
               <input type="checkbox" id="hub-only-me" aria-describedby="hub-only-me-help">
@@ -2882,6 +2901,12 @@
       <div>
         <div style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px;">Message</div>
         <div id="co-det-body" style="background:#fafbff;border:0.5px solid var(--divider-color);border-radius:10px;padding:16px 18px;font-size:13px;font-weight:500;color:var(--text);line-height:1.7;max-height:220px;overflow-y:auto;word-break:break-word;"></div>
+        <!-- El PDF que fue adjunto, si lo hubo. -->
+        <div class="co-det-attach" id="co-det-attach" hidden>
+          <span class="hub-attach-icon">PDF</span>
+          <span class="co-det-attach-name" id="co-det-attach-name"></span>
+          <button type="button" class="hub-attach-btn" data-action="commDownloadAttachment">Download</button>
+        </div>
       </div>
 
       <!-- Quién lo recibió -->
@@ -3544,7 +3569,7 @@
 <script src="admin-incident-reports.js?v=20260928b"></script>
 <script src="admin-ladder-selector.js?v=20260928b"></script>
 <script src="admin-orders.js?v=20260928b"></script>
-<script src="admin-email-utils.js?v=20261009b"></script>
+<script src="admin-email-utils.js?v=20261010c"></script>
 <script src="admin-rich-editor.js?v=20261009b"></script>
 <script src="admin-share.js?v=20260928b"></script>
 <script src="admin-player-status-history.js?v=20260928b"></script>
@@ -3553,8 +3578,8 @@
 <script src="admin-sessions.js?v=20260928b"></script>
 <script src="admin-print-roster.js?v=20260928b"></script>
 <script src="admin-ladder-management.js?v=20261008a"></script>
-<script src="admin-communications.js?v=20261009b"></script>
-<script src="admin-comms-hub.js?v=20261010a"></script>
+<script src="admin-communications.js?v=20261010c"></script>
+<script src="admin-comms-hub.js?v=20261010c"></script>
 <script src="admin-promotions.js?v=20261006a"></script>
 <script src="admin-subscriber-reminder.js?v=20261005a"></script>
 <script src="admin-newsletter.js?v=20261005b"></script>
