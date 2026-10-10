@@ -28,6 +28,12 @@
 .hub-sub{font-size:12px;font-weight:600;color:var(--text-muted);}
 
 /* ── Pasos ────────────────────────────────────────────────── */
+/* Todo el formulario es UNA columna de 720 px centrada en la tarjeta
+   (pedido el 10 de octubre: antes iba pegado a la izquierda y dejaba
+   todo el hueco a la derecha). Lo de dentro ocupa el ancho de la
+   columna, así los bordes de todo coinciden. */
+.hub-head,
+.hub-step{max-width:720px;margin-left:auto;margin-right:auto;}
 .hub-step{margin-bottom:20px;}
 .hub-step:last-child{margin-bottom:0;}
 /* El subtítulo de cada paso: en negrita y un poco más grande, sin la
@@ -42,7 +48,7 @@
 
 /* ── Campos ───────────────────────────────────────────────── */
 .hub-select,
-.hub-input{width:100%;max-width:520px;padding:9px 12px;border:1px solid var(--divider-color);
+.hub-input{width:100%;padding:9px 12px;border:1px solid var(--divider-color);
            border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;
            color:var(--text);background:white;outline:none;box-sizing:border-box;}
 .hub-select:focus,
@@ -50,7 +56,7 @@
 .hub-chips{display:flex;flex-wrap:wrap;gap:6px;}
 
 /* ── Selected Players: la lista para marcar ───────────────── */
-.hub-pick-list{max-width:520px;max-height:320px;overflow-y:auto;margin-top:8px;
+.hub-pick-list{max-height:320px;overflow-y:auto;margin-top:8px;
                border:1px solid var(--divider-color);border-radius:10px;}
 /* Cada fila es un <label> para que pulsar el nombre marque la casilla. La
    regla general de `label` (mayúsculas pequeñas, para los rótulos de los
@@ -71,7 +77,7 @@
 .hub-pick-empty{padding:14px;font-size:12px;font-weight:600;color:var(--text-muted);text-align:center;}
 
 /* ── Vista previa ─────────────────────────────────────────── */
-.hub-preview{max-width:520px;background:#f8f9ff;border:0.5px solid var(--divider-color);
+.hub-preview{background:#f8f9ff;border:0.5px solid var(--divider-color);
              border-radius:10px;padding:14px 16px;}
 .hub-count{font-size:14px;font-weight:800;color:var(--text);}
 .hub-note{font-size:11px;font-weight:600;color:var(--text-muted);margin-top:6px;line-height:1.5;}
@@ -79,10 +85,13 @@
 .hub-view-btn{margin-top:10px;}
 
 /* ── La lista de destinatarios ────────────────────────────── */
-.hub-people{max-width:720px;margin-top:10px;border:1px solid var(--divider-color);
-            border-radius:10px;overflow-x:auto;}
+/* Con su propio scroll: unas 10 filas a la vista, y la fila de títulos
+   fija arriba (pedido el 10 de octubre: con All Players había que bajar
+   muchísimo). */
+.hub-people{max-height:388px;margin-top:10px;border:1px solid var(--divider-color);
+            border-radius:10px;overflow:auto;}
 .hub-table{width:100%;border-collapse:collapse;font-size:12px;}
-.hub-table th{text-align:left;padding:9px 14px;font-size:9px;font-weight:800;letter-spacing:1px;
+.hub-table th{position:sticky;top:0;z-index:1;text-align:left;padding:9px 14px;font-size:9px;font-weight:800;letter-spacing:1px;
               text-transform:uppercase;color:var(--text-muted);background:#f8f9ff;
               border-bottom:0.5px solid var(--divider-color);white-space:nowrap;}
 .hub-table td{padding:9px 14px;border-bottom:0.5px solid #f4f5f8;font-weight:600;color:var(--text);}
@@ -93,7 +102,7 @@
 
 /* ── Escribir el mensaje ──────────────────────────────────── */
 /* Los mismos valores que la ventana "Send Ladder Update". */
-.hub-field{max-width:680px;margin-bottom:12px;}
+.hub-field{margin-bottom:12px;}
 .hub-field-label{display:block;margin-bottom:4px;font-size:9px;font-weight:700;letter-spacing:.5px;
                  text-transform:uppercase;color:var(--text-muted);}
 .hub-req{color:#e53935;}
@@ -126,7 +135,7 @@
                 font-size:11px;font-weight:700;cursor:pointer;}
 .hub-attach-btn:hover{background:#e8f0ff;border-color:var(--blue);}
 .hub-attach-btn:disabled{opacity:.6;cursor:default;}
-.hub-attach-file{display:flex;align-items:center;gap:10px;max-width:680px;padding:10px 12px;
+.hub-attach-file{display:flex;align-items:center;gap:10px;padding:10px 12px;
                  border:1px solid var(--divider-color);border-radius:10px;background:#fafbff;}
 .hub-attach-icon{flex-shrink:0;padding:4px 7px;border-radius:6px;background:#fdeceb;color:#c62828;
                  font-size:9px;font-weight:800;letter-spacing:.5px;}
@@ -137,14 +146,17 @@
 .hub-attach-remove{flex-shrink:0;border:none;background:none;color:var(--danger);font-family:'Inter',sans-serif;
                    font-size:11px;font-weight:700;cursor:pointer;padding:4px 6px;}
 
-/* El adjunto en el detalle de un envío (pestaña History y el historial del Hub) */
+/* El adjunto en el detalle de un envío (pestaña History). El [hidden]
+   tiene que ganar al display:flex: sin esto el recuadro salía también en
+   los correos SIN PDF (lo vio la fundadora el 10 de octubre). */
+.co-det-attach[hidden]{display:none;}
 .co-det-attach{display:flex;align-items:center;gap:10px;margin-top:10px;padding:10px 12px;
                border:1px solid var(--divider-color);border-radius:10px;background:white;}
 .co-det-attach-name{flex:1;min-width:0;font-size:12px;font-weight:700;color:var(--text);
                     overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 
 /* La casilla de ensayo y el botón de enviar */
-.hub-send-row{max-width:680px;display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;
+.hub-send-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;
               gap:8px;padding-top:12px;margin-top:4px;border-top:0.5px solid var(--divider-color);}
 .hub-test{display:flex;align-items:flex-start;gap:9px;padding:10px 12px;margin-right:auto;
           border:1px solid var(--divider-color);border-radius:10px;background:#f8f9ff;cursor:pointer;
