@@ -23,10 +23,11 @@
 
    ── TODO EL CORREO SALE DEL SERVIDOR ──────────────────────────────
    Las pantallas del admin que mandan correo pasan por aquí, y de aquí a
-   la Edge Function `send-email`. A día de hoy son siete: Promotions,
-   avisos de ladder, avisos de torneo, correo a todos los jugadores,
-   mensaje a un jugador, el recordatorio de confirmación y el reintento
-   del historial.
+   la Edge Function `send-email`. A día de hoy son cuatro: Promotions,
+   el recordatorio de confirmación, el reintento del historial y el
+   Communications Hub — éste a través de `comms-send`, que calcula la
+   lista en el servidor y se la pasa a `send-email`. Todo correo a
+   jugadores (escaleras, torneos, todos, uno solo) sale del Hub.
 
    Hay dos que NO pasan por aquí, y las dos por el mismo motivo —
    necesitan su propia función del servidor:
@@ -248,8 +249,9 @@
      Se guarda el HTML original una sola vez y se sustituye sólo el
      texto, así el icono no se pierde.
 
-     Vive aquí porque son cuatro pantallas con casilla. Escrito cuatro
-     veces, a la tercera ya no dirían lo mismo.
+     Vive aquí porque la usan tres pantallas (Promotions, el
+     recordatorio de confirmación y el Hub), y escrita tres veces
+     acabaría diciendo cosas distintas.
      ════════════════════════════════════════════════════════════ */
 
   const ETIQUETA_ENSAYO = 'Send only to me';
@@ -687,9 +689,9 @@
      cuando la campaña está TERMINADA. Esa cuenta vive en
      `envioTerminado`, con el porqué entero.
 
-     Vive aquí y no en cada módulo porque son cuatro pantallas que
-     mandan en lote, y esto escrito cuatro veces es lo mismo escrito
-     de tres formas distintas al cabo de un año.
+     Vive aquí y no en cada módulo porque la usan tres pantallas que
+     mandan en lote (Promotions, el recordatorio y el Hub), y escrita
+     tres veces acabaría diciendo cosas distintas al cabo de un año.
      ════════════════════════════════════════════════════════════ */
 
   const _nuevoNonce = () =>
@@ -746,7 +748,7 @@
    *
    * Email All Players ya se protegía así; las demás pantallas no, y
    * eran copias del mismo patrón. Ahora la comprobación vive en un
-   * solo sitio y dice lo mismo en las cinco.
+   * solo sitio y dice lo mismo en todas.
    *
    * @param   {string} [que]  qué se estaba intentando hacer, para el aviso
    * @returns {boolean}       true si hay un envío en curso (o sea: no toques)

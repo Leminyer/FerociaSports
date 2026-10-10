@@ -2,9 +2,7 @@
    FEROCIA SPORTS CENTER — ADMIN: EDITOR CON FORMATO (COMPARTIDO)
    Depends on: db.js (toast)
    Load order: db.js -> admin-rich-editor.js -> los módulos que lo usan
-               (admin-promotions.js, admin-email-notifications.js,
-                admin-tournament-notify.js, admin-players-email.js,
-                admin-player-profile.js)
+               (admin-promotions.js, admin-comms-hub.js)
 
    ── QUÉ ES ────────────────────────────────────────────────────────
    Un editor de texto con formato —negritas, listas, colores, tamaños,
@@ -14,9 +12,10 @@
 
    ── POR QUÉ UN ARCHIVO APARTE ─────────────────────────────────────
    Esto nació dentro de admin-promotions.js, que era el único sitio con
-   editor. Ahora son cinco. Copiarlo cinco veces significa que el
-   próximo arreglo hay que hacerlo cinco veces, y que a la tercera ya
-   no se parecen entre sí. Aquí hay un solo sitio.
+   editor. Hoy lo usan Promotions y el Communications Hub. Copiarlo en
+   cada pantalla significa que el próximo arreglo hay que hacerlo en
+   cada una, y que a la tercera ya no se parecen entre sí. Aquí hay un
+   solo sitio.
 
    ── LO QUE RESUELVE Y NO SE VE ────────────────────────────────────
    1. LA SELECCIÓN. Un comando de formato se aplica a lo que esté

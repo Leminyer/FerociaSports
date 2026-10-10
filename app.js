@@ -574,14 +574,10 @@ window.selectLadderType = (type) => {
      loadSharePage/switchShareTab/showShareQR/copyShareLink/_recordShareVisit
      now live there. */
 
-  /* ─── EMAIL NOTIFICATIONS ──────────────────────────────── */
-  /* Extracted to admin-email-notifications.js. NOTIFY_TEMPLATES/
-     setNotifyTemplate/openNotifyPlayers/sendNotifications now live there. */
-
-  /* ─── TOURNAMENT NOTIFY ────────────────────────────────── */
-  /* Extracted to admin-tournament-notify.js (Phase 3 of the app.js
-     modularization). openTournamentNotifyModal/closeTournamentNotifyModal/
-     sendTournamentNotify now live there. */
+  /* ─── CORREO A JUGADORES ───────────────────────────────── */
+  /* Todo pasa por el Communications Hub (admin-comms-hub.js). Los botones
+     "Notify Players" de escaleras y torneos, "Email Players" y el correo
+     desde la ficha del jugador abren el Hub con la audiencia ya elegida. */
 
   /* ─── ORDERS ────────────────────────────────────────────── */
   /* Extracted to admin-orders.js (Phase 1 of the app.js modularization).
@@ -1125,15 +1121,10 @@ window.selectLadderType = (type) => {
     // closeEditLadderModal now registered by admin-ladder-management.js
     closeEditGameModal: () =>
       document.getElementById('edit-game-modal').classList.remove('open'),
-    /* Estos dos NO cierran mientras haya un envío en curso. Cerrar la
-       ventana no detiene el envío: sigue corriendo, y al reabrirla el
-       composer se limpia y se lleva el asunto y el mensaje por delante.
-       Si ese envío sale parcial, el texto que hace falta para
-       reintentar ya no existe. Email All Players ya se protegía así. */
-    closeNotifyModal: () => {
-      if (window.envioEnCurso && window.envioEnCurso()) return;
-      document.getElementById('notify-modal').classList.remove('open');
-    },
+    /* NO cierra mientras haya un envío en curso. Cerrar la ventana no
+       detiene el envío: sigue corriendo, y al reabrirla el composer se
+       limpia y se lleva el asunto y el mensaje por delante. Si ese envío
+       sale parcial, el texto que hace falta para reintentar ya no existe. */
     closePromoModal: () => {
       if (window.envioEnCurso && window.envioEnCurso()) return;
       const modal = document.getElementById('promo-modal');
@@ -1142,7 +1133,7 @@ window.selectLadderType = (type) => {
     closeEditSessionModal: () =>
       document.getElementById('edit-session-modal').classList.remove('open'),
     // Notify / promo
-    // openNotifyPlayers/openSendPromo now registered by admin-email-notifications.js / admin-promotions.js
+    // openSendPromo now registered by admin-promotions.js
     // sendPendingReminder now registered by admin-subscriber-reminder.js
     // generateQR now registered by admin-promotions.js
     // Share — copyShareLink/switchShareTab/showShareQR now registered by admin-share.js
@@ -1155,7 +1146,6 @@ window.selectLadderType = (type) => {
       });
       if (ok) window.auth.signOut();
     },
-    // Tournament notify — closeTournamentNotifyModal now registered by admin-tournament-notify.js
     // Orders management — markFulfilled now registered by admin-orders.js
     // Events management
     deleteEvent: (btn) => deleteEvent(btn),
@@ -1182,10 +1172,6 @@ window.selectLadderType = (type) => {
     }
     if (el.name === 'noshow-penalty') {
       AdminState.noShowPenalty = parseInt(el.value, 10);
-      return;
-    }
-    if (el.id === 'notify-type') {
-      window.setNotifyTemplate(el.value);
       return;
     }
     if (el.id === 'gender-filter') {
@@ -1270,11 +1256,9 @@ window.selectLadderType = (type) => {
   // edit-game-form's and edit-session-form's submit listeners are now wired by admin-sessions.js itself
   // ladder-selector's change listener is now wired by admin-ladder-selector.js itself
   document.getElementById('tournament-selector')?.addEventListener('change', onTournamentChange);
-  // notify-form's submit listener is now wired by admin-email-notifications.js itself
   document.getElementById('create-event-form')?.addEventListener('submit', createEvent);
   document.getElementById('edit-event-form')?.addEventListener('submit', editEvent);
   // promo-form's, sub-status-filter's, and sub-search's listeners are now wired by admin-promotions.js itself
-  // t-notify-form's submit listener is now wired by admin-tournament-notify.js itself
   // edit-ladder-modal form's submit listener is now wired by admin-ladder-management.js itself
   // add-player-form's, edit-player-form's, player-status-filter's, and player-search's
   // listeners are now wired by admin-players.js itself
@@ -1290,7 +1274,6 @@ window.selectLadderType = (type) => {
     escapeHtml,
     sleep,
     showPage,
-    openTournamentNotifyModal: window.openTournamentNotifyModal,  // set by admin-tournament-notify.js; called by tournament.js notify button
   };
   // Also expose directly on window for legacy references in tournament.js
   window.api          = api;

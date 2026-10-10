@@ -1004,7 +1004,7 @@
       } else {
         const d = r.data || {};
         /* `loQueFalto` y el motivo del corte también aquí: este reintento
-           usa el mismo motor que las cinco pantallas de envío y se corta
+           usa el mismo motor que las pantallas de envío y se corta
            por lo mismo. Sin esto, el reintento era la única puerta por la
            que esas dos cosas no se nombraban — y la peor, porque es la
            puerta a la que se llega justamente cuando algo ya falló. */

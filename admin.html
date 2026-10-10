@@ -316,7 +316,7 @@
       <div class="section-header">
         <div class="dash-section-title">Season Standings</div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-          <button type="button" class="btn btn-teal btn-sm" data-action="openNotifyPlayers">Notify Players</button>
+          <button type="button" class="btn btn-teal btn-sm" data-action="hubNotifyLadder">Notify Players</button>
           <button type="button" class="btn btn-primary btn-sm" data-action="printStandings" style="display:flex;align-items:center;gap:6px;">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             Export Standings
@@ -465,9 +465,9 @@
           <option value="new">New Player</option>
           <option value="hot">Hot Streak</option>
         </select>
-        <!-- Email all active players. Sits next to the status filter so it
-             reads as an action on the list you are looking at. -->
-        <button type="button" data-action="openPlayersEmail" title="Email all active players"
+        <!-- Escribir a todos los jugadores activos: abre el Communications
+             Hub con "All Players". No usa el filtro de al lado. -->
+        <button type="button" data-action="hubEmailAllPlayers" title="Email all active players"
           style="display:flex;align-items:center;gap:7px;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;padding:8px 15px;border:0.5px solid var(--border);border-radius:99px;background:white;color:var(--blue);cursor:pointer;flex-shrink:0;white-space:nowrap;"
           onmouseover="this.style.background='#e8f0ff';this.style.borderColor='var(--blue)'"
           onmouseout="this.style.background='white';this.style.borderColor='var(--border)'">
@@ -2917,222 +2917,6 @@
   </div>
 </div>
 
-<div class="modal-bg" id="notify-modal">
-  <div class="modal" style="max-width:680px;max-height:88vh;border-radius:14px;padding:0;overflow:hidden;display:flex;flex-direction:column;">
-
-    <!-- HEADER -->
-    <div style="padding:20px 24px 0;display:flex;align-items:flex-start;justify-content:space-between;flex-shrink:0;">
-      <div>
-        <div style="font-family:'Inter',sans-serif;font-size:24px;color:var(--text);letter-spacing:1px;line-height:1;margin-bottom:3px;">Send Ladder Update</div>
-        <div style="font-size:11px;font-weight:600;color:var(--text-muted);" id="notify-recipient-count"></div>
-      </div>
-      <button type="button" data-action="closeNotifyModal"
-        style="width:30px;height:30px;border-radius:8px;border:0.5px solid var(--divider-color);background:white;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;"
-        onmouseover="this.style.background='var(--orange-light)';this.style.borderColor='rgba(229,57,53,0.3)'"
-        onmouseout="this.style.background='white';this.style.borderColor='var(--divider-color)'">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#e53935" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
-    </div>
-    <div style="border-top:0.5px solid var(--divider-color);margin:14px 24px 0;"></div>
-
-    <!-- BODY -->
-    <form id="notify-form" style="padding:16px 24px;display:flex;flex-direction:column;gap:16px;overflow-y:auto;">
-
-      <!-- SECTION 1: Ladder Context -->
-      <div>
-        <div style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px;display:flex;align-items:center;gap:6px;">
-          <span style="width:3px;height:13px;border-radius:99px;background:var(--blue);display:inline-block;flex-shrink:0;"></span>Ladder Context
-        </div>
-        <div style="background:#f8f9ff;border:0.5px solid var(--divider-color);border-radius:10px;padding:14px 16px;">
-          <div style="font-size:14px;font-weight:800;color:var(--text);margin-bottom:8px;" id="notify-ladder-name"></div>
-          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;" id="notify-context-pills"></div>
-        </div>
-      </div>
-
-      <!-- Notification type -->
-      <div>
-        <div style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px;display:flex;align-items:center;gap:6px;">
-          <span style="width:3px;height:13px;border-radius:99px;background:var(--blue);display:inline-block;flex-shrink:0;"></span>Notification Type
-        </div>
-        <select id="notify-type"
-          style="width:100%;padding:9px 12px;border:1px solid var(--divider-color);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;color:var(--text);outline:none;background:white;"
-          onfocus="this.style.borderColor='var(--blue)';this.style.boxShadow='0 0 0 3px rgba(23,76,204,0.08)'"
-          onblur="this.style.borderColor='var(--divider-color)';this.style.boxShadow='none'">
-          <option value="welcome">👋 Welcome &amp; Guidelines</option>
-          <option value="scores">📊 Scores Updated</option>
-          <option value="reminder">⏰ Session Reminder</option>
-          <option value="end">🏆 End of Ladder</option>
-          <option value="custom">✏️ Custom Message</option>
-        </select>
-      </div>
-
-      <!-- SECTION 2: Email Content -->
-      <div>
-        <div style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px;display:flex;align-items:center;gap:6px;">
-          <span style="width:3px;height:13px;border-radius:99px;background:var(--blue);display:inline-block;flex-shrink:0;"></span>Email Content
-        </div>
-        <div style="margin-bottom:12px;">
-          <div style="font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;">Email Subject <span style="color:#e53935;">*</span></div>
-          <input type="text" id="notify-subject"
-            style="width:100%;padding:9px 12px;border:1px solid var(--divider-color);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;color:var(--text);outline:none;"
-            onfocus="this.style.borderColor='var(--blue)';this.style.boxShadow='0 0 0 3px rgba(23,76,204,0.08)'"
-            onblur="this.style.borderColor='var(--divider-color)';this.style.boxShadow='none'">
-        </div>
-        <div>
-          <div style="font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;">Message <span style="color:#e53935;">*</span></div>
-          <div style="border:1px solid var(--divider-color);border-radius:10px;overflow:hidden;">
-            <div style="padding:7px 12px;background:#f8f9ff;border-bottom:0.5px solid var(--divider-color);display:flex;align-items:center;gap:6px;">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-              <span style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);">Message Preview</span>
-            </div>
-            <!-- La barra de formato la fabrica admin-rich-editor.js. -->
-            <div class="promo-fmt-toolbar" id="notify-fmt-bar" style="padding:6px 8px;background:#fcfdff;border-bottom:0.5px solid var(--divider-color);display:flex;align-items:center;gap:4px;flex-wrap:wrap;"></div>
-            <div id="notify-message" contenteditable="true" style="width:100%;min-height:160px;padding:14px;border:none;outline:none;font-family:'Inter',sans-serif;font-size:13px;font-weight:500;color:var(--text);line-height:1.7;background:white;overflow-y:auto;max-height:340px;"></div>
-          </div>
-          <div style="font-size:10px;font-weight:600;color:#b0bbd6;margin-top:5px;">Results and standings links will be automatically added to every email.</div>
-        </div>
-      </div>
-
-      <!-- SECTION 3: Delivery Info -->
-      <div>
-        <div style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px;display:flex;align-items:center;gap:6px;">
-          <span style="width:3px;height:13px;border-radius:99px;background:var(--blue);display:inline-block;flex-shrink:0;"></span>Delivery Info
-        </div>
-        <div style="background:#f0f4ff;border:1px solid #c5d6f5;border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:8px;">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-          <div style="font-size:11px;font-weight:600;color:var(--blue);line-height:1.4;">The leaderboard link will be included automatically.</div>
-        </div>
-      </div>
-
-      <!-- FOOTER -->
-      <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px;padding-top:4px;border-top:0.5px solid var(--divider-color);margin-top:2px;">
-        <label for="notify-only-me" style="display:flex;align-items:flex-start;gap:9px;padding:10px 12px;margin-right:auto;border:1px solid var(--divider-color);border-radius:10px;background:#f8f9ff;cursor:pointer;flex:0 1 auto;max-width:330px;min-width:0;text-transform:none;letter-spacing:normal;">
-          <input type="checkbox" id="notify-only-me" aria-describedby="notify-only-me-ayuda" style="margin:1px 0 0;width:14px;height:14px;accent-color:var(--blue);cursor:pointer;flex-shrink:0;">
-          <span style="font-family:'Inter',sans-serif;font-size:11px;font-weight:700;color:var(--text);line-height:1.45;text-transform:none;letter-spacing:normal;">
-            Send only to me
-            <span id="notify-only-me-ayuda" style="display:block;font-size:10px;font-weight:600;color:var(--text-muted);margin-top:2px;text-transform:none;letter-spacing:normal;">
-              Real send, fully logged &mdash; but only you receive it.
-            </span>
-          </span>
-        </label>
-        <button type="submit" id="notify-send-btn"
-          style="display:inline-flex;align-items:center;gap:7px;padding:10px 24px;border:none;border-radius:99px;background:linear-gradient(180deg,#2456d3,var(--blue));color:white;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-          Send Update
-        </button>
-      </div>
-
-    </form>
-  </div>
-</div>
-
-<!-- Player Profile — Send Email Modal -->
-<div class="modal-bg" id="pp-email-modal">
-  <div class="modal" style="max-width:520px;border-radius:14px;padding:0;overflow:hidden;display:flex;flex-direction:column;">
-
-    <!-- HEADER -->
-    <div style="padding:20px 24px 0;display:flex;align-items:flex-start;justify-content:space-between;flex-shrink:0;">
-      <div>
-        <div style="font-family:'Inter',sans-serif;font-size:24px;color:var(--text);letter-spacing:1px;line-height:1;margin-bottom:3px;">Send Email</div>
-        <div style="font-size:11px;font-weight:600;color:var(--text-muted);" id="pp-email-recipient"></div>
-      </div>
-      <button type="button" data-action="ppCloseEmailModal"
-        style="width:30px;height:30px;border-radius:8px;border:0.5px solid var(--divider-color);background:white;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#e53935" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
-    </div>
-    <div style="border-top:0.5px solid var(--divider-color);margin:14px 24px 0;"></div>
-
-    <!-- BODY -->
-    <form id="pp-email-form" style="padding:16px 24px;display:flex;flex-direction:column;gap:14px;overflow-y:auto;">
-      <div>
-        <div style="font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;">Subject <span style="color:#e53935;">*</span></div>
-        <input type="text" id="pp-email-subject"
-          style="width:100%;padding:9px 12px;border:1px solid var(--divider-color);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;color:var(--text);outline:none;">
-      </div>
-      <div>
-        <div style="font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;">Message <span style="color:#e53935;">*</span></div>
-        <!-- La barra de formato la fabrica admin-rich-editor.js. -->
-          <div class="promo-fmt-toolbar" id="pp-fmt-bar" style="padding:6px 8px;background:#fcfdff;border:1px solid var(--divider-color);border-radius:10px 10px 0 0;display:flex;align-items:center;gap:4px;flex-wrap:wrap;"></div>
-          <div id="pp-email-message" contenteditable="true" style="width:100%;min-height:180px;max-height:340px;overflow-y:auto;padding:12px;border:1px solid var(--divider-color);border-top:none;border-radius:0 0 10px 10px;outline:none;font-family:'Inter',sans-serif;font-size:13px;font-weight:500;color:var(--text);line-height:1.7;background:white;"></div>
-      </div>
-
-      <!-- FOOTER -->
-      <div style="display:flex;justify-content:flex-end;padding-top:4px;border-top:0.5px solid var(--divider-color);margin-top:2px;">
-        <button type="submit" id="pp-email-send-btn"
-          style="display:inline-flex;align-items:center;gap:7px;padding:10px 24px;border:none;border-radius:99px;background:linear-gradient(180deg,#2456d3,var(--blue));color:white;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-          Send Email
-        </button>
-      </div>
-    </form>
-  </div>
-</div>
-
-<!-- Email All Players Modal -->
-<div class="modal-bg" id="players-email-modal">
-  <div class="modal" style="max-width:680px;border-radius:14px;padding:0;overflow:hidden;display:flex;flex-direction:column;max-height:88vh;">
-
-    <!-- HEADER -->
-    <div style="padding:20px 24px 0;display:flex;align-items:flex-start;justify-content:space-between;flex-shrink:0;">
-      <div>
-        <div style="font-family:'Inter',sans-serif;font-size:24px;color:var(--text);letter-spacing:1px;line-height:1;margin-bottom:3px;">Email All Players</div>
-        <div style="font-size:11px;font-weight:600;color:var(--text-muted);" id="pe-recipient-count"></div>
-      </div>
-      <button type="button" data-action="closePlayersEmail"
-        style="width:30px;height:30px;border-radius:8px;border:0.5px solid var(--divider-color);background:white;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#e53935" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
-    </div>
-    <div style="border-top:0.5px solid var(--divider-color);margin:14px 24px 0;"></div>
-
-    <!-- BODY -->
-    <form id="players-email-form" style="padding:16px 24px;display:flex;flex-direction:column;gap:14px;overflow-y:auto;">
-
-      <!-- Recipient summary: who gets it, who is skipped, how long it takes -->
-      <div id="pe-summary" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
-
-      <div>
-        <div style="font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;">Subject <span style="color:#e53935;">*</span></div>
-        <input type="text" id="pe-subject"
-          style="width:100%;padding:9px 12px;border:1px solid var(--divider-color);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;color:var(--text);outline:none;">
-      </div>
-      <div>
-        <div style="font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;">Message <span style="color:#e53935;">*</span></div>
-        <!-- La barra de formato la fabrica admin-rich-editor.js. -->
-          <div class="promo-fmt-toolbar" id="pe-fmt-bar" style="padding:6px 8px;background:#fcfdff;border:1px solid var(--divider-color);border-radius:10px 10px 0 0;display:flex;align-items:center;gap:4px;flex-wrap:wrap;"></div>
-          <div id="pe-message" contenteditable="true" style="width:100%;min-height:180px;max-height:340px;overflow-y:auto;padding:12px;border:1px solid var(--divider-color);border-top:none;border-radius:0 0 10px 10px;outline:none;font-family:'Inter',sans-serif;font-size:13px;font-weight:500;color:var(--text);line-height:1.7;background:white;"></div>
-        <!-- Ya no se pide escribir {{player_name}}: la plantilla del
-             correo saluda por el nombre ella sola, encima del mensaje.
-             Poner la variable a mano solo conseguia que el nombre
-             saliera dos veces. Si alguien la escribe igualmente, el
-             servidor la sigue sustituyendo. -->
-        <div style="font-size:10px;font-weight:600;color:var(--text-muted);margin-top:5px;">
-          Each player is greeted by name automatically &mdash; just write your message.
-        </div>
-      </div>
-
-      <!-- FOOTER -->
-      <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px;padding-top:8px;border-top:0.5px solid var(--divider-color);">
-        <label for="pe-only-me" style="display:flex;align-items:flex-start;gap:9px;padding:10px 12px;margin-right:auto;border:1px solid var(--divider-color);border-radius:10px;background:#f8f9ff;cursor:pointer;flex:0 1 auto;max-width:330px;min-width:0;text-transform:none;letter-spacing:normal;">
-          <input type="checkbox" id="pe-only-me" aria-describedby="pe-only-me-ayuda" style="margin:1px 0 0;width:14px;height:14px;accent-color:var(--blue);cursor:pointer;flex-shrink:0;">
-          <span style="font-family:'Inter',sans-serif;font-size:11px;font-weight:700;color:var(--text);line-height:1.45;text-transform:none;letter-spacing:normal;">
-            Send only to me
-            <span id="pe-only-me-ayuda" style="display:block;font-size:10px;font-weight:600;color:var(--text-muted);margin-top:2px;text-transform:none;letter-spacing:normal;">
-              Real send, fully logged &mdash; but only you receive it.
-            </span>
-          </span>
-        </label>
-        <button type="submit" id="pe-send-btn"
-          style="display:inline-flex;align-items:center;gap:7px;padding:10px 24px;border:none;border-radius:99px;background:linear-gradient(180deg,#2456d3,var(--blue));color:white;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-          Send to All Players
-        </button>
-      </div>
-    </form>
-  </div>
-</div>
-
 <!-- Subscriber Details Modal (read-only) -->
 <div class="modal-bg" id="sub-view-modal">
   <div class="modal" style="max-width:520px;border-radius:14px;padding:0;overflow:hidden;display:flex;flex-direction:column;max-height:88vh;">
@@ -3337,99 +3121,6 @@
         <button type="submit" id="ir-save-btn"
           style="padding:10px 24px;border:none;border-radius:99px;background:linear-gradient(180deg,#2456d3,var(--blue));color:white;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Report Incident</button>
       </div>
-    </form>
-  </div>
-</div>
-
-<!-- Tournament Notify Modal -->
-<div class="modal-bg" id="tournament-notify-modal">
-  <div class="modal" style="max-width:680px;max-height:88vh;border-radius:14px;padding:0;overflow:hidden;display:flex;flex-direction:column;">
-
-    <!-- HEADER -->
-    <div style="padding:20px 24px 0;display:flex;align-items:flex-start;justify-content:space-between;flex-shrink:0;">
-      <div>
-        <div style="font-family:'Inter',sans-serif;font-size:24px;color:var(--text);letter-spacing:1px;line-height:1;margin-bottom:3px;">Send Tournament Update</div>
-        <div style="font-size:11px;font-weight:600;color:var(--text-muted);" id="t-notify-recipient-count"></div>
-      </div>
-      <button type="button" data-action="closeTournamentNotifyModal"
-        style="width:30px;height:30px;border-radius:8px;border:0.5px solid var(--divider-color);background:white;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;"
-        onmouseover="this.style.background='var(--orange-light)';this.style.borderColor='rgba(229,57,53,0.3)'"
-        onmouseout="this.style.background='white';this.style.borderColor='var(--divider-color)'">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#e53935" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
-    </div>
-    <div style="border-top:0.5px solid var(--divider-color);margin:14px 24px 0;"></div>
-
-    <!-- BODY -->
-    <form id="t-notify-form" style="padding:16px 24px;display:flex;flex-direction:column;gap:16px;overflow-y:auto;">
-
-      <!-- SECTION 1: Tournament Context -->
-      <div>
-        <div style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px;display:flex;align-items:center;gap:6px;">
-          <span style="width:3px;height:13px;border-radius:99px;background:var(--blue);display:inline-block;flex-shrink:0;"></span>Tournament Context
-        </div>
-        <div style="background:#f8f9ff;border:0.5px solid var(--divider-color);border-radius:10px;padding:14px 16px;">
-          <div style="font-size:14px;font-weight:800;color:var(--text);margin-bottom:8px;" id="t-notify-tournament-name"></div>
-          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;" id="t-notify-context-pills"></div>
-        </div>
-      </div>
-
-      <!-- SECTION 2: Email Content -->
-      <div>
-        <div style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px;display:flex;align-items:center;gap:6px;">
-          <span style="width:3px;height:13px;border-radius:99px;background:var(--blue);display:inline-block;flex-shrink:0;"></span>Email Content
-        </div>
-        <div style="margin-bottom:12px;">
-          <div style="font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;">Email Subject <span style="color:#e53935;">*</span></div>
-          <input type="text" id="t-notify-subject" placeholder="e.g. 🏆 Check your tournament results!"
-            style="width:100%;padding:9px 12px;border:1px solid var(--divider-color);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;color:var(--text);outline:none;"
-            onfocus="this.style.borderColor='var(--blue)';this.style.boxShadow='0 0 0 3px rgba(23,76,204,0.08)'"
-            onblur="this.style.borderColor='var(--divider-color)';this.style.boxShadow='none'">
-        </div>
-        <div>
-          <div style="font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;">Message <span style="color:#e53935;">*</span></div>
-          <div style="border:1px solid var(--divider-color);border-radius:10px;overflow:hidden;">
-            <div style="padding:7px 12px;background:#f8f9ff;border-bottom:0.5px solid var(--divider-color);display:flex;align-items:center;gap:6px;">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-              <span style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);">Message Preview</span>
-            </div>
-            <!-- La barra de formato la fabrica admin-rich-editor.js. -->
-            <div class="promo-fmt-toolbar" id="t-notify-fmt-bar" style="padding:6px 8px;background:#fcfdff;border-bottom:0.5px solid var(--divider-color);display:flex;align-items:center;gap:4px;flex-wrap:wrap;"></div>
-            <div id="t-notify-message" contenteditable="true" style="width:100%;min-height:160px;padding:14px;border:none;outline:none;font-family:'Inter',sans-serif;font-size:13px;font-weight:500;color:var(--text);line-height:1.7;background:white;overflow-y:auto;max-height:340px;"></div>
-          </div>
-          <div style="font-size:10px;font-weight:600;color:#b0bbd6;margin-top:5px;">Results and standings links will be automatically added to every email.</div>
-        </div>
-      </div>
-
-      <!-- SECTION 3: Delivery Info -->
-      <div>
-        <div style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px;display:flex;align-items:center;gap:6px;">
-          <span style="width:3px;height:13px;border-radius:99px;background:var(--blue);display:inline-block;flex-shrink:0;"></span>Delivery Info
-        </div>
-        <div style="background:#f0f4ff;border:1px solid #c5d6f5;border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:8px;">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-          <div style="font-size:11px;font-weight:600;color:var(--blue);line-height:1.4;">Tournament results link will be included automatically.</div>
-        </div>
-      </div>
-
-      <!-- FOOTER inside form -->
-      <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px;padding-top:4px;border-top:0.5px solid var(--divider-color);margin-top:2px;">
-        <label for="t-notify-only-me" style="display:flex;align-items:flex-start;gap:9px;padding:10px 12px;margin-right:auto;border:1px solid var(--divider-color);border-radius:10px;background:#f8f9ff;cursor:pointer;flex:0 1 auto;max-width:330px;min-width:0;text-transform:none;letter-spacing:normal;">
-          <input type="checkbox" id="t-notify-only-me" aria-describedby="t-notify-only-me-ayuda" style="margin:1px 0 0;width:14px;height:14px;accent-color:var(--blue);cursor:pointer;flex-shrink:0;">
-          <span style="font-family:'Inter',sans-serif;font-size:11px;font-weight:700;color:var(--text);line-height:1.45;text-transform:none;letter-spacing:normal;">
-            Send only to me
-            <span id="t-notify-only-me-ayuda" style="display:block;font-size:10px;font-weight:600;color:var(--text-muted);margin-top:2px;text-transform:none;letter-spacing:normal;">
-              Real send, fully logged &mdash; but only you receive it.
-            </span>
-          </span>
-        </label>
-        <button type="submit" id="t-notify-send-btn"
-          style="display:inline-flex;align-items:center;gap:7px;padding:10px 24px;border:none;border-radius:99px;background:linear-gradient(180deg,#2456d3,var(--blue));color:white;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-          Send Update
-        </button>
-      </div>
-
     </form>
   </div>
 </div>
@@ -3858,19 +3549,17 @@
 <script src="admin-incident-reports.js?v=20260928b"></script>
 <script src="admin-ladder-selector.js?v=20260928b"></script>
 <script src="admin-orders.js?v=20260928b"></script>
-<script src="admin-email-utils.js?v=20261009a"></script>
-<script src="admin-rich-editor.js?v=20260929a"></script>
+<script src="admin-email-utils.js?v=20261009b"></script>
+<script src="admin-rich-editor.js?v=20261009b"></script>
 <script src="admin-share.js?v=20260928b"></script>
-<script src="admin-tournament-notify.js?v=20261005a"></script>
 <script src="admin-player-status-history.js?v=20260928b"></script>
-<script src="admin-player-profile.js?v=20261004c"></script>
-<script src="admin-email-notifications.js?v=20261005a"></script>
+<script src="admin-player-profile.js?v=20261009b"></script>
 <script src="admin-ladder-standings.js?v=20260930a"></script>
 <script src="admin-sessions.js?v=20260928b"></script>
 <script src="admin-print-roster.js?v=20260928b"></script>
 <script src="admin-ladder-management.js?v=20261008a"></script>
-<script src="admin-communications.js?v=20261009a"></script>
-<script src="admin-comms-hub.js?v=20261009a"></script>
+<script src="admin-communications.js?v=20261009b"></script>
+<script src="admin-comms-hub.js?v=20261009b"></script>
 <script src="admin-promotions.js?v=20261006a"></script>
 <script src="admin-subscriber-reminder.js?v=20261005a"></script>
 <script src="admin-newsletter.js?v=20261005b"></script>
@@ -3879,12 +3568,11 @@
      See the header of that file. -->
 <script src="temp-dob-backfill.js?v=20260928b"></script>
 <script src="admin-players.js?v=20261008a"></script>
-<script src="admin-players-email.js?v=20261005a"></script>
 <script src="admin-ftc-standings.js?v=20260928b"></script>
 <script src="admin-ftc-playoffs-schedule.js?v=20260928b"></script>
 <script src="admin-ftc-teams.js?v=20260928b"></script>
-<script src="app.js?v=20261004c"></script>
-<script src="tournament.js?v=20261004c"></script>
+<script src="app.js?v=20261009b"></script>
+<script src="tournament.js?v=20261009b"></script>
 <script>
   // ── Sidebar toggle — persisted in localStorage ──────────────────────
   (function() {

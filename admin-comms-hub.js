@@ -1,7 +1,8 @@
 /* ============================================================
    FEROCIA SPORTS CENTER — ADMIN: COMMUNICATIONS HUB
    Depende de: config.js, db.js (api, esc, fmtDate, supabase, toast,
-               confirmModal), admin-state.js (CLICK_HANDLERS, AdminState),
+               confirmModal), admin-state.js (CLICK_HANDLERS, AdminState,
+               logAuditAction), app.js (showPage; se usa al pulsar),
                admin-rich-editor.js (FerociaEditor),
                admin-email-utils.js (sendEmailServer, crearClaveador,
                vincularEnsayo, envioEnCurso, leerErrorDeFuncion,
@@ -15,6 +16,8 @@
         queda fuera y por qué;
      4. el mensaje, y enviarlo;
      5. lo que ya se le ha mandado a esa escalera o a ese torneo.
+   Las demás pantallas traen aquí con la audiencia ya elegida
+   (window.hubAbrirCon): ver "ABRIR EL HUB DESDE OTRA PANTALLA".
 
    ── QUIÉN DECIDE LA LISTA ──────────────────────────────────────────
    Esta pantalla NO arma la lista de destinatarios. La pide al servidor
@@ -215,6 +218,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
   let _divisiones  = new Set();  // ids elegidos con 'divisions'
   let _elegidos    = new Set();  // ids elegidos con 'selected'
   let _candidatos  = null;       // quién se puede elegir: los que reciben con 'all'
+  let _motivos     = new Map();  // id → por qué no se le puede elegir (sub, inactive…)
   let _pidiendoCandidatos = null;  // la petición en curso, para no pedirla dos veces
   let _verPersonas = false;
   let _origen      = null;       // la tarjeta que abrió el panel, para devolverle el foco
@@ -324,6 +328,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     _turnoVista++;
     clearTimeout(_espera);
     _candidatos = null;
+    _motivos = new Map();
     _pidiendoCandidatos = null;
     _segmento = 'all';
     _divisiones = new Set();
@@ -498,6 +503,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
      y ya no se puede elegir sale de la selección. */
   function guardarCandidatos(gente) {
     _candidatos = gente.filter((p) => p.included);
+    _motivos = new Map(gente.filter((p) => !p.included).map((p) => [p.player_id, p.excluded_reason]));
     const validos = new Set(_candidatos.map((p) => p.player_id));
     _elegidos = new Set([..._elegidos].filter((id) => validos.has(id)));
   }
@@ -571,8 +577,13 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     if (!r.ok) {
       $('hub-preview').replaceChildren(nota('hub-error', r.mensaje));
       /* Alguien de la selección ya no puede recibir: la lista para
-         elegir se rehace con lo que hay ahora. */
-      if (r.codigo === 'player_not_in_audience' && segmento === 'selected') rehacerCandidatos();
+         elegir se rehace con lo que hay ahora, y la vista previa con
+         ella. Esa vista nueva tapa este mensaje en un momento, así que
+         se dice también en el aviso, para que no pase sin verse. */
+      if (r.codigo === 'player_not_in_audience' && segmento === 'selected') {
+        toast(r.mensaje, true);
+        rehacerCandidatos();
+      }
       return;
     }
     if (segmento === 'all' && !_candidatos) guardarCandidatos(r.data.people);
@@ -763,18 +774,19 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     };
     const donde = tipo === 'all_players' ? 'All Players' : (_nombres.get(_audiencia) || '');
 
-    /* Se lee la casilla y se bloquea en el mismo paso (ver
-       admin-email-notifications.js: entre leerla y bloquearla no puede
-       haber un await). */
+    /* Se lee la casilla y se bloquea en el mismo paso: entre leerla y
+       bloquearla no puede haber un `await`. En ese hueco un clic la
+       cambiaba, y el botón acababa diciendo lo contrario de lo que se
+       acababa de mandar. */
     const soloAdmin = !!$('hub-only-me').checked;
     ensayo.bloquear(true);
 
+    /* La misma regla que el servidor (comms-send, `unaPersona`): elegir
+       a mano a UNA persona es escribirle a un jugador, y va sin copia
+       para ti. Si no, es un aviso de grupo y la lleva. */
+    const uno = pedido.segment === 'selected' && s.people === 1
+      ? vista.people.find((p) => p.included) : null;
     if (!soloAdmin) {
-      /* La misma regla que el servidor (comms-send, `unaPersona`):
-         elegir a mano a UNA persona es escribirle a un jugador, y va sin
-         copia para ti. Si no, es un aviso de grupo y la lleva. */
-      const uno = pedido.segment === 'selected' && s.people === 1
-        ? vista.people.find((p) => p.included) : null;
       const seguro = await confirmModal(uno ? {
         title:   `Send this email to ${window.nombreDestinatario(uno)}?`,
         message: `"${asunto}" will be emailed to ${window.nombreDestinatario(uno)} (${uno.email}). `
@@ -846,6 +858,12 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     }
 
     const d = r.data || {};
+    /* Escribirle a un jugador queda anotado en el historial de su ficha,
+       como cuando se hacía desde la ficha (decidido el 9 de octubre). Sólo
+       si le salió de verdad; un ensayo no se anota. */
+    if (!soloAdmin && uno && d.sent > 0) {
+      window.logAuditAction(uno.player_id, 'email_sent', `Sent email: ${asunto}`);
+    }
     if (soloAdmin) {
       ensayo.reset();
       toast(d.sent
@@ -936,6 +954,66 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     if (fila) window.commAbrirEnvio(fila);
   }
 
+  /* ── ABRIR EL HUB DESDE OTRA PANTALLA ───────────────────── */
+  /* Los botones de correo de las demás pantallas traen aquí, con la
+     audiencia ya elegida: "Notify Players" de una escalera o de un
+     torneo, "Email Players" de Players, y "Send Email" de la ficha de un
+     jugador. Un solo sitio para escribir a los jugadores. */
+
+  /* Por qué no se le puede escribir a un jugador concreto. */
+  const NO_SE_PUEDE = {
+    inactive:      'is inactive. Inactive players don\'t receive emails — reactivate them first.',
+    no_email:      'has no email on file.',
+    invalid_email: 'has an email address that isn\'t valid. Fix it in their profile first.',
+  };
+  /* No aparece en la lista de jugadores (por ejemplo, se borró mientras
+     tanto): no se inventa un motivo. */
+  const NO_ESTA = 'is no longer on the players list.';
+
+  /* En el móvil el teclado taparía la vista previa — y con ella a quién
+     va el correo — así que allí no se pone el cursor en el asunto. */
+  const listoParaEscribir = () => {
+    $('hub-panel').scrollIntoView({ block: 'start' });
+    if (window.matchMedia('(min-width: 769px)').matches) $('hub-subject').focus();
+  };
+
+  async function abrirCon(tipo, id, jugador) {
+    if (window.envioEnCurso('abrir')) return;
+    window.showPage('communications');
+    await abrir(tipo, null);
+    if (_tipo !== tipo) return;   // no se abrió (otro envío en curso)
+
+    if (tipo !== 'all_players') {
+      const sel = $('hub-audience-select');
+      if (sel.disabled) return;   // la lista no cargó: cargarAudiencias ya lo dijo
+      if (![...sel.options].some((o) => o.value === String(id))) {
+        toast('That ladder or tournament is no longer in the list.', true);
+        return;
+      }
+      sel.value = String(id);
+      alElegirAudiencia();
+      listoParaEscribir();
+      return;
+    }
+    if (!jugador) return;
+
+    /* Un jugador: "Selected Players" con él ya marcado. Si no se le puede
+       escribir, se dice por qué en vez de dejar una lista sin nadie. */
+    _elegidos = new Set([jugador.id]);
+    const turno = _turnoAudiencia;
+    await ponerSegmento('selected');
+    /* Si entretanto ella cambió de audiencia o de destinatarios, esto ya
+       no es lo que está mirando: no se pinta nada encima. */
+    if (turno !== _turnoAudiencia || _segmento !== 'selected' || !_candidatos) return;
+    if (_elegidos.has(jugador.id)) { listoParaEscribir(); return; }
+    const motivo = NO_SE_PUEDE[_motivos.get(jugador.id)] || NO_ESTA;
+    const texto = `${jugador.nombre} ${motivo}`;
+    pintarAviso(texto);
+    toast(texto, true);
+  }
+
+  window.hubAbrirCon = abrirCon;
+
   /* ── EVENTOS ────────────────────────────────────────────── */
   $('hub-audience-select')?.addEventListener('change', alElegirAudiencia);
   $('hub-search')?.addEventListener('input', filtrarCandidatos);
@@ -959,5 +1037,13 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     hubTogglePeople: () => verPersonas(),
     hubSend:         () => enviar(),
     hubOpenSend:     (btn) => abrirEnvio(btn),
+    /* Los botones de las otras pantallas. */
+    hubNotifyLadder: () => {
+      const escalera = window.AdminState.currentLadder;
+      if (!escalera) { toast('Please select a ladder first.', true); return; }
+      abrirCon('ladder', escalera.id);
+    },
+    hubNotifyTournament: (btn) => abrirCon('tournament', Number(btn.dataset.id)),
+    hubEmailAllPlayers:  () => abrirCon('all_players'),
   });
 })();

@@ -2230,126 +2230,18 @@
     document.getElementById('edit-id').value = _ppCurrent.p.id;
     window.openPlayerHistory();
   };
-  // Opens a simple subject+message modal and sends a single email to the
-  // current player — por el mismo camino que el resto de la aplicación
-  // (sendEmailServer → la Edge Function), sólo que con un destinatario
-  // en vez de una lista.
-  /* El editor con formato de la ventana "Send Message". Compartido con
-     las otras cuatro pantallas que mandan correo. */
-  const edPP = window.FerociaEditor
-    ? window.FerociaEditor.mount('pp-email-message', { barraId: 'pp-fmt-bar' }) : null;
-  if (!edPP) console.error('[Ferocia] admin-rich-editor.js must load before admin-player-profile.js');
-
+  /* "Send Message" / "Send Email": escribirle a este jugador se hace en
+     el Communications Hub (All Players → Selected Players, con él ya
+     marcado), igual que cualquier otro correo a jugadores. El Hub es
+     quien dice si se le puede escribir y quien lo anota en su historial. */
   const ppSendMessage = () => {
-    /* Reabrir la ventana con un envío en curso limpiaba el composer y
-       se llevaba por delante el asunto y el mensaje de ESE envío, que
-       todavía no ha contestado. Si sale parcial, el texto que hace
-       falta para reintentar ya no existe. */
-    if (window.envioEnCurso && window.envioEnCurso('abrir')) return;
-    if (!_ppCurrent?.p?.email) { toast('This player has no email on file.', true); return; }
-    /* El MISMO nombre que va en el correo, no otro armado a mano aquí.
-       Pegando first_name y last_name sin más, un jugador sin apellido
-       salía como "To: Bob null (bob@x.com)" — justo en la ventana donde
-       lo único que hay que comprobar antes de mandar es a quién va. */
-    const nombre = window.nombreDestinatario
-      ? window.nombreDestinatario(_ppCurrent.p)
-      /* Si admin-email-utils.js no llegó a cargar, esto NO puede
-         reventar: sin la comprobación la ventana ni se abriría y el
-         botón parecería muerto, que es bastante peor que un nombre
-         mal puesto. */
-      : [_ppCurrent.p.first_name, _ppCurrent.p.last_name].filter(Boolean).join(' ');
-    document.getElementById('pp-email-recipient').textContent =
-      `To: ${nombre} (${_ppCurrent.p.email})`;
-    document.getElementById('pp-email-subject').value = '';
-    if (edPP) edPP.clear();
-    document.getElementById('pp-email-modal').classList.add('open');
-  };
-
-  const ppCloseEmailModal = () => {
-    document.getElementById('pp-email-modal').classList.remove('open');
-  };
-
-  const ppSendEmailSubmit = async (e) => {
-    e.preventDefault();
-    if (!_ppCurrent?.p?.email) return;
-    if (window.AdminState.emailInFlight) { toast('Please wait for the current send to finish.', true); return; }
-
-    const subject = document.getElementById('pp-email-subject').value.trim();
-    const message = edPP ? edPP.getHTML() : '';
-    const texto   = edPP ? edPP.getText() : '';
-    if (!subject || !texto) { toast('Please fill in subject and message.', true); return; }
-
-    const p = _ppCurrent.p;
-    const nombre = window.nombreDestinatario(p);
-
-    /* Confirmación también aquí, aunque sea UN correo. Va con nombre y
-       dirección en vez de con un número: lo que hay que comprobar antes
-       de darle a enviar es que la persona es la que crees. Desde una
-       ficha de jugador es fácil tener otra abierta en la cabeza. */
-    const seguro = await confirmModal({
-      title:   `Send this email to ${nombre}?`,
-      /* Empieza con el cursor en Cancel: manda correos y eso no se deshace. */
-      focusCancel: true,
-      message: `"${subject}" will be sent to ${p.email}. This cannot be undone.`,
-      okLabel: 'Send email',
-      cancelLabel: 'Cancel',
-      danger: true,
+    if (!_ppCurrent?.p) return;
+    if (!window.hubAbrirCon) { toast('The Communications Hub did not load. Reload the page.', true); return; }
+    window.hubAbrirCon('all_players', null, {
+      id: _ppCurrent.p.id,
+      nombre: window.nombreDestinatario(_ppCurrent.p),
     });
-    if (!seguro) return;
-
-    const sendBtn = document.getElementById('pp-email-send-btn');
-    const origHTML = sendBtn.innerHTML;
-    sendBtn.disabled = true;
-    sendBtn.innerHTML = 'Sending...';
-    window.AdminState.emailInFlight = true;
-
-    let r;
-    try {
-      r = await window.sendEmailServer({
-        kind:     'player_message',
-        /* MESSAGE, no la de ladder: esto es una nota suelta a una
-           persona, y la de ladder termina con un botón "View
-           Leaderboard" que aquí no pinta nada. */
-        template: 'message',
-        subject,
-        body: message,
-        meta: {
-          /* El asunto, no un texto fijo: `email_title` es el titular
-             grande del correo, y "Rained out — session cancelled" se
-             lee mucho mejor ahí que el nombre del club en todos. */
-          email_title: subject,
-          cuerpo_html: true,
-        },
-        recipients: [{ email: p.email, name: nombre, player_id: p.id }],
-        /* Un solo destinatario y una ventana que se abre por persona:
-           el botón deshabilitado ya cubre el doble clic, y una clave
-           impediría mandarle a la misma persona dos avisos parecidos
-           el mismo día, que es algo que sí se hace. */
-        idempotency_key: null,
-      });
-    } finally {
-      window.AdminState.emailInFlight = false;
-      sendBtn.disabled = false;
-      sendBtn.innerHTML = origHTML;
-    }
-
-    if (!r.ok) {
-      console.error('[player-message] send failed:', r);
-      toast(r.message, true);
-      return;   // la ventana se queda abierta: no se pierde el mensaje
-    }
-
-    const d = r.data || {};
-    if (d.sent) {
-      window.logAuditAction(p.id, 'email_sent', `Sent email: ${subject}`);
-      toast(`Email sent to ${nombre}!`);
-      ppCloseEmailModal();
-    } else {
-      console.warn('[player-message] no salio:', d);
-      toast(`Not sent: ${window.resumenEnvio(d)}`, true);
-    }
   };
-  document.getElementById('pp-email-form')?.addEventListener('submit', ppSendEmailSubmit);
 
   // Honest placeholders — there's no real email/SMS verification system
   // yet (email_verified/phone_verified are just columns for now), so these
@@ -2410,13 +2302,6 @@
     ppResendSmsVerification:   () => ppResendSmsVerification(),
     ppResetPlayerDna:          () => ppResetPlayerDna(),
     ppSendMessage:  () => ppSendMessage(),
-    /* Aquí y no dentro de la función: el cierre automático que hace
-       el propio envío al terminar tiene que seguir funcionando. Lo que
-       se protege es el botón X, que es por donde entra la persona. */
-    ppCloseEmailModal: () => {
-      if (window.envioEnCurso && window.envioEnCurso()) return;
-      ppCloseEmailModal();
-    },
     ppToggleNoteForm: () => ppToggleNoteForm(),
     ppSaveNote: () => ppSaveNote(),
     ppLogLateCancellation: () => ppLogLateCancellation(),

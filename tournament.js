@@ -2109,7 +2109,7 @@ function renderTournamentDetail(t, categories) {
     <div class="td-action-bar">
       <span class="td-start-hint" id="td-start-hint" style="display:none;font-size:10px;font-weight:700;color:#b0bbd6;padding:0 6px;"></span>
       ${startBtnHTML}
-      <button onclick="window.app.openTournamentNotifyModal(${t.id})" class="btn btn-teal btn-sm">Notify Players</button>
+      <button type="button" data-action="hubNotifyTournament" data-id="${t.id}" class="btn btn-teal btn-sm">Notify Players</button>
       <button onclick="printTournamentRoster(this)"
         data-tid="${t.id}" data-tname="${tEsc(t.name)}" data-tdate="${tEsc(t.date || '')}"
         data-catids="${categories.map(c => c.id).join(',')}"
