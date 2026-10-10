@@ -1,0 +1,75 @@
+/* ============================================================
+   FEROCIA SPORTS CENTER — LA PÁGINA DE RESPUESTA DE UNA ENCUESTA
+   respond.html. Los colores y el aire son los de las otras páginas
+   públicas (subscribe, unsubscribe): cabecera oscura con la línea
+   lima, una tarjeta blanca en el centro.
+   ============================================================ */
+
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;
+     display:flex;flex-direction:column;}
+[hidden]{display:none !important;}
+
+/* ── Cabecera ─────────────────────────────────────────────── */
+.rs-header{background:var(--dark);height:64px;padding:0 24px;display:flex;align-items:center;
+           border-bottom:3px solid var(--lime);}
+.rs-logo{height:28px;max-width:140px;width:auto;object-fit:contain;display:block;}
+
+/* ── La tarjeta ───────────────────────────────────────────── */
+.rs-main{flex:1;display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;}
+.rs-card{background:var(--white);border-radius:var(--radius);padding:32px 28px;max-width:480px;width:100%;
+         box-shadow:0 8px 40px rgba(23,76,204,0.1);}
+.rs-loading{font-size:14px;font-weight:600;color:var(--muted);text-align:center;padding:20px 0;}
+
+.rs-sample{margin-bottom:18px;padding:10px 14px;border-radius:8px;background:#fff4e5;color:#8a5300;
+           font-size:12px;font-weight:700;line-height:1.5;}
+.rs-title{font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--blue);}
+.rs-session{margin-top:6px;font-size:14px;font-weight:700;color:var(--text);}
+.rs-question{margin-top:14px;font-size:22px;font-weight:800;line-height:1.3;color:#0d1f4a;}
+.rs-for{margin-top:8px;font-size:13px;font-weight:600;color:var(--muted);}
+.rs-current{margin-top:12px;padding:9px 12px;border-radius:8px;background:#f4f6fc;
+            font-size:13px;font-weight:600;color:var(--text);}
+
+/* ── Las respuestas ───────────────────────────────────────── */
+.rs-options{display:flex;flex-direction:column;gap:10px;margin-top:22px;}
+.rs-option{display:flex;align-items:center;gap:12px;width:100%;padding:14px 16px;border:1.5px solid #d6dff5;
+           border-radius:10px;background:white;color:var(--text);font-family:'Inter',sans-serif;
+           font-size:15px;font-weight:700;text-align:left;cursor:pointer;}
+.rs-option:hover{border-color:var(--blue);}
+.rs-option:focus-visible{outline:3px solid rgba(23,76,204,0.35);outline-offset:2px;}
+/* El círculo de delante: vacío, o relleno cuando está elegida. */
+.rs-dot{flex-shrink:0;width:18px;height:18px;border-radius:50%;border:2px solid #b6c4e8;background:white;}
+.rs-option[aria-checked="true"]{border-color:var(--blue);background:#f2f6ff;}
+.rs-option[aria-checked="true"] .rs-dot{border-color:var(--blue);background:var(--blue);
+                                        box-shadow:inset 0 0 0 3px white;}
+
+.rs-confirm{margin-top:20px;width:100%;padding:14px 18px;border:none;border-radius:99px;
+            background:linear-gradient(180deg,#2456d3,var(--blue));color:white;font-family:'Inter',sans-serif;
+            font-size:14px;font-weight:800;letter-spacing:.5px;cursor:pointer;}
+.rs-confirm:disabled{opacity:.5;cursor:default;}
+.rs-error{margin-top:12px;font-size:13px;font-weight:700;color:var(--danger);}
+.rs-deadline{margin-top:16px;font-size:12px;font-weight:600;color:var(--muted);line-height:1.5;text-align:center;}
+
+/* ── Contestada, cerrada, o un aviso ──────────────────────── */
+.rs-badge{display:inline-block;margin-bottom:16px;padding:6px 12px;border-radius:99px;font-size:11px;
+          font-weight:800;letter-spacing:1px;text-transform:uppercase;}
+.rs-badge-ok{background:#eaf7f1;color:#1d9e68;}
+.rs-badge-closed{background:#f4f5f8;color:#6b7a99;}
+.rs-done-label{margin-top:14px;font-size:13px;font-weight:600;color:var(--muted);}
+.rs-done-answer{margin-top:4px;font-size:20px;font-weight:800;color:#0d1f4a;}
+.rs-done-note{margin-top:14px;font-size:13px;font-weight:600;color:var(--muted);line-height:1.5;}
+.rs-closed-question{margin-top:10px;font-size:18px;font-weight:800;line-height:1.35;color:#0d1f4a;}
+.rs-text{margin-top:10px;font-size:14px;font-weight:500;line-height:1.6;color:#374151;}
+.rs-message-title{font-size:20px;font-weight:800;color:#0d1f4a;}
+.rs-change{margin-top:18px;padding:10px 18px;border:1px solid #c5d6f5;border-radius:99px;background:white;
+           color:var(--blue);font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;}
+.rs-change:hover{background:#f4f8ff;}
+
+.rs-footer{padding:20px 16px 28px;text-align:center;font-size:12px;font-weight:600;color:var(--muted);}
+.rs-footer a{color:var(--blue);text-decoration:none;}
+
+@media (max-width:480px){
+  .rs-main{padding:20px 16px;}
+  .rs-card{padding:24px 18px;}
+  .rs-question{font-size:20px;}
+}

@@ -95,6 +95,7 @@
   let _envios        = [];     // lo que ya se ha traído del servidor
   let _hayMas        = false;  // ¿queda algo más por traer?
   let _cargando      = false;  // para que dos clics no pidan lo mismo dos veces
+  let _respuestas    = new Map();  // id de un envío con encuesta → { recipients, responded }
   let _filtroTipo    = '';     // '' = todos
   let _abierto       = null;   // el envío que está abierto en la ventana
   let _personas      = [];     // sus destinatarios
@@ -315,6 +316,11 @@
          cuenta de lo que se mandó. */
       const yaEstan = new Set(_envios.map((x) => String(x.id)));
       const nuevas = filas.slice(0, POR_PAGINA).filter((x) => !yaEstan.has(String(x.id)));
+      /* Las encuestas dicen cuántos contestaron (entregable 5). */
+      const cuentas = await leerRespuestas(nuevas);
+      if (mia !== _vez) return;
+      if (desdeElPrincipio) _respuestas = new Map();
+      cuentas.forEach((v, k) => _respuestas.set(k, v));
       _envios = _envios.concat(nuevas);
       pintarEnvios();
     } catch (err) {
@@ -379,6 +385,11 @@
             const fallos = e.failed_count
               ? `<div style="font-size:10px;font-weight:700;color:#c62828;margin-top:2px;">${e.failed_count} failed</div>`
               : '';
+            const cuenta = _respuestas.get(String(e.id));
+            const contestaron = cuenta
+              ? `<div class="co-hist-responded">${cuenta.responded}/${cuenta.recipients} responded</div>`
+              : '';
+            const encuesta = tipoEncuesta(e);
             return `<tr ${FILA}>
               <td style="${TD}font-size:12px;color:var(--text-muted);white-space:nowrap;">${window.esc(cuando(e.sent_at || e.created_at))}</td>
               <td style="${TD}white-space:nowrap;">${pastillaTipo(e.kind)}${
@@ -387,9 +398,9 @@
                    como dos filas idénticas con el mismo asunto. */
                 (e.meta && e.meta.solo_admin)
                   ? ' ' + pastilla('Test', { bg: '#f4f5f8', fg: '#6b7a99' })
-                  : ''}</td>
+                  : ''}${encuesta ? ' ' + pastilla(encuesta, { bg: '#e8f0ff', fg: '#174CCC' }) : ''}</td>
               <td style="${TD}font-size:13px;font-weight:700;color:var(--text);">${window.esc(e.subject || '(no subject)')}</td>
-              <td style="${TD}font-size:12px;color:var(--text-muted);white-space:nowrap;">${window.esc(entrega)}${fallos}</td>
+              <td style="${TD}font-size:12px;color:var(--text-muted);white-space:nowrap;">${window.esc(entrega)}${fallos}${contestaron}</td>
               <td style="${TD}white-space:nowrap;">${pastillaEstado(e.status)}</td>
               <td style="${TD}text-align:right;white-space:nowrap;">
                 <button class="btn btn-outline btn-sm" data-action="openCommDetail" data-commid="${e.id}"
@@ -830,7 +841,9 @@
       return;
     }
 
-    if (!_abierto.idempotency_key) {
+    /* El ensayo de una encuesta lleva llave (la necesita para guardar su
+       encuesta), pero sigue siendo un ensayo: no se reintenta desde aquí. */
+    if (!_abierto.idempotency_key || (_abierto.meta && _abierto.meta.solo_admin)) {
       /* Sin llave guardada no se puede retomar: el servidor abriría una
          campaña NUEVA y le volvería a escribir a quien ya la tenía.
 
@@ -907,6 +920,7 @@
        propiedad de estilo. */
     if (_abierto && _abierto.kind === 'newsletter') return;
     if (!_abierto || !_abierto.idempotency_key) return;
+    if (_abierto.meta && _abierto.meta.solo_admin) return;
     if (window.envioEnCurso && window.envioEnCurso()) return;
 
     const btn = document.getElementById('co-det-retry-btn');
@@ -1069,6 +1083,42 @@
      lleva estilos dentro del HTML). */
   window.commTextoEstado = (s) => (ESTADO_ENVIO[s] || { txt: s }).txt;
   window.commCuando = cuando;
+
+  /* ── LAS ENCUESTAS (entregable 5) ──────────────────────────
+     Un envío con encuesta lleva su definición en `meta.poll`; cuántos
+     contestaron sale de la vista comm_poll_summary (sql/76), que sólo
+     deja leer a una administradora activa. */
+
+  /** "Availability · Oct 12" o "Poll" si el envío es una encuesta; '' si no. */
+  function tipoEncuesta(e) {
+    const p = e && e.meta && e.meta.poll;
+    if (!p) return '';
+    if (p.kind !== 'availability') return 'Poll';
+    const f = String(p.session_date || '');
+    return /^\d{4}-\d{2}-\d{2}$/.test(f)
+      ? `Availability · ${new Date(`${f}T12:00:00Z`).toLocaleDateString('en-US', { timeZone: 'UTC', month: 'short', day: 'numeric' })}`
+      : 'Availability';
+  }
+
+  /** Cuántos contestaron cada encuesta de la lista: id → { recipients,
+      responded }. Si no se puede leer, vacío: la lista se pinta igual. */
+  async function leerRespuestas(filas) {
+    /* Los ensayos no: su encuesta sólo tiene la copia de muestra. */
+    const ids = (filas || []).filter((f) => f.meta && f.meta.poll && !f.meta.solo_admin)
+      .map((f) => Number(f.id)).filter((x) => Number.isSafeInteger(x));
+    if (!ids.length) return new Map();
+    try {
+      const r = await window.api('comm_poll_summary?select=communication_id,recipients,responded'
+        + `&communication_id=in.(${ids.join(',')})`);
+      return new Map((r || []).map((x) => [String(x.communication_id),
+        { recipients: Number(x.recipients) || 0, responded: Number(x.responded) || 0 }]));
+    } catch (err) {
+      console.error('[communications] no se pudo leer cuántos contestaron:', err);
+      return new Map();
+    }
+  }
+  window.commTipoEncuesta = tipoEncuesta;
+  window.commLeerRespuestas = leerRespuestas;
   window.commAbrirEnvio = (fila) => abrirDetalle(fila.id, fila);
 
   window.openCommunications = () => {

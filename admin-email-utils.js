@@ -125,6 +125,16 @@
     server_misconfigured:       'The server is missing a setting (SITE_URL). Nothing was sent.',
     send_unreachable:           'The sending service did not answer. Press Send again — nobody will get it twice.',
     server_error:               'Unexpected server error. Check the Supabase logs.',
+
+    /* Las encuestas del Hub (entregable 5). */
+    poll_invalid:          'Check the poll: it needs a question, and an availability request needs its session date. Nothing was sent.',
+    poll_not_allowed:      'This kind of poll can\'t be sent to this group. Nothing was sent.',
+    poll_deadline_invalid: 'The response deadline has to be in the future (and within 120 days). Nothing was sent.',
+    poll_options_invalid:  'A poll needs between 2 and 6 different answers, up to 80 characters each. Nothing was sent.',
+    poll_setup_failed:     'Could not prepare the answer links, so nothing was sent — press Send again.',
+    poll_missing:          'Could not prepare the poll, so nothing was sent — press Send again.',
+    poll_links_incomplete: 'Could not prepare the answer links, so nothing was sent — press Send again.',
+    poll_closed:           'This poll is already closed (its deadline passed), so it was not sent again.',
   };
 
   /**
@@ -275,10 +285,10 @@
       /* Sin esto el fallo es SILENCIOSO: reset() no desmarcaría nada y
          el aviso "the checkbox is now off" estaría mintiendo. */
       console.error(`[Ferocia] vincularEnsayo: falta #${casillaId} o #${botonId}`);
-      return { sync: () => {}, reset: () => {}, bloquear: () => {} };
+      return { sync: () => {}, reset: () => {}, bloquear: () => {}, rotular: () => {} };
     }
 
-    const original = btn.innerHTML;
+    let original = btn.innerHTML;
     if (original.indexOf(textoNormal) === -1) {
       /* Si el texto de admin.html cambia y aquí no, el botón se
          quedaría sin avisar del ensayo y nadie se enteraría. Mejor
@@ -305,7 +315,16 @@
        problema de raíz, en vez de intentar arreglarlo después. */
     const bloquear = (b) => { chk.disabled = !!b; };
 
-    return { sync, reset, bloquear, original };
+    /* Cambia el texto normal del botón (el Hub dice "Send Poll" en una
+       encuesta y "Send Email" en un anuncio). El de ensayo no cambia. */
+    const rotular = (nuevo) => {
+      if (!nuevo || nuevo === textoNormal) return;
+      original = original.replace(textoNormal, nuevo);
+      textoNormal = nuevo;
+      sync();
+    };
+
+    return { sync, reset, bloquear, rotular, get original() { return original; } };
   }
 
   /* ─── EL NOMBRE PARA EL SALUDO ─────────────────────────────

@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- LA PÁGINA DONDE LOS JUGADORES CONTESTAN UNA ENCUESTA DEL HUB.
+     Se abre con el enlace privado de cada correo (#t=...). Es pública y
+     sin contraseña, así que lleva lo mínimo:
+       · no-referrer: la dirección no se le pasa a ninguna otra web;
+       · ningún script de fuera (ni supabase-js, ni analítica): sólo los
+         archivos del propio sitio. Lo exige la regla de abajo (CSP);
+       · noindex: que ningún buscador la guarde.
+     El enlace va detrás de "#", y esa parte de una dirección no se manda
+     nunca al servidor de la web: no queda en ningún registro de GitHub.
+     Abrir la página NO contesta nada: hay que pulsar "Confirm". -->
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex, nofollow">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src https://yyocceadorckkfbgnbqk.supabase.co; base-uri 'none'; form-action 'none'">
+<title>Ferocia Sports Center — Your Response</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="design-tokens.css?v=20260926a">
+<link rel="stylesheet" href="respond.css?v=20261011a">
+<script src="config.js?v=20260929j"></script>
+<script src="assets.js?v=20260926a"></script>
+<script src="respond.js?v=20261011a" defer></script>
+</head>
+<body>
+
+<header class="rs-header">
+  <img class="rs-logo" data-asset="ferociaLogo" alt="Ferocia">
+</header>
+
+<main class="rs-main">
+  <div class="rs-card">
+
+    <!-- Mientras se pregunta al servidor. -->
+    <div class="rs-loading" id="rs-loading">Loading…</div>
+
+    <!-- La encuesta: los textos los pone respond.js. -->
+    <section id="rs-poll" hidden>
+      <div class="rs-sample" id="rs-sample" hidden>Sample copy &mdash; answers given here are not counted.</div>
+      <div class="rs-title" id="rs-title"></div>
+      <div class="rs-session" id="rs-session" hidden></div>
+      <h1 class="rs-question" id="rs-question"></h1>
+      <div class="rs-for" id="rs-for" hidden></div>
+      <div class="rs-current" id="rs-current" hidden></div>
+      <div class="rs-options" id="rs-options" role="radiogroup" aria-labelledby="rs-question"></div>
+      <button type="button" class="rs-confirm" id="rs-confirm" disabled>Confirm my answer</button>
+      <p class="rs-error" id="rs-error" role="alert" hidden></p>
+      <p class="rs-deadline" id="rs-deadline"></p>
+    </section>
+
+    <!-- Después de confirmar. -->
+    <section id="rs-done" hidden>
+      <div class="rs-badge rs-badge-ok">Response recorded</div>
+      <div class="rs-title" id="rs-done-title"></div>
+      <p class="rs-done-label">Your response:</p>
+      <p class="rs-done-answer" id="rs-done-answer"></p>
+      <p class="rs-done-note" id="rs-done-note"></p>
+      <button type="button" class="rs-change" id="rs-change">Change my answer</button>
+    </section>
+
+    <!-- Encuesta cerrada. -->
+    <section id="rs-closed" hidden>
+      <div class="rs-badge rs-badge-closed">This poll is closed</div>
+      <div class="rs-title" id="rs-closed-title"></div>
+      <p class="rs-closed-question" id="rs-closed-question"></p>
+      <p class="rs-text">Responses can no longer be changed.</p>
+      <p class="rs-text" id="rs-closed-answer" hidden></p>
+    </section>
+
+    <!-- Un enlace que no vale, demasiados intentos o sin conexión. -->
+    <section id="rs-message" hidden>
+      <h1 class="rs-message-title" id="rs-message-title"></h1>
+      <p class="rs-text" id="rs-message-text"></p>
+      <button type="button" class="rs-change" id="rs-retry" hidden>Try again</button>
+    </section>
+
+  </div>
+</main>
+
+<footer class="rs-footer">
+  Ferocia Sports Center &middot; <a href="mailto:contact@ferociasports.com">contact@ferociasports.com</a>
+</footer>
+
+</body>
+</html>

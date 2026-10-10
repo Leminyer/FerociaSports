@@ -106,6 +106,18 @@
                  line-height:1.7;background:white;}
 .hub-editor:focus-within{border-color:var(--blue);box-shadow:0 0 0 3px rgba(23,76,204,0.08);}
 .hub-hint-after{margin:5px 0 0;font-size:10px;color:#b0bbd6;}
+/* El mensaje lleva una nota debajo; sin este aire, "Attachment" quedaba
+   pegado a ella (pedido el 10 de octubre). */
+.hub-field.hub-field-roomy{margin-bottom:22px;}
+
+/* ── La encuesta (entregable 5) ───────────────────────────── */
+.hub-field .hub-input.hub-input-short{max-width:260px;}
+/* Las tres respuestas fijas de la disponibilidad, sólo para leer. */
+.hub-poll-fixed{padding:9px 12px;border:1px dashed var(--divider-color);border-radius:8px;background:#f8f9ff;
+                font-size:12px;font-weight:700;color:var(--text);}
+.hub-options{display:flex;flex-direction:column;gap:6px;margin-bottom:8px;}
+.hub-option-row{display:flex;align-items:center;gap:6px;}
+.hub-option-row .hub-input{flex:1;min-width:0;}
 
 /* El PDF adjunto (el mismo aire que "Private Attachments" de la ficha) */
 .hub-attach-opt{font-weight:600;text-transform:none;letter-spacing:normal;}
@@ -165,6 +177,9 @@
 .hub-st-failed{background:#fdeceb;color:#c62828;}
 .hub-st-sending{background:#e8f0ff;color:#174CCC;}
 .hub-hist-empty{padding:14px;font-size:12px;font-weight:600;color:var(--text-muted);text-align:center;}
+
+/* Cuántos contestaron una encuesta, en la pestaña History. */
+.co-hist-responded{margin-top:2px;font-size:10px;font-weight:700;color:var(--blue);}
 
 /* En el móvil:
    · el correo de la lista para elegir baja debajo del nombre: no cabe al

@@ -37,6 +37,14 @@
    divisiones que aún venía de camino, y "Specific Divisions" se quedaba
    vacío para siempre.
 
+   ── ANUNCIO O ENCUESTA (entregable 5) ──────────────────────────────
+   En escaleras y torneos se elige qué se manda (decidido el 10 de
+   octubre): un anuncio, la disponibilidad semanal (sólo escaleras) o una
+   encuesta propia (de 2 a 6 respuestas). Una encuesta va sin PDF, con el
+   texto opcional, y cada persona recibe sus propios botones para
+   contestar. Las horas se escriben y se enseñan en hora de Florida,
+   esté donde esté el ordenador.
+
    ── QUIÉN ENVÍA ────────────────────────────────────────────────────
    El servidor (función comms-send). Desde aquí sólo se le dice qué
    audiencia, qué destinatarios y qué mensaje; la lista la vuelve a
@@ -232,6 +240,29 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     tournament:  'A button to the tournament results is added to every email automatically.',
     all_players: 'Each player is greeted by name automatically — just write your message.',
   };
+  /* Las notas del mensaje cuando es una encuesta. */
+  const AVISO_ENCUESTA = 'Optional. Shown above the answer buttons. Each player gets their own private buttons.';
+
+  /* ── ANUNCIO O ENCUESTA ─────────────────────────────────────
+     Qué se puede mandar a cada audiencia, y cómo se llama el botón. */
+  const CLASES_DE = {
+    ladder:      ['announcement', 'availability', 'custom'],
+    tournament:  ['announcement', 'custom'],
+    all_players: ['announcement'],
+  };
+  const BOTON = {
+    announcement: 'Send Email',
+    availability: 'Send Availability Request',
+    custom:       'Send Poll',
+  };
+  /* Las respuestas con las que empieza una encuesta propia. */
+  const RESPUESTAS_INICIALES = ['Yes', 'No', 'Maybe'];
+  const MIN_RESPUESTAS = 2;
+  const MAX_RESPUESTAS = 6;
+  const MAX_PREGUNTA = 300;
+  const MAX_RESPUESTA = 80;
+  const ZONA = 'America/New_York';
+
   /* Los estados de un envío que tienen color propio (admin-comms-hub.css). */
   const ESTADOS = new Set(['sent', 'partial', 'failed', 'sending']);
   const ROTULO_HISTORIAL = {
@@ -258,6 +289,10 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
   let _ultimaVista = null;       // la vista previa que se ve AHORA; null mientras carga
   let _plantilla   = { subject: '', html: '' };  // lo último que puso una plantilla
   let _historial   = new Map();  // id → envío, para abrir su detalle
+  let _clase       = 'announcement';  // 'announcement' | 'availability' | 'custom'
+  let _encuestaTocada = false;   // ¿cambió ella algo de la encuesta?
+  let _preguntaSola   = true;    // la pregunta aún la pone la fecha de la sesión
+  let _plazoSolo      = true;    // el plazo aún lo pone la fecha de la sesión
 
   const $ = (id) => document.getElementById(id);
 
@@ -266,7 +301,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     ? window.FerociaEditor.mount('hub-message', { barraId: 'hub-fmt-bar' }) : null;
   if (!editor) console.error('[Ferocia] admin-rich-editor.js must load before admin-comms-hub.js');
   const claveador = window.crearClaveador('hub');
-  const ensayo = window.vincularEnsayo('hub-only-me', 'hub-send-btn', 'Send Email');
+  const ensayo = window.vincularEnsayo('hub-only-me', 'hub-send-btn', BOTON.announcement);
 
   /* ── LLAMAR AL SERVIDOR ─────────────────────────────────── */
   async function pedirAudiencia(segmento, extra) {
@@ -310,6 +345,8 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     quitarAdjunto();
     $('hub-preset').replaceChildren(...(OPCIONES[tipo] || []).map(([v, t]) => new Option(t, v)));
     $('hub-preset').value = '';   // "Select one": se empieza en blanco
+    limpiarEncuesta();
+    ponerClase('announcement', true);
     ensayo.reset();
     claveador.asegurar();
 
@@ -372,7 +409,8 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
   function hayBorrador() {
     if ($('hub-panel').hidden) return false;
     const escrito = $('hub-subject').value.trim() || (editor ? editor.getText() : '');
-    return !!_adjunto || _subiendo || (!!escrito && !sinTocar());
+    return !!_adjunto || _subiendo || (!!escrito && !sinTocar())
+        || (_clase !== 'announcement' && _encuestaTocada);
   }
 
   async function puedeDescartar() {
@@ -381,7 +419,9 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
       title: 'Discard the message you were writing?',
       message: (_adjunto || _subiendo)
         ? 'The subject, message and attached PDF you were working on will be lost.'
-        : 'The subject and message you were writing will be lost.',
+        : _clase !== 'announcement'
+          ? 'The poll you were preparing will be lost.'
+          : 'The subject and message you were writing will be lost.',
       okLabel: 'Discard',
       cancelLabel: 'Keep writing',
       danger: true,
@@ -775,10 +815,22 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
   /* El texto de partida de cada audiencia. Sólo si el mensaje está como
      lo dejó la plantilla anterior: lo escrito a mano no se pisa. */
   function prepararMensaje() {
-    $('hub-preset-wrap').hidden = !OPCIONES[_tipo];
-    pintarAdjunto();
-    $('hub-message-hint').textContent = AVISO_MENSAJE[_tipo] || '';
-    if (OPCIONES[_tipo] && sinTocar()) aplicarPreset();
+    const clases = CLASES_DE[_tipo] || ['announcement'];
+    $('hub-kind-wrap').hidden = clases.length < 2;
+    $('hub-kind-availability').hidden = !clases.includes('availability');
+    pintarClase();
+    if (sinTocar()) aplicarTextoDeClase();
+  }
+
+  /* El asunto y el texto de partida según lo que se manda. */
+  function aplicarTextoDeClase() {
+    if (_clase === 'availability') {
+      aplicarPlantilla(`${_nombres.get(_audiencia) || ''} — Availability Required`, '');
+    } else if (_clase === 'custom') {
+      aplicarPlantilla('', '');
+    } else if (OPCIONES[_tipo]) {
+      aplicarPreset();
+    }
   }
 
   /* Tras un envío que salió bien, el formulario vuelve a empezar (para
@@ -792,6 +844,9 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     ponerTexto('', '');
     _plantilla = { subject: '', html: '' };
     quitarAdjunto();
+    /* Y vuelve a "Announcement", con la encuesta en blanco. */
+    limpiarEncuesta();
+    ponerClase('announcement', true);
     if (_segmento === 'selected') {
       _elegidos = new Set();
       $('hub-search').value = '';
@@ -832,7 +887,8 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
   }
 
   function pintarAdjunto() {
-    $('hub-attach-wrap').hidden = !CON_ADJUNTO.has(_tipo);
+    /* Las encuestas van sin PDF (decidido el 10 de octubre). */
+    $('hub-attach-wrap').hidden = !CON_ADJUNTO.has(_tipo) || _clase !== 'announcement';
     $('hub-attach-btn').hidden = !!_adjunto;
     $('hub-attach-btn').disabled = _subiendo;
     $('hub-attach-btn-text').textContent = _subiendo ? 'Uploading…' : 'Attach PDF';
@@ -896,6 +952,221 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     pintarAdjunto();
   }
 
+  /* ── ANUNCIO O ENCUESTA ─────────────────────────────────── */
+  /* Elegir qué se manda. `sinAviso`: al abrir y tras un envío, donde no
+     hay nada que avisar. */
+  function ponerClase(clase, sinAviso) {
+    if (!BOTON[clase]) return;
+    if (!(CLASES_DE[_tipo] || ['announcement']).includes(clase)) clase = 'announcement';
+    const antes = _clase;
+    _clase = clase;
+    /* Un PDF no viaja en una encuesta: se quita y se dice, para que no
+       desaparezca en silencio. */
+    if (clase !== 'announcement' && (_adjunto || _subiendo)) {
+      quitarAdjunto();
+      if (!sinAviso) toast('The PDF was removed: polls are sent without attachments.');
+    }
+    pintarClase();
+    /* El plazo de partida es distinto en cada clase de encuesta: se pone
+       el que toca, salvo que ella ya lo haya cambiado a mano. */
+    if (antes !== clase && _plazoSolo) ponerPlazoSolo();
+    if (sinTocar()) aplicarTextoDeClase();
+  }
+
+  /* Enseña lo que toca a cada clase de envío. */
+  function pintarClase() {
+    const encuesta = _clase !== 'announcement';
+    document.querySelectorAll('#hub-kinds [data-kind]').forEach((b) => {
+      const on = b.dataset.kind === _clase;
+      b.classList.toggle('co-pfilter-on', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    $('hub-preset-wrap').hidden = !OPCIONES[_tipo] || encuesta;
+    $('hub-poll-wrap').hidden = !encuesta;
+    $('hub-session-wrap').hidden = _clase !== 'availability';
+    $('hub-options-fixed').hidden = _clase !== 'availability';
+    $('hub-options').hidden = _clase !== 'custom';
+    $('hub-options-hint').hidden = _clase !== 'custom';
+    pintarBotonRespuesta();
+    $('hub-message-req').hidden = encuesta;
+    $('hub-message-opt').hidden = !encuesta;
+    $('hub-message-hint').textContent = encuesta ? AVISO_ENCUESTA : (AVISO_MENSAJE[_tipo] || '');
+    $('hub-question').placeholder = _clase === 'availability'
+      ? 'Will you be playing this Monday?' : 'Which time works best?';
+    pintarAdjunto();
+    ensayo.rotular(BOTON[_clase]);
+  }
+
+  /* La encuesta en blanco: sin pregunta ni fecha, las respuestas de
+     partida, y el plazo lo pondrá la fecha (o el de por defecto). */
+  function limpiarEncuesta() {
+    $('hub-question').value = '';
+    $('hub-session').value = '';
+    $('hub-deadline').value = '';
+    pintarRespuestas(RESPUESTAS_INICIALES);
+    _encuestaTocada = false;
+    _preguntaSola = true;
+    _plazoSolo = true;
+  }
+
+  /* ── LAS HORAS, EN HORA DE FLORIDA ───────────────────────
+     Los campos de fecha del navegador usan la hora del ordenador. Aquí
+     se convierten a mano desde y hacia la hora del club, para que el
+     plazo sea el mismo aunque el ordenador esté en otra zona. */
+  function partesEnZona(ms) {
+    const f = new Intl.DateTimeFormat('en-US', { timeZone: ZONA, hourCycle: 'h23', year: 'numeric',
+      month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+    return Object.fromEntries(f.formatToParts(new Date(ms)).map((x) => [x.type, x.value]));
+  }
+  /** "2026-10-11T18:00" (hora de Florida) → instante. NaN si no vale. */
+  function desdeZona(texto) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(String(texto || ''));
+    if (!m) return NaN;
+    const pared = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]);
+    let t = pared;
+    /* Dos vueltas bastan incluso el día del cambio de hora. */
+    for (let i = 0; i < 2; i++) {
+      const p = partesEnZona(t);
+      t += pared - Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute);
+    }
+    return t;
+  }
+  /** Instante → "2026-10-11T18:00" en hora de Florida. */
+  function aZona(ms) {
+    const p = partesEnZona(ms);
+    return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}`;
+  }
+  /** "2026-10-12" + n días, sin pasar por la hora del ordenador. */
+  function sumarDias(fecha, n) {
+    const d = new Date(`${fecha}T12:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + n);
+    return d.toISOString().slice(0, 10);
+  }
+  /** "Sunday, October 11 at 6:00 PM", como en el correo y en la página. */
+  function textoPlazo(ms) {
+    const d = new Date(ms);
+    return `${new Intl.DateTimeFormat('en-US', { timeZone: ZONA, weekday: 'long', month: 'long', day: 'numeric' }).format(d)}`
+         + ` at ${new Intl.DateTimeFormat('en-US', { timeZone: ZONA, hour: 'numeric', minute: '2-digit' }).format(d)}`;
+  }
+  const diaDeLaSemana = (fecha) => new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', weekday: 'long' })
+    .format(new Date(`${fecha}T12:00:00Z`));
+
+  /* El plazo de partida (decidido el 10 de octubre): en la
+     disponibilidad, el día antes de la sesión a las 6:00 PM; en una
+     encuesta propia, dentro de 2 días a las 6:00 PM. */
+  function ponerPlazoSolo() {
+    const sesion = $('hub-session').value;
+    if (_clase === 'availability') {
+      $('hub-deadline').value = sesion ? `${sumarDias(sesion, -1)}T18:00` : '';
+    } else if (_clase === 'custom') {
+      $('hub-deadline').value = `${sumarDias(aZona(Date.now()).slice(0, 10), 2)}T18:00`;
+    }
+  }
+
+  /* Al elegir el día de la sesión, la pregunta y el plazo se ponen solos
+     — mientras ella no los haya cambiado a mano. */
+  function alElegirSesion() {
+    _encuestaTocada = true;
+    const sesion = $('hub-session').value;
+    if (_preguntaSola) {
+      $('hub-question').value = sesion ? `Will you be playing this ${diaDeLaSemana(sesion)}?` : '';
+    }
+    if (_plazoSolo) ponerPlazoSolo();
+  }
+
+  /* Las respuestas de una encuesta propia: una caja por respuesta, con
+     su botón para quitarla (nunca menos de 2) y "+ Add answer" (hasta 6). */
+  function pintarRespuestas(lista) {
+    $('hub-options').replaceChildren(...lista.map((texto, i) => {
+      const fila = document.createElement('div');
+      fila.className = 'hub-option-row';
+      const caja = document.createElement('input');
+      caja.type = 'text';
+      caja.className = 'hub-input';
+      caja.maxLength = MAX_RESPUESTA;
+      caja.autocomplete = 'off';
+      caja.value = texto;
+      caja.setAttribute('aria-label', `Answer ${i + 1}`);
+      const quitar = document.createElement('button');
+      quitar.type = 'button';
+      quitar.className = 'hub-attach-remove';
+      quitar.dataset.action = 'hubOptionDel';
+      quitar.dataset.i = String(i);
+      quitar.textContent = 'Remove';
+      quitar.setAttribute('aria-label', `Remove answer ${i + 1}`);
+      quitar.hidden = lista.length <= MIN_RESPUESTAS;
+      fila.append(caja, quitar);
+      return fila;
+    }));
+    pintarBotonRespuesta();
+  }
+
+  function pintarBotonRespuesta() {
+    $('hub-option-add').hidden = _clase !== 'custom' || leerRespuestas().length >= MAX_RESPUESTAS;
+  }
+
+  const leerRespuestas = () => [...document.querySelectorAll('#hub-options input')].map((c) => c.value);
+
+  function anadirRespuesta() {
+    const lista = leerRespuestas();
+    if (lista.length >= MAX_RESPUESTAS) return;
+    _encuestaTocada = true;
+    pintarRespuestas([...lista, '']);
+    const cajas = document.querySelectorAll('#hub-options input');
+    cajas[cajas.length - 1].focus();
+  }
+
+  function quitarRespuesta(btn) {
+    const lista = leerRespuestas();
+    if (lista.length <= MIN_RESPUESTAS) return;
+    _encuestaTocada = true;
+    lista.splice(Number(btn.dataset.i), 1);
+    pintarRespuestas(lista);
+  }
+
+  /* La encuesta tal como se manda, o el primer problema que tiene (con
+     el campo donde está). El servidor lo vuelve a comprobar todo. */
+  function leerEncuesta() {
+    const pregunta = $('hub-question').value.trim();
+    const sesion = $('hub-session').value;
+    if (_clase === 'availability' && !/^\d{4}-\d{2}-\d{2}$/.test(sesion)) {
+      return { error: 'Choose the session date.', campo: $('hub-session') };
+    }
+    if (!pregunta) return { error: 'Write the question.', campo: $('hub-question') };
+    if (pregunta.length > MAX_PREGUNTA) return { error: 'The question is too long (300 characters at most).', campo: $('hub-question') };
+    let respuestas;
+    if (_clase === 'custom') {
+      respuestas = leerRespuestas().map((r) => r.trim());
+      const vacia = respuestas.findIndex((r) => !r);
+      if (vacia !== -1) {
+        return { error: 'Fill in every answer, or remove the empty ones.',
+                 campo: document.querySelectorAll('#hub-options input')[vacia] };
+      }
+      if (respuestas.length < MIN_RESPUESTAS) return { error: 'A poll needs at least 2 answers.', campo: $('hub-option-add') };
+      if (new Set(respuestas.map((r) => r.toLowerCase())).size !== respuestas.length) {
+        return { error: 'Two answers are the same. Make each answer different.', campo: $('hub-options') };
+      }
+    }
+    const plazo = desdeZona($('hub-deadline').value);
+    if (!Number.isFinite(plazo)) return { error: 'Choose the response deadline.', campo: $('hub-deadline') };
+    if (plazo <= Date.now() + 60 * 1000) {
+      return { error: 'The response deadline has already passed. Choose a later one.', campo: $('hub-deadline') };
+    }
+    if (plazo > Date.now() + 120 * 864e5) {
+      return { error: 'The response deadline is too far away (120 days at most).', campo: $('hub-deadline') };
+    }
+    return {
+      poll: {
+        kind: _clase,
+        question: pregunta,
+        ...(_clase === 'availability' ? { session_date: sesion } : {}),
+        deadline: new Date(plazo).toISOString(),
+        ...(_clase === 'custom' ? { options: respuestas } : {}),
+      },
+      plazoTexto: textoPlazo(plazo),
+    };
+  }
+
   /* ── ENVIAR ─────────────────────────────────────────────── */
   /* Los errores después de los cuales la lista que se ve ya no vale:
      se vuelve a pedir para que enseñe lo que hay ahora. */
@@ -915,7 +1186,23 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     const html   = editor ? editor.getHTML() : '';
     /* Se valida con el TEXTO: un editor "vacío" suele tener un <br>. */
     const texto  = editor ? editor.getText() : '';
-    if (!asunto || !texto) { toast('Please fill in subject and message.', true); return; }
+    const clase  = _clase;
+    const esEncuesta = clase !== 'announcement';
+    /* En una encuesta el texto es opcional; lo que hace falta es la
+       pregunta y el plazo. */
+    if (!asunto || (!texto && !esEncuesta)) {
+      toast(esEncuesta ? 'Please fill in the subject.' : 'Please fill in subject and message.', true);
+      return;
+    }
+    let encuesta = null;
+    if (esEncuesta) {
+      encuesta = leerEncuesta();
+      if (encuesta.error) {
+        toast(encuesta.error, true);
+        if (encuesta.campo) encuesta.campo.focus();
+        return;
+      }
+    }
     if (_subiendo) { toast('Wait for the PDF to finish uploading.', true); return; }
     if (html.length > MAX_MENSAJE) {
       toast('The message is too long. Pasted images are the usual cause — remove them and try again.', true);
@@ -942,13 +1229,16 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
       ...(_segmento === 'divisions' ? { division_ids: [..._divisiones].sort((a, b) => a - b) } : {}),
       ...(_segmento === 'selected'  ? { player_ids:   [..._elegidos].sort((a, b) => a - b) }   : {}),
       subject: asunto,
-      body:    html,
+      /* Una encuesta sin texto va con el cuerpo vacío, no con el <br>
+         que deja el editor. */
+      body:    esEncuesta && !texto ? '' : html,
+      ...(encuesta ? { poll: encuesta.poll } : {}),
       /* Lo que ella ve y confirma. Si al enviar ya no cuadra con lo que
          calcula el servidor, no se manda nada ('audience_changed'). */
       expected_people: s.people,
       expected_emails: s.emails,
     };
-    const adjunto = CON_ADJUNTO.has(tipo) ? _adjunto : null;
+    const adjunto = CON_ADJUNTO.has(tipo) && !esEncuesta ? _adjunto : null;
     if (adjunto) pedido.attachment = { path: adjunto.path, filename: adjunto.filename };
     const conAdjunto = adjunto ? `, with the attachment "${adjunto.filename}"` : '';
     const donde = tipo === 'all_players' ? 'All Players' : (_nombres.get(_audiencia) || '');
@@ -966,7 +1256,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     const uno = pedido.segment === 'selected' && s.people === 1
       ? vista.people.find((p) => p.included) : null;
     if (!soloAdmin) {
-      const seguro = await confirmModal(uno ? {
+      const seguro = await confirmModal(encuesta ? avisoEncuesta(clase, encuesta, uno, s, donde) : uno ? {
         title:   `Send this email to ${window.nombreDestinatario(uno)}?`,
         message: `"${asunto}" will be emailed to ${window.nombreDestinatario(uno)} (${uno.email})${conAdjunto}. `
                + 'This cannot be undone. To check it first, cancel and use "Send only to me".',
@@ -1008,6 +1298,8 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
         tipo, pedido.audience_id, pedido.segment,
         (pedido.division_ids || []).join(','), (pedido.player_ids || []).join(','),
         asunto, html, adjunto ? adjunto.path : '',
+        /* La encuesta también: otra pregunta u otro plazo es otro envío. */
+        clase, encuesta ? JSON.stringify(encuesta.poll) : '',
       ]);
       if (!soloAdmin && !llave) {
         r = { ok: false, message: 'This browser could not prepare the send. Reload the page and try again.' };
@@ -1068,6 +1360,30 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     cargarHistorial();
   }
 
+  /* La pregunta antes de mandar una encuesta: qué se pregunta, a
+     cuántos, que cada uno lleva sus botones y hasta cuándo. */
+  function avisoEncuesta(clase, encuesta, uno, s, donde) {
+    const que = clase === 'availability' ? 'availability request' : 'poll';
+    const pregunta = `"${encuesta.poll.question}"`;
+    const plazo = `Answers can be changed until ${encuesta.plazoTexto} (Florida time).`;
+    const comprobar = 'This cannot be undone. To check it first, cancel and use "Send only to me".';
+    if (uno) {
+      return {
+        title: `Send this ${que} to ${window.nombreDestinatario(uno)}?`,
+        message: `${pregunta} will be emailed to ${window.nombreDestinatario(uno)} (${uno.email}), `
+               + `with their own private answer buttons. ${plazo} ${comprobar}`,
+        okLabel: 'Send', cancelLabel: 'Cancel', danger: true, focusCancel: true,
+      };
+    }
+    return {
+      title: `Send this ${que} to ${s.people} player${s.people === 1 ? '' : 's'}?`,
+      message: `${pregunta} will be emailed to ${s.people} player${s.people === 1 ? '' : 's'} `
+             + `(${s.emails} email address${s.emails === 1 ? '' : 'es'}) in ${donde}, plus a sample copy to you. `
+             + `Each player gets their own private answer buttons. ${plazo} ${comprobar}`,
+      okLabel: `Send to ${s.people}`, cancelLabel: 'Cancel', danger: true, focusCancel: true,
+    };
+  }
+
   /* ── LO QUE YA SE LE MANDÓ A ESTA AUDIENCIA ─────────────── */
   /* Los diez últimos envíos del Hub a esta escalera, este torneo o All
      Players. Los ensayos no salen: no se le mandaron a nadie de aquí.
@@ -1094,6 +1410,10 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     if (turno !== _turnoAudiencia) return;
 
     _historial = new Map(filas.map((f) => [String(f.id), f]));
+    /* Las encuestas dicen cuántos contestaron ("2/3 responded"). Si esa
+       cuenta no se puede leer, se enseña lo de siempre ("3 sent"). */
+    const respuestas = await window.commLeerRespuestas(filas);
+    if (turno !== _turnoAudiencia) return;
     if (!filas.length) {
       lista.replaceChildren(nota('hub-hist-empty',
         'Nothing sent from here yet. Older emails are in the History tab.'));
@@ -1112,12 +1432,14 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
       asunto.textContent = f.subject || '(no subject)';
       const fecha = document.createElement('span');
       fecha.className = 'hub-hist-when';
-      fecha.textContent = window.commCuando(f.sent_at || f.created_at);
+      const deEncuesta = window.commTipoEncuesta(f);
+      fecha.textContent = window.commCuando(f.sent_at || f.created_at) + (deEncuesta ? ` · ${deEncuesta}` : '');
       main.append(asunto, fecha);
       const cuenta = document.createElement('span');
       cuenta.className = 'hub-hist-count';
       const n = f.sent_count || 0;
-      cuenta.textContent = `${n} sent`;
+      const r = respuestas.get(String(f.id));
+      cuenta.textContent = r ? `${r.responded}/${r.recipients} responded` : `${n} sent`;
       /* El mismo texto y los mismos colores que en la pestaña History,
          con clases en vez de estilos dentro del HTML. */
       const estado = document.createElement('span');
@@ -1213,6 +1535,12 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
   $('hub-attach-input')?.addEventListener('change', (e) => subirAdjunto(e.target.files?.[0]));
   /* Elegir otra plantilla la pone, como en la ventana de antes. */
   $('hub-preset')?.addEventListener('change', aplicarPreset);
+  /* La encuesta: cualquier cambio a mano cuenta como borrador, y la
+     pregunta y el plazo escritos a mano ya no los pisa la fecha. */
+  $('hub-session')?.addEventListener('change', alElegirSesion);
+  $('hub-question')?.addEventListener('input', () => { _encuestaTocada = true; _preguntaSola = false; });
+  $('hub-deadline')?.addEventListener('input', () => { _encuestaTocada = true; _plazoSolo = false; });
+  $('hub-options')?.addEventListener('input', () => { _encuestaTocada = true; });
   $('hub-pick-list')?.addEventListener('change', (e) => {
     const caja = e.target.closest('input[type="checkbox"]');
     if (!caja) return;
@@ -1233,6 +1561,9 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     hubOpenSend:     (btn) => abrirEnvio(btn),
     hubAttachPick:   () => $('hub-attach-input').click(),
     hubAttachRemove: () => quitarAdjunto(),
+    hubKind:         (btn) => ponerClase(btn.dataset.kind),
+    hubOptionAdd:    () => anadirRespuesta(),
+    hubOptionDel:    (btn) => quitarRespuesta(btn),
     /* Los botones de las otras pantallas. */
     hubNotifyLadder: () => {
       const escalera = window.AdminState.currentLadder;
