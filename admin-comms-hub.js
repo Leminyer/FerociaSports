@@ -197,6 +197,35 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
       + 'on a great tournament!\n\nFerocia Sports Center',
   });
 
+  /* Las opciones de "Notification Type" de cada audiencia. La primera,
+     "Select one", deja el mensaje en blanco: así se abre, y así queda
+     después de cada envío (decidido el 10 de octubre). All Players no
+     tiene lista: empieza siempre en blanco. */
+  const OPCIONES = {
+    ladder: [
+      ['', 'Select one'],
+      ['welcome', '👋 Welcome & Guidelines'],
+      ['scores', '📊 Scores Updated'],
+      ['reminder', '⏰ Session Reminder'],
+      ['end', '🏆 End of Ladder'],
+      ['custom', '✏️ Custom Message'],
+    ],
+    tournament: [
+      ['', 'Select one'],
+      ['results', '🏆 Results Ready'],
+    ],
+  };
+
+  /* El asunto y el texto de una opción, con el nombre de la escalera o
+     del torneo puesto. "Select one" (y "Custom Message") van en blanco. */
+  function plantillaDe(clave, nombre) {
+    if (_tipo === 'tournament' && clave === 'results') return textoTorneo(nombre);
+    const t = _tipo === 'ladder' ? PLANTILLAS_ESCALERA[clave] : null;
+    if (!t) return { subject: '', message: '' };
+    return { subject: t.subject.replaceAll('{{ladder}}', nombre),
+             message: t.message.replaceAll('{{ladder}}', nombre) };
+  }
+
   /* Lo que se añade solo a cada correo, según la audiencia. */
   const AVISO_MENSAJE = {
     ladder:      'A button to the ladder standings is added to every email automatically.',
@@ -278,7 +307,8 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
        un envío que falló tiene que retomarlo, no crear otro. */
     ponerTexto('', '');
     _plantilla = { subject: '', html: '' };
-    $('hub-preset').value = 'welcome';   // la escalera empieza con la de bienvenida, como antes
+    $('hub-preset').replaceChildren(...(OPCIONES[tipo] || []).map(([v, t]) => new Option(t, v)));
+    $('hub-preset').value = '';   // "Select one": se empieza en blanco
     ensayo.reset();
     claveador.asegurar();
 
@@ -693,32 +723,33 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
 
   /* Las plantillas de la escalera, con su nombre puesto. */
   function aplicarPreset() {
-    const t = PLANTILLAS_ESCALERA[$('hub-preset').value];
-    if (!t) return;
-    const nombre = _nombres.get(_audiencia) || '';
-    aplicarPlantilla(t.subject.replaceAll('{{ladder}}', nombre),
-                     t.message.replaceAll('{{ladder}}', nombre));
+    const t = plantillaDe($('hub-preset').value, _nombres.get(_audiencia) || '');
+    aplicarPlantilla(t.subject, t.message);
   }
 
   /* El texto de partida de cada audiencia. Sólo si el mensaje está como
      lo dejó la plantilla anterior: lo escrito a mano no se pisa. */
   function prepararMensaje() {
-    $('hub-preset-wrap').hidden = _tipo !== 'ladder';
+    $('hub-preset-wrap').hidden = !OPCIONES[_tipo];
     $('hub-message-hint').textContent = AVISO_MENSAJE[_tipo] || '';
-    if (!sinTocar()) return;
-    if (_tipo === 'ladder') aplicarPreset();
-    else if (_tipo === 'tournament') {
-      const t = textoTorneo(_nombres.get(_audiencia) || '');
-      aplicarPlantilla(t.subject, t.message);
-    }
+    if (OPCIONES[_tipo] && sinTocar()) aplicarPreset();
   }
 
-  /* Tras un envío que salió bien: el mensaje se vacía, para que no se
-     pueda mandar dos veces el mismo sin querer. */
-  function vaciarMensaje() {
-    $('hub-preset').value = 'custom';
+  /* Tras un envío que salió bien, el formulario vuelve a empezar (para
+     que no se pueda mandar dos veces el mismo sin querer):
+       · el mensaje en blanco, con "Select one";
+       · si se eligieron jugadores a mano, se desmarcan y se vuelve a
+         "todos", con la búsqueda vacía.
+     Tras un ensayo NO: el mensaje se queda para mandarlo de verdad. */
+  function empezarDeNuevo() {
+    $('hub-preset').value = '';
     ponerTexto('', '');
     _plantilla = { subject: '', html: '' };
+    if (_segmento === 'selected') {
+      _elegidos = new Set();
+      $('hub-search').value = '';
+      ponerSegmento('all');
+    }
   }
 
   /* ── ENVIAR ─────────────────────────────────────────────── */
@@ -877,7 +908,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
        como está: pulsar otra vez retoma el mismo envío. */
     if (window.envioTerminado(d) && !d.unconfirmed) {
       claveador.limpiar();
-      vaciarMensaje();
+      empezarDeNuevo();
       toast(window.mensajeExito(d) + window.loQueFalto(d) + window.loQueEntro(d),
             window.huboPerdidas(d));
     } else {
@@ -1005,7 +1036,15 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     /* Si entretanto ella cambió de audiencia o de destinatarios, esto ya
        no es lo que está mirando: no se pinta nada encima. */
     if (turno !== _turnoAudiencia || _segmento !== 'selected' || !_candidatos) return;
-    if (_elegidos.has(jugador.id)) { listoParaEscribir(); return; }
+    if (_elegidos.has(jugador.id)) {
+      /* Su nombre en la búsqueda: la lista enseña sólo a él, marcado,
+         en vez de todos los jugadores con él perdido en medio. Borrando
+         la búsqueda vuelven a verse todos. */
+      $('hub-search').value = jugador.nombre;
+      filtrarCandidatos();
+      listoParaEscribir();
+      return;
+    }
     const motivo = NO_SE_PUEDE[_motivos.get(jugador.id)] || NO_ESTA;
     const texto = `${jugador.nombre} ${motivo}`;
     pintarAviso(texto);
