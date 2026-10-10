@@ -24,7 +24,7 @@
 <link rel="stylesheet" href="admin-components.css?v=20261008a">
 <link rel="stylesheet" href="admin-pages.css?v=20261001c">
 <link rel="stylesheet" href="admin-ftc.css?v=20260928b">
-<link rel="stylesheet" href="admin-comms-hub.css?v=20261011d">
+<link rel="stylesheet" href="admin-comms-hub.css?v=20261011e">
 
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="config.js?v=20260929j"></script>
@@ -1984,12 +1984,25 @@
           <div class="hub-chips" id="hub-segments" role="group" aria-label="Recipients">
             <button type="button" class="co-pfilter" aria-pressed="false" data-action="hubSegment" data-segment="all" id="hub-seg-all"></button>
             <button type="button" class="co-pfilter" aria-pressed="false" data-action="hubSegment" data-segment="divisions" id="hub-seg-divisions">Specific Divisions</button>
+            <button type="button" class="co-pfilter" aria-pressed="false" data-action="hubSegment" data-segment="poll" id="hub-seg-poll" hidden>By Poll Answer</button>
             <button type="button" class="co-pfilter" aria-pressed="false" data-action="hubSegment" data-segment="selected" id="hub-seg-selected">Selected Players</button>
           </div>
 
           <div class="hub-sub-step" id="hub-divisions-wrap" hidden>
             <div class="hub-hint">Choose one or more divisions.</div>
             <div class="hub-chips" id="hub-divisions" role="group" aria-label="Divisions"></div>
+          </div>
+
+          <!-- Los grupos por respuesta (entregable 7): sólo en escaleras con
+               alguna encuesta enviada. admin-comms-hub.js rellena la lista
+               de encuestas y sus respuestas. -->
+          <div class="hub-sub-step" id="hub-seg-poll-wrap" hidden>
+            <div class="hub-field">
+              <label class="hub-field-label" for="hub-seg-poll-select">Poll</label>
+              <select class="hub-select" id="hub-seg-poll-select"></select>
+            </div>
+            <div class="hub-field-label" id="hub-seg-answers-label">Answer</div>
+            <div class="hub-chips" id="hub-seg-answers" role="group" aria-labelledby="hub-seg-answers-label"></div>
           </div>
 
           <div class="hub-sub-step" id="hub-selected-wrap" hidden>
@@ -2945,8 +2958,10 @@
             <div class="co-poll-label">Poll results</div>
             <div class="co-poll-question" id="co-poll-question"></div>
             <div class="co-poll-status" id="co-poll-status"></div>
+            <div class="co-poll-status co-poll-reminder" id="co-poll-reminder" hidden></div>
           </div>
           <div class="co-poll-actions">
+            <button type="button" class="hub-attach-btn" id="co-poll-remind-btn" data-action="commPollRemind">Send reminder to non-responders</button>
             <button type="button" class="hub-attach-btn" id="co-poll-roster-btn" data-action="commPollRoster">Use responses for roster</button>
             <button type="button" class="co-poll-close" id="co-poll-close-btn" data-action="commPollClose">Close poll</button>
           </div>
@@ -3636,7 +3651,7 @@
 <script src="admin-incident-reports.js?v=20260928b"></script>
 <script src="admin-ladder-selector.js?v=20260928b"></script>
 <script src="admin-orders.js?v=20260928b"></script>
-<script src="admin-email-utils.js?v=20261011a"></script>
+<script src="admin-email-utils.js?v=20261011c"></script>
 <script src="admin-rich-editor.js?v=20261009b"></script>
 <script src="admin-share.js?v=20260928b"></script>
 <script src="admin-player-status-history.js?v=20260928b"></script>
@@ -3645,9 +3660,9 @@
 <script src="admin-sessions.js?v=20260928b"></script>
 <script src="admin-print-roster.js?v=20260928b"></script>
 <script src="admin-ladder-management.js?v=20261008a"></script>
-<script src="admin-communications.js?v=20261011c"></script>
-<script src="admin-comms-hub.js?v=20261011b"></script>
-<script src="admin-comms-results.js?v=20261011a"></script>
+<script src="admin-communications.js?v=20261011d"></script>
+<script src="admin-comms-hub.js?v=20261011c"></script>
+<script src="admin-comms-results.js?v=20261011c"></script>
 <script src="admin-promotions.js?v=20261006a"></script>
 <script src="admin-subscriber-reminder.js?v=20261005a"></script>
 <script src="admin-newsletter.js?v=20261005b"></script>

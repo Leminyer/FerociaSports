@@ -135,6 +135,15 @@
     poll_missing:          'Could not prepare the poll, so nothing was sent — press Send again.',
     poll_links_incomplete: 'Could not prepare the answer links, so nothing was sent — press Send again.',
     poll_closed:           'This poll is already closed (its deadline passed), so it was not sent again.',
+
+    /* Los recordatorios y los grupos por respuesta (entregable 7). */
+    reminder_too_soon:     'A reminder already went out less than an hour ago. Nothing was sent — you can send another one hour after the last.',
+    no_one_to_remind:      'Everyone has answered, so there is nobody to remind. Nothing was sent.',
+    poll_is_rehearsal:     'This was a rehearsal ("Send only to me"), so there is nobody to remind. Nothing was sent.',
+    poll_not_found:        'That poll no longer exists. Nothing was sent.',
+    poll_not_in_audience:  'That poll is not from this ladder. Choose another one — nothing was sent.',
+    invalid_segment:       'That answer is not part of the poll. Choose again — nothing was sent.',
+    poll_still_sending:    'The poll itself has not finished sending. Finish it first (History → View → Retry). Nothing was sent.',
   };
 
   /**

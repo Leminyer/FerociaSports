@@ -12,6 +12,10 @@
      · cambiar tú la respuesta de alguien (o quitársela), también con la
        encuesta cerrada; queda apuntado que fuiste tú;
      · "Close poll": cerrarla a mano. Es definitivo;
+     · "Send reminder to non-responders" (entregable 7): el mismo correo,
+       sólo a quien no ha contestado, como mucho uno cada hora. A quién
+       lo decide el servidor (comms-remind → sql/78), nunca esta
+       pantalla; aquí sólo se cuenta para la pregunta de antes;
      · en la disponibilidad semanal, "Use responses for roster": los
        cuatro grupos (Confirmed, Maybe, Not playing, No response) para
        verlos, copiarlos o imprimirlos. No arma el roster: es la lista
@@ -44,6 +48,13 @@
   let _datos = null;     // { poll, opciones, personas }
   let _abiertos = new Set();   // grupos desplegados ('o<id>' o 'none')
   let _yo = null;        // tu id, para decir "by you"
+  let _recordando = false;     // un recordatorio en camino
+  let _reloj = null;           // vuelve a encender "Send reminder" pasada la hora
+
+  /* Un recordatorio cada hora como mucho (decidido el 10 de octubre). La
+     regla de verdad está en la base (sql/78); aquí sólo se apaga el botón
+     para no ofrecer lo que el servidor va a rechazar. */
+  const HORA_MS = 3600 * 1000;
 
   /* ── FECHAS, EN HORA DE FLORIDA ─────────────────────────── */
   const fmt = (ms, op) => new Intl.DateTimeFormat('en-US', { timeZone: ZONA, ...op }).format(new Date(ms));
@@ -70,6 +81,7 @@
   /* ── ABRIR Y CERRAR (los llama admin-communications.js) ─── */
   function ocultar() {
     _vez++;
+    clearTimeout(_reloj);
     _envio = null;
     _datos = null;
     $('co-det-poll').hidden = true;
@@ -89,6 +101,8 @@
     $('co-poll-groups').replaceChildren();
     $('co-poll-close-btn').hidden = true;
     $('co-poll-roster-btn').hidden = true;
+    $('co-poll-remind-btn').hidden = true;
+    $('co-poll-reminder').hidden = true;
     if (!_yo) {
       try { _yo = (await window.supabase.auth.getUser()).data?.user?.id || null; } catch (e) { _yo = null; }
       if (_envio !== envio) return;   // se cerró, o se abrió otro, mientras tanto
@@ -121,12 +135,23 @@
         $('co-poll-status').textContent = 'This poll was not created: the send stopped before it went out.';
         return;
       }
-      const [opciones, enlaces, gente, respuestas] = await Promise.all([
+      const [opciones, enlaces, gente, respuestas, recordatorios] = await Promise.all([
         window.api(`comm_poll_options?select=id,position,label&poll_id=eq.${poll.id}&order=position`),
         leerTodas(`comm_poll_links?select=id,person_id&poll_id=eq.${poll.id}&is_sample=eq.false&revoked_at=is.null&order=id`),
         leerTodas(`communication_people?select=id,first_name,last_name&communication_id=eq.${encodeURIComponent(envio.id)}`
           + '&included=eq.true&order=id'),
         leerTodas(`comm_poll_responses?select=link_id,option_id,answered_at,by_admin,set_by&poll_id=eq.${poll.id}&order=link_id`),
+        /* Los recordatorios, el último primero, con el estado de su envío
+           (sql/78). Si no se pueden leer, los resultados se enseñan igual
+           y el botón del recordatorio no sale: sin saber cuál fue el
+           último, no se sabría si retomarlo o mandar otro. */
+        window.api('comm_reminders?select=id,created_at,people,communication_id,communication:communications(idempotency_key,status)'
+          + `&poll_id=eq.${poll.id}&order=created_at.desc`)
+          .then(async (lista) => { await marcarTerminable(lista[0]); return lista; })
+          .catch((err) => {
+            console.error('[comms-results] no se pudieron leer los recordatorios:', err);
+            return null;
+          }),
       ]);
       if (mia !== _vez) return;
       const persona = new Map(gente.map((g) => [g.id, g]));
@@ -134,7 +159,7 @@
       const personas = enlaces.filter((l) => persona.has(l.person_id)).map((l) => ({
         ...persona.get(l.person_id), link_id: l.id, resp: respuesta.get(l.id) || null,
       })).sort(porNombre);
-      _datos = { poll, opciones, personas };
+      _datos = { poll, opciones, personas, recordatorios: recordatorios || [], recordatoriosOk: !!recordatorios };
       pintar();
     } catch (err) {
       if (mia !== _vez) return;
@@ -201,7 +226,66 @@
       if (_abiertos.has(g.clave)) caja.append(listaDe(g.gente));
       return caja;
     }));
+    pintarRecordatorio();
     pintarRoster();
+  }
+
+  /* El último recordatorio no terminó de salir (se cortó, o falló el
+     correo): entonces el botón lo TERMINA, con su misma llave, en vez de
+     mandar otro. Si no, quedaría a medias para siempre: uno nuevo no se
+     deja mandar durante la hora. */
+  const aMedias = (ultimo) => !!ultimo && !!ultimo.terminable;
+
+  /* ¿Le queda algo por mandar al último recordatorio? 'sending' y
+     'partial', sí. 'failed' puede ser las dos cosas: que no saliera nada
+     y se pueda retomar, o que todas sus direcciones gastaran ya sus tres
+     intentos (send-email no lo volverá a intentar). Sin mirarlo, el
+     botón se quedaría en "Finish" para siempre sin mandar nada. */
+  const MAX_INTENTOS = 3;   // el mismo tope que el motor de envío
+  async function marcarTerminable(ultimo) {
+    const c = ultimo && ultimo.communication;
+    if (!c || c.status === 'sent') return;
+    if (c.status !== 'failed') { ultimo.terminable = true; return; }
+    const filas = await window.api(`communication_recipients?select=attempts&communication_id=eq.${ultimo.communication_id}`
+      + '&status=neq.sent&limit=1000');
+    /* Sin ninguna fila: se cortó antes de apuntar a nadie, y retomarlo
+       las crea. */
+    ultimo.terminable = !filas.length || filas.some((f) => (f.attempts || 0) < MAX_INTENTOS);
+  }
+
+  /* "Send reminder to non-responders": sólo con la encuesta abierta y
+     alguien sin contestar. Debajo, cuándo salió el último (especificación
+     §23: "Last reminder sent"), y si está dentro de la hora, desde cuándo
+     se puede mandar otro; al llegar esa hora el botón se enciende solo. */
+  function pintarRecordatorio() {
+    const { poll, personas, recordatorios, recordatoriosOk } = _datos;
+    const faltan = personas.filter((p) => !p.resp).length;
+    const ultimo = recordatorios[0] || null;
+    const terminar = aMedias(ultimo);
+    const proximo = ultimo ? Date.parse(ultimo.created_at) + HORA_MS : 0;
+    const espera = abierta(poll) && faltan > 0 && !terminar && proximo > Date.now();
+    const btn = $('co-poll-remind-btn');
+    /* Si ya contestaron todos, nada: tampoco se termina uno a medias (le
+       llegaría a gente que ya contestó). */
+    btn.hidden = !recordatoriosOk || !abierta(poll) || !faltan;
+    btn.disabled = espera || _recordando;
+    if (!_recordando) btn.textContent = terminar ? 'Finish the last reminder' : 'Send reminder to non-responders';
+
+    const partes = [];
+    if (ultimo) {
+      partes.push(`Last reminder sent: ${textoHora(ultimo.created_at)} · to ${ultimo.people} player${ultimo.people === 1 ? '' : 's'}`
+        + (recordatorios.length > 1 ? ` · ${recordatorios.length} reminders so far` : ''));
+    }
+    if (terminar) partes.push('It did not finish sending.');
+    if (espera) partes.push(`You can send another reminder after ${fmt(proximo, { hour: 'numeric', minute: '2-digit' })}.`);
+    $('co-poll-reminder').textContent = partes.join('. ');
+    $('co-poll-reminder').hidden = !partes.length;
+
+    clearTimeout(_reloj);
+    if (espera) {
+      const envio = _envio;
+      _reloj = setTimeout(() => { if (_datos && _envio === envio) pintarRecordatorio(); }, proximo - Date.now() + 500);
+    }
   }
 
   /* Los nombres de un grupo, cada uno con su hora, quién lo puso, su
@@ -329,6 +413,92 @@
     await cargar();
   }
 
+  /* ── EL RECORDATORIO ────────────────────────────────────── */
+  /* La llave de un recordatorio nuevo va atada al ÚLTIMO que existe
+     ("después del recordatorio 12"), no a una cuenta: si otra
+     administradora ya lo mandó, o si se pulsa dos veces, el servidor ve la
+     misma llave y no manda otro. Para terminar uno a medias se usa SU
+     llave guardada. */
+  async function recordar() {
+    if (!_datos || _recordando || !abierta(_datos.poll) || !_datos.recordatoriosOk) return;
+    if (window.envioEnCurso?.()) return;
+    const envio = _envio;
+    const { poll, personas, recordatorios } = _datos;
+    const faltan = personas.filter((p) => !p.resp).length;
+    const ultimo = recordatorios[0] || null;
+    const terminar = aMedias(ultimo);
+    if (!faltan) return;
+    const btn = $('co-poll-remind-btn');
+    /* Apagado ANTES de preguntar: un segundo clic no abre otra pregunta. */
+    _recordando = true;
+    btn.disabled = true;
+    const ok = await window.confirmModal(terminar ? {
+      title: 'Finish the last reminder?',
+      message: 'The last reminder did not reach everyone it was meant for. It will be sent only to those '
+             + 'who did not get it — nobody receives it twice.',
+      okLabel: 'Finish reminder',
+      cancelLabel: 'Cancel',
+      focusCancel: true,
+    } : {
+      title: 'Send reminder?',
+      message: `This reminder will be emailed only to the ${faltan} player${faltan === 1 ? '' : 's'} `
+             + `who ${faltan === 1 ? 'has' : 'have'} not responded. `
+             + 'Players who already responded will not receive another email.',
+      okLabel: 'Send reminder',
+      cancelLabel: 'Cancel',
+      focusCancel: true,
+    });
+    if (!ok || _envio !== envio) {
+      _recordando = false;
+      if (_envio === envio && _datos) pintarRecordatorio();
+      return;
+    }
+
+    btn.textContent = terminar ? 'Finishing reminder…' : 'Sending reminder…';
+    window.AdminState.emailInFlight = true;
+    let r;
+    try {
+      r = await window.sendEmailServer({
+        poll_id: poll.id,
+        idempotency_key: terminar ? ultimo.communication.idempotency_key
+          : `poll-reminder-${poll.id}-after-${ultimo ? ultimo.id : 0}`,
+      }, 'comms-remind');
+    } finally {
+      window.AdminState.emailInFlight = false;
+      _recordando = false;
+      /* El texto y el estado del botón vuelven a ser los de lo que hay;
+         cargar(), más abajo, los pone al día con el recordatorio nuevo. */
+      if (_envio === envio && _datos) pintarRecordatorio();
+    }
+
+    if (!r.ok) {
+      console.error('[comms-results] el recordatorio no salió:', r);
+      window.toast(r.message, true);
+      /* Puede que sí se creara (se cortó la red a la vuelta): History
+         tiene que enseñarlo. */
+      window.commHistMarcarCambio?.();
+    } else {
+      const d = r.data || {};
+      const n = Number(d.reminded) || 0;
+      if (!d.sent && !d.already_sent) {
+        window.toast(`The reminder did not reach anyone: ${window.resumenEnvio(d)}.`
+          + window.loQueFalto(d) + ' Open it in History to see why.', true);
+      } else if (window.envioTerminado(d) && !d.unconfirmed) {
+        window.toast(!d.sent && d.already_sent
+          ? 'That reminder had already gone out. The results are now up to date.'
+          : `${window.huboPerdidas(d) ? '' : '✅ '}Reminder sent to ${n} player${n === 1 ? '' : 's'} who had not answered.`
+            + window.loQueFalto(d), window.huboPerdidas(d));
+      } else {
+        window.toast(window.motivoDelCorte(d)
+          || `Reminder: ${window.resumenEnvio(d)}. Press "Finish the last reminder" to send the rest.`, true);
+      }
+      /* La lista de History se pone al día al cerrar esta ventana: el
+         recordatorio sale allí como un envío más. */
+      window.commHistMarcarCambio?.();
+    }
+    if (_envio === envio) await cargar();
+  }
+
   /* ── EL ROSTER ──────────────────────────────────────────── */
   function gruposRoster() {
     const { opciones, personas } = _datos;
@@ -426,6 +596,7 @@
     commPollSave:    (btn) => cambiar(btn),
     commPollHistory: (btn) => verHistorial(btn),
     commPollClose:   () => cerrarEncuesta(),
+    commPollRemind:  () => recordar(),
     commPollRoster:  () => verRoster(),
     commPollCopy:    (btn) => copiar(btn),
     commPollPrint:   () => imprimir(),

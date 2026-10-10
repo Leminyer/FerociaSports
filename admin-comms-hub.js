@@ -10,7 +10,9 @@
 
    El panel de la pestaña Send desde donde se escribe a los jugadores:
      1. la audiencia: una escalera, un torneo, o All Players;
-     2. los destinatarios: todos, unas divisiones o unos jugadores;
+     2. los destinatarios: todos, unas divisiones, unos jugadores, o (en
+        una escalera) quienes dieron una respuesta en una de sus
+        encuestas — "By Poll Answer", entregable 7;
      3. la vista previa: cuántas personas, cuántos correos, y quién se
         queda fuera y por qué;
      4. el mensaje, y enviarlo.
@@ -96,6 +98,8 @@
     audience_not_found:         'That ladder or tournament no longer exists. Choose another one.',
     division_not_in_tournament: 'One of those divisions is no longer part of this tournament. Choose again.',
     player_not_in_audience:     'One of the selected players is no longer in this group, or can\'t receive email. Review the selection.',
+    poll_not_in_audience:       'That poll is not from this ladder. Choose another one.',
+    invalid_segment:            'That answer is not part of the poll. Choose again.',
     not_authorized:             'Your account is not an active admin.',
   };
   /* Una sesión caducada la rechaza Supabase antes de llegar a la
@@ -267,9 +271,12 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
   /* ── ESTADO ─────────────────────────────────────────────── */
   let _tipo        = null;       // 'ladder' | 'tournament' | 'all_players'
   let _audiencia   = null;       // id de la escalera o del torneo
-  let _segmento    = 'all';      // 'all' | 'divisions' | 'selected'
+  let _segmento    = 'all';      // 'all' | 'divisions' | 'selected' | 'poll'
   let _divisiones  = new Set();  // ids elegidos con 'divisions'
   let _elegidos    = new Set();  // ids elegidos con 'selected'
+  let _encuestas   = [];         // con 'poll': las encuestas de la escalera, la última primero
+  let _encuesta    = null;       // con 'poll': el id de la encuesta elegida
+  let _respuesta   = null;       // con 'poll': la posición de la respuesta (1 a 6) o 'none'
   let _candidatos  = null;       // quién se puede elegir: los que reciben con 'all'
   let _motivos     = new Map();  // id → por qué no se le puede elegir (sub, inactive…)
   let _pidiendoCandidatos = null;  // la petición en curso, para no pedirla dos veces
@@ -432,12 +439,18 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     _segmento = 'all';
     _divisiones = new Set();
     _elegidos = new Set();
+    _encuestas = [];
+    _encuesta = null;
+    _respuesta = null;
     _verPersonas = false;
     _ultimaVista = null;
     $('hub-search').value = '';
     $('hub-pick-list').replaceChildren();
     $('hub-divisions').replaceChildren();
     $('hub-seg-divisions').hidden = true;
+    $('hub-seg-poll').hidden = true;
+    $('hub-seg-poll-select').replaceChildren();
+    $('hub-seg-answers').replaceChildren();
     limpiarVista();
   }
 
@@ -515,6 +528,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     /* Las divisiones se piden aparte y sin esperar: la vista previa de
        "todos" no las necesita, y el botón aparece cuando llegan. */
     if (_tipo === 'tournament') cargarDivisiones();
+    if (_tipo === 'ladder') cargarEncuestas();
     ponerSegmento('all');
   }
 
@@ -541,6 +555,92 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     }));
   }
 
+  /* ── LOS GRUPOS POR RESPUESTA (entregable 7) ────────────── */
+  /* Las encuestas de verdad de la escalera (no los ensayos), la última
+     primero y ya elegida (decidido el 10 de octubre). Sin ninguna, el
+     botón "By Poll Answer" no sale. A quién va cada grupo lo calcula el
+     servidor; de aquí sólo sale "esta encuesta, esta respuesta". */
+  async function cargarEncuestas() {
+    const turno = _turnoAudiencia;
+    let filas;
+    try {
+      filas = await api('communications?select=id,created_at,comm_polls!inner(id,kind,question,session_date,'
+        + 'comm_poll_options(position,label))&template=eq.poll&meta->audience->>type=eq.ladder'
+        + `&meta->audience->>id=eq.${encodeURIComponent(_audiencia)}&meta->>solo_admin=is.null`
+        + '&order=created_at.desc&limit=50');
+    } catch (e) {
+      /* Sin la lista se puede seguir mandando a todos o a unos jugadores. */
+      console.error('[comms-hub] no se pudieron leer las encuestas de la escalera:', e);
+      return;
+    }
+    if (turno !== _turnoAudiencia) return;
+    _encuestas = (filas || []).map((f) => {
+      const p = Array.isArray(f.comm_polls) ? f.comm_polls[0] : f.comm_polls;
+      return p && {
+        id: p.id,
+        etiqueta: etiquetaEncuesta(p, f.created_at),
+        opciones: [...(p.comm_poll_options || [])].sort((a, b) => a.position - b.position),
+      };
+    }).filter(Boolean);
+    $('hub-seg-poll').hidden = !_encuestas.length;
+    $('hub-seg-poll-select').replaceChildren(..._encuestas.map((e) => new Option(e.etiqueta, String(e.id))));
+    if (!_encuestas.some((e) => e.id === _encuesta)) {
+      _encuesta = _encuestas[0]?.id ?? null;
+      _respuesta = null;
+    }
+    $('hub-seg-poll-select').value = _encuesta ? String(_encuesta) : '';
+    pintarRespuestasGrupo();
+  }
+
+  /* "Availability · Mon, Oct 12" o "Poll · ¿pregunta? · sent Oct 10". */
+  function etiquetaEncuesta(p, enviada) {
+    const corto = (d, op) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', ...op });
+    if (p.kind === 'availability' && /^\d{4}-\d{2}-\d{2}$/.test(String(p.session_date || ''))) {
+      return `Availability · ${corto(`${p.session_date}T12:00:00Z`, { weekday: 'short', timeZone: 'UTC' })}`;
+    }
+    const pregunta = String(p.question || '');
+    return `Poll · ${pregunta.length > 50 ? `${pregunta.slice(0, 49)}…` : pregunta}`
+      + ` · sent ${corto(enviada, { timeZone: ZONA })}`;
+  }
+
+  /* Un botón por respuesta de la encuesta elegida, y "No response". */
+  function pintarRespuestasGrupo() {
+    const e = _encuestas.find((x) => x.id === _encuesta);
+    const chips = e ? [...e.opciones.map((o) => [String(o.position), o.label]), ['none', 'No response']] : [];
+    $('hub-seg-answers').replaceChildren(...chips.map(([valor, texto]) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'co-pfilter';
+      b.dataset.action = 'hubSegAnswer';
+      b.dataset.answer = valor;
+      const on = String(_respuesta) === valor;
+      b.classList.toggle('co-pfilter-on', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      b.textContent = texto;
+      return b;
+    }));
+  }
+
+  function elegirEncuestaGrupo() {
+    _encuesta = Number($('hub-seg-poll-select').value) || null;
+    _respuesta = null;
+    pintarRespuestasGrupo();
+    pedirVista();
+  }
+
+  function elegirRespuestaGrupo(btn) {
+    _respuesta = btn.dataset.answer === 'none' ? 'none' : Number(btn.dataset.answer);
+    pintarRespuestasGrupo();
+    pedirVista();
+  }
+
+  /* Cómo se llama el grupo elegido, para la pregunta antes de enviar. */
+  function nombreGrupo() {
+    if (_respuesta === 'none') return 'No response';
+    const o = _encuestas.find((x) => x.id === _encuesta)?.opciones.find((x) => x.position === _respuesta);
+    return o ? `Answered ${o.label}` : '';
+  }
+
   /* ── DESTINATARIOS ──────────────────────────────────────── */
   async function ponerSegmento(segmento) {
     _segmento = segmento;
@@ -556,6 +656,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
       b.setAttribute('aria-pressed', on ? 'true' : 'false');
     });
     $('hub-divisions-wrap').hidden = segmento !== 'divisions';
+    $('hub-seg-poll-wrap').hidden = segmento !== 'poll';
     $('hub-selected-wrap').hidden = segmento !== 'selected';
 
     if (segmento === 'selected') {
@@ -669,6 +770,10 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
       pintarAviso('Select at least one player.');
       return;
     }
+    if (_segmento === 'poll' && (!_encuesta || !_respuesta)) {
+      pintarAviso('Choose an answer to see who will receive it.');
+      return;
+    }
     $('hub-preview').replaceChildren(nota('hub-note', 'Loading recipients…'));
     _espera = setTimeout(() => cargarVista(turno), 250);
   }
@@ -677,6 +782,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     const segmento = _segmento;
     const extra = segmento === 'divisions' ? { division_ids: [..._divisiones] }
                 : segmento === 'selected'  ? { player_ids:   [..._elegidos] }
+                : segmento === 'poll'      ? { poll_id: _encuesta, poll_answer: _respuesta }
                 : {};
     const r = await pedirAudiencia(segmento, extra);
     if (turno !== _turnoVista) return;
@@ -1160,7 +1266,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
      se vuelve a pedir para que enseñe lo que hay ahora. */
   const REFRESCAR_VISTA = new Set([
     'player_not_in_audience', 'division_not_in_tournament', 'no_recipients',
-    'audience_changed',
+    'audience_changed', 'poll_not_in_audience', 'invalid_segment',
   ]);
   /* El mismo tope que el servidor (comms-send, MAX_CUERPO). */
   const MAX_MENSAJE = 200000;
@@ -1216,6 +1322,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
       segment:       _segmento,
       ...(_segmento === 'divisions' ? { division_ids: [..._divisiones].sort((a, b) => a - b) } : {}),
       ...(_segmento === 'selected'  ? { player_ids:   [..._elegidos].sort((a, b) => a - b) }   : {}),
+      ...(_segmento === 'poll'      ? { poll_id: _encuesta, poll_answer: _respuesta }         : {}),
       subject: asunto,
       /* Una encuesta sin texto va con el cuerpo vacío, no con el <br>
          que deja el editor. */
@@ -1229,7 +1336,8 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     const adjunto = CON_ADJUNTO.has(tipo) && !esEncuesta ? _adjunto : null;
     if (adjunto) pedido.attachment = { path: adjunto.path, filename: adjunto.filename };
     const conAdjunto = adjunto ? `, with the attachment "${adjunto.filename}"` : '';
-    const donde = tipo === 'all_players' ? 'All Players' : (_nombres.get(_audiencia) || '');
+    const grupo = pedido.segment === 'poll' ? ` (${nombreGrupo()})` : '';
+    const donde = tipo === 'all_players' ? 'All Players' : `${_nombres.get(_audiencia) || ''}${grupo}`;
 
     /* Se lee la casilla y se bloquea en el mismo paso: entre leerla y
        bloquearla no puede haber un `await`. En ese hueco un clic la
@@ -1285,6 +1393,8 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
       const llave = soloAdmin ? null : await claveador.clave([
         tipo, pedido.audience_id, pedido.segment,
         (pedido.division_ids || []).join(','), (pedido.player_ids || []).join(','),
+        /* El grupo por respuesta: otra encuesta u otra respuesta es otro envío. */
+        pedido.poll_id || '', pedido.poll_answer || '',
         asunto, html, adjunto ? adjunto.path : '',
         /* La encuesta también: otra pregunta u otro plazo es otro envío. */
         clase, encuesta ? JSON.stringify(encuesta.poll) : '',
@@ -1337,6 +1447,8 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     if (window.envioTerminado(d) && !d.unconfirmed) {
       claveador.limpiar();
       empezarDeNuevo();
+      /* Una encuesta nueva ya se puede usar para "By Poll Answer". */
+      if (pedido.poll && tipo === 'ladder' && _audiencia === pedido.audience_id) cargarEncuestas();
       toast(window.mensajeExito(d) + window.loQueFalto(d) + window.loQueEntro(d),
             window.huboPerdidas(d));
     } else {
@@ -1448,6 +1560,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
   /* ── EVENTOS ────────────────────────────────────────────── */
   $('hub-audience-select')?.addEventListener('change', alElegirAudiencia);
   $('hub-search')?.addEventListener('input', filtrarCandidatos);
+  $('hub-seg-poll-select')?.addEventListener('change', elegirEncuestaGrupo);
   $('hub-attach-input')?.addEventListener('change', (e) => subirAdjunto(e.target.files?.[0]));
   /* Elegir otra plantilla la pone, como en la ventana de antes. */
   $('hub-preset')?.addEventListener('change', aplicarPreset);
@@ -1486,6 +1599,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     hubClose:        () => cerrar(),
     hubSegment:      (btn) => ponerSegmento(btn.dataset.segment),
     hubDivision:     (btn) => cambiarDivision(btn),
+    hubSegAnswer:    (btn) => elegirRespuestaGrupo(btn),
     hubTogglePeople: () => verPersonas(),
     hubSend:         () => enviar(),
     hubAttachPick:   () => $('hub-attach-input').click(),

@@ -31,8 +31,12 @@
 /* Todo el formulario es UNA columna de 720 px centrada en la tarjeta
    (pedido el 10 de octubre: antes iba pegado a la izquierda y dejaba
    todo el hueco a la derecha). Lo de dentro ocupa el ancho de la
-   columna, así los bordes de todo coinciden. */
-.hub-head,
+   columna, así los bordes de todo coinciden. El botón "All channels"
+   se queda fuera de la columna, pegado al borde izquierdo de la
+   tarjeta (pedido el 10 de octubre); el título y el subtítulo sí van
+   en ella. */
+.hub-title,
+.hub-sub,
 .hub-step{max-width:720px;margin-left:auto;margin-right:auto;}
 .hub-step{margin-bottom:20px;}
 .hub-step:last-child{margin-bottom:0;}
@@ -135,6 +139,7 @@
                 font-size:11px;font-weight:700;cursor:pointer;}
 .hub-attach-btn:hover{background:#e8f0ff;border-color:var(--blue);}
 .hub-attach-btn:disabled{opacity:.6;cursor:default;}
+.hub-attach-btn:disabled:hover{background:white;border-color:var(--border);}
 .hub-attach-file{display:flex;align-items:center;gap:10px;padding:10px 12px;
                  border:1px solid var(--divider-color);border-radius:10px;background:#fafbff;}
 .hub-attach-icon{flex-shrink:0;padding:4px 7px;border-radius:6px;background:#fdeceb;color:#c62828;
@@ -203,6 +208,8 @@
 .co-poll-label{font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);}
 .co-poll-question{margin-top:4px;font-size:15px;font-weight:800;color:var(--text);line-height:1.35;word-break:break-word;}
 .co-poll-status{margin-top:4px;font-size:11px;font-weight:600;color:var(--text-muted);}
+/* "Last reminder sent" (entregable 7), en azul para que se distinga del estado. */
+.co-poll-reminder{color:var(--blue);}
 .co-poll-actions{display:flex;flex-wrap:wrap;gap:6px;}
 .co-poll-close{padding:7px 14px;border:0.5px solid #f0c4c4;border-radius:99px;background:white;color:var(--danger);
                font-family:'Inter',sans-serif;font-size:11px;font-weight:700;cursor:pointer;}

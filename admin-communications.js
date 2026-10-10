@@ -126,6 +126,7 @@
      En una pantalla cuyo único trabajo es decir a quién le llegó, eso no
      es un detalle. */
   let _vez = 0;
+  let _recargarAlCerrar = false;   // al cerrar el detalle, volver a leer la lista (entregable 7)
   let _cargandoPersonas = false;
 
   /* ── LO QUE SE LEE DE LA BASE DE DATOS ─────────────────────
@@ -544,6 +545,12 @@
     document.getElementById('communications-detail-modal').classList.remove('open');
     _abierto = null;
     _personas = [];
+    /* Se mandó un recordatorio desde los resultados: la lista se lee otra
+       vez para que aparezca. Se hace al cerrar, y no antes, porque la
+       lista y esta ventana comparten el contador de "lo que llega tarde"
+       (_vez): recargarla con la ventana abierta tiraría lo que la ventana
+       estuviera leyendo. */
+    if (_recargarAlCerrar) { _recargarAlCerrar = false; cargarEnvios(true); }
   }
 
   /** Trae una página de destinatarios del envío abierto. */
@@ -1093,6 +1100,8 @@
 
   /** "Availability · Oct 12" o "Poll" si el envío es una encuesta; '' si no. */
   function tipoEncuesta(e) {
+    /* Un recordatorio a quien no contestó (entregable 7). */
+    if (e && e.meta && e.meta.reminder) return 'Reminder';
     const p = e && e.meta && e.meta.poll;
     if (!p) return '';
     if (p.kind !== 'availability') return 'Poll';
@@ -1227,6 +1236,8 @@
 
   /* Cuando cambias una respuesta en los resultados (entregable 6), la
      cuenta "X/Y responded" de la lista se pone al día. */
+  window.commHistMarcarCambio = () => { _recargarAlCerrar = true; };
+
   window.commPollCambio = async () => {
     const cuentas = await leerRespuestas(_envios);
     cuentas.forEach((v, k) => _respuestas.set(k, v));
