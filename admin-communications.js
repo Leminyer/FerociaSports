@@ -97,6 +97,10 @@
   let _cargando      = false;  // para que dos clics no pidan lo mismo dos veces
   let _respuestas    = new Map();  // id de un envío con encuesta → { recipients, responded }
   let _filtroTipo    = '';     // '' = todos
+  /* Una escalera o un torneo concreto (decidido el 10 de octubre: el
+     historial de cada audiencia vive aquí, no debajo del formulario).
+     Sólo con el tipo Ladder Players o Tournament Players. */
+  let _filtroAudiencia = '';   // id, o '' = todas
   let _abierto       = null;   // el envío que está abierto en la ventana
   let _personas      = [];     // sus destinatarios
   let _personasMas   = false;
@@ -154,8 +158,8 @@
      técnicas; aquí se llaman como los llama la aplicación. */
   const NOMBRE_TIPO = {
     promo:              'Campaign',
-    ladder_notify:      'Ladder Update',
-    tournament_notify:  'Tournament Update',
+    ladder_notify:      'Ladder Players',
+    tournament_notify:  'Tournament Players',
     players_broadcast:  'All Players',
     player_message:     'Single Player',
     subscriber_confirm: 'Confirmation',
@@ -295,7 +299,8 @@
     const caja = document.getElementById('co-hist-table');
     if (desdeElPrincipio && caja) caja.innerHTML = cargando('Loading history...');
 
-    const filtro = _filtroTipo ? `&kind=eq.${encodeURIComponent(_filtroTipo)}` : '';
+    const filtro = (_filtroTipo ? `&kind=eq.${encodeURIComponent(_filtroTipo)}` : '')
+      + (_filtroAudiencia ? `&meta->audience->>id=eq.${encodeURIComponent(_filtroAudiencia)}` : '');
     const ruta = `communications?select=${COLS_LISTA}${filtro}`
                + `&order=created_at.desc&limit=${POR_PAGINA + 1}&offset=${_envios.length}`;
 
@@ -348,7 +353,10 @@
          caso la base de datos contesta "cero filas", no "no puedes").
          Decir sólo lo primero sería tranquilizador y falso, así que se
          nombra la segunda posibilidad sin alarmar. */
-      caja.innerHTML = vacio(_filtroTipo
+      caja.innerHTML = vacio(_filtroAudiencia
+        ? `Nothing sent to this ${_filtroTipo === 'tournament_notify' ? 'tournament' : 'ladder'} from the Communications Hub yet. `
+          + `Emails sent before the Hub are not linked to one — choose "${_filtroTipo === 'tournament_notify' ? 'All tournaments' : 'All ladders'}" to see them.`
+        : _filtroTipo
         ? 'No sends of this type yet.'
         : 'Nothing has been sent yet. Anything you send from now on will show up here. '
           + '(If you were expecting to see past sends here, check that your admin access is still active.)');
@@ -1075,15 +1083,6 @@
 
   // ── REGISTRO ──────────────────────────────────────────────
 
-  /* Lo que usa el panel del Hub para su historial: las mismas columnas,
-     las mismas etiquetas de estado y la misma ventana de detalle, con
-     su reintento. Así un envío se ve igual desde los dos sitios. */
-  window.commColumnasLista = COLS_LISTA;
-  /* El texto del estado, para pintarlo con clases propias (el Hub no
-     lleva estilos dentro del HTML). */
-  window.commTextoEstado = (s) => (ESTADO_ENVIO[s] || { txt: s }).txt;
-  window.commCuando = cuando;
-
   /* ── LAS ENCUESTAS (entregable 5) ──────────────────────────
      Un envío con encuesta lleva su definición en `meta.poll`; cuántos
      contestaron sale de la vista comm_poll_summary (sql/76), que sólo
@@ -1117,9 +1116,6 @@
       return new Map();
     }
   }
-  window.commTipoEncuesta = tipoEncuesta;
-  window.commLeerRespuestas = leerRespuestas;
-  window.commAbrirEnvio = (fila) => abrirDetalle(fila.id, fila);
 
   window.openCommunications = () => {
     /* Al abrir la pantalla se enseña SEND, que es lo que se viene a
@@ -1156,7 +1152,13 @@
 
   Object.assign(window.CLICK_HANDLERS, {
     commDownloadAttachment: () => descargarAdjunto(),
-    commShowTab:        (btn) => mostrarTab(btn.dataset.tab),
+    /* Send enseña siempre la pantalla de opciones; si hay un mensaje a
+       medio escribir, el Hub pregunta antes (hubIrAOpciones). */
+    commShowTab:        async (btn) => {
+      const cual = btn.dataset.tab;
+      if (cual === 'send' && window.hubIrAOpciones) await window.hubIrAOpciones();
+      mostrarTab(cual);
+    },
     openCommDetail:     (btn) => abrirDetalle(btn.dataset.commid),
     closeCommDetail:    () => cerrarDetalle(),
     loadMoreCommPeople: () => cargarPersonas(false),
@@ -1172,8 +1174,64 @@
     },
   });
 
+  /* El segundo filtro: qué escalera o qué torneo. La lista se pide cada
+     vez que se elige el tipo, con lo vigente primero, como en el Hub. */
+  let _vezAudiencias = 0;
+  async function pintarFiltroAudiencia() {
+    const sel = document.getElementById('co-hist-aud-filter');
+    if (!sel) return;
+    const escalera = _filtroTipo === 'ladder_notify';
+    const torneo = _filtroTipo === 'tournament_notify';
+    sel.hidden = !escalera && !torneo;
+    /* La vez se cuenta SIEMPRE: una lista que llega tarde no rellena el
+       filtro después de haber cambiado a otro tipo. */
+    const mia = ++_vezAudiencias;
+    if (sel.hidden) return;
+    sel.setAttribute('aria-label', escalera ? 'Ladder' : 'Tournament');
+    const todas = new Option(escalera ? 'All ladders' : 'All tournaments', '');
+    sel.replaceChildren(todas);
+    sel.disabled = true;
+    let filas;
+    try {
+      filas = await window.api(escalera
+        ? 'ladders?select=id,name,status,start_date&order=start_date.desc'
+        : 'tournaments?select=id,name,date,status&order=date.desc');
+    } catch (err) {
+      if (mia !== _vezAudiencias) return;
+      console.error('[communications] no se pudo leer la lista para el filtro:', err);
+      /* Que se vea que falló; se vuelve a pedir al elegir otra vez el tipo. */
+      sel.replaceChildren(new Option(`Could not load the list — ${todas.textContent.toLowerCase()} shown`, ''));
+      sel.disabled = false;
+      return;
+    }
+    if (mia !== _vezAudiencias) return;
+    const vigente = (f) => (escalera ? f.status === 'active' : f.status === 'draft' || f.status === 'active');
+    const fecha = (f) => (escalera ? f.start_date : f.date);
+    const etiqueta = (f) => (fecha(f) ? `${f.name} · ${window.fmtDate(fecha(f))}` : f.name);
+    const grupos = escalera ? ['Active ladders', 'Past ladders'] : ['Current & upcoming', 'Past tournaments'];
+    const opciones = [todas];
+    [filas.filter(vigente), filas.filter((f) => !vigente(f))].forEach((lista, i) => {
+      if (!lista.length) return;
+      const g = document.createElement('optgroup');
+      g.label = grupos[i];
+      lista.forEach((f) => g.append(new Option(etiqueta(f), String(f.id))));
+      opciones.push(g);
+    });
+    sel.replaceChildren(...opciones);
+    sel.value = '';
+    sel.disabled = false;
+  }
+
+  document.getElementById('co-hist-aud-filter')?.addEventListener('change', (ev) => {
+    _filtroAudiencia = ev.target.value || '';
+    cargarEnvios(true);
+  });
+
   document.getElementById('co-hist-type-filter')?.addEventListener('change', (ev) => {
     _filtroTipo = ev.target.value || '';
+    /* Otro tipo: el filtro de escalera o torneo vuelve a "todas". */
+    _filtroAudiencia = '';
+    pintarFiltroAudiencia();
     /* Sin guardia de `_cargando`: cargarEnvios se lleva su propio número
        de vez y descarta la respuesta anterior. Antes se abandonaba la
        petición nueva y se pintaba la vieja, así que el desplegable decía

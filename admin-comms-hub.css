@@ -2,13 +2,13 @@
    FEROCIA SPORTS CENTER — ADMIN: COMMUNICATIONS HUB
    El panel de la pestaña Send donde se elige a quién se le escribe.
 
-   Las medidas y los colores son los de las ventanas que ya existen
-   (Send Ladder Update, Send Tournament Update): el mismo rótulo con la
-   barrita azul, la misma caja de contexto, el mismo campo. Aquí están
-   como clases; allí siguen escritos dentro del HTML.
+   Las medidas y los colores son los de las ventanas que había antes
+   (Send Ladder Update, Send Tournament Update), escritos aquí como
+   clases.
 
    El prefijo `hub-` no se usa en ninguna otra pantalla. Los chips son
-   los `.co-pfilter` de la pantalla Communications, no una copia.
+   los `.co-pfilter` de la pantalla Communications, no una copia. Al
+   final, lo poco de la pestaña History que es nuevo (`co-hist-`).
    ============================================================ */
 
 /* `hidden` tiene que ganar siempre. Sin esto, una fila de la lista para
@@ -158,40 +158,26 @@
               font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;}
 .hub-send-btn:disabled{opacity:.6;cursor:default;}
 
-/* ── El historial de esta audiencia ──────────────────────── */
-.hub-history{max-width:720px;border:1px solid var(--divider-color);border-radius:10px;overflow:hidden;}
-.hub-hist-row{display:flex;align-items:center;gap:12px;width:100%;padding:10px 14px;border:none;
-              border-bottom:0.5px solid #f4f5f8;background:white;cursor:pointer;text-align:left;
-              font-family:'Inter',sans-serif;}
-.hub-hist-row:last-child{border-bottom:none;}
-.hub-hist-row:hover{background:#fafbff;}
-.hub-hist-main{flex:1;min-width:0;}
-.hub-hist-subject{display:block;font-size:13px;font-weight:700;color:var(--text);
-                  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.hub-hist-when{display:block;margin-top:2px;font-size:11px;font-weight:600;color:var(--text-muted);}
-.hub-hist-count{font-size:11px;font-weight:700;color:var(--text-muted);white-space:nowrap;}
-/* El estado de cada envío: los colores de la pestaña History. */
-.hub-st{flex-shrink:0;font-size:9px;font-weight:800;background:#f4f5f8;color:#6b7a99;}
-.hub-st-sent{background:#eaf7f1;color:#1d9e68;}
-.hub-st-partial{background:#fff4e5;color:#b26a00;}
-.hub-st-failed{background:#fdeceb;color:#c62828;}
-.hub-st-sending{background:#e8f0ff;color:#174CCC;}
-.hub-hist-empty{padding:14px;font-size:12px;font-weight:600;color:var(--text-muted);text-align:center;}
+/* ── La pestaña History ───────────────────────────────────
+   Los dos filtros (tipo, y escalera o torneo) y cuántos contestaron
+   una encuesta. El del tipo lleva su estilo escrito en el HTML desde
+   antes; el nuevo, el mismo aspecto, aquí. */
+.co-hist-filters{display:flex;flex-wrap:wrap;gap:8px;}
+.co-hist-filter{max-width:280px;padding:8px 14px;border:0.5px solid var(--border);border-radius:99px;
+                font-family:'Inter',sans-serif;font-size:12px;font-weight:700;outline:none;}
+.co-hist-filter:disabled{opacity:.6;}
+.co-hist-filters [hidden]{display:none !important;}
 
-/* Cuántos contestaron una encuesta, en la pestaña History. */
 .co-hist-responded{margin-top:2px;font-size:10px;font-weight:700;color:var(--blue);}
 
 /* En el móvil:
    · el correo de la lista para elegir baja debajo del nombre: no cabe al
      lado, y sin él dos jugadores con el mismo nombre se verían iguales;
-   · la casilla de ensayo y el botón de enviar ocupan todo el ancho;
-   · en el historial se esconde el número de correos para que quepa el
-     asunto. */
+   · la casilla de ensayo y el botón de enviar ocupan todo el ancho. */
 @media (max-width:600px){
   .hub-pick-text{flex-direction:column;align-items:flex-start;gap:1px;}
   .hub-pick-mail{margin-left:0;max-width:100%;}
   .hub-title{font-size:20px;}
   .hub-test{max-width:none;margin-right:0;flex:1 1 100%;}
   .hub-send-btn{flex:1 1 100%;justify-content:center;}
-  .hub-hist-count{display:none;}
 }

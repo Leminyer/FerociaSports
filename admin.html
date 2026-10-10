@@ -24,7 +24,7 @@
 <link rel="stylesheet" href="admin-components.css?v=20261008a">
 <link rel="stylesheet" href="admin-pages.css?v=20261001c">
 <link rel="stylesheet" href="admin-ftc.css?v=20260928b">
-<link rel="stylesheet" href="admin-comms-hub.css?v=20261011a">
+<link rel="stylesheet" href="admin-comms-hub.css?v=20261011b">
 
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="config.js?v=20260929j"></script>
@@ -1943,12 +1943,12 @@
           </button>
 
           <button class="co-launch" data-action="hubOpen" data-audience="ladder">
-            <span class="co-launch-t">Ladder Update</span>
+            <span class="co-launch-t">Ladder Players</span>
             <span class="co-launch-d">To one ladder&rsquo;s players</span>
           </button>
 
           <button class="co-launch" data-action="hubOpen" data-audience="tournament">
-            <span class="co-launch-t">Tournament Update</span>
+            <span class="co-launch-t">Tournament Players</span>
             <span class="co-launch-d">To one tournament&rsquo;s players</span>
           </button>
 
@@ -2103,11 +2103,6 @@
           </div>
         </div>
 
-        <div class="hub-step" id="hub-step-history" hidden>
-          <div class="hub-label"><span id="hub-history-label">Sent from the Hub</span></div>
-          <div class="hub-history" id="hub-history"></div>
-        </div>
-
       </div>
     </div>
 
@@ -2117,16 +2112,21 @@
 
         <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:0.5px solid var(--divider-color);flex-wrap:wrap;gap:10px;">
           <div class="card-title" style="margin:0;">Sent emails</div>
+          <!-- Los dos filtros: el tipo y, con Ladder Players o Tournament
+               Players, qué escalera o qué torneo (admin-communications.js). -->
+          <div class="co-hist-filters">
           <select id="co-hist-type-filter" style="font-size:12px;padding:8px 14px;font-family:'Inter',sans-serif;font-weight:700;border:0.5px solid var(--border);border-radius:99px;outline:none;">
             <option value="">All types</option>
             <option value="promo">Campaign</option>
             <option value="players_broadcast">All Players</option>
-            <option value="ladder_notify">Ladder Update</option>
-            <option value="tournament_notify">Tournament Update</option>
+            <option value="ladder_notify">Ladder Players</option>
+            <option value="tournament_notify">Tournament Players</option>
             <option value="player_message">Single Player</option>
             <option value="subscriber_confirm">Confirmation</option>
             <option value="newsletter">Newsletter</option>
           </select>
+          <select id="co-hist-aud-filter" class="co-hist-filter" aria-label="Ladder or tournament" hidden></select>
+          </div>
         </div>
 
         <div id="co-hist-table"><div class="loading" style="padding:20px;">Loading history...</div></div>
@@ -3618,8 +3618,8 @@
 <script src="admin-sessions.js?v=20260928b"></script>
 <script src="admin-print-roster.js?v=20260928b"></script>
 <script src="admin-ladder-management.js?v=20261008a"></script>
-<script src="admin-communications.js?v=20261011a"></script>
-<script src="admin-comms-hub.js?v=20261011a"></script>
+<script src="admin-communications.js?v=20261011b"></script>
+<script src="admin-comms-hub.js?v=20261011b"></script>
 <script src="admin-promotions.js?v=20261006a"></script>
 <script src="admin-subscriber-reminder.js?v=20261005a"></script>
 <script src="admin-newsletter.js?v=20261005b"></script>

@@ -6,16 +6,17 @@
                admin-rich-editor.js (FerociaEditor),
                admin-email-utils.js (sendEmailServer, crearClaveador,
                vincularEnsayo, envioEnCurso, leerErrorDeFuncion,
-               nombreDestinatario y los textos del resultado),
-               admin-communications.js (la ventana de detalle de un envío)
+               nombreDestinatario y los textos del resultado)
 
    El panel de la pestaña Send desde donde se escribe a los jugadores:
      1. la audiencia: una escalera, un torneo, o All Players;
      2. los destinatarios: todos, unas divisiones o unos jugadores;
      3. la vista previa: cuántas personas, cuántos correos, y quién se
         queda fuera y por qué;
-     4. el mensaje, y enviarlo;
-     5. lo que ya se le ha mandado a esa escalera o a ese torneo.
+     4. el mensaje, y enviarlo.
+   Lo que ya se mandó está en la pestaña History, que se puede filtrar
+   por escalera o por torneo (decidido el 10 de octubre: un solo
+   historial, en un solo sitio).
    Las demás pantallas traen aquí con la audiencia ya elegida
    (window.hubAbrirCon): ver "ABRIR EL HUB DESDE OTRA PANTALLA".
 
@@ -59,7 +60,7 @@
   /* Los textos de cada audiencia. */
   const TEXTOS = {
     ladder: {
-      titulo: 'Ladder Update',
+      titulo: 'Ladder Players',
       sub: 'Choose the ladder and who should receive it.',
       rotulo: 'Ladder',
       elige: 'Choose a ladder…',
@@ -67,7 +68,7 @@
       todos: 'All Ladder Players',
     },
     tournament: {
-      titulo: 'Tournament Update',
+      titulo: 'Tournament Players',
       sub: 'Choose the tournament and who should receive it.',
       rotulo: 'Tournament',
       elige: 'Choose a tournament…',
@@ -263,14 +264,6 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
   const MAX_RESPUESTA = 80;
   const ZONA = 'America/New_York';
 
-  /* Los estados de un envío que tienen color propio (admin-comms-hub.css). */
-  const ESTADOS = new Set(['sent', 'partial', 'failed', 'sending']);
-  const ROTULO_HISTORIAL = {
-    ladder:      'Sent to this ladder',
-    tournament:  'Sent to this tournament',
-    all_players: 'Sent to All Players',
-  };
-
   /* ── ESTADO ─────────────────────────────────────────────── */
   let _tipo        = null;       // 'ladder' | 'tournament' | 'all_players'
   let _audiencia   = null;       // id de la escalera o del torneo
@@ -288,7 +281,6 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
   let _nombres     = new Map();  // id → nombre de cada escalera o torneo de la lista
   let _ultimaVista = null;       // la vista previa que se ve AHORA; null mientras carga
   let _plantilla   = { subject: '', html: '' };  // lo último que puso una plantilla
-  let _historial   = new Map();  // id → envío, para abrir su detalle
   let _clase       = 'announcement';  // 'announcement' | 'availability' | 'custom'
   let _encuestaTocada = false;   // ¿cambió ella algo de la encuesta?
   let _preguntaSola   = true;    // la pregunta aún la pone la fecha de la sesión
@@ -364,7 +356,6 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
       mostrarMensaje(true);
       $('hub-seg-all').focus();
       ponerSegmento('all');
-      cargarHistorial();
       return;
     }
 
@@ -483,8 +474,9 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     }
     if (turno !== _turnoAudiencia) return;
 
-    /* Lo vigente primero; lo pasado, aparte, para el historial. La
-       fecha va en el nombre para distinguir dos con el mismo nombre. */
+    /* Lo vigente primero; lo pasado, aparte (también se le puede
+       escribir). La fecha va en el nombre para distinguir dos con el
+       mismo nombre. */
     const vigente = (f) => _tipo === 'ladder'
       ? f.status === 'active'
       : f.status === 'draft' || f.status === 'active';
@@ -520,7 +512,6 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     _audiencia = Number(valor);
     mostrarDestinatarios(true);
     mostrarMensaje(true);
-    cargarHistorial();
     /* Las divisiones se piden aparte y sin esperar: la vista previa de
        "todos" no las necesita, y el botón aparece cuando llegan. */
     if (_tipo === 'tournament') cargarDivisiones();
@@ -782,13 +773,10 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     if (editor) editor.setHTML(html);
   }
 
-  /* El mensaje y el historial se ven en cuanto hay audiencia. */
+  /* El mensaje se ve en cuanto hay audiencia. */
   function mostrarMensaje(si) {
     $('hub-step-compose').hidden = !si;
-    $('hub-step-history').hidden = !si;
-    if (si) { prepararMensaje(); return; }
-    _historial = new Map();
-    $('hub-history').replaceChildren();
+    if (si) prepararMensaje();
   }
 
   /* ¿Sigue el mensaje tal como lo dejó la última plantilla? Si ella ya
@@ -1357,7 +1345,6 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
       toast(corte
         || `Finished: ${window.resumenEnvio(d)}. Press Send again to retry the ones that failed.`, true);
     }
-    cargarHistorial();
   }
 
   /* La pregunta antes de mandar una encuesta: qué se pregunta, a
@@ -1382,77 +1369,6 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
              + `Each player gets their own private answer buttons. ${plazo} ${comprobar}`,
       okLabel: `Send to ${s.people}`, cancelLabel: 'Cancel', danger: true, focusCancel: true,
     };
-  }
-
-  /* ── LO QUE YA SE LE MANDÓ A ESTA AUDIENCIA ─────────────── */
-  /* Los diez últimos envíos del Hub a esta escalera, este torneo o All
-     Players. Los ensayos no salen: no se le mandaron a nadie de aquí.
-     Los envíos de las ventanas de antes no guardaban la audiencia, así
-     que sólo están en la pestaña History. */
-  async function cargarHistorial() {
-    const turno = _turnoAudiencia;
-    const tipo = _tipo;
-    const lista = $('hub-history');
-    $('hub-history-label').textContent = ROTULO_HISTORIAL[tipo] || 'Sent from the Hub';
-    lista.replaceChildren(nota('hub-hist-empty', 'Loading…'));
-
-    let filas;
-    try {
-      filas = await api(`communications?select=${window.commColumnasLista}`
-        + `&meta->audience->>type=eq.${tipo}`
-        + (tipo === 'all_players' ? '' : `&meta->audience->>id=eq.${_audiencia}`)
-        + '&meta->>solo_admin=is.null&order=created_at.desc&limit=10');
-    } catch (e) {
-      if (turno !== _turnoAudiencia) return;
-      lista.replaceChildren(nota('hub-hist-empty', 'Could not load what was sent before.'));
-      return;
-    }
-    if (turno !== _turnoAudiencia) return;
-
-    _historial = new Map(filas.map((f) => [String(f.id), f]));
-    /* Las encuestas dicen cuántos contestaron ("2/3 responded"). Si esa
-       cuenta no se puede leer, se enseña lo de siempre ("3 sent"). */
-    const respuestas = await window.commLeerRespuestas(filas);
-    if (turno !== _turnoAudiencia) return;
-    if (!filas.length) {
-      lista.replaceChildren(nota('hub-hist-empty',
-        'Nothing sent from here yet. Older emails are in the History tab.'));
-      return;
-    }
-    lista.replaceChildren(...filas.map((f) => {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'hub-hist-row';
-      b.dataset.action = 'hubOpenSend';
-      b.dataset.id = String(f.id);
-      const main = document.createElement('span');
-      main.className = 'hub-hist-main';
-      const asunto = document.createElement('span');
-      asunto.className = 'hub-hist-subject';
-      asunto.textContent = f.subject || '(no subject)';
-      const fecha = document.createElement('span');
-      fecha.className = 'hub-hist-when';
-      const deEncuesta = window.commTipoEncuesta(f);
-      fecha.textContent = window.commCuando(f.sent_at || f.created_at) + (deEncuesta ? ` · ${deEncuesta}` : '');
-      main.append(asunto, fecha);
-      const cuenta = document.createElement('span');
-      cuenta.className = 'hub-hist-count';
-      const n = f.sent_count || 0;
-      const r = respuestas.get(String(f.id));
-      cuenta.textContent = r ? `${r.responded}/${r.recipients} responded` : `${n} sent`;
-      /* El mismo texto y los mismos colores que en la pestaña History,
-         con clases en vez de estilos dentro del HTML. */
-      const estado = document.createElement('span');
-      estado.className = `pill hub-st ${ESTADOS.has(f.status) ? `hub-st-${f.status}` : ''}`;
-      estado.textContent = window.commTextoEstado(f.status);
-      b.append(main, cuenta, estado);
-      return b;
-    }));
-  }
-
-  function abrirEnvio(btn) {
-    const fila = _historial.get(btn.dataset.id);
-    if (fila) window.commAbrirEnvio(fila);
   }
 
   /* ── ABRIR EL HUB DESDE OTRA PANTALLA ───────────────────── */
@@ -1551,6 +1467,20 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
 
   window.hubAlVolver = alVolver;
 
+  /* La pestaña Send enseña siempre la pantalla de opciones (decidido el
+     10 de octubre). Si hay un mensaje a medio escribir, pregunta antes,
+     como "All channels"; con "Keep writing" se queda en el formulario.
+     Devuelve si se fue a las opciones. */
+  window.hubIrAOpciones = async () => {
+    if ($('hub-panel').hidden) return true;
+    /* Con un envío en marcha el panel se queda como está, sin aviso:
+       ella sólo ha cambiado de pestaña. */
+    if (window.AdminState?.emailInFlight) return false;
+    if (!(await puedeDescartar())) return false;
+    cerrarYa();
+    return true;
+  };
+
   Object.assign(window.CLICK_HANDLERS, {
     hubOpen:         (btn) => abrir(btn.dataset.audience, btn),
     hubClose:        () => cerrar(),
@@ -1558,7 +1488,6 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     hubDivision:     (btn) => cambiarDivision(btn),
     hubTogglePeople: () => verPersonas(),
     hubSend:         () => enviar(),
-    hubOpenSend:     (btn) => abrirEnvio(btn),
     hubAttachPick:   () => $('hub-attach-input').click(),
     hubAttachRemove: () => quitarAdjunto(),
     hubKind:         (btn) => ponerClase(btn.dataset.kind),
