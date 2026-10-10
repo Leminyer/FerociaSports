@@ -496,6 +496,8 @@
 
     document.getElementById('co-det-people').innerHTML = cargando('Loading recipients...');
     document.getElementById('co-det-retry-row').style.display = 'none';
+    /* Los resultados, si es una encuesta (entregable 6, admin-comms-results.js). */
+    window.commPollMostrar?.(enLista);
     document.getElementById('communications-detail-modal').classList.add('open');
 
     /* El cuerpo NO viene en la lista (son megabytes por página), así que
@@ -538,6 +540,7 @@
        un envío de otra pantalla dejaba a la persona encerrada aquí sin
        motivo. */
     _vez++;   // lo que venga en camino ya no se pinta
+    window.commPollOcultar?.();
     document.getElementById('communications-detail-modal').classList.remove('open');
     _abierto = null;
     _personas = [];
@@ -1221,6 +1224,14 @@
     sel.value = '';
     sel.disabled = false;
   }
+
+  /* Cuando cambias una respuesta en los resultados (entregable 6), la
+     cuenta "X/Y responded" de la lista se pone al día. */
+  window.commPollCambio = async () => {
+    const cuentas = await leerRespuestas(_envios);
+    cuentas.forEach((v, k) => _respuestas.set(k, v));
+    pintarEnvios();
+  };
 
   document.getElementById('co-hist-aud-filter')?.addEventListener('change', (ev) => {
     _filtroAudiencia = ev.target.value || '';

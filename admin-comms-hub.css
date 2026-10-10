@@ -181,3 +181,82 @@
   .hub-test{max-width:none;margin-right:0;flex:1 1 100%;}
   .hub-send-btn{flex:1 1 100%;justify-content:center;}
 }
+
+/* ── Resultados de una encuesta (entregable 6) ─────────────
+   En el detalle de un envío (admin-comms-results.js). */
+.co-poll{border:1px solid var(--divider-color);border-radius:12px;padding:16px 18px;background:#fafbff;}
+.co-poll [hidden]{display:none !important;}
+.co-poll-head{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px;}
+.co-poll-titles{min-width:0;flex:1 1 260px;}
+.co-poll-label{font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);}
+.co-poll-question{margin-top:4px;font-size:15px;font-weight:800;color:var(--text);line-height:1.35;word-break:break-word;}
+.co-poll-status{margin-top:4px;font-size:11px;font-weight:600;color:var(--text-muted);}
+.co-poll-actions{display:flex;flex-wrap:wrap;gap:6px;}
+.co-poll-close{padding:7px 14px;border:0.5px solid #f0c4c4;border-radius:99px;background:white;color:var(--danger);
+               font-family:'Inter',sans-serif;font-size:11px;font-weight:700;cursor:pointer;}
+.co-poll-close:hover{background:#fdeceb;}
+.co-poll-groups{display:flex;flex-direction:column;gap:6px;}
+.co-poll-group{border:0.5px solid var(--divider-color);border-radius:10px;background:white;overflow:hidden;}
+.co-poll-group-head{display:flex;align-items:center;gap:12px;width:100%;padding:10px 14px;border:none;background:none;
+                    cursor:pointer;text-align:left;font-family:'Inter',sans-serif;}
+.co-poll-group-head:hover{background:#f6f8ff;}
+.co-poll-group-name{flex:0 1 220px;min-width:0;font-size:12px;font-weight:800;color:var(--text);
+                    overflow-wrap:anywhere;}
+.co-poll-bar{flex:1;height:6px;border-radius:99px;background:#eef1f8;overflow:hidden;}
+.co-poll-bar-fill{display:block;height:100%;background:var(--blue);border-radius:99px;}
+.co-poll-group-none .co-poll-bar-fill{background:#b0bbd6;}
+.co-poll-group-count{min-width:28px;text-align:right;font-size:13px;font-weight:800;color:var(--text);}
+.co-poll-people{border-top:0.5px solid var(--divider-color);}
+.co-poll-person{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 14px;border-bottom:0.5px solid #f4f5f8;}
+.co-poll-person:last-child{border-bottom:none;}
+.co-poll-person-name{min-height:24px;border:none;background:none;padding:2px 0;font-family:'Inter',sans-serif;font-size:12px;
+                     font-weight:700;color:var(--blue);cursor:pointer;text-align:left;}
+.co-poll-person-when{flex:1;font-size:10px;font-weight:600;color:var(--text-muted);}
+.co-poll-change{min-height:28px;padding:4px 8px;border:0.5px solid var(--border);border-radius:8px;background:white;
+                font-family:'Inter',sans-serif;font-size:11px;font-weight:600;color:var(--text);}
+.co-poll-save{min-height:28px;padding:4px 12px;border:none;border-radius:99px;background:var(--blue);color:white;
+              font-family:'Inter',sans-serif;font-size:11px;font-weight:700;cursor:pointer;}
+.co-poll-save:disabled{opacity:.4;cursor:default;}
+.co-poll-history{flex:1 1 100%;padding:6px 10px;border-radius:8px;background:#f8f9ff;}
+.co-poll-history-row{font-size:11px;font-weight:600;color:var(--text);line-height:1.6;}
+.co-poll-empty{padding:8px 14px;font-size:11px;font-weight:600;color:var(--text-muted);}
+
+/* El roster: cuatro columnas (dos en el móvil). */
+.co-roster{margin-top:14px;padding-top:14px;border-top:0.5px solid var(--divider-color);}
+.co-roster-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:10px;}
+.co-roster-title{margin-top:4px;font-size:13px;font-weight:800;color:var(--text);}
+.co-roster-cols{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;}
+.co-roster-col{border:0.5px solid var(--divider-color);border-radius:10px;background:white;padding:10px 12px;min-width:0;}
+.co-roster-col-head{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:6px;}
+.co-roster-col-title{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text);}
+.co-roster-copy{min-height:24px;border:none;background:none;padding:2px 6px;color:var(--blue);font-family:'Inter',sans-serif;
+                font-size:10px;font-weight:700;cursor:pointer;}
+.co-roster-list{margin:0;padding-left:18px;font-size:12px;font-weight:600;color:var(--text);line-height:1.7;}
+.co-roster-list li{word-break:break-word;}
+.co-roster-none{list-style:none;margin-left:-18px;color:var(--text-muted);}
+@media (max-width:600px){
+  .co-roster-cols{grid-template-columns:repeat(2,minmax(0,1fr));}
+  .co-poll-group-name{flex-basis:120px;}
+}
+
+/* Imprimir sólo el roster: admin-comms-results.js lo copia a
+   #co-print-area, al final de la página, y pone la clase en <body>. */
+#co-print-area{display:none;}
+/* Al imprimir:
+   · se suelta el bloqueo de desplazamiento que pone la ventana abierta
+     (con él, algunos navegadores imprimen sólo la primera hoja);
+   · los grupos van uno debajo de otro, no en rejilla (una rejilla se
+     parte mal entre hojas), y los nombres de cada grupo en 3 columnas. */
+@media print{
+  html:has(body.co-print-roster),
+  body.co-print-roster{overflow:visible !important;height:auto !important;}
+  body.co-print-roster > *:not(#co-print-area){display:none !important;}
+  body.co-print-roster #co-print-area{display:block;}
+  body.co-print-roster #co-print-area .co-roster{margin:0;padding:0;border:none;}
+  body.co-print-roster #co-print-area .co-roster-copy,
+  body.co-print-roster #co-print-area [data-action="commPollPrint"]{display:none;}
+  body.co-print-roster #co-print-area .co-roster-cols{display:block;}
+  body.co-print-roster #co-print-area .co-roster-col{margin-bottom:12px;border:none;padding:0;}
+  body.co-print-roster #co-print-area .co-roster-col-head{break-after:avoid;}
+  body.co-print-roster #co-print-area .co-roster-list{columns:3;column-gap:24px;padding-left:28px;}
+}

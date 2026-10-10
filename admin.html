@@ -24,7 +24,7 @@
 <link rel="stylesheet" href="admin-components.css?v=20261008a">
 <link rel="stylesheet" href="admin-pages.css?v=20261001c">
 <link rel="stylesheet" href="admin-ftc.css?v=20260928b">
-<link rel="stylesheet" href="admin-comms-hub.css?v=20261011b">
+<link rel="stylesheet" href="admin-comms-hub.css?v=20261011c">
 
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="config.js?v=20260929j"></script>
@@ -2937,6 +2937,33 @@
     <!-- CUERPO -->
     <div style="padding:16px 24px 20px;overflow-y:auto;display:flex;flex-direction:column;gap:18px;">
 
+      <!-- Los resultados de una encuesta (entregable 6). Los pinta
+           admin-comms-results.js; los estilos, admin-comms-hub.css. -->
+      <div class="co-poll" id="co-det-poll" hidden>
+        <div class="co-poll-head">
+          <div class="co-poll-titles">
+            <div class="co-poll-label">Poll results</div>
+            <div class="co-poll-question" id="co-poll-question"></div>
+            <div class="co-poll-status" id="co-poll-status"></div>
+          </div>
+          <div class="co-poll-actions">
+            <button type="button" class="hub-attach-btn" id="co-poll-roster-btn" data-action="commPollRoster">Use responses for roster</button>
+            <button type="button" class="co-poll-close" id="co-poll-close-btn" data-action="commPollClose">Close poll</button>
+          </div>
+        </div>
+        <div class="co-poll-groups" id="co-poll-groups"></div>
+        <div class="co-roster" id="co-poll-roster" hidden>
+          <div class="co-roster-head">
+            <div>
+              <div class="co-poll-label">Roster preparation</div>
+              <div class="co-roster-title" id="co-roster-title"></div>
+            </div>
+            <button type="button" class="hub-attach-btn" data-action="commPollPrint">Print</button>
+          </div>
+          <div class="co-roster-cols" id="co-roster-cols"></div>
+        </div>
+      </div>
+
       <!-- El mensaje que se escribió -->
       <div>
         <div style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px;">Message</div>
@@ -3618,8 +3645,9 @@
 <script src="admin-sessions.js?v=20260928b"></script>
 <script src="admin-print-roster.js?v=20260928b"></script>
 <script src="admin-ladder-management.js?v=20261008a"></script>
-<script src="admin-communications.js?v=20261011b"></script>
+<script src="admin-communications.js?v=20261011c"></script>
 <script src="admin-comms-hub.js?v=20261011b"></script>
+<script src="admin-comms-results.js?v=20261011a"></script>
 <script src="admin-promotions.js?v=20261006a"></script>
 <script src="admin-subscriber-reminder.js?v=20261005a"></script>
 <script src="admin-newsletter.js?v=20261005b"></script>
