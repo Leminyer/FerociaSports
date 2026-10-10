@@ -24,7 +24,7 @@
 <link rel="stylesheet" href="admin-components.css?v=20261008a">
 <link rel="stylesheet" href="admin-pages.css?v=20261001c">
 <link rel="stylesheet" href="admin-ftc.css?v=20260928b">
-<link rel="stylesheet" href="admin-comms-hub.css?v=20261009a">
+<link rel="stylesheet" href="admin-comms-hub.css?v=20261010b">
 
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="config.js?v=20260929j"></script>
@@ -1975,12 +1975,12 @@
         </div>
 
         <div class="hub-step" id="hub-step-audience">
-          <label class="hub-label" for="hub-audience-select"><span class="hub-label-bar"></span><span id="hub-audience-label"></span></label>
+          <label class="hub-label" for="hub-audience-select"><span id="hub-audience-label"></span></label>
           <select class="hub-select" id="hub-audience-select"></select>
         </div>
 
         <div class="hub-step" id="hub-step-recipients" hidden>
-          <div class="hub-label"><span class="hub-label-bar"></span>Recipients</div>
+          <div class="hub-label">Recipients</div>
           <div class="hub-chips" id="hub-segments" role="group" aria-label="Recipients">
             <button type="button" class="co-pfilter" aria-pressed="false" data-action="hubSegment" data-segment="all" id="hub-seg-all"></button>
             <button type="button" class="co-pfilter" aria-pressed="false" data-action="hubSegment" data-segment="divisions" id="hub-seg-divisions">Specific Divisions</button>
@@ -1999,14 +1999,14 @@
         </div>
 
         <div class="hub-step" id="hub-step-preview" hidden>
-          <div class="hub-label"><span class="hub-label-bar"></span>Recipient Preview</div>
+          <div class="hub-label">Recipient Preview</div>
           <div class="hub-preview" id="hub-preview" aria-live="polite"></div>
           <button type="button" class="co-det-more hub-view-btn" id="hub-view-btn" data-action="hubTogglePeople" aria-controls="hub-people" aria-expanded="false" hidden>View recipients</button>
           <div class="hub-people" id="hub-people" hidden></div>
         </div>
 
         <div class="hub-step" id="hub-step-compose" hidden>
-          <div class="hub-label"><span class="hub-label-bar"></span>Message</div>
+          <div class="hub-label">Message</div>
 
           <div class="hub-field" id="hub-preset-wrap" hidden>
             <label class="hub-field-label" for="hub-preset">Notification Type</label>
@@ -2045,7 +2045,7 @@
         </div>
 
         <div class="hub-step" id="hub-step-history" hidden>
-          <div class="hub-label"><span class="hub-label-bar"></span><span id="hub-history-label">Sent from the Hub</span></div>
+          <div class="hub-label"><span id="hub-history-label">Sent from the Hub</span></div>
           <div class="hub-history" id="hub-history"></div>
         </div>
 
