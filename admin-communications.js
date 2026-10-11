@@ -1138,6 +1138,7 @@
        mensaje a medio escribir: entonces se queda, con la vista previa
        pedida otra vez (admin-comms-hub.js, alVolver). */
     window.hubAlVolver?.();
+    window.campanaAlVolver?.();
     mostrarTab('send');
   };
 
@@ -1169,6 +1170,8 @@
     commShowTab:        async (btn) => {
       const cual = btn.dataset.tab;
       if (cual === 'send' && window.hubIrAOpciones) await window.hubIrAOpciones();
+      /* La campaña (Campaign) igual que el Hub. */
+      if (cual === 'send' && window.campanaIrAOpciones) await window.campanaIrAOpciones();
       mostrarTab(cual);
     },
     openCommDetail:     (btn) => abrirDetalle(btn.dataset.commid),

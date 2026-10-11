@@ -1508,6 +1508,11 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
 
   async function abrirCon(tipo, id, jugador) {
     if (window.envioEnCurso('abrir')) return;
+    /* Una campaña a medio escribir (Campaign): se pregunta igual. */
+    if (window.campanaIrAOpciones && !(await window.campanaIrAOpciones())) {
+      window.showPage('communications');
+      return;
+    }
     /* Un mensaje a medio escribir en el Hub: se pregunta. "Keep writing"
        lleva a él en vez de abrir lo nuevo. */
     if (hayBorrador()) {

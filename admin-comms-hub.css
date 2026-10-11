@@ -279,3 +279,20 @@
   body.co-print-roster #co-print-area .co-roster-col-head{break-after:avoid;}
   body.co-print-roster #co-print-area .co-roster-list{columns:3;column-gap:24px;padding-left:28px;}
 }
+
+/* ── LA CAMPAÑA (Campaign) ────────────────────────────────────
+   El formulario de siempre, ahora dentro de Communications (10 de
+   octubre). Va a todo el ancho de la tarjeta: tiene dos columnas, el
+   texto y "Campaign Intelligence". En el móvil y la tableta estrecha
+   las dos columnas se apilan; los !important son porque la rejilla
+   lleva sus medidas escritas en el HTML desde que era una ventana. */
+.promo-panel .hub-title,
+.promo-panel .hub-sub{max-width:none;}
+.promo-panel .promo-cols{border:1px solid var(--divider-color);border-radius:12px;overflow:hidden;}
+@media (max-width:820px){
+  .promo-panel .promo-cols{grid-template-columns:1fr !important;min-height:0 !important;}
+  /* Sin esto, el editor y la barra de formato estiran la columna más
+     allá de la pantalla. */
+  .promo-panel .promo-cols > div{min-width:0;}
+  .promo-panel .promo-cols > div:first-child{border-right:none !important;border-bottom:0.5px solid #e8edf8;}
+}

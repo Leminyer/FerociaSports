@@ -1424,14 +1424,90 @@
     return `${Math.floor(diff/86400)} days ago`;
   };
 
+  /* ── LA CAMPAÑA VIVE EN COMMUNICATIONS (10 de octubre) ─────────
+     El formulario está en la pestaña Send de Communications, como los
+     demás canales ("Campaign"), con "All channels" para volver. Antes era
+     una ventana encima de Promotions; el botón "Launch Campaign" de
+     Promotions lleva ahora allí. El formulario y el envío son los de
+     siempre: sólo cambia dónde se ve.
+     Como en el Hub: si hay algo escrito, se pregunta antes de perderlo. */
+  const panelCampana = () => document.getElementById('promo-panel');
+  const campanaAbierta = () => { const p = panelCampana(); return !!p && !p.hidden; };
+
+  /* ¿Hay algo escrito que se perdería? La etiqueta de cabecera no cuenta:
+     la pone sola el tipo de campaña. */
+  function hayBorradorCampana() {
+    if (!campanaAbierta()) return false;
+    const valor = (id) => (document.getElementById(id)?.value || '').trim();
+    return !!(valor('promo-subject') || valor('promo-preview-text') || valor('promo-other-flyer-url')
+      || (edPromo && edPromo.getText().trim()));
+  }
+
+  async function puedeDescartarCampana() {
+    if (!hayBorradorCampana()) return true;
+    return window.confirmModal({
+      title: 'Discard the campaign you were writing?',
+      message: 'The subject and message you were writing will be lost.',
+      okLabel: 'Discard',
+      cancelLabel: 'Keep writing',
+      danger: true,
+      focusCancel: true,
+    });
+  }
+
+  function cerrarCampanaYa() {
+    const p = panelCampana();
+    if (!p) return;
+    p.hidden = true;
+    document.getElementById('co-send-home').hidden = false;
+  }
+
+  /* "All channels". */
+  async function cerrarCampana() {
+    if (!campanaAbierta()) return;
+    /* Cerrar con la campaña saliendo dejaría sin el texto que hace falta
+       para reintentarla si sale a medias. */
+    if (window.envioEnCurso && window.envioEnCurso('cerrar')) return;
+    if (!(await puedeDescartarCampana())) return;
+    cerrarCampanaYa();
+    /* El cursor vuelve a la tarjeta que la abrió, como en el Hub. */
+    document.querySelector('#co-send-home [data-action="openSendPromo"]')?.focus();
+  }
+
+  /* La pestaña Send y los botones de correo de otras pantallas vuelven a
+     las opciones: si hay una campaña a medio escribir, se pregunta.
+     Devuelve si se cerró (o si no estaba abierta). */
+  window.campanaIrAOpciones = async () => {
+    if (!campanaAbierta()) return true;
+    if (window.AdminState?.emailInFlight) return false;
+    if (!(await puedeDescartarCampana())) return false;
+    cerrarCampanaYa();
+    return true;
+  };
+
+  /* Al volver a Communications desde el menú: sin nada escrito se cierra;
+     con un borrador se queda, que es a lo que se vuelve. */
+  window.campanaAlVolver = () => {
+    if (!campanaAbierta() || window.AdminState?.emailInFlight) return;
+    if (!hayBorradorCampana()) cerrarCampanaYa();
+  };
+
   const openSendPromo = async () => {
-    /* Reabrir la ventana con un envío en curso limpiaba el composer y
+    /* Reabrir el formulario con un envío en curso limpiaba el composer y
        se llevaba por delante el asunto y el mensaje de ESE envío, que
        todavía no ha contestado. Si sale parcial, el texto que hace
        falta para reintentar ya no existe. */
     if (window.envioEnCurso && window.envioEnCurso('abrir')) return;
-    const modal = document.getElementById('promo-modal');
-    if (!modal) return;
+    const panel = panelCampana();
+    if (!panel) return;
+
+    window.showPage('communications');
+    /* Ya abierta con algo escrito (venía de Promotions, por ejemplo): se
+       va a ella sin borrar nada. */
+    if (campanaAbierta()) { panel.scrollIntoView({ block: 'start' }); return; }
+    /* Un mensaje a medio escribir en el Hub: se pregunta antes. Con "Keep
+       writing" se queda en él. */
+    if (window.hubIrAOpciones && !(await window.hubIrAOpciones())) return;
 
     /* Lo que escribe el usuario: asunto, mensaje y texto de vista previa,
        con sus contadores.
@@ -1559,6 +1635,16 @@
        un envío correcto no queda ninguna, y aquí se pone una nueva. */
     claveador.asegurar();
 
+    /* Se enseña YA, antes de esperar a las cuentas de la derecha (que
+       salen con "—" hasta que llegan). Si se enseñara al final, con la
+       red lenta las tarjetas de los canales seguirían pulsables y se
+       podían acabar abriendo dos formularios a la vez. */
+    document.getElementById('co-send-home').hidden = true;
+    panel.hidden = false;
+    panel.scrollIntoView({ block: 'start' });
+    /* En el móvil no: el teclado taparía el formulario (como en el Hub). */
+    if (window.matchMedia('(min-width: 769px)').matches) document.getElementById('promo-subject')?.focus();
+
     // Load audience + last campaign in parallel
     try {
       const [subs, campanas] = await Promise.all([
@@ -1595,8 +1681,6 @@
       if (recipEl) recipEl.textContent = 'Could not load audience data.';
     }
 
-    modal.style.display = 'flex';
-    document.body.style.overflow = 'hidden';
   };
 
   const populateCampaignEventDropdown = async (type) => {
@@ -2073,8 +2157,9 @@
        falso por su cuenta. */
     const limpio = window.envioTerminado(d) && !d.unconfirmed;
     if (limpio) {
-      const modal = document.getElementById('promo-modal');
-      if (modal) { modal.style.display = 'none'; document.body.style.overflow = ''; }
+      /* Salió: de vuelta a los canales, como cuando se cerraba la
+         ventana. */
+      cerrarCampanaYa();
       /* Una campaña nueva tiene que renovar la clave: si no, volver a
          lanzar la misma campaña más tarde chocaría con la de este
          envío y no mandaría nada. */
@@ -2220,6 +2305,7 @@
     closeSubView:        () => window.closeSubView(),
     closeSubConvert:     () => window.closeSubConvert(),
     openSendPromo: () => openSendPromo(),
+    closePromoModal: () => cerrarCampana(),
     generateQR: () => generateQR(),
   });
 })();

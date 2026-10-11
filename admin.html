@@ -24,7 +24,7 @@
 <link rel="stylesheet" href="admin-components.css?v=20261008a">
 <link rel="stylesheet" href="admin-pages.css?v=20261001c">
 <link rel="stylesheet" href="admin-ftc.css?v=20260928b">
-<link rel="stylesheet" href="admin-comms-hub.css?v=20261011e">
+<link rel="stylesheet" href="admin-comms-hub.css?v=20261011f">
 
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="config.js?v=20260929j"></script>
@@ -1932,7 +1932,7 @@
 
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(232px,1fr));gap:12px;">
 
-          <button class="co-launch" data-action="showPage" data-page="promotions">
+          <button class="co-launch" data-action="openSendPromo">
             <span class="co-launch-t">Campaign</span>
             <span class="co-launch-d">To your subscriber list</span>
           </button>
@@ -1958,6 +1958,173 @@
           </button>
 
         </div>
+      </div>
+
+      <!-- CAMPAÑA a los suscriptores (antes una ventana encima de
+           Promotions; desde el 10 de octubre vive aquí, como los demás
+           canales). El formulario es el de siempre y lo maneja
+           admin-promotions.js; los estilos, admin-comms-hub.css. -->
+      <div class="card hub-panel promo-panel" id="promo-panel" hidden>
+        <div class="hub-head">
+          <button type="button" class="hub-back" data-action="closePromoModal">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            All channels
+          </button>
+          <div class="hub-title">Campaign</div>
+          <div class="hub-sub">Reach your pickleball community with announcements, tournaments, ladders, and event updates.</div>
+        </div>
+        <form id="promo-form">
+          <div class="promo-cols" style="display:grid;grid-template-columns:1fr 260px;min-height:460px;">
+
+            <!-- LEFT: Composer -->
+            <div style="padding:22px 24px;border-right:0.5px solid #e8edf8;display:flex;flex-direction:column;gap:16px;background:#fafbff;">
+
+              <!-- Campaign type pills -->
+              <div>
+                <div class="promo-comp-label">Campaign Type</div>
+                <div style="display:flex;gap:6px;flex-wrap:wrap;" id="promo-type-pills">
+                  <button type="button" class="promo-type-pill active" data-type="Tournament">Tournament</button>
+                  <button type="button" class="promo-type-pill" data-type="Ladder">Ladder</button>
+                  <button type="button" class="promo-type-pill" data-type="Other">Other</button>
+                </div>
+                <input type="hidden" id="promo-campaign-type" value="Tournament">
+                <!-- Etiqueta que sale arriba a la derecha en la cabecera del
+                     correo. Se rellena sola al elegir el tipo de campaña;
+                     esto es solo para cambiarla en un caso suelto. -->
+                <div style="margin-top:10px;">
+                  <div class="promo-comp-label">Header Label <span style="font-size:9px;font-weight:600;color:#b0bbd6;text-transform:none;letter-spacing:0;">(shown top-right in the email)</span></div>
+                  <!-- 11px, mas pequeno que los campos vecinos (13px) a
+                       proposito: al ir en mayusculas y con espaciado, a 13px
+                       pesaba mucho mas que el asunto de al lado. -->
+                  <input type="text" id="promo-header-label" maxlength="24" placeholder="TOURNAMENT"
+                    style="width:100%;padding:9px 12px;border:1px solid var(--divider-color);border-radius:8px;font-family:'Inter',sans-serif;font-size:11px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:var(--text);outline:none;"
+                    onfocus="this.style.borderColor='var(--blue)';this.style.boxShadow='0 0 0 3px rgba(23,76,204,0.08)'"
+                    onblur="this.style.borderColor='var(--divider-color)';this.style.boxShadow='none'">
+                </div>
+              </div>
+
+              <!-- Event selector — shown for Tournament/Ladder -->
+              <div id="promo-event-selector-wrap">
+                <div class="promo-comp-label">Select Event <span style="color:var(--orange);">*</span></div>
+                <select id="promo-event-select"
+                  style="width:100%;padding:9px 12px;border:1px solid var(--divider-color);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;color:var(--text);outline:none;background:white;"
+                  onfocus="this.style.borderColor='var(--blue)';this.style.boxShadow='0 0 0 3px rgba(23,76,204,0.08)'"
+                  onblur="this.style.borderColor='var(--divider-color)';this.style.boxShadow='none'">
+                  <option value="">Loading events...</option>
+                </select>
+                <input type="hidden" id="promo-event-flyer-url" value="">
+              </div>
+
+              <!-- Other flyer URL — shown for Other type -->
+              <div id="promo-other-flyer-wrap" style="display:none;">
+                <div class="promo-comp-label">Flyer URL <span style="font-size:9px;font-weight:600;color:#b0bbd6;text-transform:none;letter-spacing:0;">(optional)</span></div>
+                <input type="url" id="promo-other-flyer-url" placeholder="https://example.com/flyer.jpg"
+                  style="width:100%;padding:9px 12px;border:1px solid var(--divider-color);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;color:var(--text);outline:none;"
+                  onfocus="this.style.borderColor='var(--blue)';this.style.boxShadow='0 0 0 3px rgba(23,76,204,0.08)'"
+                  onblur="this.style.borderColor='var(--divider-color)';this.style.boxShadow='none'">
+              </div>
+
+              <!-- Subject -->
+              <div>
+                <div class="promo-comp-label">Subject Line</div>
+                <div class="promo-subject-wrap">
+                  <input type="text" id="promo-subject" class="promo-subject-input" placeholder="e.g. Spring Tournament 2026 — Registration Now Open">
+                </div>
+              </div>
+
+              <!-- Texto de vista previa: la linea que se lee en la bandeja de
+                   entrada junto al asunto, antes de abrir el correo. Si se
+                   deja vacio, el admin lo rellena con el principio del
+                   mensaje — nunca queda en blanco. -->
+              <div>
+                <div class="promo-comp-label">Preview Text <span style="font-size:9px;font-weight:600;color:#b0bbd6;text-transform:none;letter-spacing:0;">(optional — the line shown in the inbox next to the subject)</span></div>
+                <input type="text" id="promo-preview-text" maxlength="140"
+                  placeholder="Leave empty to use the first line of your message"
+                  style="width:100%;padding:9px 12px;border:1px solid var(--divider-color);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;color:var(--text);outline:none;"
+                  onfocus="this.style.borderColor='var(--blue)';this.style.boxShadow='0 0 0 3px rgba(23,76,204,0.08)'"
+                  onblur="this.style.borderColor='var(--divider-color)';this.style.boxShadow='none'">
+                <div id="promo-preview-count" style="font-size:10px;font-weight:600;color:#b0bbd6;margin-top:4px;">0 / 140</div>
+              </div>
+
+              <!-- Message -->
+              <div style="flex:1;display:flex;flex-direction:column;">
+                <div class="promo-comp-label">Message</div>
+                <div class="promo-message-card">
+                  <!-- Barra de formato.
+                       La fabrica admin-rich-editor.js, el mismo módulo que
+                       la pone en las otras cuatro pantallas que escriben
+                       correos. Antes estaba escrita a mano aquí; con cinco
+                       editores eso eran cinco copias del mismo HTML. -->
+                  <div class="promo-fmt-toolbar" id="promo-fmt-bar">
+                    <div style="flex:1;"></div>
+                    <span id="promo-char-count" style="font-size:9px;font-weight:700;color:#b0bbd6;">0 / 2000</span>
+                  </div>
+                  <div id="promo-message" contenteditable="true" class="promo-message-editor" data-placeholder="Write your campaign message here..."></div>
+                  <div style="padding:6px 12px;background:#f8f9ff;border-top:0.5px solid #e8edf8;display:flex;justify-content:flex-end;">
+                    <span id="promo-char-count2" style="font-size:10px;font-weight:700;color:#b0bbd6;"></span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Ensayo de campaña.
+                   Marcada, el Launch pasa por el camino REAL completo — se
+                   registra en communications, se reserva el destinatario y
+                   sale por lotes — pero con una sola dirección: la del
+                   admin. Nadie de la lista lo recibe.
+                   admin-promotions.js la desmarca sola cada vez que se abre
+                   el modal, y cambia la etiqueta del botón mientras está
+                   puesta, para que el botón nunca diga una cosa y haga otra. -->
+              <label for="promo-only-me" style="display:flex;align-items:flex-start;gap:9px;padding:10px 12px;margin-bottom:8px;border:1px solid var(--divider-color);border-radius:10px;background:#f8f9ff;cursor:pointer;text-transform:none;letter-spacing:normal;">
+                <input type="checkbox" id="promo-only-me" aria-describedby="promo-only-me-ayuda" style="margin:1px 0 0;width:14px;height:14px;accent-color:var(--blue);cursor:pointer;flex-shrink:0;">
+                <span style="font-family:'Inter',sans-serif;font-size:11px;font-weight:700;color:var(--text);line-height:1.45;text-transform:none;letter-spacing:normal;">
+                  Send only to me
+                  <span id="promo-only-me-ayuda" style="display:block;font-size:10px;font-weight:600;color:var(--text-muted);margin-top:2px;text-transform:none;letter-spacing:normal;">
+                    Real send, fully logged &mdash; but only you receive it.
+                  </span>
+                </span>
+              </label>
+
+              <!-- Launch button -->
+              <button type="submit" id="promo-send-btn" style="width:100%;padding:12px;border:none;border-radius:99px;background:linear-gradient(180deg,#2456d3 0%,var(--blue) 100%);color:white;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                Launch Campaign
+              </button>
+            </div>
+
+            <!-- RIGHT: Intelligence Panel -->
+            <div style="padding:22px 20px;background:white;display:flex;flex-direction:column;gap:14px;">
+              <div style="font-size:10px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--text);display:flex;align-items:center;gap:6px;">
+                <span style="width:6px;height:6px;border-radius:50%;background:var(--teal);display:inline-block;"></span>
+                Campaign Intelligence
+              </div>
+
+              <!-- Audience card -->
+              <div class="promo-intel-card" style="border-left:3px solid var(--teal);">
+                <div class="promo-intel-label">Audience</div>
+                <div class="promo-intel-val" id="promo-audience-count">—</div>
+                <div class="promo-intel-sub">Active subscribers will receive this</div>
+              </div>
+
+              <!-- Last campaign card -->
+              <div class="promo-intel-card" style="border-left:3px solid var(--blue);">
+                <div class="promo-intel-label">Last Campaign</div>
+                <div class="promo-intel-val-text" id="promo-last-sent">—</div>
+                <div class="promo-intel-sub" id="promo-last-type">No campaigns yet</div>
+              </div>
+
+              <!-- Selected type card -->
+              <div class="promo-intel-card" style="border-left:3px solid var(--orange);">
+                <div class="promo-intel-label">Selected Type</div>
+                <div class="promo-intel-val-text" id="promo-selected-type">Tournament</div>
+                <div class="promo-intel-sub">Best open rate: Tues–Thurs 9–11am</div>
+              </div>
+
+              <!-- Recipient count kept hidden for JS compat -->
+              <span id="promo-recipient-count" style="display:none;"></span>
+            </div>
+
+          </div>
+        </form>
       </div>
 
       <!-- COMMUNICATIONS HUB: a quién se le escribe.
@@ -3227,180 +3394,6 @@
   </div>
 </div>
 
-<!-- Launch Campaign Modal -->
-<div id="promo-modal" style="display:none;position:fixed;inset:0;z-index:400;background:rgba(8,15,46,.65);align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(3px);">
-  <div style="background:white;border-radius:14px;overflow:hidden;box-shadow:0 20px 60px rgba(8,15,46,.18);width:100%;max-width:900px;max-height:90vh;overflow-y:auto;">
-
-    <!-- Modal header -->
-    <div style="display:flex;align-items:flex-start;justify-content:space-between;padding:22px 28px 18px;border-bottom:0.5px solid #e8edf8;background:linear-gradient(180deg,#fafbff 0%,white 100%);">
-      <div>
-        <div style="font-family:'Inter',sans-serif;font-size:26px;color:var(--text);letter-spacing:1px;line-height:1;margin-bottom:3px;">Launch Campaign</div>
-        <div style="font-size:11px;font-weight:600;color:var(--text-muted);max-width:480px;line-height:1.5;">Reach your pickleball community with announcements, tournaments, ladders, and event updates.</div>
-      </div>
-      <button data-action="closePromoModal"
-        style="width:30px;height:30px;border-radius:8px;border:0.5px solid var(--divider-color);background:white;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;"
-        onmouseover="this.style.background='var(--orange-light)';this.style.borderColor='rgba(229,57,53,0.3)'"
-        onmouseout="this.style.background='white';this.style.borderColor='var(--divider-color)'">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#e53935" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
-    </div>
-
-    <!-- Two-column body -->
-    <form id="promo-form">
-      <div style="display:grid;grid-template-columns:1fr 260px;min-height:460px;">
-
-        <!-- LEFT: Composer -->
-        <div style="padding:22px 24px;border-right:0.5px solid #e8edf8;display:flex;flex-direction:column;gap:16px;background:#fafbff;">
-
-          <!-- Campaign type pills -->
-          <div>
-            <div class="promo-comp-label">Campaign Type</div>
-            <div style="display:flex;gap:6px;flex-wrap:wrap;" id="promo-type-pills">
-              <button type="button" class="promo-type-pill active" data-type="Tournament">Tournament</button>
-              <button type="button" class="promo-type-pill" data-type="Ladder">Ladder</button>
-              <button type="button" class="promo-type-pill" data-type="Other">Other</button>
-            </div>
-            <input type="hidden" id="promo-campaign-type" value="Tournament">
-            <!-- Etiqueta que sale arriba a la derecha en la cabecera del
-                 correo. Se rellena sola al elegir el tipo de campaña;
-                 esto es solo para cambiarla en un caso suelto. -->
-            <div style="margin-top:10px;">
-              <div class="promo-comp-label">Header Label <span style="font-size:9px;font-weight:600;color:#b0bbd6;text-transform:none;letter-spacing:0;">(shown top-right in the email)</span></div>
-              <!-- 11px, mas pequeno que los campos vecinos (13px) a
-                   proposito: al ir en mayusculas y con espaciado, a 13px
-                   pesaba mucho mas que el asunto de al lado. -->
-              <input type="text" id="promo-header-label" maxlength="24" placeholder="TOURNAMENT"
-                style="width:100%;padding:9px 12px;border:1px solid var(--divider-color);border-radius:8px;font-family:'Inter',sans-serif;font-size:11px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:var(--text);outline:none;"
-                onfocus="this.style.borderColor='var(--blue)';this.style.boxShadow='0 0 0 3px rgba(23,76,204,0.08)'"
-                onblur="this.style.borderColor='var(--divider-color)';this.style.boxShadow='none'">
-            </div>
-          </div>
-
-          <!-- Event selector — shown for Tournament/Ladder -->
-          <div id="promo-event-selector-wrap">
-            <div class="promo-comp-label">Select Event <span style="color:var(--orange);">*</span></div>
-            <select id="promo-event-select"
-              style="width:100%;padding:9px 12px;border:1px solid var(--divider-color);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;color:var(--text);outline:none;background:white;"
-              onfocus="this.style.borderColor='var(--blue)';this.style.boxShadow='0 0 0 3px rgba(23,76,204,0.08)'"
-              onblur="this.style.borderColor='var(--divider-color)';this.style.boxShadow='none'">
-              <option value="">Loading events...</option>
-            </select>
-            <input type="hidden" id="promo-event-flyer-url" value="">
-          </div>
-
-          <!-- Other flyer URL — shown for Other type -->
-          <div id="promo-other-flyer-wrap" style="display:none;">
-            <div class="promo-comp-label">Flyer URL <span style="font-size:9px;font-weight:600;color:#b0bbd6;text-transform:none;letter-spacing:0;">(optional)</span></div>
-            <input type="url" id="promo-other-flyer-url" placeholder="https://example.com/flyer.jpg"
-              style="width:100%;padding:9px 12px;border:1px solid var(--divider-color);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;color:var(--text);outline:none;"
-              onfocus="this.style.borderColor='var(--blue)';this.style.boxShadow='0 0 0 3px rgba(23,76,204,0.08)'"
-              onblur="this.style.borderColor='var(--divider-color)';this.style.boxShadow='none'">
-          </div>
-
-          <!-- Subject -->
-          <div>
-            <div class="promo-comp-label">Subject Line</div>
-            <div class="promo-subject-wrap">
-              <input type="text" id="promo-subject" class="promo-subject-input" placeholder="e.g. Spring Tournament 2026 — Registration Now Open">
-            </div>
-          </div>
-
-          <!-- Texto de vista previa: la linea que se lee en la bandeja de
-               entrada junto al asunto, antes de abrir el correo. Si se
-               deja vacio, el admin lo rellena con el principio del
-               mensaje — nunca queda en blanco. -->
-          <div>
-            <div class="promo-comp-label">Preview Text <span style="font-size:9px;font-weight:600;color:#b0bbd6;text-transform:none;letter-spacing:0;">(optional — the line shown in the inbox next to the subject)</span></div>
-            <input type="text" id="promo-preview-text" maxlength="140"
-              placeholder="Leave empty to use the first line of your message"
-              style="width:100%;padding:9px 12px;border:1px solid var(--divider-color);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;color:var(--text);outline:none;"
-              onfocus="this.style.borderColor='var(--blue)';this.style.boxShadow='0 0 0 3px rgba(23,76,204,0.08)'"
-              onblur="this.style.borderColor='var(--divider-color)';this.style.boxShadow='none'">
-            <div id="promo-preview-count" style="font-size:10px;font-weight:600;color:#b0bbd6;margin-top:4px;">0 / 140</div>
-          </div>
-
-          <!-- Message -->
-          <div style="flex:1;display:flex;flex-direction:column;">
-            <div class="promo-comp-label">Message</div>
-            <div class="promo-message-card">
-              <!-- Barra de formato.
-                   La fabrica admin-rich-editor.js, el mismo módulo que
-                   la pone en las otras cuatro pantallas que escriben
-                   correos. Antes estaba escrita a mano aquí; con cinco
-                   editores eso eran cinco copias del mismo HTML. -->
-              <div class="promo-fmt-toolbar" id="promo-fmt-bar">
-                <div style="flex:1;"></div>
-                <span id="promo-char-count" style="font-size:9px;font-weight:700;color:#b0bbd6;">0 / 2000</span>
-              </div>
-              <div id="promo-message" contenteditable="true" class="promo-message-editor" data-placeholder="Write your campaign message here..."></div>
-              <div style="padding:6px 12px;background:#f8f9ff;border-top:0.5px solid #e8edf8;display:flex;justify-content:flex-end;">
-                <span id="promo-char-count2" style="font-size:10px;font-weight:700;color:#b0bbd6;"></span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Ensayo de campaña.
-               Marcada, el Launch pasa por el camino REAL completo — se
-               registra en communications, se reserva el destinatario y
-               sale por lotes — pero con una sola dirección: la del
-               admin. Nadie de la lista lo recibe.
-               admin-promotions.js la desmarca sola cada vez que se abre
-               el modal, y cambia la etiqueta del botón mientras está
-               puesta, para que el botón nunca diga una cosa y haga otra. -->
-          <label for="promo-only-me" style="display:flex;align-items:flex-start;gap:9px;padding:10px 12px;margin-bottom:8px;border:1px solid var(--divider-color);border-radius:10px;background:#f8f9ff;cursor:pointer;text-transform:none;letter-spacing:normal;">
-            <input type="checkbox" id="promo-only-me" aria-describedby="promo-only-me-ayuda" style="margin:1px 0 0;width:14px;height:14px;accent-color:var(--blue);cursor:pointer;flex-shrink:0;">
-            <span style="font-family:'Inter',sans-serif;font-size:11px;font-weight:700;color:var(--text);line-height:1.45;text-transform:none;letter-spacing:normal;">
-              Send only to me
-              <span id="promo-only-me-ayuda" style="display:block;font-size:10px;font-weight:600;color:var(--text-muted);margin-top:2px;text-transform:none;letter-spacing:normal;">
-                Real send, fully logged &mdash; but only you receive it.
-              </span>
-            </span>
-          </label>
-
-          <!-- Launch button -->
-          <button type="submit" id="promo-send-btn" style="width:100%;padding:12px;border:none;border-radius:99px;background:linear-gradient(180deg,#2456d3 0%,var(--blue) 100%);color:white;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-            Launch Campaign
-          </button>
-        </div>
-
-        <!-- RIGHT: Intelligence Panel -->
-        <div style="padding:22px 20px;background:white;display:flex;flex-direction:column;gap:14px;">
-          <div style="font-size:10px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--text);display:flex;align-items:center;gap:6px;">
-            <span style="width:6px;height:6px;border-radius:50%;background:var(--teal);display:inline-block;"></span>
-            Campaign Intelligence
-          </div>
-
-          <!-- Audience card -->
-          <div class="promo-intel-card" style="border-left:3px solid var(--teal);">
-            <div class="promo-intel-label">Audience</div>
-            <div class="promo-intel-val" id="promo-audience-count">—</div>
-            <div class="promo-intel-sub">Active subscribers will receive this</div>
-          </div>
-
-          <!-- Last campaign card -->
-          <div class="promo-intel-card" style="border-left:3px solid var(--blue);">
-            <div class="promo-intel-label">Last Campaign</div>
-            <div class="promo-intel-val-text" id="promo-last-sent">—</div>
-            <div class="promo-intel-sub" id="promo-last-type">No campaigns yet</div>
-          </div>
-
-          <!-- Selected type card -->
-          <div class="promo-intel-card" style="border-left:3px solid var(--orange);">
-            <div class="promo-intel-label">Selected Type</div>
-            <div class="promo-intel-val-text" id="promo-selected-type">Tournament</div>
-            <div class="promo-intel-sub">Best open rate: Tues–Thurs 9–11am</div>
-          </div>
-
-          <!-- Recipient count kept hidden for JS compat -->
-          <span id="promo-recipient-count" style="display:none;"></span>
-        </div>
-
-      </div>
-    </form>
-  </div>
-</div>
-
 <!-- Edit game modal -->
 <div class="modal-bg" id="edit-game-modal">
   <div class="modal" style="max-width:740px;">
@@ -3660,10 +3653,10 @@
 <script src="admin-sessions.js?v=20260928b"></script>
 <script src="admin-print-roster.js?v=20260928b"></script>
 <script src="admin-ladder-management.js?v=20261008a"></script>
-<script src="admin-communications.js?v=20261011d"></script>
-<script src="admin-comms-hub.js?v=20261011c"></script>
+<script src="admin-communications.js?v=20261011e"></script>
+<script src="admin-comms-hub.js?v=20261011d"></script>
 <script src="admin-comms-results.js?v=20261011c"></script>
-<script src="admin-promotions.js?v=20261006a"></script>
+<script src="admin-promotions.js?v=20261011a"></script>
 <script src="admin-subscriber-reminder.js?v=20261005a"></script>
 <script src="admin-newsletter.js?v=20261005b"></script>
 <!-- TEMPORARY: fills in missing dates of birth from a CSV import.
@@ -3674,7 +3667,7 @@
 <script src="admin-ftc-standings.js?v=20260928b"></script>
 <script src="admin-ftc-playoffs-schedule.js?v=20260928b"></script>
 <script src="admin-ftc-teams.js?v=20260928b"></script>
-<script src="app.js?v=20261009b"></script>
+<script src="app.js?v=20261011a"></script>
 <script src="tournament.js?v=20261009b"></script>
 <script>
   // ── Sidebar toggle — persisted in localStorage ──────────────────────

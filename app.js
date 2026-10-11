@@ -1121,15 +1121,7 @@ window.selectLadderType = (type) => {
     // closeEditLadderModal now registered by admin-ladder-management.js
     closeEditGameModal: () =>
       document.getElementById('edit-game-modal').classList.remove('open'),
-    /* NO cierra mientras haya un envío en curso. Cerrar la ventana no
-       detiene el envío: sigue corriendo, y al reabrirla el composer se
-       limpia y se lleva el asunto y el mensaje por delante. Si ese envío
-       sale parcial, el texto que hace falta para reintentar ya no existe. */
-    closePromoModal: () => {
-      if (window.envioEnCurso && window.envioEnCurso()) return;
-      const modal = document.getElementById('promo-modal');
-      if (modal) { modal.style.display = 'none'; document.body.style.overflow = ''; }
-    },
+    // closePromoModal now registered by admin-promotions.js (la campaña vive en Communications)
     closeEditSessionModal: () =>
       document.getElementById('edit-session-modal').classList.remove('open'),
     // Notify / promo
