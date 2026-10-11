@@ -296,3 +296,36 @@
   .promo-panel .promo-cols > div{min-width:0;}
   .promo-panel .promo-cols > div:first-child{border-right:none !important;border-bottom:0.5px solid #e8edf8;}
 }
+
+/* ── LAS OPCIONES DE LA PESTAÑA SEND ("Choose your audience") ───
+   Diseño que pediste el 11 de octubre: cuatro tarjetas en dos columnas,
+   cada una con su icono en un cuadro blanco, el nombre, una línea y una
+   flecha abajo a la derecha; Newsletter, a todo el ancho y en fila. En el
+   móvil, una columna. */
+.co-aud-head{margin:0 0 6px;font-family:'Inter',sans-serif;font-size:18px;font-weight:600;
+             letter-spacing:normal;text-transform:none;color:var(--text);}
+.co-aud-sub{margin:0 0 20px;font-size:12px;font-weight:500;color:var(--text-muted);}
+.co-aud-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
+.co-aud{position:relative;display:flex;flex-direction:column;align-items:flex-start;min-height:142px;
+        padding:12px 12px 30px;border:1px solid #dcdce0;border-radius:8px;background:#f4f4f5;
+        font-family:'Inter',sans-serif;text-align:left;cursor:pointer;
+        transition:border-color .15s,background .15s;}
+.co-aud:hover{border-color:#b9b9c0;background:#efeff1;}
+.co-aud:focus-visible{outline:2px solid var(--blue);outline-offset:2px;}
+.co-aud-icon{display:flex;align-items:center;justify-content:center;flex-shrink:0;width:36px;height:36px;
+             margin-bottom:16px;border-radius:7px;background:white;color:var(--text);}
+.co-aud-t{font-size:14px;font-weight:600;color:var(--text);}
+.co-aud-d{margin-top:10px;font-size:10px;font-weight:500;color:var(--text-muted);line-height:1.4;}
+.co-aud-go{position:absolute;right:14px;bottom:14px;color:#77777f;}
+/* Newsletter: en fila, a todo el ancho. */
+.co-aud-wide{grid-column:1 / -1;flex-direction:row;align-items:center;gap:18px;min-height:0;padding:12px;}
+.co-aud-wide .co-aud-icon{width:42px;height:42px;margin-bottom:0;}
+.co-aud-text{display:flex;flex-direction:column;min-width:0;padding-right:28px;}
+.co-aud-wide .co-aud-t{font-size:15px;}
+.co-aud-wide .co-aud-d{margin-top:6px;font-size:11px;}
+.co-aud-wide .co-aud-go{top:50%;bottom:auto;transform:translateY(-50%);color:var(--text);}
+@media (max-width:600px){
+  .co-aud-grid{grid-template-columns:minmax(0,1fr);}
+  .co-aud{min-height:118px;}
+  .co-aud-wide{min-height:0;}
+}

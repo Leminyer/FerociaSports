@@ -24,7 +24,7 @@
 <link rel="stylesheet" href="admin-components.css?v=20261008a">
 <link rel="stylesheet" href="admin-pages.css?v=20261001c">
 <link rel="stylesheet" href="admin-ftc.css?v=20260928b">
-<link rel="stylesheet" href="admin-comms-hub.css?v=20261011f">
+<link rel="stylesheet" href="admin-comms-hub.css?v=20261011g">
 
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="config.js?v=20260929j"></script>
@@ -1925,38 +1925,45 @@
     <!-- ── PESTAÑA 1: SEND ──────────────────────────────────── -->
     <div class="co-tab-content" data-tab="send">
       <div class="card" id="co-send-home">
-        <div class="card-title" style="margin-bottom:6px;">Where each email is sent from</div>
-        <div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:20px;">
-          Every email below is sent by the server and recorded in History.
-        </div>
+        <!-- Las opciones de la pestaña Send (diseño del 11 de octubre).
+             Los estilos, en admin-comms-hub.css (co-aud-). -->
+        <h2 class="co-aud-head">Choose your audience</h2>
+        <p class="co-aud-sub">Select who you want to communicate with.</p>
 
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(232px,1fr));gap:12px;">
-
-          <button class="co-launch" data-action="openSendPromo">
-            <span class="co-launch-t">Campaign</span>
-            <span class="co-launch-d">To your subscriber list</span>
+        <div class="co-aud-grid">
+          <button type="button" class="co-aud" data-action="openSendPromo">
+            <span class="co-aud-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l15-6v14L3 13v-2z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg></span>
+            <span class="co-aud-t">Campaign</span>
+            <span class="co-aud-d">Subscribers and announcements</span>
+            <svg class="co-aud-go" aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="8 7 17 7 17 16"/></svg>
+          </button>
+          <button type="button" class="co-aud" data-action="hubOpen" data-audience="all_players">
+            <span class="co-aud-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+            <span class="co-aud-t">All Players</span>
+            <span class="co-aud-d">Your active player community</span>
+            <svg class="co-aud-go" aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="8 7 17 7 17 16"/></svg>
+          </button>
+          <button type="button" class="co-aud" data-action="hubOpen" data-audience="ladder">
+            <span class="co-aud-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 6h11"/><path d="M10 12h11"/><path d="M10 18h11"/><path d="M4 4.5l1-.5v4"/><path d="M4 8h2"/><path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1"/></svg></span>
+            <span class="co-aud-t">Ladder Players</span>
+            <span class="co-aud-d">Schedules, polls and updates</span>
+            <svg class="co-aud-go" aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="8 7 17 7 17 16"/></svg>
+          </button>
+          <button type="button" class="co-aud" data-action="hubOpen" data-audience="tournament">
+            <span class="co-aud-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/></svg></span>
+            <span class="co-aud-t">Tournament Players</span>
+            <span class="co-aud-d">Divisions and event notices</span>
+            <svg class="co-aud-go" aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="8 7 17 7 17 16"/></svg>
           </button>
 
-          <button class="co-launch" data-action="hubOpen" data-audience="all_players">
-            <span class="co-launch-t">All Players</span>
-            <span class="co-launch-d">To every active player</span>
+          <button type="button" class="co-aud co-aud-wide" data-action="showPage" data-page="newsletter">
+            <span class="co-aud-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8"/><path d="M15 18h-5"/><path d="M10 6h8v4h-8V6z"/></svg></span>
+            <span class="co-aud-text">
+              <span class="co-aud-t">Newsletter</span>
+              <span class="co-aud-d">Create and send FEROCIA MONTHLY.</span>
+            </span>
+            <svg class="co-aud-go" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
           </button>
-
-          <button class="co-launch" data-action="hubOpen" data-audience="ladder">
-            <span class="co-launch-t">Ladder Players</span>
-            <span class="co-launch-d">To one ladder&rsquo;s players</span>
-          </button>
-
-          <button class="co-launch" data-action="hubOpen" data-audience="tournament">
-            <span class="co-launch-t">Tournament Players</span>
-            <span class="co-launch-d">To one tournament&rsquo;s players</span>
-          </button>
-
-          <button class="co-launch" data-action="showPage" data-page="newsletter">
-            <span class="co-launch-t">Newsletter</span>
-            <span class="co-launch-d">The monthly newsletter</span>
-          </button>
-
         </div>
       </div>
 
