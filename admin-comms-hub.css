@@ -480,3 +480,25 @@
 .promo-intel-v{margin-top:3px;font-size:14px;font-weight:700;color:#0d1f4a;}
 .promo-intel-s{margin-top:2px;font-size:11px;font-weight:500;color:#4b5875;}
 .promo-intel-s:empty{display:none;}
+
+/* ── Reenviar una campaña (ajuste 12) ─────────────────────────
+   El aviso de arriba del formulario cuando se reenvía una campaña desde
+   History, y la fila con "Resend to…" en el detalle de la campaña. */
+.promo-resend{display:flex;align-items:center;gap:12px;margin-bottom:18px;padding:12px 14px;border-radius:10px;
+              background:#eef2fd;border:1px solid #c9d6f6;color:var(--blue);}
+.promo-resend svg{flex-shrink:0;}
+.promo-resend-text{flex:1;min-width:0;font-size:12px;font-weight:500;color:#0d1f4a;line-height:1.5;overflow-wrap:anywhere;}
+.promo-resend-text strong{font-weight:700;}
+.promo-resend-sub{display:block;font-size:11px;color:#4b5875;}
+.promo-resend .hub-attach-btn{flex-shrink:0;}
+.hub-layout .co-pfilter:disabled{opacity:.45;cursor:not-allowed;}
+.hub-layout .co-pfilter:disabled:hover{border-color:#dfe4ee;}
+/* Con "Selected Subscribers" sin nadie marcado: una nota, no una cuenta. */
+.hub-layout .hub-count.hub-count-note{font-size:12px;font-weight:600;color:#4b5875;}
+.co-det-resend[hidden]{display:none;}
+.co-det-resend{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:10px 14px;
+               border:1px solid var(--divider-color);border-radius:10px;background:#fafbff;}
+.co-det-resend-text{font-size:12px;font-weight:600;color:var(--text);}
+@media (max-width:600px){
+  .promo-resend{flex-wrap:wrap;}
+}

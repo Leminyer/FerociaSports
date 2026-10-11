@@ -1479,7 +1479,7 @@
      Devuelve si se cerró (o si no estaba abierta). */
   window.campanaIrAOpciones = async () => {
     if (!campanaAbierta()) return true;
-    if (window.AdminState?.emailInFlight) return false;
+    if (window.AdminState?.emailInFlight || _preparandoCampana) return false;
     if (!(await puedeDescartarCampana())) return false;
     cerrarCampanaYa();
     return true;
@@ -1500,13 +1500,215 @@
   const MAX_TEXTO_CAMPANA  = 5000;
   let _suscriptores = null;   // cuántos activos; null hasta que llega la cuenta
 
-  /* La cuenta de "Recipient Preview". Con `error`, el aviso en rojo. */
-  function ponerCuenta(numero, palabra, error) {
+  /* A QUIÉN (ajuste 12): "all" = todos los suscriptores activos (como
+     siempre); "selected" = sólo los que se marquen en la lista. */
+  let _segmentoCampana = 'all';
+  let _elegidosCampana = new Set();   // ids de suscriptor marcados
+  let _candidatosCampana = null;      // los activos: [{ id, first_name, last_name, email }]
+  /* El reenvío desde History: la campaña original (su id, su fecha y su
+     meta) o null. Mientras dura, el tipo y el flyer son los suyos y sólo
+     se manda a elegidos. */
+  let _reenvio = null;
+
+  /* La cuenta de "Recipient Preview". `estilo`: 'error' (en rojo, no se
+     pudo leer), 'nota' (una indicación, no una cuenta) o nada. */
+  function ponerCuenta(numero, palabra, estilo) {
     const n = document.getElementById('promo-audience-count');
     const w = document.getElementById('promo-audience-word');
-    if (n) n.textContent = String(numero);
-    if (w) w.textContent = palabra;
-    n?.parentElement?.classList.toggle('hub-count-error', !!error);
+    /* Sólo si cambia: la zona se lee en voz alta (aria-live) y esto se
+       llama en cada tecla. */
+    if (n && n.textContent !== String(numero)) n.textContent = String(numero);
+    if (w && w.textContent !== palabra) w.textContent = palabra;
+    n?.parentElement?.classList.toggle('hub-count-error', estilo === 'error' || estilo === true);
+    n?.parentElement?.classList.toggle('hub-count-note', estilo === 'nota');
+  }
+
+  const plural = (x, uno, varios) => `${x} ${x === 1 ? uno : varios}`;
+
+  /* "Recipient Preview" y la caja verde, según a quién va. */
+  function pintarDestinatarios() {
+    const ok = document.getElementById('promo-preview-ok');
+    const titulo = document.getElementById('promo-ok-title');
+    const linea = document.getElementById('promo-ok-sub');
+    if (_suscriptores === null) { if (ok) ok.hidden = true; return; }   // cargando o con error: lo dice ponerCuenta
+    if (_segmentoCampana === 'all') {
+      ponerCuenta(_suscriptores, _suscriptores === 1 ? 'active subscriber' : 'active subscribers', false);
+      if (titulo) titulo.textContent = 'All active subscribers selected';
+      if (linea) linea.textContent = 'This campaign will be sent to all your active subscribers.';
+      if (ok) ok.hidden = !(_suscriptores > 0);
+      return;
+    }
+    const n = _elegidosCampana.size;
+    if (!n) {
+      ponerCuenta('', 'Select at least one subscriber.', 'nota');
+      if (ok) ok.hidden = true;
+      return;
+    }
+    ponerCuenta(n, `of ${plural(_suscriptores, 'active subscriber', 'active subscribers')}`, false);
+    if (titulo) titulo.textContent = `${plural(n, 'subscriber', 'subscribers')} selected`;
+    if (linea) linea.textContent = 'This campaign will be sent only to the subscribers you chose.';
+    if (ok) ok.hidden = false;
+  }
+
+  /* Los botones "All Subscribers" / "Selected Subscribers" y la lista. */
+  function ponerSegmentoCampana(segmento) {
+    if (_reenvio && segmento === 'all') return;   // un reenvío nunca va a todos
+    _segmentoCampana = segmento;
+    document.querySelectorAll('#promo-segments [data-segment]').forEach((b) => {
+      const on = b.dataset.segment === segmento;
+      b.classList.toggle('co-pfilter-on', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    const wrap = document.getElementById('promo-selected-wrap');
+    if (wrap) wrap.hidden = segmento !== 'selected';
+    if (segmento === 'selected') pintarCandidatosCampana();
+    pintarCampana();
+  }
+
+  function notaLista(texto) {
+    const d = document.createElement('div');
+    d.className = 'hub-pick-empty';
+    d.textContent = texto;
+    return d;
+  }
+
+  /* La lista para marcar: los suscriptores ACTIVOS (los dados de baja y
+     los que no confirmaron no salen nunca). Hecha con textContent: los
+     nombres los escribe cualquiera al suscribirse. */
+  function pintarCandidatosCampana() {
+    const lista = document.getElementById('promo-pick-list');
+    if (!lista) return;
+    if (_candidatosCampana === null) {
+      if (!_errorAudiencia) { lista.replaceChildren(notaLista('Loading subscribers…')); return; }
+      const nota = notaLista('Could not load the subscribers. ');
+      const otra = document.createElement('button');
+      otra.type = 'button';
+      otra.className = 'hub-attach-btn';
+      otra.dataset.action = 'promoReloadAudience';
+      otra.textContent = 'Try again';
+      nota.append(otra);
+      lista.replaceChildren(nota);
+      return;
+    }
+    if (!_candidatosCampana.length) { lista.replaceChildren(notaLista('There are no active subscribers.')); return; }
+    lista.replaceChildren(..._candidatosCampana.map((p) => {
+      const nombre = window.nombreDestinatario(p) || p.email;
+      const fila = document.createElement('label');
+      fila.className = 'hub-pick';
+      fila.dataset.name = `${nombre} ${p.email}`.toLowerCase();
+      const caja = document.createElement('input');
+      caja.type = 'checkbox';
+      caja.value = String(p.id);
+      caja.checked = _elegidosCampana.has(p.id);
+      const textos = document.createElement('span');
+      textos.className = 'hub-pick-text';
+      const n = document.createElement('span');
+      n.className = 'hub-pick-name';
+      n.textContent = nombre;
+      const m = document.createElement('span');
+      m.className = 'hub-pick-mail';
+      m.textContent = p.email;
+      textos.append(n, m);
+      fila.append(caja, textos);
+      return fila;
+    }));
+    filtrarCandidatosCampana();
+  }
+
+  function filtrarCandidatosCampana() {
+    const q = (document.getElementById('promo-search')?.value || '').trim().toLowerCase();
+    document.querySelectorAll('#promo-pick-list .hub-pick').forEach((f) => {
+      f.hidden = !!q && !f.dataset.name.includes(q);
+    });
+  }
+
+  /* Al llegar la lista de activos: quien estaba marcado y ya no está
+     activo deja de estarlo. */
+  function guardarCandidatosCampana(subs) {
+    const orden = (a, b) => (window.nombreDestinatario(a) || a.email).localeCompare(window.nombreDestinatario(b) || b.email);
+    _candidatosCampana = [...subs].sort(orden);
+    const activos = new Set(_candidatosCampana.map((x) => x.id));
+    _elegidosCampana = new Set([..._elegidosCampana].filter((id) => activos.has(id)));
+  }
+
+  let _vezCampana = 0;
+  let _errorAudiencia = false;      // no se pudo leer la lista de activos
+  let _preparandoCampana = false;   // de pulsar Launch a que sale (confirmación incluida)
+
+  /* Rellena el formulario con la campaña que se reenvía. `c` lo prepara
+     admin-communications.js: { id, subject, sent_at, html, meta }, con el
+     HTML ya limpio (sin scripts ni on…), como lo enseña History. */
+  function aplicarReenvio(c) {
+    const meta = c.meta || {};
+    const tipo = ['Tournament', 'Ladder', 'Other'].includes(meta.campaign_type) ? meta.campaign_type : 'Other';
+    /* La fecha del envío; si no llegó a salir, la de cuando se creó. */
+    const fecha = new Date(c.sent_at || c.created_at || NaN);
+    const dia = !isNaN(fecha) ? new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York',
+      month: 'short', day: 'numeric', year: 'numeric' }).format(fecha) : '';
+    const flyer = typeof meta.flyer_url === 'string' ? meta.flyer_url : '';
+    _reenvio = {
+      id: c.id,
+      subject: c.subject || '',
+      tipo,
+      flyer,
+      conFlyer: !!flyer && flyer !== SPACER_FLYER,
+      cuando: dia ? `${c.sent_at ? 'sent' : 'created'} ${dia}` : '',
+    };
+    const $id = (id) => document.getElementById(id);
+    $id('promo-campaign-type').value = tipo;
+    $id('promo-selected-type').textContent = tipo;
+    $id('promo-header-label').value = typeof meta.email_type === 'string' ? meta.email_type : (ETIQUETA_POR_TIPO[tipo] || '');
+    $id('promo-subject').value = c.subject || '';
+    if (edPromo) edPromo.setHTML(c.html || '');
+    /* El texto de vista previa sólo si se escribió a mano: si era el que
+       sale solo del mensaje, se deja vacío para que siga al mensaje si lo
+       corriges. */
+    const pv = typeof meta.preview_text === 'string' ? meta.preview_text : '';
+    $id('promo-preview-text').value = pv && pv !== vistaPreviaDe(edPromo ? edPromo.getText() : '') ? pv.slice(0, 140) : '';
+    /* Para saber después si se tocó algo ("Start a new campaign"). */
+    _reenvio.asunto = $id('promo-subject').value;
+    _reenvio.html = edPromo ? edPromo.getHTML() : '';
+    pintarReenvio();
+    ponerSegmentoCampana('selected');
+  }
+
+  /* "Start a new campaign": sale del reenvío y deja el formulario en
+     blanco (como al abrirlo). */
+  async function salirDelReenvio() {
+    if (!_reenvio) return;
+    if (_preparandoCampana || (window.envioEnCurso && window.envioEnCurso('cerrar'))) return;
+    /* Si ya marcaste a alguien o cambiaste el texto, se pregunta. */
+    const tocado = _elegidosCampana.size > 0
+      || document.getElementById('promo-subject').value !== _reenvio.asunto
+      || (edPromo ? edPromo.getHTML() : '') !== _reenvio.html;
+    if (tocado && !(await window.confirmModal({
+      title: 'Start a new campaign?',
+      message: 'The resend you were preparing (and who you selected) will be lost.',
+      okLabel: 'Start new',
+      cancelLabel: 'Keep resending',
+      focusCancel: true,
+    }))) return;
+    cerrarCampanaYa();
+    await openSendPromo();
+  }
+
+  /* El modo reenvío: aviso arriba, tipo y flyer fijos, "All" apagado. */
+  function pintarReenvio() {
+    const en = !!_reenvio;
+    const $id = (id) => document.getElementById(id);
+    if ($id('promo-resend')) $id('promo-resend').hidden = !en;
+    if ($id('promo-type-field')) $id('promo-type-field').hidden = en;
+    if ($id('promo-seg-hint')) $id('promo-seg-hint').hidden = !en;
+    const todos = $id('promo-seg-all');
+    if (todos) todos.disabled = en;
+    if (en) {
+      if ($id('promo-event-selector-wrap')) $id('promo-event-selector-wrap').hidden = true;
+      if ($id('promo-other-flyer-wrap')) $id('promo-other-flyer-wrap').hidden = true;
+      $id('promo-resend-subject').textContent = _reenvio.subject || '(no subject)';
+      $id('promo-resend-when').textContent = _reenvio.cuando ? ` \u2014 ${_reenvio.cuando}` : '';
+      $id('promo-resend-sub').textContent = `${_reenvio.tipo} campaign · `
+        + (_reenvio.conFlyer ? 'same flyer as the original' : 'no flyer, like the original');
+    }
   }
 
   function pintarCampana() {
@@ -1527,16 +1729,16 @@
     const cp = $id('promo-preview-count');
     if (pv && cp) cp.textContent = `${pv.value.length}/140`;
 
-    /* La caja verde, sólo cuando hay a quién mandar. */
-    const ok = $id('promo-preview-ok');
-    if (ok) ok.hidden = !(_suscriptores > 0);
+    /* "Recipient Preview" y la caja verde (sólo cuando hay a quién mandar). */
+    pintarDestinatarios();
 
     const tipo = $id('promo-campaign-type')?.value || 'Other';
-    const conEvento = tipo === 'Tournament' || tipo === 'Ladder';
+    /* En un reenvío el flyer es el del original: no se elige evento. */
+    const conEvento = !_reenvio && (tipo === 'Tournament' || tipo === 'Ladder');
     const hecho = {
       subject: !!asuntoEl.value.trim(),
       message: largo > 0,
-      recipients: _suscriptores > 0,
+      recipients: _segmentoCampana === 'all' ? _suscriptores > 0 : _elegidosCampana.size > 0,
     };
     hecho.ready = hecho.subject && hecho.message && hecho.recipients
       && largoAsunto <= MAX_ASUNTO_CAMPANA && largo <= MAX_TEXTO_CAMPANA
@@ -1546,19 +1748,28 @@
     });
   }
 
-  const openSendPromo = async () => {
+  /* `reenvio` (ajuste 12): la campaña de History que se quiere volver a
+     mandar, ya leída: { id, subject, sent_at, html, meta }. */
+  const openSendPromo = async (reenvio = null) => {
     /* Reabrir el formulario con un envío en curso limpiaba el composer y
        se llevaba por delante el asunto y el mensaje de ESE envío, que
        todavía no ha contestado. Si sale parcial, el texto que hace
        falta para reintentar ya no existe. */
     if (window.envioEnCurso && window.envioEnCurso('abrir')) return;
+    /* Ni mientras se prepara un lanzamiento (la lista, la confirmación). */
+    if (_preparandoCampana) return;
     const panel = panelCampana();
     if (!panel) return;
 
     window.showPage('communications');
     /* Ya abierta con algo escrito (venía de Promotions, por ejemplo): se
-       va a ella sin borrar nada. */
-    if (campanaAbierta()) { panel.scrollIntoView({ block: 'start' }); return; }
+       va a ella sin borrar nada. Un reenvío, en cambio, es otra campaña:
+       si hay algo escrito, se pregunta antes de perderlo. */
+    if (campanaAbierta()) {
+      if (!reenvio) { panel.scrollIntoView({ block: 'start' }); return; }
+      if (!(await puedeDescartarCampana())) { panel.scrollIntoView({ block: 'start' }); return; }
+      cerrarCampanaYa();
+    }
     /* Un mensaje a medio escribir en el Hub: se pregunta antes. Con "Keep
        writing" se queda en él. */
     if (window.hubIrAOpciones && !(await window.hubIrAOpciones())) return;
@@ -1585,7 +1796,15 @@
     /* La cuenta de la vez anterior no vale: hasta que llegue la nueva,
        "—" y sin caja verde ni "Recipients selected". */
     _suscriptores = null;
+    _candidatosCampana = null;
     ponerCuenta('—', 'active subscribers', false);
+    /* A quién: todos, como siempre; la lista de elegidos, vacía. */
+    _reenvio = null;
+    _elegidosCampana = new Set();
+    const busca = document.getElementById('promo-search');
+    if (busca) busca.value = '';
+    pintarReenvio();
+    ponerSegmentoCampana('all');
 
     // Reset composer
     limpiarComposer();
@@ -1697,6 +1916,7 @@
        reenviar una campaña a propósito sigue funcionando: después de
        un envío correcto no queda ninguna, y aquí se pone una nueva. */
     claveador.asegurar();
+    claveadorElegidos.asegurar();
 
     /* Se enseña YA, antes de esperar a las cuentas de la derecha (que
        salen con "—" hasta que llegan). Si se enseñara al final, con la
@@ -1704,14 +1924,33 @@
        podían acabar abriendo dos formularios a la vez. */
     document.getElementById('co-send-home').hidden = true;
     panel.hidden = false;
+    /* Un reenvío desde History (ajuste 12): el formulario, ya relleno
+       con la campaña; tipo y flyer los del original, y a elegidos. Con el
+       panel ya visible: el texto de un editor escondido sale sin los
+       saltos de párrafo. */
+    if (reenvio) aplicarReenvio(reenvio);
     panel.scrollIntoView({ block: 'start' });
     /* En el móvil no: el teclado taparía el formulario (como en el Hub). */
-    if (window.matchMedia('(min-width: 769px)').matches) document.getElementById('promo-subject')?.focus();
+    if (window.matchMedia('(min-width: 769px)').matches) {
+      /* En un reenvío lo primero es buscar a la persona. */
+      document.getElementById(reenvio ? 'promo-search' : 'promo-subject')?.focus();
+    }
 
-    // Load audience + last campaign in parallel
+    await cargarAudienciaCampana();
+
+  };
+
+  /* La cuenta de suscriptores, la lista de "Selected Subscribers" y la
+     última campaña. Al abrir, y con "Try again" si falló (ajuste 12). */
+  async function cargarAudienciaCampana() {
+    /* Lo que llegue de una apertura anterior ya no se pinta. */
+    const vez = ++_vezCampana;
+    _errorAudiencia = false;
     try {
       const [subs, campanas] = await Promise.all([
-        api('subscribers?status=eq.active&select=id'),
+        /* Los activos, con nombre y correo: son la cuenta y también la
+           lista de "Selected Subscribers". */
+        api('subscribers?status=eq.active&select=id,first_name,last_name,email'),
         /* La última campaña sale de `communications`, que es donde la
            escribe ahora el servidor.
 
@@ -1721,16 +1960,21 @@
              aquí como "última campaña".
            · status=in.(sent,partial) — una campaña que falló del todo
              no es la última que se envió.
-           · se piden 5 y no 1, para poder descartar los ensayos
-             "solo a mí" sin filtrar por dentro del JSON. */
+           · sin los ensayos "solo a mí" ni los envíos a suscriptores
+             elegidos (un reenvío no es "la última campaña", decidido el
+             11 de octubre): lo filtra la base, así no se escapan aunque
+             haya muchos seguidos. */
         api('communications?kind=eq.promo&status=in.(sent,partial)'
-            + '&select=sent_at,meta&order=sent_at.desc&limit=5').catch(() => []),
+            + '&meta->>solo_admin=is.null&meta->>segment=is.null'
+            + '&select=sent_at,meta&order=sent_at.desc&limit=1').catch(() => []),
       ]);
+      if (vez !== _vezCampana) return;
 
       const count = subs.length;
+      guardarCandidatosCampana(subs);
       const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
-      ponerCuenta(count, count === 1 ? 'active subscriber' : 'active subscribers', false);
       _suscriptores = count;
+      if (_segmentoCampana === 'selected') pintarCandidatosCampana();
       pintarCampana();
 
       const recipEl = document.getElementById('promo-recipient-count');
@@ -1738,22 +1982,24 @@
          ve; lo que se ve es "Recipient Preview", arriba. */
       if (recipEl) recipEl.textContent = `${count} active subscriber${count !== 1 ? 's' : ''} will receive this campaign.`;
 
-      const last = (campanas || []).find(
-        (c) => c.sent_at && !(c.meta && c.meta.solo_admin)) || null;
+      const last = (campanas || []).find((c) => c.sent_at) || null;
       setEl('promo-last-sent', last ? _relTimePromo(last.sent_at) : 'No campaigns yet');
       setEl('promo-last-type', last ? (last.meta && last.meta.campaign_type) || 'General' : '');
 
     } catch (e) {
+      if (vez !== _vezCampana) return;
       const recipEl = document.getElementById('promo-recipient-count');
       if (recipEl) recipEl.textContent = 'Could not load audience data.';
       /* Que se vea (antes este aviso iba a un elemento escondido), en
          rojo y no con el aspecto de una cuenta. */
-      ponerCuenta('', 'Could not load audience data.', true);
+      ponerCuenta('', 'Could not load audience data.', 'error');
       _suscriptores = null;
+      _candidatosCampana = null;
+      _errorAudiencia = true;
+      pintarCandidatosCampana();
       pintarCampana();
     }
-
-  };
+  }
 
   const populateCampaignEventDropdown = async (type) => {
     const sel      = document.getElementById('promo-event-select');
@@ -1879,11 +2125,15 @@
   const textoVistaPrevia = (mensaje) => {
     const escrito = (document.getElementById('promo-preview-text')?.value || '').trim();
     if (escrito) return escrito.slice(0, 140);
+    return vistaPreviaDe(mensaje);
+  };
+  /* La que sale sola del mensaje (también la usa el reenvío, ajuste 12). */
+  function vistaPreviaDe(mensaje) {
     const limpio = sinMarcadores(mensaje);
     if (limpio.length <= 140) return limpio;
     // Corta en la última palabra entera, no a mitad de una.
     return limpio.slice(0, 140).replace(/\s+\S*$/, '') + '…';
-  };
+  }
 
   /* ─── UN SOLO SITIO QUE LEE EL FORMULARIO ──────────────────
      La prueba y el envío real leían los mismos cuatro campos con el
@@ -1920,7 +2170,11 @@
     const campaignType = document.getElementById('promo-campaign-type')?.value || 'Other';
 
     let flyerUrl = '';
-    if (campaignType === 'Tournament' || campaignType === 'Ladder') {
+    if (_reenvio) {
+      /* Un reenvío lleva el flyer del original, aunque su evento ya no
+         esté entre los próximos (ajuste 12). */
+      flyerUrl = _reenvio.flyer;
+    } else if (campaignType === 'Tournament' || campaignType === 'Ladder') {
       const sel = document.getElementById('promo-event-select');
       if (!sel || !sel.value) { toast('Please select an event.', true); return null; }
       flyerUrl = document.getElementById('promo-event-flyer-url')?.value || '';
@@ -1942,6 +2196,12 @@
     if (texto.length > MAX_TEXTO_CAMPANA) {
       toast(`The message is too long: ${texto.length} characters. `
         + `The limit is ${MAX_TEXTO_CAMPANA.toLocaleString('en-US')}.`, true);
+      return null;
+    }
+    /* El ensayo "solo a mí" sí se puede sin nadie marcado: va a ti. */
+    if (_segmentoCampana === 'selected' && !_elegidosCampana.size
+        && !document.getElementById('promo-only-me')?.checked) {
+      toast('Select at least one subscriber.', true);
       return null;
     }
     return { subject, message, texto, campaignType, flyerUrl };
@@ -1982,6 +2242,11 @@
      lleva dos trozos— está explicado en admin-email-utils.js, donde lo
      comparten las cuatro pantallas que mandan en lote. */
   const claveador = window.crearClaveador('promo');
+  /* Los envíos a elegidos (y los reenvíos) llevan su propia clave
+     (ajuste 12): si un reenvío sale bien, NO se borra la clave de una
+     campaña a todos que se cortó y está pendiente de reintentar. */
+  const claveadorElegidos = window.crearClaveador('promo-sel');
+  const claveDe = (elegidos) => (elegidos ? claveadorElegidos : claveador);
 
   /* La casilla de ensayo y la etiqueta del botón van juntas. El
      mecanismo vive en admin-email-utils.js: lo comparten las cuatro
@@ -1993,7 +2258,7 @@
   const nombreDe = window.nombreDestinatario;
   const resumenEnvio = window.resumenEnvio;
 
-  const sendPromoEmail = async (e) => {
+  const enviarCampana = async (e) => {
     e.preventDefault();
 
     if (window.AdminState.emailInFlight) {
@@ -2015,6 +2280,10 @@
        de verdad— dejaba el botón diciendo lo contrario de lo que se
        acababa de mandar. */
     ensayo.bloquear(true);
+    /* A quién, leído UNA vez aquí (ajuste 12): null = todos los activos;
+       si no, los ids marcados en "Selected Subscribers". */
+    const elegidos = _segmentoCampana === 'selected' ? new Set(_elegidosCampana) : null;
+    const reenvioDe = elegidos && _reenvio ? _reenvio.id : null;
 
 
     const baseUrl = window.location.origin + window.location.pathname.replace('admin.html', '');
@@ -2046,6 +2315,21 @@
         toast(`Error: ${err.message}`, true);
         ensayo.bloquear(false);   // soltar la casilla al salir por aquí
         return;
+      }
+      /* "Selected Subscribers" (ajuste 12): sólo los marcados, y sólo si
+         SIGUEN activos — la lista se acaba de leer otra vez, justo ahora.
+         Quien se dio de baja entretanto no recibe nada, y se dice. */
+      let yaNoActivos = 0;
+      if (elegidos) {
+        const total = elegidos.size;
+        subs = subs.filter((x) => elegidos.has(x.id));
+        yaNoActivos = total - subs.length;
+        if (!subs.length) {
+          toast(total === 1 ? 'That subscriber is no longer active, so nothing was sent.'
+                            : 'None of the selected subscribers is still active, so nothing was sent.', true);
+          ensayo.bloquear(false);
+          return;
+        }
       }
       if (!subs.length) {
         toast('No active subscribers to send to.', true);
@@ -2094,7 +2378,9 @@
             unsubscribe_url: `${baseUrl}unsubscribe.html?t=${s.unsubscribe_token}`,
           },
         })),
-        copiaAdmin,
+        /* Tu copia sólo al mandar a todos: a elegidos va sin copia
+           (decidido el 11 de octubre). */
+        ...(elegidos ? [] : [copiaAdmin]),
       ];
 
       /* ─── ÚLTIMA PARADA ANTES DE 450 CORREOS ─────────────────
@@ -2114,12 +2400,17 @@
          `subs.length`, que contaba también a quien no tiene enlace de
          baja: la ventana prometía 453 y salían 452. */
       const cuantos = conEnlace.length;
+      const fuera = yaNoActivos
+        ? ` ${yaNoActivos} of the subscribers you chose ${yaNoActivos === 1 ? 'is' : 'are'} no longer active and won't receive it.`
+        : '';
       const seguro = await confirmModal({
         title:   `Send this campaign to ${cuantos} subscriber${cuantos === 1 ? '' : 's'}?`,
         /* Empieza con el cursor en Cancel: manda correos y eso no se deshace. */
         focusCancel: true,
-        message: `"${datos.subject}" will be emailed to ${cuantos} active subscriber`
-               + `${cuantos === 1 ? '' : 's'}, plus a copy to you. This cannot be undone.`
+        message: (elegidos
+          ? `"${datos.subject}" will be emailed to ${cuantos} selected subscriber${cuantos === 1 ? '' : 's'}. This cannot be undone.${fuera}`
+          : `"${datos.subject}" will be emailed to ${cuantos} active subscriber`
+            + `${cuantos === 1 ? '' : 's'}, plus a copy to you. This cannot be undone.`)
                + window.avisoSinEnlaceDeBaja(sinEnlace.length)
                /* Una sola frase seguida: confirmModal pinta con
                   textContent y sin white-space:pre-line, así que un
@@ -2160,11 +2451,22 @@
           ...metaPromo(datos),
           /* Marca el ensayo para que no cuente como "Last Campaign". */
           ...(soloAdmin ? { solo_admin: true } : {}),
+          /* Un envío a elegidos (o un reenvío) tampoco cuenta como "Last
+             Campaign", y en History se sabe de qué campaña es copia. */
+          ...(elegidos ? { segment: 'selected' } : {}),
+          ...(reenvioDe ? { resend_of: reenvioDe } : {}),
         },
         recipients,
         idempotency_key: soloAdmin ? null
-          : await claveador.clave([datos.subject, datos.message,
-                                   datos.campaignType, datos.flyerUrl]),
+          : await claveDe(elegidos).clave([datos.subject, datos.message,
+                                   datos.campaignType, datos.flyerUrl,
+                                   /* A quién también, pero sólo "todos" o
+                                      "elegidos", no la lista: si un envío a
+                                      elegidos se corta y se reintenta con
+                                      alguien más marcado, se RETOMA (el
+                                      servidor añade a los nuevos y no repite
+                                      a quien ya lo recibió). */
+                                   elegidos ? 'selected' : 'all']),
       });
     } finally {
       /* En finally: si esto no se limpia, `emailInFlight` se queda en
@@ -2244,7 +2546,7 @@
       /* Una campaña nueva tiene que renovar la clave: si no, volver a
          lanzar la misma campaña más tarde chocaría con la de este
          envío y no mandaría nada. */
-      claveador.limpiar();
+      claveDe(elegidos).limpiar();
       /* "Campaign launched!" sólo si LANZÓ algo. Con todas las
          direcciones agotadas, `mensajeExito` ya dice "Nothing was sent"
          —y le quita el ✅ a propósito— pero este prefijo volvía a
@@ -2256,7 +2558,8 @@
          `d.sent`. Con todas las direcciones de la lista agotadas y sólo
          su copia entregada, `d.sent` vale 1 y el aviso decía "Campaign
          launched!" de una campaña que no llegó a ningún suscriptor. */
-      const salio = (d.sent || 0) + (d.already_sent || 0) > 1;
+      /* A elegidos no va copia: ahí basta con uno (ajuste 12). */
+      const salio = (d.sent || 0) + (d.already_sent || 0) > (elegidos ? 0 : 1);
       toast(`${salio ? 'Campaign launched! ' : ''}`
             + `${window.mensajeExito(d)}${window.loQueFalto(d)}${window.loQueEntro(d)}`
             + window.avisoSinEnlaceDeBaja(sinEnlace.length),
@@ -2281,7 +2584,33 @@
 
   // Own these listeners directly (DOM is already parsed by the time this
   // script runs, same as every other listener).
+  /* Mientras se prepara un envío (la lista, la confirmación), no se
+     puede salir del reenvío ni lanzar otro (ajuste 12). */
+  const sendPromoEmail = async (e) => {
+    e.preventDefault();
+    if (_preparandoCampana) return;
+    _preparandoCampana = true;
+    try { await enviarCampana(e); } finally { _preparandoCampana = false; }
+  };
   document.getElementById('promo-form')?.addEventListener('submit', sendPromoEmail);
+
+  /* "Selected Subscribers" (ajuste 12): marcar y buscar. Una vez, al
+     cargar; la lista se vuelve a pintar entera, los escuchadores no. */
+  document.getElementById('promo-pick-list')?.addEventListener('change', (e) => {
+    const caja = e.target.closest('input[type="checkbox"]');
+    if (!caja) return;
+    const id = Number(caja.value);
+    if (caja.checked) _elegidosCampana.add(id); else _elegidosCampana.delete(id);
+    pintarCampana();
+  });
+  document.getElementById('promo-search')?.addEventListener('input', filtrarCandidatosCampana);
+  /* Enter en el buscador no debe mandar la campaña (está dentro del formulario). */
+  document.getElementById('promo-search')?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') e.preventDefault();
+  });
+
+  /* "Resend to…" de History (admin-communications.js). */
+  window.campanaReenviar = (campana) => openSendPromo(campana);
   document.getElementById('sub-status-filter')?.addEventListener('change', () => { _subsShown = 25; _renderSubsTable(); });
   document.getElementById('sub-search')?.addEventListener('input', () => { _subsShown = 25; _renderSubsTable(); });
   document.getElementById('sub-source-filter')?.addEventListener('change', () => { _subsShown = 25; _renderSubsTable(); });
@@ -2386,6 +2715,14 @@
     closeSubView:        () => window.closeSubView(),
     closeSubConvert:     () => window.closeSubConvert(),
     openSendPromo: () => openSendPromo(),
+    promoSegment: (btn) => { if (!btn.disabled) ponerSegmentoCampana(btn.dataset.segment); },
+    promoResendExit: () => salirDelReenvio(),
+    promoReloadAudience: () => {
+      ponerCuenta('—', 'active subscribers', false);
+      _errorAudiencia = false;
+      pintarCandidatosCampana();
+      cargarAudienciaCampana();
+    },
     closePromoModal: () => cerrarCampana(),
     generateQR: () => generateQR(),
   });

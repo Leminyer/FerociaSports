@@ -24,7 +24,7 @@
 <link rel="stylesheet" href="admin-components.css?v=20261008a">
 <link rel="stylesheet" href="admin-pages.css?v=20261001c">
 <link rel="stylesheet" href="admin-ftc.css?v=20260928b">
-<link rel="stylesheet" href="admin-comms-hub.css?v=20261011j">
+<link rel="stylesheet" href="admin-comms-hub.css?v=20261011k">
 
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="config.js?v=20260929j"></script>
@@ -1995,7 +1995,36 @@
 
           <form id="promo-form" class="hub-grid">
             <div class="hub-card hub-area-form">
-              <div class="hub-field">
+              <!-- Reenviar una campaña (ajuste 12): "Resend to…" en History
+                   abre este formulario ya relleno con esa campaña. El tipo y
+                   el flyer quedan fijos (los del original) y sólo se puede
+                   mandar a suscriptores elegidos. -->
+              <div class="promo-resend" id="promo-resend" hidden>
+                <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                <span class="promo-resend-text">
+                  <strong>Resending:</strong> &ldquo;<span id="promo-resend-subject"></span>&rdquo;<span id="promo-resend-when"></span>
+                  <span class="promo-resend-sub" id="promo-resend-sub"></span>
+                </span>
+                <button type="button" class="hub-attach-btn" data-action="promoResendExit">Start a new campaign</button>
+              </div>
+
+              <!-- A quién (ajuste 12): todos los suscriptores activos, o los
+                   que se elijan. Como "Recipients" del Hub. -->
+              <div class="hub-step" id="promo-step-recipients">
+                <h3 class="hub-card-title">Recipients</h3>
+                <p class="hub-card-sub">Choose who should receive this campaign.</p>
+                <div class="hub-chips" id="promo-segments" role="group" aria-label="Recipients">
+                  <button type="button" class="co-pfilter co-pfilter-on" aria-pressed="true" data-action="promoSegment" data-segment="all" id="promo-seg-all"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="8" r="3.2"/><circle cx="5" cy="9.6" r="2.4"/><circle cx="19" cy="9.6" r="2.4"/><path d="M6.5 19v-.5a5.5 5.5 0 0 1 11 0v.5z"/><path d="M.5 19v-.6c0-2 1.6-3.6 3.6-3.6h1.4a7 7 0 0 0-.7 3.6v.6z"/><path d="M23.5 19v-.6c0-2-1.6-3.6-3.6-3.6h-1.4a7 7 0 0 1 .7 3.6v.6z"/></svg>All Subscribers</button>
+                  <button type="button" class="co-pfilter" aria-pressed="false" data-action="promoSegment" data-segment="selected" id="promo-seg-selected"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Selected Subscribers</button>
+                </div>
+                <div class="hub-hint hub-hint-after" id="promo-seg-hint" hidden>A resend goes only to the subscribers you choose.</div>
+                <div class="hub-sub-step" id="promo-selected-wrap" hidden>
+                  <input type="search" class="hub-input" id="promo-search" placeholder="Search subscribers..." autocomplete="off" aria-label="Search subscribers">
+                  <div class="hub-pick-list" id="promo-pick-list"></div>
+                </div>
+              </div>
+
+              <div class="hub-field" id="promo-type-field">
                 <div class="hub-field-label" id="promo-type-label">Campaign Type</div>
                 <div class="hub-chips" id="promo-type-pills" role="group" aria-labelledby="promo-type-label">
                   <button type="button" class="promo-type-pill active" aria-pressed="true" data-type="Tournament"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/></svg>Tournament</button>
@@ -2093,14 +2122,14 @@
                   <span class="hub-mini-icon"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="8" r="3.2"/><circle cx="5" cy="9.6" r="2.4"/><circle cx="19" cy="9.6" r="2.4"/><path d="M6.5 19v-.5a5.5 5.5 0 0 1 11 0v.5z"/><path d="M.5 19v-.6c0-2 1.6-3.6 3.6-3.6h1.4a7 7 0 0 0-.7 3.6v.6z"/><path d="M23.5 19v-.6c0-2-1.6-3.6-3.6-3.6h-1.4a7 7 0 0 1 .7 3.6v.6z"/></svg></span>
                   <h3 class="hub-card-title" id="promo-preview-title">Recipient Preview</h3>
                 </div>
-                <div class="hub-preview">
+                <div class="hub-preview" aria-live="polite">
                   <div class="hub-count"><span id="promo-audience-count">&mdash;</span> <span id="promo-audience-word">active subscribers</span></div>
                 </div>
                 <div class="hub-ok" id="promo-preview-ok" hidden>
                   <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="7.5 12.5 10.5 15.5 16.5 9"/></svg>
                   <span class="hub-ok-text">
-                    <strong>All active subscribers selected</strong>
-                    <span>This campaign will be sent to all your active subscribers.</span>
+                    <strong id="promo-ok-title">All active subscribers selected</strong>
+                    <span id="promo-ok-sub">This campaign will be sent to all your active subscribers.</span>
                   </span>
                 </div>
                 <!-- Para el código de siempre; no se ve. -->
@@ -3241,6 +3270,14 @@
         </div>
       </div>
 
+      <!-- Reenviar una campaña a quien no la recibió (ajuste 12). Sólo
+           en las campañas; lo enseña admin-communications.js cuando ya
+           llegó el mensaje. -->
+      <div class="co-det-resend" id="co-det-resend" hidden>
+        <span class="co-det-resend-text">Someone didn&rsquo;t get it? Send this campaign again only to them.</span>
+        <button type="button" class="hub-attach-btn" id="co-det-resend-btn" data-action="commResendCampaign">Resend to&hellip;</button>
+      </div>
+
       <!-- El mensaje que se escribió -->
       <div>
         <div style="font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px;">Message</div>
@@ -3763,10 +3800,10 @@
 <script src="admin-sessions.js?v=20260928b"></script>
 <script src="admin-print-roster.js?v=20260928b"></script>
 <script src="admin-ladder-management.js?v=20261008a"></script>
-<script src="admin-communications.js?v=20261011e"></script>
+<script src="admin-communications.js?v=20261011f"></script>
 <script src="admin-comms-hub.js?v=20261011e"></script>
 <script src="admin-comms-results.js?v=20261011d"></script>
-<script src="admin-promotions.js?v=20261011b"></script>
+<script src="admin-promotions.js?v=20261011c"></script>
 <script src="admin-subscriber-reminder.js?v=20261005a"></script>
 <script src="admin-newsletter.js?v=20261005b"></script>
 <!-- TEMPORARY: fills in missing dates of birth from a CSV import.

@@ -490,6 +490,9 @@
       `${pastillaTipo(enLista.kind)} <span style="font-size:11px;font-weight:600;color:var(--text-muted);margin-left:8px;">${window.esc(cuando(enLista.sent_at || enLista.created_at))}</span>`;
     document.getElementById('co-det-body').innerHTML = cargando('Loading message...');
     document.getElementById('co-det-attach').hidden = true;
+    /* "Resend to…" (ajuste 12): sólo en campañas, y cuando ya llegó el
+       mensaje (se reenvía ESE texto). */
+    document.getElementById('co-det-resend').hidden = true;
 
     document.querySelectorAll('#co-det-filters .co-pfilter').forEach((b) => {
       b.classList.toggle('co-pfilter-on', (b.dataset.pf || '') === '');
@@ -522,6 +525,7 @@
       _abierto.body
         ? limpiarCuerpo(_abierto.body)
         : '<em style="color:var(--text-muted);">(no message body)</em>';
+    document.getElementById('co-det-resend').hidden = !(_abierto.kind === 'promo' && _abierto.body);
 
     /* El PDF que fue adjunto, si lo hubo (entregable 4). */
     const adj = _abierto.meta && _abierto.meta.attachment;
@@ -551,6 +555,25 @@
        (_vez): recargarla con la ventana abierta tiraría lo que la ventana
        estuviera leyendo. */
     if (_recargarAlCerrar) { _recargarAlCerrar = false; cargarEnvios(true); }
+  }
+
+  /* "Resend to…" (ajuste 12): abre el formulario de Campaign relleno con
+     ESTA campaña, para mandársela sólo a quien se elija. El mensaje va
+     limpio, como se enseña aquí (sin scripts ni on…); uno antiguo de
+     texto plano se pasa a HTML. */
+  function reenviarCampana() {
+    const c = _abierto;
+    if (!c || c.kind !== 'promo' || !c.body) return;
+    if (window.envioEnCurso && window.envioEnCurso('abrir')) return;
+    const html = c.meta && c.meta.cuerpo_html
+      ? limpiarCuerpo(c.body)
+      : window.FerociaEditor.textoAHTML(String(c.body));
+    const datos = { id: c.id, subject: c.subject, sent_at: c.sent_at, created_at: c.created_at, html, meta: c.meta || {} };
+    /* El cursor no se queda en un botón de la ventana que se cierra
+       (en el móvil no se lleva a ningún campo: el teclado taparía todo). */
+    document.activeElement?.blur?.();
+    cerrarDetalle();
+    window.campanaReenviar?.(datos);
   }
 
   /** Trae una página de destinatarios del envío abierto. */
@@ -1176,6 +1199,7 @@
     },
     openCommDetail:     (btn) => abrirDetalle(btn.dataset.commid),
     closeCommDetail:    () => cerrarDetalle(),
+    commResendCampaign: () => reenviarCampana(),
     loadMoreCommPeople: () => cargarPersonas(false),
     retryComm:          () => reintentar(),
     filterCommPeople:   (btn) => {
