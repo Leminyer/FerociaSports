@@ -24,7 +24,7 @@
 <link rel="stylesheet" href="admin-components.css?v=20261008a">
 <link rel="stylesheet" href="admin-pages.css?v=20261001c">
 <link rel="stylesheet" href="admin-ftc.css?v=20260928b">
-<link rel="stylesheet" href="admin-comms-hub.css?v=20261011h">
+<link rel="stylesheet" href="admin-comms-hub.css?v=20261011i">
 
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="config.js?v=20260929j"></script>
@@ -2136,161 +2136,229 @@
 
       <!-- COMMUNICATIONS HUB: a quién se le escribe.
            Lo maneja admin-comms-hub.js; los estilos, admin-comms-hub.css.
-           Los textos que cambian según la audiencia los pone el script. -->
-      <div class="card hub-panel" id="hub-panel" hidden>
-
-        <div class="hub-head">
+           Diseño del 11 de octubre: "All channels" a la izquierda, fuera;
+           a la derecha el encabezado y dos columnas: el formulario (y debajo
+           la casilla de ensayo con el botón) y, al lado, la vista previa,
+           "Quick Tips" y "Message Checklist". Los textos que cambian según
+           la audiencia los pone el script. -->
+      <div class="hub-panel" id="hub-panel" hidden>
+        <div class="hub-aside">
           <button type="button" class="hub-back" data-action="hubClose">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
             All channels
           </button>
-          <div class="hub-title" id="hub-title"></div>
-          <div class="hub-sub" id="hub-sub"></div>
         </div>
 
-        <div class="hub-step" id="hub-step-audience">
-          <label class="hub-label" for="hub-audience-select"><span id="hub-audience-label"></span></label>
-          <select class="hub-select" id="hub-audience-select"></select>
+        <div class="hub-main">
+          <div class="hub-top">
+            <span class="hub-top-icon">
+              <span data-icon="all_players"><svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="8" r="3.2"/><circle cx="5" cy="9.6" r="2.4"/><circle cx="19" cy="9.6" r="2.4"/><path d="M6.5 19v-.5a5.5 5.5 0 0 1 11 0v.5z"/><path d="M.5 19v-.6c0-2 1.6-3.6 3.6-3.6h1.4a7 7 0 0 0-.7 3.6v.6z"/><path d="M23.5 19v-.6c0-2-1.6-3.6-3.6-3.6h-1.4a7 7 0 0 1 .7 3.6v.6z"/></svg></span>
+              <span data-icon="ladder" hidden><svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 6h11"/><path d="M10 12h11"/><path d="M10 18h11"/><path d="M4 4.5l1-.5v4"/><path d="M4 8h2"/><path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1"/></svg></span>
+              <span data-icon="tournament" hidden><svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/></svg></span>
+            </span>
+            <div class="hub-top-text">
+              <h2 class="hub-title" id="hub-title"></h2>
+              <p class="hub-sub" id="hub-sub"></p>
+            </div>
+          </div>
+
+          <div class="hub-grid">
+            <div class="hub-card hub-area-form">
+              <div class="hub-step" id="hub-step-audience">
+                <label class="hub-label" for="hub-audience-select"><span id="hub-audience-label"></span></label>
+                <select class="hub-select" id="hub-audience-select"></select>
+              </div>
+
+              <div class="hub-step" id="hub-step-recipients" hidden>
+                <h3 class="hub-card-title">Recipients</h3>
+                <p class="hub-card-sub">Choose who should receive this message.</p>
+                <div class="hub-chips" id="hub-segments" role="group" aria-label="Recipients">
+                  <button type="button" class="co-pfilter" aria-pressed="false" data-action="hubSegment" data-segment="all" id="hub-seg-all"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="8" r="3.2"/><circle cx="5" cy="9.6" r="2.4"/><circle cx="19" cy="9.6" r="2.4"/><path d="M6.5 19v-.5a5.5 5.5 0 0 1 11 0v.5z"/><path d="M.5 19v-.6c0-2 1.6-3.6 3.6-3.6h1.4a7 7 0 0 0-.7 3.6v.6z"/><path d="M23.5 19v-.6c0-2-1.6-3.6-3.6-3.6h-1.4a7 7 0 0 1 .7 3.6v.6z"/></svg><span id="hub-seg-all-text"></span></button>
+                  <button type="button" class="co-pfilter" aria-pressed="false" data-action="hubSegment" data-segment="divisions" id="hub-seg-divisions"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>Specific Divisions</button>
+                  <button type="button" class="co-pfilter" aria-pressed="false" data-action="hubSegment" data-segment="poll" id="hub-seg-poll" hidden><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>By Poll Answer</button>
+                  <button type="button" class="co-pfilter" aria-pressed="false" data-action="hubSegment" data-segment="selected" id="hub-seg-selected"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Selected Players</button>
+                </div>
+
+                <div class="hub-sub-step" id="hub-divisions-wrap" hidden>
+                  <div class="hub-hint">Choose one or more divisions.</div>
+                  <div class="hub-chips" id="hub-divisions" role="group" aria-label="Divisions"></div>
+                </div>
+
+                <!-- Los grupos por respuesta (entregable 7): sólo en escaleras con
+                     alguna encuesta enviada. admin-comms-hub.js rellena la lista
+                     de encuestas y sus respuestas. -->
+                <div class="hub-sub-step" id="hub-seg-poll-wrap" hidden>
+                  <div class="hub-field">
+                    <label class="hub-field-label" for="hub-seg-poll-select">Poll</label>
+                    <select class="hub-select" id="hub-seg-poll-select"></select>
+                  </div>
+                  <div class="hub-field-label" id="hub-seg-answers-label">Answer</div>
+                  <div class="hub-chips" id="hub-seg-answers" role="group" aria-labelledby="hub-seg-answers-label"></div>
+                </div>
+
+                <div class="hub-sub-step" id="hub-selected-wrap" hidden>
+                  <input type="search" class="hub-input" id="hub-search" placeholder="Search players..." autocomplete="off" aria-label="Search players">
+                  <div class="hub-pick-list" id="hub-pick-list"></div>
+                </div>
+              </div>
+
+              <div class="hub-step" id="hub-step-compose" hidden>
+                <!-- Qué se manda: un anuncio o una encuesta (entregable 5). Sólo
+                     en escaleras y torneos; la disponibilidad, sólo en escaleras.
+                     admin-comms-hub.js enseña los que tocan. -->
+                <div class="hub-field" id="hub-kind-wrap" hidden>
+                  <div class="hub-field-label" id="hub-kind-label">Type</div>
+                  <div class="hub-chips" id="hub-kinds" role="group" aria-labelledby="hub-kind-label">
+                    <button type="button" class="co-pfilter" aria-pressed="false" data-action="hubKind" data-kind="announcement">Announcement</button>
+                    <button type="button" class="co-pfilter" aria-pressed="false" data-action="hubKind" data-kind="availability" id="hub-kind-availability">Weekly Availability</button>
+                    <button type="button" class="co-pfilter" aria-pressed="false" data-action="hubKind" data-kind="custom">Custom Poll</button>
+                  </div>
+                </div>
+
+                <div class="hub-field" id="hub-preset-wrap" hidden>
+                  <label class="hub-field-label" for="hub-preset">Notification Type</label>
+                  <!-- Las opciones dependen de la audiencia: las pone admin-comms-hub.js. -->
+                  <select class="hub-select" id="hub-preset"></select>
+                </div>
+
+                <div class="hub-field">
+                  <div class="hub-field-row">
+                    <label class="hub-field-label" for="hub-subject">Email Subject <span class="hub-req">*</span></label>
+                    <span class="hub-count-chars" id="hub-subject-count">0/120</span>
+                  </div>
+                  <input type="text" class="hub-input" id="hub-subject" maxlength="120" autocomplete="off"
+                         placeholder="Write a clear and engaging subject...">
+                </div>
+
+                <!-- La encuesta: sólo con Weekly Availability o Custom Poll. -->
+                <div id="hub-poll-wrap" hidden>
+                  <div class="hub-field" id="hub-session-wrap">
+                    <label class="hub-field-label" for="hub-session">Session Date <span class="hub-req">*</span></label>
+                    <input type="date" class="hub-input hub-input-short" id="hub-session">
+                  </div>
+                  <div class="hub-field">
+                    <label class="hub-field-label" for="hub-question">Question <span class="hub-req">*</span></label>
+                    <input type="text" class="hub-input" id="hub-question" maxlength="300" autocomplete="off">
+                  </div>
+                  <div class="hub-field">
+                    <div class="hub-field-label" id="hub-options-label">Answers</div>
+                    <!-- Las de la disponibilidad son fijas; las de una encuesta
+                         propia se escriben aquí (de 2 a 6). -->
+                    <div class="hub-poll-fixed" id="hub-options-fixed">YES &mdash; I&rsquo;m playing &middot; NO &mdash; I can&rsquo;t play &middot; MAYBE</div>
+                    <div class="hub-options" id="hub-options" role="group" aria-labelledby="hub-options-label"></div>
+                    <button type="button" class="hub-attach-btn" id="hub-option-add" data-action="hubOptionAdd">+ Add answer</button>
+                    <div class="hub-hint hub-hint-after" id="hub-options-hint">From 2 to 6 answers. Players choose one.</div>
+                  </div>
+                  <div class="hub-field">
+                    <label class="hub-field-label" for="hub-deadline">Response Deadline <span class="hub-req">*</span></label>
+                    <input type="datetime-local" class="hub-input hub-input-short" id="hub-deadline" aria-describedby="hub-deadline-hint">
+                    <div class="hub-hint hub-hint-after" id="hub-deadline-hint">Florida time. Players can change their answer until then.</div>
+                  </div>
+                </div>
+
+                <!-- hub-field-roomy: más aire debajo de la nota del mensaje,
+                     antes de "Attachment" (pedido el 10 de octubre). -->
+                <div class="hub-field hub-field-roomy">
+                  <div class="hub-field-label" id="hub-message-label">Message <span class="hub-req" id="hub-message-req">*</span><span class="hub-attach-opt" id="hub-message-opt" hidden>(optional)</span></div>
+                  <div class="hub-editor">
+                    <!-- La barra de formato la fabrica admin-rich-editor.js. -->
+                    <div class="promo-fmt-toolbar hub-toolbar" id="hub-fmt-bar"></div>
+                    <div class="hub-editor-area" id="hub-message" contenteditable="true" data-placeholder="Write your message here..." role="textbox" aria-multiline="true" aria-labelledby="hub-message-label" aria-describedby="hub-message-hint"></div>
+                  </div>
+                  <div class="hub-count-chars hub-count-after" id="hub-message-count">0/5000</div>
+                  <div class="hub-info"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg><span id="hub-message-hint"></span></div>
+                </div>
+
+                <!-- El PDF adjunto: sólo en escaleras y torneos. -->
+                <div class="hub-field" id="hub-attach-wrap" hidden>
+                  <div class="hub-field-label" id="hub-attach-label">Attachment <span class="hub-attach-opt">(optional · PDF, max 10 MB)</span></div>
+                  <input type="file" id="hub-attach-input" accept="application/pdf,.pdf" aria-labelledby="hub-attach-label" hidden>
+                  <button type="button" class="hub-attach-btn" id="hub-attach-btn" data-action="hubAttachPick">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                    <span id="hub-attach-btn-text">Attach PDF</span>
+                  </button>
+                  <div class="hub-attach-file" id="hub-attach-file" hidden>
+                    <span class="hub-attach-icon">PDF</span>
+                    <span class="hub-attach-text">
+                      <span class="hub-attach-name" id="hub-attach-name"></span>
+                      <span class="hub-attach-size" id="hub-attach-size"></span>
+                    </span>
+                    <button type="button" class="hub-attach-remove" data-action="hubAttachRemove">Remove</button>
+                  </div>
+                  <div class="hub-hint hub-hint-after" id="hub-attach-hint" hidden>With an attachment, the emails go out one by one — about a second each.</div>
+                </div>
+
+              </div>
+            </div>
+
+            <div class="hub-card hub-area-send" id="hub-step-send" hidden>
+                <div class="hub-send-row">
+                  <label class="hub-test" for="hub-only-me">
+                    <input type="checkbox" id="hub-only-me" aria-describedby="hub-only-me-help">
+                    <span class="hub-test-icon"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M2 6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v.4l-10 6.2L2 6.4z"/><path d="M2 8.7l10 6.2 10-6.2V18a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2z"/></svg></span>
+                    <span class="hub-test-text">
+                      Send only to me
+                      <span class="hub-test-help" id="hub-only-me-help">Real send, fully logged &mdash; but only you receive it.</span>
+                    </span>
+                  </label>
+                  <button type="button" class="hub-send-btn" id="hub-send-btn" data-action="hubSend">
+                    <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                    Send Email
+                  </button>
+                </div>
+            </div>
+
+            <div class="hub-area-side">
+              <section class="hub-card" id="hub-step-preview" hidden aria-labelledby="hub-preview-title">
+                <div class="hub-card-head">
+                  <span class="hub-mini-icon"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="8" r="3.2"/><circle cx="5" cy="9.6" r="2.4"/><circle cx="19" cy="9.6" r="2.4"/><path d="M6.5 19v-.5a5.5 5.5 0 0 1 11 0v.5z"/><path d="M.5 19v-.6c0-2 1.6-3.6 3.6-3.6h1.4a7 7 0 0 0-.7 3.6v.6z"/><path d="M23.5 19v-.6c0-2-1.6-3.6-3.6-3.6h-1.4a7 7 0 0 1 .7 3.6v.6z"/></svg></span>
+                  <h3 class="hub-card-title" id="hub-preview-title">Recipient Preview</h3>
+                </div>
+                <div class="hub-preview" id="hub-preview" aria-live="polite"></div>
+                <button type="button" class="hub-view-btn" id="hub-view-btn" data-action="hubTogglePeople" aria-haspopup="dialog" hidden>
+                  <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                  <span>View recipients</span>
+                  <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                </button>
+                <div class="hub-ok" id="hub-preview-ok" hidden>
+                  <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="7.5 12.5 10.5 15.5 16.5 9"/></svg>
+                  <span class="hub-ok-text">
+                    <strong id="hub-ok-title"></strong>
+                    <span id="hub-ok-sub"></span>
+                  </span>
+                </div>
+              </section>
+
+              <section class="hub-card" aria-labelledby="hub-tips-title">
+                <div class="hub-card-head">
+                  <span class="hub-tips-icon"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"/></svg></span>
+                  <h3 class="hub-card-title" id="hub-tips-title">Quick Tips</h3>
+                </div>
+                <ul class="hub-tips">
+                  <li>Use a clear and specific subject line.</li>
+                  <li>Keep your message concise and easy to read.</li>
+                  <li>Include key details (dates, times, location).</li>
+                  <li>You can use links, images and emojis.</li>
+                </ul>
+              </section>
+
+              <section class="hub-card" aria-labelledby="hub-check-title">
+                <div class="hub-card-head">
+                  <span class="hub-check-icon"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg></span>
+                  <h3 class="hub-card-title" id="hub-check-title">Message Checklist</h3>
+                </div>
+                <ul class="hub-checklist" id="hub-checklist">
+                  <li data-check="subject"><span class="hub-check-mark"></span>Subject line added</li>
+                  <li data-check="message"><span class="hub-check-mark"></span>Message content added</li>
+                  <li data-check="recipients"><span class="hub-check-mark"></span>Recipients selected</li>
+                  <li data-check="ready"><span class="hub-check-mark"></span>Ready to send</li>
+                </ul>
+              </section>
+            </div>
+          </div>
         </div>
-
-        <div class="hub-step" id="hub-step-recipients" hidden>
-          <div class="hub-label">Recipients</div>
-          <div class="hub-chips" id="hub-segments" role="group" aria-label="Recipients">
-            <button type="button" class="co-pfilter" aria-pressed="false" data-action="hubSegment" data-segment="all" id="hub-seg-all"></button>
-            <button type="button" class="co-pfilter" aria-pressed="false" data-action="hubSegment" data-segment="divisions" id="hub-seg-divisions">Specific Divisions</button>
-            <button type="button" class="co-pfilter" aria-pressed="false" data-action="hubSegment" data-segment="poll" id="hub-seg-poll" hidden>By Poll Answer</button>
-            <button type="button" class="co-pfilter" aria-pressed="false" data-action="hubSegment" data-segment="selected" id="hub-seg-selected">Selected Players</button>
-          </div>
-
-          <div class="hub-sub-step" id="hub-divisions-wrap" hidden>
-            <div class="hub-hint">Choose one or more divisions.</div>
-            <div class="hub-chips" id="hub-divisions" role="group" aria-label="Divisions"></div>
-          </div>
-
-          <!-- Los grupos por respuesta (entregable 7): sólo en escaleras con
-               alguna encuesta enviada. admin-comms-hub.js rellena la lista
-               de encuestas y sus respuestas. -->
-          <div class="hub-sub-step" id="hub-seg-poll-wrap" hidden>
-            <div class="hub-field">
-              <label class="hub-field-label" for="hub-seg-poll-select">Poll</label>
-              <select class="hub-select" id="hub-seg-poll-select"></select>
-            </div>
-            <div class="hub-field-label" id="hub-seg-answers-label">Answer</div>
-            <div class="hub-chips" id="hub-seg-answers" role="group" aria-labelledby="hub-seg-answers-label"></div>
-          </div>
-
-          <div class="hub-sub-step" id="hub-selected-wrap" hidden>
-            <input type="search" class="hub-input" id="hub-search" placeholder="Search players..." autocomplete="off" aria-label="Search players">
-            <div class="hub-pick-list" id="hub-pick-list"></div>
-          </div>
-        </div>
-
-        <div class="hub-step" id="hub-step-preview" hidden>
-          <div class="hub-label">Recipient Preview</div>
-          <div class="hub-preview" id="hub-preview" aria-live="polite"></div>
-          <button type="button" class="co-det-more hub-view-btn" id="hub-view-btn" data-action="hubTogglePeople" aria-controls="hub-people" aria-expanded="false" hidden>View recipients</button>
-          <div class="hub-people" id="hub-people" hidden></div>
-        </div>
-
-        <div class="hub-step" id="hub-step-compose" hidden>
-          <div class="hub-label">Message</div>
-
-          <!-- Qué se manda: un anuncio o una encuesta (entregable 5). Sólo
-               en escaleras y torneos; la disponibilidad, sólo en escaleras.
-               admin-comms-hub.js enseña los que tocan. -->
-          <div class="hub-field" id="hub-kind-wrap" hidden>
-            <div class="hub-field-label" id="hub-kind-label">Type</div>
-            <div class="hub-chips" id="hub-kinds" role="group" aria-labelledby="hub-kind-label">
-              <button type="button" class="co-pfilter" aria-pressed="false" data-action="hubKind" data-kind="announcement">Announcement</button>
-              <button type="button" class="co-pfilter" aria-pressed="false" data-action="hubKind" data-kind="availability" id="hub-kind-availability">Weekly Availability</button>
-              <button type="button" class="co-pfilter" aria-pressed="false" data-action="hubKind" data-kind="custom">Custom Poll</button>
-            </div>
-          </div>
-
-          <div class="hub-field" id="hub-preset-wrap" hidden>
-            <label class="hub-field-label" for="hub-preset">Notification Type</label>
-            <!-- Las opciones dependen de la audiencia: las pone admin-comms-hub.js. -->
-            <select class="hub-select" id="hub-preset"></select>
-          </div>
-
-          <div class="hub-field">
-            <label class="hub-field-label" for="hub-subject">Email Subject <span class="hub-req">*</span></label>
-            <input type="text" class="hub-input" id="hub-subject" maxlength="200" autocomplete="off">
-          </div>
-
-          <!-- La encuesta: sólo con Weekly Availability o Custom Poll. -->
-          <div id="hub-poll-wrap" hidden>
-            <div class="hub-field" id="hub-session-wrap">
-              <label class="hub-field-label" for="hub-session">Session Date <span class="hub-req">*</span></label>
-              <input type="date" class="hub-input hub-input-short" id="hub-session">
-            </div>
-            <div class="hub-field">
-              <label class="hub-field-label" for="hub-question">Question <span class="hub-req">*</span></label>
-              <input type="text" class="hub-input" id="hub-question" maxlength="300" autocomplete="off">
-            </div>
-            <div class="hub-field">
-              <div class="hub-field-label" id="hub-options-label">Answers</div>
-              <!-- Las de la disponibilidad son fijas; las de una encuesta
-                   propia se escriben aquí (de 2 a 6). -->
-              <div class="hub-poll-fixed" id="hub-options-fixed">YES &mdash; I&rsquo;m playing &middot; NO &mdash; I can&rsquo;t play &middot; MAYBE</div>
-              <div class="hub-options" id="hub-options" role="group" aria-labelledby="hub-options-label"></div>
-              <button type="button" class="hub-attach-btn" id="hub-option-add" data-action="hubOptionAdd">+ Add answer</button>
-              <div class="hub-hint hub-hint-after" id="hub-options-hint">From 2 to 6 answers. Players choose one.</div>
-            </div>
-            <div class="hub-field">
-              <label class="hub-field-label" for="hub-deadline">Response Deadline <span class="hub-req">*</span></label>
-              <input type="datetime-local" class="hub-input hub-input-short" id="hub-deadline" aria-describedby="hub-deadline-hint">
-              <div class="hub-hint hub-hint-after" id="hub-deadline-hint">Florida time. Players can change their answer until then.</div>
-            </div>
-          </div>
-
-          <!-- hub-field-roomy: más aire debajo de la nota del mensaje,
-               antes de "Attachment" (pedido el 10 de octubre). -->
-          <div class="hub-field hub-field-roomy">
-            <div class="hub-field-label" id="hub-message-label">Message <span class="hub-req" id="hub-message-req">*</span><span class="hub-attach-opt" id="hub-message-opt" hidden>(optional)</span></div>
-            <div class="hub-editor">
-              <!-- La barra de formato la fabrica admin-rich-editor.js. -->
-              <div class="promo-fmt-toolbar hub-toolbar" id="hub-fmt-bar"></div>
-              <div class="hub-editor-area" id="hub-message" contenteditable="true" role="textbox" aria-multiline="true" aria-labelledby="hub-message-label" aria-describedby="hub-message-hint"></div>
-            </div>
-            <div class="hub-hint hub-hint-after" id="hub-message-hint"></div>
-          </div>
-
-          <!-- El PDF adjunto: sólo en escaleras y torneos. -->
-          <div class="hub-field" id="hub-attach-wrap" hidden>
-            <div class="hub-field-label" id="hub-attach-label">Attachment <span class="hub-attach-opt">(optional · PDF, max 10 MB)</span></div>
-            <input type="file" id="hub-attach-input" accept="application/pdf,.pdf" aria-labelledby="hub-attach-label" hidden>
-            <button type="button" class="hub-attach-btn" id="hub-attach-btn" data-action="hubAttachPick">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-              <span id="hub-attach-btn-text">Attach PDF</span>
-            </button>
-            <div class="hub-attach-file" id="hub-attach-file" hidden>
-              <span class="hub-attach-icon">PDF</span>
-              <span class="hub-attach-text">
-                <span class="hub-attach-name" id="hub-attach-name"></span>
-                <span class="hub-attach-size" id="hub-attach-size"></span>
-              </span>
-              <button type="button" class="hub-attach-remove" data-action="hubAttachRemove">Remove</button>
-            </div>
-            <div class="hub-hint hub-hint-after" id="hub-attach-hint" hidden>With an attachment, the emails go out one by one — about a second each.</div>
-          </div>
-
-          <div class="hub-send-row">
-            <label class="hub-test" for="hub-only-me">
-              <input type="checkbox" id="hub-only-me" aria-describedby="hub-only-me-help">
-              <span class="hub-test-text">
-                Send only to me
-                <span class="hub-test-help" id="hub-only-me-help">Real send, fully logged &mdash; but only you receive it.</span>
-              </span>
-            </label>
-            <button type="button" class="hub-send-btn" id="hub-send-btn" data-action="hubSend">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-              Send Email
-            </button>
-          </div>
-        </div>
-
       </div>
+
     </div>
 
     <!-- ── PESTAÑA 2: HISTORY ───────────────────────────────── -->
@@ -3415,6 +3483,21 @@
   </div>
 </div>
 
+<!-- La lista completa de destinatarios ("View recipients") del Communications Hub.
+     Va aquí, con las demás ventanas, y no dentro de la pestaña Send. -->
+<div class="modal-bg" id="hub-people-modal">
+  <div class="modal hub-people-modal" role="dialog" aria-modal="true" aria-labelledby="hub-people-title">
+    <div class="hub-people-head">
+      <h3 class="hub-card-title" id="hub-people-title">Recipients</h3>
+      <button type="button" class="hub-people-close" data-action="hubPeopleClose" aria-label="Close">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <p class="hub-card-sub" id="hub-people-sub"></p>
+    <div class="hub-people" id="hub-people"></div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <!-- ── VIEW MATCH MODAL ─────────────────────────────────── -->
@@ -3661,7 +3744,7 @@
 <script src="admin-print-roster.js?v=20260928b"></script>
 <script src="admin-ladder-management.js?v=20261008a"></script>
 <script src="admin-communications.js?v=20261011e"></script>
-<script src="admin-comms-hub.js?v=20261011d"></script>
+<script src="admin-comms-hub.js?v=20261011e"></script>
 <script src="admin-comms-results.js?v=20261011c"></script>
 <script src="admin-promotions.js?v=20261011a"></script>
 <script src="admin-subscriber-reminder.js?v=20261005a"></script>

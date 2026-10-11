@@ -63,7 +63,7 @@
   const TEXTOS = {
     ladder: {
       titulo: 'Ladder Players',
-      sub: 'Choose the ladder and who should receive it.',
+      sub: 'Send a message, poll or update to one ladder\'s players.',
       rotulo: 'Ladder',
       elige: 'Choose a ladder…',
       grupos: ['Active ladders', 'Past ladders'],
@@ -71,7 +71,7 @@
     },
     tournament: {
       titulo: 'Tournament Players',
-      sub: 'Choose the tournament and who should receive it.',
+      sub: 'Send a message or poll to one tournament\'s players.',
       rotulo: 'Tournament',
       elige: 'Choose a tournament…',
       grupos: ['Current & upcoming', 'Past tournaments'],
@@ -79,10 +79,24 @@
     },
     all_players: {
       titulo: 'All Players',
-      sub: 'Choose who should receive it.',
+      sub: 'Send a message to your active player community.',
       todos: 'All Players',
     },
   };
+
+  /* La caja verde de "Recipient Preview": a quién va, en palabras. Con
+     "todos", según la audiencia; con los demás, cuántos se eligieron. */
+  const TODOS_OK = {
+    all_players: ['All active players selected', 'This message will be sent to your entire player community.'],
+    ladder:      ['All ladder players selected', 'This message will be sent to everyone in this ladder.'],
+    tournament:  ['All tournament players selected', 'This message will be sent to everyone in this tournament.'],
+  };
+
+  /* Los topes del asunto y del mensaje (decidido el 11 de octubre). El
+     asunto no deja escribir más; el mensaje se cuenta en caracteres de
+     texto (sin el formato) y, pasado el tope, no se manda. */
+  const MAX_ASUNTO_HUB = 120;
+  const MAX_TEXTO_HUB  = 5000;
 
   /* Por qué alguien no recibe. El código lo pone el servidor. */
   const MOTIVOS = {
@@ -280,7 +294,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
   let _candidatos  = null;       // quién se puede elegir: los que reciben con 'all'
   let _motivos     = new Map();  // id → por qué no se le puede elegir (sub, inactive…)
   let _pidiendoCandidatos = null;  // la petición en curso, para no pedirla dos veces
-  let _verPersonas = false;
+  let _origenPersonas = null;   // el botón que abrió la ventana de destinatarios
   let _origen      = null;       // la tarjeta que abrió el panel, para devolverle el foco
   let _turnoAudiencia = 0;
   let _turnoVista     = 0;
@@ -352,7 +366,10 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     const t = TEXTOS[tipo];
     $('hub-title').textContent = t.titulo;
     $('hub-sub').textContent = t.sub;
-    $('hub-seg-all').textContent = t.todos;
+    $('hub-seg-all-text').textContent = t.todos;
+    document.querySelectorAll('#hub-panel .hub-top-icon [data-icon]').forEach((i) => {
+      i.hidden = i.dataset.icon !== tipo;
+    });
 
     $('co-send-home').hidden = true;
     $('hub-panel').hidden = false;
@@ -442,7 +459,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     _encuestas = [];
     _encuesta = null;
     _respuesta = null;
-    _verPersonas = false;
+    cerrarPersonas();
     _ultimaVista = null;
     $('hub-search').value = '';
     $('hub-pick-list').replaceChildren();
@@ -457,8 +474,10 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
   function limpiarVista() {
     $('hub-preview').replaceChildren();
     $('hub-people').replaceChildren();
-    $('hub-people').hidden = true;
     $('hub-view-btn').hidden = true;
+    $('hub-preview-ok').hidden = true;
+    cerrarPersonas();
+    pintarLista();
   }
 
   function mostrarDestinatarios(si) {
@@ -760,7 +779,8 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     _ultimaVista = null;
     const turno = ++_turnoVista;
     $('hub-view-btn').hidden = true;
-    $('hub-people').hidden = true;
+    $('hub-preview-ok').hidden = true;
+    pintarLista();
 
     if (_segmento === 'divisions' && !_divisiones.size) {
       pintarAviso('Choose at least one division to see who will receive it.');
@@ -815,7 +835,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
       partes.push(nota('hub-count', 'No one in this group can receive email.'));
     } else {
       partes.push(nota('hub-count',
-        `${s.people} player${s.people === 1 ? '' : 's'} · ${s.emails} email${s.emails === 1 ? '' : 's'}`));
+        `${s.people} player${s.people === 1 ? '' : 's'} \u2022 ${s.emails} email${s.emails === 1 ? '' : 's'}`));
       if (s.emails < s.people) {
         partes.push(nota('hub-note',
           'Players who share an email address (families) get one email between them.'));
@@ -828,8 +848,25 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
 
     $('hub-preview').replaceChildren(...partes);
     pintarPersonas(gente);
+    $('hub-people-sub').textContent = partes[0].textContent;
     $('hub-view-btn').hidden = gente.length === 0;
-    ponerBotonPersonas();
+    pintarOk(s);
+    pintarLista();
+  }
+
+  /* La caja verde: sólo cuando hay a quién mandar. */
+  function pintarOk(s) {
+    const caja = $('hub-preview-ok');
+    if (!s.people) { caja.hidden = true; return; }
+    const n = (x, uno, varios) => `${x} ${x === 1 ? uno : varios}`;
+    const [titulo, linea] = _segmento === 'all' ? TODOS_OK[_tipo]
+      : _segmento === 'divisions' ? [`${n(_divisiones.size, 'division', 'divisions')} selected`,
+                                     'This message will be sent only to the players in those divisions.']
+      : _segmento === 'poll' ? [`${nombreGrupo()} selected`, 'This message will be sent only to the players in that group.']
+      : [`${n(_elegidos.size, 'player', 'players')} selected`, 'This message will be sent only to the players you chose.'];
+    $('hub-ok-title').textContent = titulo;
+    $('hub-ok-sub').textContent = linea;
+    caja.hidden = false;
   }
 
   /* Primero quienes reciben, luego quienes no, cada grupo por nombre
@@ -853,16 +890,26 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     </table>`;
   }
 
+  /* "View recipients": la lista completa, en una ventana (decidido el 11
+     de octubre: en la columna estrecha los correos no cabían). Se cierra
+     con la X, con Escape o pulsando fuera, y el cursor vuelve al botón. */
   function verPersonas() {
-    _verPersonas = !_verPersonas;
-    ponerBotonPersonas();
+    if ($('hub-view-btn').hidden) return;
+    _origenPersonas = document.activeElement;
+    /* La página de detrás no se puede usar mientras tanto (tampoco con
+       un lector de pantalla). */
+    document.querySelector('.app-shell')?.setAttribute('inert', '');
+    $('hub-people-modal').classList.add('open');
+    $('hub-people-modal').querySelector('.hub-people-close').focus();
   }
 
-  function ponerBotonPersonas() {
-    const btn = $('hub-view-btn');
-    btn.textContent = _verPersonas ? 'Hide recipients' : 'View recipients';
-    btn.setAttribute('aria-expanded', _verPersonas ? 'true' : 'false');
-    $('hub-people').hidden = !_verPersonas || btn.hidden;
+  function cerrarPersonas() {
+    const m = $('hub-people-modal');
+    if (!m || !m.classList.contains('open')) return;
+    m.classList.remove('open');
+    document.querySelector('.app-shell')?.removeAttribute('inert');
+    if (_origenPersonas && document.contains(_origenPersonas)) _origenPersonas.focus();
+    _origenPersonas = null;
   }
 
   /* Un párrafo con su clase y su texto, sin pasar por innerHTML. */
@@ -877,12 +924,52 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
   function ponerTexto(asunto, html) {
     $('hub-subject').value = asunto;
     if (editor) editor.setHTML(html);
+    pintarLista();
   }
 
-  /* El mensaje se ve en cuanto hay audiencia. */
+  /* El mensaje se ve en cuanto hay audiencia; la casilla de ensayo y el
+     botón, con él. */
   function mostrarMensaje(si) {
     $('hub-step-compose').hidden = !si;
+    $('hub-step-send').hidden = !si;
     if (si) prepararMensaje();
+    pintarLista();
+  }
+
+  /* ── LOS CONTADORES Y "MESSAGE CHECKLIST" ───────────────── */
+  /* Lo que se ha escrito, para el contador y la lista de comprobación. En
+     una encuesta el texto es opcional: cuenta como "contenido" la
+     pregunta. */
+  function largoTexto() { return editor ? editor.getText().length : 0; }
+
+  function pintarLista() {
+    const asunto = $('hub-subject').value.trim();
+    const largo = largoTexto();
+    /* Una plantilla con un nombre de escalera largo puede pasar del tope
+       (el tope del campo sólo frena lo que se escribe): se ve en rojo. */
+    const largoAsunto = $('hub-subject').value.length;
+    $('hub-subject-count').textContent = `${largoAsunto}/${MAX_ASUNTO_HUB}`;
+    $('hub-subject-count').classList.toggle('hub-count-over', largoAsunto > MAX_ASUNTO_HUB);
+    const cuenta = $('hub-message-count');
+    cuenta.textContent = `${largo}/${MAX_TEXTO_HUB}`;
+    cuenta.classList.toggle('hub-count-over', largo > MAX_TEXTO_HUB);
+
+    const encuesta = _clase !== 'announcement';
+    const hecho = {
+      subject: !!asunto,
+      message: encuesta ? !!$('hub-question').value.trim() : largo > 0,
+      recipients: !!(_ultimaVista && _ultimaVista.summary.people > 0),
+    };
+    /* "Ready to send" sólo si lo que pide el envío está: en una encuesta,
+       también el plazo (y la fecha de la sesión en la disponibilidad); y
+       nunca con un PDF subiendo. */
+    const encuestaLista = !encuesta || (!!$('hub-deadline').value
+      && (_clase !== 'availability' || !!$('hub-session').value));
+    hecho.ready = hecho.subject && hecho.message && hecho.recipients && largo <= MAX_TEXTO_HUB
+      && largoAsunto <= MAX_ASUNTO_HUB && encuestaLista && !_subiendo;
+    document.querySelectorAll('#hub-checklist [data-check]').forEach((li) => {
+      li.classList.toggle('hub-done', !!hecho[li.dataset.check]);
+    });
   }
 
   /* ¿Sigue el mensaje tal como lo dejó la última plantilla? Si ella ya
@@ -992,6 +1079,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
       $('hub-attach-name').textContent = _adjunto.filename;
       $('hub-attach-size').textContent = tamano(_adjunto.size);
     }
+    pintarLista();   // "Ready to send" espera a que el PDF termine de subir
   }
 
   /* El archivo se queda en la carpeta (desde el navegador no se puede
@@ -1089,6 +1177,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
       ? 'Will you be playing this Monday?' : 'Which time works best?';
     pintarAdjunto();
     ensayo.rotular(BOTON[_clase]);
+    pintarLista();
   }
 
   /* La encuesta en blanco: sin pregunta ni fecha, las respuestas de
@@ -1164,6 +1253,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     const sesion = $('hub-session').value;
     if (_preguntaSola) {
       $('hub-question').value = sesion ? `Will you be playing this ${diaDeLaSemana(sesion)}?` : '';
+      pintarLista();
     }
     if (_plazoSolo) ponerPlazoSolo();
   }
@@ -1298,6 +1388,10 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
       }
     }
     if (_subiendo) { toast('Wait for the PDF to finish uploading.', true); return; }
+    if (texto.length > MAX_TEXTO_HUB) {
+      toast(`The message is too long: ${texto.length} characters. The limit is ${MAX_TEXTO_HUB.toLocaleString('en-US')}.`, true);
+      return;
+    }
     if (html.length > MAX_MENSAJE) {
       toast('The message is too long. Pasted images are the usual cause — remove them and try again.', true);
       return;
@@ -1565,6 +1659,20 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
   /* ── EVENTOS ────────────────────────────────────────────── */
   $('hub-audience-select')?.addEventListener('change', alElegirAudiencia);
   $('hub-search')?.addEventListener('input', filtrarCandidatos);
+  /* Los contadores y la lista de comprobación, al escribir. */
+  $('hub-subject')?.addEventListener('input', pintarLista);
+  $('hub-message')?.addEventListener('input', pintarLista);
+  $('hub-question')?.addEventListener('input', pintarLista);
+  $('hub-deadline')?.addEventListener('input', pintarLista);
+  $('hub-session')?.addEventListener('change', pintarLista);
+  /* La ventana de destinatarios: Escape y pulsar fuera la cierran. */
+  $('hub-people-modal')?.addEventListener('click', (e) => { if (e.target.id === 'hub-people-modal') cerrarPersonas(); });
+  document.addEventListener('keydown', (e) => {
+    if (!$('hub-people-modal')?.classList.contains('open')) return;
+    if (e.key === 'Escape') cerrarPersonas();
+    /* El cursor no se escapa detrás de la ventana: sólo tiene la X. */
+    if (e.key === 'Tab') { e.preventDefault(); $('hub-people-modal').querySelector('.hub-people-close').focus(); }
+  });
   $('hub-seg-poll-select')?.addEventListener('change', elegirEncuestaGrupo);
   $('hub-attach-input')?.addEventListener('change', (e) => subirAdjunto(e.target.files?.[0]));
   /* Elegir otra plantilla la pone, como en la ventana de antes. */
@@ -1606,6 +1714,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     hubDivision:     (btn) => cambiarDivision(btn),
     hubSegAnswer:    (btn) => elegirRespuestaGrupo(btn),
     hubTogglePeople: () => verPersonas(),
+    hubPeopleClose:  () => cerrarPersonas(),
     hubSend:         () => enviar(),
     hubAttachPick:   () => $('hub-attach-input').click(),
     hubAttachRemove: () => quitarAdjunto(),
