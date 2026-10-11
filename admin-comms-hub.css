@@ -317,12 +317,13 @@
 .co-aud-t{font-size:14px;font-weight:600;color:var(--text);}
 .co-aud-d{margin-top:10px;font-size:10px;font-weight:500;color:var(--text-muted);line-height:1.4;}
 .co-aud-go{position:absolute;right:14px;bottom:14px;color:#77777f;}
-/* Newsletter: en fila, a todo el ancho. */
+/* Newsletter: en fila, a todo el ancho, con el mismo tipo y tamaño de letra. */
 .co-aud-wide{grid-column:1 / -1;flex-direction:row;align-items:center;gap:18px;min-height:0;padding:12px;}
 .co-aud-wide .co-aud-icon{width:42px;height:42px;margin-bottom:0;}
 .co-aud-text{display:flex;flex-direction:column;min-width:0;padding-right:28px;}
-.co-aud-wide .co-aud-t{font-size:15px;}
-.co-aud-wide .co-aud-d{margin-top:6px;font-size:11px;}
+/* Mismas letras que las otras cuatro tarjetas (pedido el 11 de octubre):
+   sólo cambia el espacio entre el nombre y la línea, porque va en fila. */
+.co-aud-wide .co-aud-d{margin-top:6px;}
 .co-aud-wide .co-aud-go{top:50%;bottom:auto;transform:translateY(-50%);color:var(--text);}
 @media (max-width:600px){
   .co-aud-grid{grid-template-columns:minmax(0,1fr);}
