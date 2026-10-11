@@ -1492,6 +1492,60 @@
     if (!hayBorradorCampana()) cerrarCampanaYa();
   };
 
+  /* ─── CONTADORES Y "MESSAGE CHECKLIST" (diseño del 11 de octubre) ───
+     Los mismos topes que el Hub: 120 en el asunto y 5.000 caracteres de
+     texto en el mensaje. Pasado el tope, el contador se pone en rojo y
+     "Launch Campaign" avisa y no manda (leerFormulario). */
+  const MAX_ASUNTO_CAMPANA = 120;
+  const MAX_TEXTO_CAMPANA  = 5000;
+  let _suscriptores = null;   // cuántos activos; null hasta que llega la cuenta
+
+  /* La cuenta de "Recipient Preview". Con `error`, el aviso en rojo. */
+  function ponerCuenta(numero, palabra, error) {
+    const n = document.getElementById('promo-audience-count');
+    const w = document.getElementById('promo-audience-word');
+    if (n) n.textContent = String(numero);
+    if (w) w.textContent = palabra;
+    n?.parentElement?.classList.toggle('hub-count-error', !!error);
+  }
+
+  function pintarCampana() {
+    const $id = (id) => document.getElementById(id);
+    const asuntoEl = $id('promo-subject');
+    if (!asuntoEl) return;
+    const largoAsunto = asuntoEl.value.length;
+    const largo = edPromo ? edPromo.getText().length : 0;
+    const cuenta = (id, n, max) => {
+      const el = $id(id);
+      if (!el) return;
+      el.textContent = `${n}/${max}`;
+      el.classList.toggle('hub-count-over', n > max);
+    };
+    cuenta('promo-subject-count', largoAsunto, MAX_ASUNTO_CAMPANA);
+    cuenta('promo-char-count', largo, MAX_TEXTO_CAMPANA);
+    const pv = $id('promo-preview-text');
+    const cp = $id('promo-preview-count');
+    if (pv && cp) cp.textContent = `${pv.value.length}/140`;
+
+    /* La caja verde, sólo cuando hay a quién mandar. */
+    const ok = $id('promo-preview-ok');
+    if (ok) ok.hidden = !(_suscriptores > 0);
+
+    const tipo = $id('promo-campaign-type')?.value || 'Other';
+    const conEvento = tipo === 'Tournament' || tipo === 'Ladder';
+    const hecho = {
+      subject: !!asuntoEl.value.trim(),
+      message: largo > 0,
+      recipients: _suscriptores > 0,
+    };
+    hecho.ready = hecho.subject && hecho.message && hecho.recipients
+      && largoAsunto <= MAX_ASUNTO_CAMPANA && largo <= MAX_TEXTO_CAMPANA
+      && (!conEvento || !!$id('promo-event-select')?.value);
+    document.querySelectorAll('#promo-checklist [data-check]').forEach((li) => {
+      li.classList.toggle('hub-done', !!hecho[li.dataset.check]);
+    });
+  }
+
   const openSendPromo = async () => {
     /* Reabrir el formulario con un envío en curso limpiaba el composer y
        se llevaba por delante el asunto y el mensaje de ESE envío, que
@@ -1522,23 +1576,27 @@
       if (sj) sj.value = '';
       const pv = document.getElementById('promo-preview-text');
       if (pv) pv.value = '';
-      // Los contadores también: si no, el campo queda vacío pero debajo
-      // sigue diciendo "412 / 2000", que es peor que no tener contador.
-      const c1 = document.getElementById('promo-char-count');
-      if (c1) c1.textContent = '0 / 2000';
-      const c2 = document.getElementById('promo-char-count2');
-      if (c2) c2.textContent = '0 / 2000';
-      const cp = document.getElementById('promo-preview-count');
-      if (cp) cp.textContent = '0 / 140';
+      // Los contadores y la lista de comprobación también: si no, el
+      // campo queda vacío pero debajo sigue diciendo "412/5000", que es
+      // peor que no tener contador.
+      pintarCampana();
     };
+
+    /* La cuenta de la vez anterior no vale: hasta que llegue la nueva,
+       "—" y sin caja verde ni "Recipients selected". */
+    _suscriptores = null;
+    ponerCuenta('—', 'active subscribers', false);
 
     // Reset composer
     limpiarComposer();
 
     // Reset type pills to Tournament
-    document.querySelectorAll('.promo-type-pill').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.promo-type-pill').forEach(p => {
+      p.classList.remove('active');
+      p.setAttribute('aria-pressed', 'false');
+    });
     const firstPill = document.querySelector('.promo-type-pill');
-    if (firstPill) firstPill.classList.add('active');
+    if (firstPill) { firstPill.classList.add('active'); firstPill.setAttribute('aria-pressed', 'true'); }
     const typeInput = document.getElementById('promo-campaign-type');
     if (typeInput) typeInput.value = 'Tournament';
     const selTypeEl = document.getElementById('promo-selected-type');
@@ -1559,15 +1617,21 @@
     const updateCampaignTypeUI = (type) => {
       const evWrap    = document.getElementById('promo-event-selector-wrap');
       const otherWrap = document.getElementById('promo-other-flyer-wrap');
-      if (evWrap)    evWrap.style.display    = (type === 'Tournament' || type === 'Ladder') ? 'block' : 'none';
-      if (otherWrap) otherWrap.style.display = type === 'Other' ? 'block' : 'none';
+      /* Con `hidden` y no con style.display (11 de octubre): el HTML
+         nuevo no lleva estilos escritos, ni puestos desde aquí. */
+      if (evWrap)    evWrap.hidden    = !(type === 'Tournament' || type === 'Ladder');
+      if (otherWrap) otherWrap.hidden = type !== 'Other';
       // Repopulate event dropdown for selected type
       if (type === 'Tournament' || type === 'Ladder') populateCampaignEventDropdown(type);
     };
     document.querySelectorAll('.promo-type-pill').forEach(pill => {
       pill.onclick = () => {
-        document.querySelectorAll('.promo-type-pill').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.promo-type-pill').forEach(p => {
+          p.classList.remove('active');
+          p.setAttribute('aria-pressed', 'false');
+        });
         pill.classList.add('active');
+        pill.setAttribute('aria-pressed', 'true');
         if (typeInput) typeInput.value = pill.dataset.type;
         if (selTypeEl) selTypeEl.textContent = pill.dataset.type;
         /* La etiqueta de la cabecera sigue al tipo de campaña, para no
@@ -1589,14 +1653,13 @@
     // Trigger for initial state (Tournament selected by default)
     updateCampaignTypeUI('Tournament');
 
-    // Contador del texto de vista previa
+    /* Los contadores del asunto y del texto de vista previa, y la lista
+       de comprobación, al escribir. Con `oninput` (no addEventListener):
+       abrir el formulario otra vez no suma escuchadores. */
     const prevInp = document.getElementById('promo-preview-text');
-    if (prevInp) {
-      prevInp.oninput = () => {
-        const el = document.getElementById('promo-preview-count');
-        if (el) el.textContent = `${prevInp.value.length} / 140`;
-      };
-    }
+    if (prevInp) prevInp.oninput = pintarCampana;
+    const subjInp = document.getElementById('promo-subject');
+    if (subjInp) subjInp.oninput = pintarCampana;
 
     /* El contador de caracteres lo mantiene admin-rich-editor.js, que
        recibe `alEscribir` al montar el editor. Antes se enganchaba aquí
@@ -1666,10 +1729,14 @@
 
       const count = subs.length;
       const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
-      setEl('promo-audience-count', count);
+      ponerCuenta(count, count === 1 ? 'active subscriber' : 'active subscribers', false);
+      _suscriptores = count;
+      pintarCampana();
 
       const recipEl = document.getElementById('promo-recipient-count');
-      if (recipEl) recipEl.innerHTML = `<span style="font-weight:800;color:var(--teal);">${count} active subscriber${count !== 1 ? 's' : ''}</span> will receive this campaign.`;
+      /* Texto sin estilos escritos (11 de octubre): este elemento no se
+         ve; lo que se ve es "Recipient Preview", arriba. */
+      if (recipEl) recipEl.textContent = `${count} active subscriber${count !== 1 ? 's' : ''} will receive this campaign.`;
 
       const last = (campanas || []).find(
         (c) => c.sent_at && !(c.meta && c.meta.solo_admin)) || null;
@@ -1679,6 +1746,11 @@
     } catch (e) {
       const recipEl = document.getElementById('promo-recipient-count');
       if (recipEl) recipEl.textContent = 'Could not load audience data.';
+      /* Que se vea (antes este aviso iba a un elemento escondido), en
+         rojo y no con el aspecto de una cuenta. */
+      ponerCuenta('', 'Could not load audience data.', true);
+      _suscriptores = null;
+      pintarCampana();
     }
 
   };
@@ -1689,6 +1761,7 @@
     if (!sel) return;
     sel.innerHTML = '<option value="">Loading...</option>';
     if (flyerInp) flyerInp.value = '';
+    pintarCampana();
     try {
       const today  = new Date().toISOString().slice(0, 10);
       const dbType = type.toLowerCase(); // 'tournament' or 'ladder'
@@ -1712,6 +1785,7 @@
           subjectEl.value = `${emoji} ${opt.dataset.title} — Don't Miss It!`;
         }
         if (flyerInp) flyerInp.value = opt.dataset.flyer || '';
+        pintarCampana();
       };
     } catch (err) {
       sel.innerHTML = '<option value="">Error loading events</option>';
@@ -1733,12 +1807,7 @@
            apiladas, y sólo en esta pantalla. La de aquí ya existe en
            admin.html porque lleva además el contador de caracteres. */
         barraId: 'promo-fmt-bar',
-        alEscribir: (n) => {
-          const c1 = document.getElementById('promo-char-count');
-          const c2 = document.getElementById('promo-char-count2');
-          if (c1) c1.textContent = `${n} / 2000`;
-          if (c2) c2.textContent = `${n} / 2000`;
-        },
+        alEscribir: () => pintarCampana(),
       })
     : null;
   if (!edPromo) console.error('[Ferocia] admin-rich-editor.js must load before admin-promotions.js');
@@ -1861,6 +1930,18 @@
 
     if (!subject || !texto) {
       toast('Please fill in the subject and message.', true);
+      return null;
+    }
+    /* Los topes, como en el Hub (11 de octubre). El del asunto también
+       aquí: el tope del campo sólo frena lo que se escribe, y el asunto
+       que pone sola la lista de eventos puede pasarse. */
+    if (subject.length > MAX_ASUNTO_CAMPANA) {
+      toast(`The subject is too long: ${subject.length} characters. The limit is ${MAX_ASUNTO_CAMPANA}.`, true);
+      return null;
+    }
+    if (texto.length > MAX_TEXTO_CAMPANA) {
+      toast(`The message is too long: ${texto.length} characters. `
+        + `The limit is ${MAX_TEXTO_CAMPANA.toLocaleString('en-US')}.`, true);
       return null;
     }
     return { subject, message, texto, campaignType, flyerUrl };

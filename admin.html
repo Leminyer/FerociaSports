@@ -24,7 +24,7 @@
 <link rel="stylesheet" href="admin-components.css?v=20261008a">
 <link rel="stylesheet" href="admin-pages.css?v=20261001c">
 <link rel="stylesheet" href="admin-ftc.css?v=20260928b">
-<link rel="stylesheet" href="admin-comms-hub.css?v=20261011i">
+<link rel="stylesheet" href="admin-comms-hub.css?v=20261011j">
 
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="config.js?v=20260929j"></script>
@@ -1969,169 +1969,189 @@
 
       <!-- CAMPAÑA a los suscriptores (antes una ventana encima de
            Promotions; desde el 10 de octubre vive aquí, como los demás
-           canales). El formulario es el de siempre y lo maneja
-           admin-promotions.js; los estilos, admin-comms-hub.css. -->
-      <div class="card hub-panel promo-panel" id="promo-panel" hidden>
-        <div class="hub-head">
+           canales). Diseño del 11 de octubre, el mismo que el del Hub:
+           "All channels" a la izquierda, fuera; a la derecha el encabezado
+           y dos columnas: el formulario (y debajo la casilla de ensayo con
+           el botón) y, al lado, "Recipient Preview", "Campaign
+           Intelligence", "Quick Tips" y "Message Checklist".
+           Lo maneja admin-promotions.js; los estilos, admin-comms-hub.css
+           (hub-layout). Los ids promo- son los de siempre. -->
+      <div class="hub-panel hub-layout promo-panel" id="promo-panel" hidden>
+        <div class="hub-aside">
           <button type="button" class="hub-back" data-action="closePromoModal">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
             All channels
           </button>
-          <div class="hub-title">Campaign</div>
-          <div class="hub-sub">Reach your pickleball community with announcements, tournaments, ladders, and event updates.</div>
         </div>
-        <form id="promo-form">
-          <div class="promo-cols" style="display:grid;grid-template-columns:1fr 260px;min-height:460px;">
 
-            <!-- LEFT: Composer -->
-            <div style="padding:22px 24px;border-right:0.5px solid #e8edf8;display:flex;flex-direction:column;gap:16px;background:#fafbff;">
+        <div class="hub-main">
+          <div class="hub-top">
+            <span class="hub-top-icon"><svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l15-6v14L3 13v-2z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg></span>
+            <div class="hub-top-text">
+              <h2 class="hub-title">Campaign</h2>
+              <p class="hub-sub">Reach your pickleball community with announcements, tournaments, ladders, and event updates.</p>
+            </div>
+          </div>
 
-              <!-- Campaign type pills -->
-              <div>
-                <div class="promo-comp-label">Campaign Type</div>
-                <div style="display:flex;gap:6px;flex-wrap:wrap;" id="promo-type-pills">
-                  <button type="button" class="promo-type-pill active" data-type="Tournament">Tournament</button>
-                  <button type="button" class="promo-type-pill" data-type="Ladder">Ladder</button>
-                  <button type="button" class="promo-type-pill" data-type="Other">Other</button>
+          <form id="promo-form" class="hub-grid">
+            <div class="hub-card hub-area-form">
+              <div class="hub-field">
+                <div class="hub-field-label" id="promo-type-label">Campaign Type</div>
+                <div class="hub-chips" id="promo-type-pills" role="group" aria-labelledby="promo-type-label">
+                  <button type="button" class="promo-type-pill active" aria-pressed="true" data-type="Tournament"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/></svg>Tournament</button>
+                  <button type="button" class="promo-type-pill" aria-pressed="false" data-type="Ladder"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 6h11"/><path d="M10 12h11"/><path d="M10 18h11"/><path d="M4 4.5l1-.5v4"/><path d="M4 8h2"/><path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1"/></svg>Ladder</button>
+                  <button type="button" class="promo-type-pill" aria-pressed="false" data-type="Other"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l15-6v14L3 13v-2z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg>Other</button>
                 </div>
                 <input type="hidden" id="promo-campaign-type" value="Tournament">
-                <!-- Etiqueta que sale arriba a la derecha en la cabecera del
-                     correo. Se rellena sola al elegir el tipo de campaña;
-                     esto es solo para cambiarla en un caso suelto. -->
-                <div style="margin-top:10px;">
-                  <div class="promo-comp-label">Header Label <span style="font-size:9px;font-weight:600;color:#b0bbd6;text-transform:none;letter-spacing:0;">(shown top-right in the email)</span></div>
-                  <!-- 11px, mas pequeno que los campos vecinos (13px) a
-                       proposito: al ir en mayusculas y con espaciado, a 13px
-                       pesaba mucho mas que el asunto de al lado. -->
-                  <input type="text" id="promo-header-label" maxlength="24" placeholder="TOURNAMENT"
-                    style="width:100%;padding:9px 12px;border:1px solid var(--divider-color);border-radius:8px;font-family:'Inter',sans-serif;font-size:11px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:var(--text);outline:none;"
-                    onfocus="this.style.borderColor='var(--blue)';this.style.boxShadow='0 0 0 3px rgba(23,76,204,0.08)'"
-                    onblur="this.style.borderColor='var(--divider-color)';this.style.boxShadow='none'">
-                </div>
               </div>
 
-              <!-- Event selector — shown for Tournament/Ladder -->
-              <div id="promo-event-selector-wrap">
-                <div class="promo-comp-label">Select Event <span style="color:var(--orange);">*</span></div>
-                <select id="promo-event-select"
-                  style="width:100%;padding:9px 12px;border:1px solid var(--divider-color);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;color:var(--text);outline:none;background:white;"
-                  onfocus="this.style.borderColor='var(--blue)';this.style.boxShadow='0 0 0 3px rgba(23,76,204,0.08)'"
-                  onblur="this.style.borderColor='var(--divider-color)';this.style.boxShadow='none'">
+              <!-- Etiqueta que sale arriba a la derecha en la cabecera del
+                   correo. Se rellena sola al elegir el tipo de campaña;
+                   esto es solo para cambiarla en un caso suelto. -->
+              <div class="hub-field">
+                <label class="hub-field-label" for="promo-header-label">Header Label <span class="hub-attach-opt">(shown top-right in the email)</span></label>
+                <input type="text" class="hub-input promo-header-input" id="promo-header-label" maxlength="24" placeholder="TOURNAMENT" autocomplete="off">
+              </div>
+
+              <!-- Con Tournament o Ladder. admin-promotions.js lo enseña y
+                   lo esconde (con Other sale el de abajo, el del flyer). -->
+              <div class="hub-field" id="promo-event-selector-wrap">
+                <label class="hub-field-label" for="promo-event-select">Select Event <span class="hub-req">*</span></label>
+                <select class="hub-select" id="promo-event-select">
                   <option value="">Loading events...</option>
                 </select>
                 <input type="hidden" id="promo-event-flyer-url" value="">
               </div>
 
-              <!-- Other flyer URL — shown for Other type -->
-              <div id="promo-other-flyer-wrap" style="display:none;">
-                <div class="promo-comp-label">Flyer URL <span style="font-size:9px;font-weight:600;color:#b0bbd6;text-transform:none;letter-spacing:0;">(optional)</span></div>
-                <input type="url" id="promo-other-flyer-url" placeholder="https://example.com/flyer.jpg"
-                  style="width:100%;padding:9px 12px;border:1px solid var(--divider-color);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;color:var(--text);outline:none;"
-                  onfocus="this.style.borderColor='var(--blue)';this.style.boxShadow='0 0 0 3px rgba(23,76,204,0.08)'"
-                  onblur="this.style.borderColor='var(--divider-color)';this.style.boxShadow='none'">
+              <!-- Con Other. -->
+              <div class="hub-field" id="promo-other-flyer-wrap" hidden>
+                <label class="hub-field-label" for="promo-other-flyer-url">Flyer URL <span class="hub-attach-opt">(optional)</span></label>
+                <input type="url" class="hub-input" id="promo-other-flyer-url" placeholder="https://example.com/flyer.jpg" autocomplete="off">
               </div>
 
-              <!-- Subject -->
-              <div>
-                <div class="promo-comp-label">Subject Line</div>
-                <div class="promo-subject-wrap">
-                  <input type="text" id="promo-subject" class="promo-subject-input" placeholder="e.g. Spring Tournament 2026 — Registration Now Open">
+              <div class="hub-field">
+                <div class="hub-field-row">
+                  <label class="hub-field-label" for="promo-subject">Subject Line <span class="hub-req">*</span></label>
+                  <span class="hub-count-chars" id="promo-subject-count">0/120</span>
                 </div>
+                <input type="text" class="hub-input" id="promo-subject" maxlength="120" autocomplete="off"
+                       placeholder="e.g. Spring Tournament 2026 — Registration Now Open">
               </div>
 
               <!-- Texto de vista previa: la linea que se lee en la bandeja de
                    entrada junto al asunto, antes de abrir el correo. Si se
                    deja vacio, el admin lo rellena con el principio del
                    mensaje — nunca queda en blanco. -->
-              <div>
-                <div class="promo-comp-label">Preview Text <span style="font-size:9px;font-weight:600;color:#b0bbd6;text-transform:none;letter-spacing:0;">(optional — the line shown in the inbox next to the subject)</span></div>
-                <input type="text" id="promo-preview-text" maxlength="140"
-                  placeholder="Leave empty to use the first line of your message"
-                  style="width:100%;padding:9px 12px;border:1px solid var(--divider-color);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;color:var(--text);outline:none;"
-                  onfocus="this.style.borderColor='var(--blue)';this.style.boxShadow='0 0 0 3px rgba(23,76,204,0.08)'"
-                  onblur="this.style.borderColor='var(--divider-color)';this.style.boxShadow='none'">
-                <div id="promo-preview-count" style="font-size:10px;font-weight:600;color:#b0bbd6;margin-top:4px;">0 / 140</div>
-              </div>
-
-              <!-- Message -->
-              <div style="flex:1;display:flex;flex-direction:column;">
-                <div class="promo-comp-label">Message</div>
-                <div class="promo-message-card">
-                  <!-- Barra de formato.
-                       La fabrica admin-rich-editor.js, el mismo módulo que
-                       la pone en las otras cuatro pantallas que escriben
-                       correos. Antes estaba escrita a mano aquí; con cinco
-                       editores eso eran cinco copias del mismo HTML. -->
-                  <div class="promo-fmt-toolbar" id="promo-fmt-bar">
-                    <div style="flex:1;"></div>
-                    <span id="promo-char-count" style="font-size:9px;font-weight:700;color:#b0bbd6;">0 / 2000</span>
-                  </div>
-                  <div id="promo-message" contenteditable="true" class="promo-message-editor" data-placeholder="Write your campaign message here..."></div>
-                  <div style="padding:6px 12px;background:#f8f9ff;border-top:0.5px solid #e8edf8;display:flex;justify-content:flex-end;">
-                    <span id="promo-char-count2" style="font-size:10px;font-weight:700;color:#b0bbd6;"></span>
-                  </div>
+              <div class="hub-field">
+                <div class="hub-field-row">
+                  <label class="hub-field-label" for="promo-preview-text">Preview Text <span class="hub-attach-opt">(optional — the line shown in the inbox next to the subject)</span></label>
+                  <span class="hub-count-chars" id="promo-preview-count">0/140</span>
                 </div>
+                <input type="text" class="hub-input" id="promo-preview-text" maxlength="140" autocomplete="off"
+                       placeholder="Leave empty to use the first line of your message">
               </div>
 
-              <!-- Ensayo de campaña.
-                   Marcada, el Launch pasa por el camino REAL completo — se
-                   registra en communications, se reserva el destinatario y
-                   sale por lotes — pero con una sola dirección: la del
-                   admin. Nadie de la lista lo recibe.
-                   admin-promotions.js la desmarca sola cada vez que se abre
-                   el modal, y cambia la etiqueta del botón mientras está
-                   puesta, para que el botón nunca diga una cosa y haga otra. -->
-              <label for="promo-only-me" style="display:flex;align-items:flex-start;gap:9px;padding:10px 12px;margin-bottom:8px;border:1px solid var(--divider-color);border-radius:10px;background:#f8f9ff;cursor:pointer;text-transform:none;letter-spacing:normal;">
-                <input type="checkbox" id="promo-only-me" aria-describedby="promo-only-me-ayuda" style="margin:1px 0 0;width:14px;height:14px;accent-color:var(--blue);cursor:pointer;flex-shrink:0;">
-                <span style="font-family:'Inter',sans-serif;font-size:11px;font-weight:700;color:var(--text);line-height:1.45;text-transform:none;letter-spacing:normal;">
-                  Send only to me
-                  <span id="promo-only-me-ayuda" style="display:block;font-size:10px;font-weight:600;color:var(--text-muted);margin-top:2px;text-transform:none;letter-spacing:normal;">
-                    Real send, fully logged &mdash; but only you receive it.
+              <div class="hub-field hub-field-roomy">
+                <div class="hub-field-label" id="promo-message-label">Message <span class="hub-req">*</span></div>
+                <div class="hub-editor">
+                  <!-- La barra de formato la fabrica admin-rich-editor.js. -->
+                  <div class="promo-fmt-toolbar hub-toolbar" id="promo-fmt-bar"></div>
+                  <div class="hub-editor-area" id="promo-message" contenteditable="true" data-placeholder="Write your campaign message here..." role="textbox" aria-multiline="true" aria-labelledby="promo-message-label"></div>
+                </div>
+                <div class="hub-count-chars hub-count-after" id="promo-char-count">0/5000</div>
+              </div>
+            </div>
+
+            <!-- Ensayo de campaña.
+                 Marcada, el Launch pasa por el camino REAL completo — se
+                 registra en communications, se reserva el destinatario y
+                 sale por lotes — pero con una sola dirección: la del
+                 admin. Nadie de la lista lo recibe.
+                 admin-promotions.js la desmarca sola cada vez que se abre
+                 el formulario, y cambia la etiqueta del botón mientras está
+                 puesta, para que el botón nunca diga una cosa y haga otra. -->
+            <div class="hub-card hub-area-send">
+              <div class="hub-send-row">
+                <label class="hub-test" for="promo-only-me">
+                  <input type="checkbox" id="promo-only-me" aria-describedby="promo-only-me-ayuda">
+                  <span class="hub-test-icon"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M2 6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v.4l-10 6.2L2 6.4z"/><path d="M2 8.7l10 6.2 10-6.2V18a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2z"/></svg></span>
+                  <span class="hub-test-text">
+                    Send only to me
+                    <span class="hub-test-help" id="promo-only-me-ayuda">Real send, fully logged &mdash; but only you receive it.</span>
                   </span>
-                </span>
-              </label>
-
-              <!-- Launch button -->
-              <button type="submit" id="promo-send-btn" style="width:100%;padding:12px;border:none;border-radius:99px;background:linear-gradient(180deg,#2456d3 0%,var(--blue) 100%);color:white;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-                Launch Campaign
-              </button>
+                </label>
+                <button type="submit" class="hub-send-btn" id="promo-send-btn">
+                  <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                  Launch Campaign
+                </button>
+              </div>
             </div>
 
-            <!-- RIGHT: Intelligence Panel -->
-            <div style="padding:22px 20px;background:white;display:flex;flex-direction:column;gap:14px;">
-              <div style="font-size:10px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--text);display:flex;align-items:center;gap:6px;">
-                <span style="width:6px;height:6px;border-radius:50%;background:var(--teal);display:inline-block;"></span>
-                Campaign Intelligence
-              </div>
+            <div class="hub-area-side">
+              <section class="hub-card" aria-labelledby="promo-preview-title">
+                <div class="hub-card-head">
+                  <span class="hub-mini-icon"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="8" r="3.2"/><circle cx="5" cy="9.6" r="2.4"/><circle cx="19" cy="9.6" r="2.4"/><path d="M6.5 19v-.5a5.5 5.5 0 0 1 11 0v.5z"/><path d="M.5 19v-.6c0-2 1.6-3.6 3.6-3.6h1.4a7 7 0 0 0-.7 3.6v.6z"/><path d="M23.5 19v-.6c0-2-1.6-3.6-3.6-3.6h-1.4a7 7 0 0 1 .7 3.6v.6z"/></svg></span>
+                  <h3 class="hub-card-title" id="promo-preview-title">Recipient Preview</h3>
+                </div>
+                <div class="hub-preview">
+                  <div class="hub-count"><span id="promo-audience-count">&mdash;</span> <span id="promo-audience-word">active subscribers</span></div>
+                </div>
+                <div class="hub-ok" id="promo-preview-ok" hidden>
+                  <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="7.5 12.5 10.5 15.5 16.5 9"/></svg>
+                  <span class="hub-ok-text">
+                    <strong>All active subscribers selected</strong>
+                    <span>This campaign will be sent to all your active subscribers.</span>
+                  </span>
+                </div>
+                <!-- Para el código de siempre; no se ve. -->
+                <span id="promo-recipient-count" hidden></span>
+              </section>
 
-              <!-- Audience card -->
-              <div class="promo-intel-card" style="border-left:3px solid var(--teal);">
-                <div class="promo-intel-label">Audience</div>
-                <div class="promo-intel-val" id="promo-audience-count">—</div>
-                <div class="promo-intel-sub">Active subscribers will receive this</div>
-              </div>
+              <section class="hub-card" aria-labelledby="promo-intel-title">
+                <div class="hub-card-head">
+                  <span class="hub-mini-icon"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span>
+                  <h3 class="hub-card-title" id="promo-intel-title">Campaign Intelligence</h3>
+                </div>
+                <div class="promo-intel-row">
+                  <div class="promo-intel-k">Last Campaign</div>
+                  <div class="promo-intel-v" id="promo-last-sent">&mdash;</div>
+                  <div class="promo-intel-s" id="promo-last-type">No campaigns yet</div>
+                </div>
+                <div class="promo-intel-row">
+                  <div class="promo-intel-k">Selected Type</div>
+                  <div class="promo-intel-v" id="promo-selected-type">Tournament</div>
+                  <div class="promo-intel-s">Best open rate: Tues&ndash;Thurs 9&ndash;11am</div>
+                </div>
+              </section>
 
-              <!-- Last campaign card -->
-              <div class="promo-intel-card" style="border-left:3px solid var(--blue);">
-                <div class="promo-intel-label">Last Campaign</div>
-                <div class="promo-intel-val-text" id="promo-last-sent">—</div>
-                <div class="promo-intel-sub" id="promo-last-type">No campaigns yet</div>
-              </div>
+              <section class="hub-card" aria-labelledby="promo-tips-title">
+                <div class="hub-card-head">
+                  <span class="hub-tips-icon"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"/></svg></span>
+                  <h3 class="hub-card-title" id="promo-tips-title">Quick Tips</h3>
+                </div>
+                <ul class="hub-tips">
+                  <li>Use a clear and specific subject line.</li>
+                  <li>Keep your message concise and easy to read.</li>
+                  <li>Include key details (dates, times, location).</li>
+                  <li>You can use links and emojis.</li>
+                </ul>
+              </section>
 
-              <!-- Selected type card -->
-              <div class="promo-intel-card" style="border-left:3px solid var(--orange);">
-                <div class="promo-intel-label">Selected Type</div>
-                <div class="promo-intel-val-text" id="promo-selected-type">Tournament</div>
-                <div class="promo-intel-sub">Best open rate: Tues–Thurs 9–11am</div>
-              </div>
-
-              <!-- Recipient count kept hidden for JS compat -->
-              <span id="promo-recipient-count" style="display:none;"></span>
+              <section class="hub-card" aria-labelledby="promo-check-title">
+                <div class="hub-card-head">
+                  <span class="hub-check-icon"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg></span>
+                  <h3 class="hub-card-title" id="promo-check-title">Message Checklist</h3>
+                </div>
+                <ul class="hub-checklist" id="promo-checklist">
+                  <li data-check="subject"><span class="hub-check-mark"></span>Subject line added</li>
+                  <li data-check="message"><span class="hub-check-mark"></span>Message content added</li>
+                  <li data-check="recipients"><span class="hub-check-mark"></span>Recipients selected</li>
+                  <li data-check="ready"><span class="hub-check-mark"></span>Ready to send</li>
+                </ul>
+              </section>
             </div>
-
-          </div>
-        </form>
+          </form>
+        </div>
       </div>
 
       <!-- COMMUNICATIONS HUB: a quién se le escribe.
@@ -2141,7 +2161,7 @@
            la casilla de ensayo con el botón) y, al lado, la vista previa,
            "Quick Tips" y "Message Checklist". Los textos que cambian según
            la audiencia los pone el script. -->
-      <div class="hub-panel" id="hub-panel" hidden>
+      <div class="hub-panel hub-layout" id="hub-panel" hidden>
         <div class="hub-aside">
           <button type="button" class="hub-back" data-action="hubClose">
             <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
@@ -2244,7 +2264,7 @@
                     <div class="hub-field-label" id="hub-options-label">Answers</div>
                     <!-- Las de la disponibilidad son fijas; las de una encuesta
                          propia se escriben aquí (de 2 a 6). -->
-                    <div class="hub-poll-fixed" id="hub-options-fixed">YES &mdash; I&rsquo;m playing &middot; NO &mdash; I can&rsquo;t play &middot; MAYBE</div>
+                    <div class="hub-poll-fixed" id="hub-options-fixed">Yesss!!! I&rsquo;ll be playing &#x1F60E;&#x1F44D;&#x1F929;&#x1F4AA; &middot; Nahhh, I can&rsquo;t make it &#x1F61E;&#x1F61E;&#x1F61E;</div>
                     <div class="hub-options" id="hub-options" role="group" aria-labelledby="hub-options-label"></div>
                     <button type="button" class="hub-attach-btn" id="hub-option-add" data-action="hubOptionAdd">+ Add answer</button>
                     <div class="hub-hint hub-hint-after" id="hub-options-hint">From 2 to 6 answers. Players choose one.</div>
@@ -2338,7 +2358,7 @@
                   <li>Use a clear and specific subject line.</li>
                   <li>Keep your message concise and easy to read.</li>
                   <li>Include key details (dates, times, location).</li>
-                  <li>You can use links, images and emojis.</li>
+                  <li>You can use links and emojis.</li>
                 </ul>
               </section>
 
@@ -3745,8 +3765,8 @@
 <script src="admin-ladder-management.js?v=20261008a"></script>
 <script src="admin-communications.js?v=20261011e"></script>
 <script src="admin-comms-hub.js?v=20261011e"></script>
-<script src="admin-comms-results.js?v=20261011c"></script>
-<script src="admin-promotions.js?v=20261011a"></script>
+<script src="admin-comms-results.js?v=20261011d"></script>
+<script src="admin-promotions.js?v=20261011b"></script>
 <script src="admin-subscriber-reminder.js?v=20261005a"></script>
 <script src="admin-newsletter.js?v=20261005b"></script>
 <!-- TEMPORARY: fills in missing dates of birth from a CSV import.

@@ -17,7 +17,8 @@
        lo decide el servidor (comms-remind → sql/78), nunca esta
        pantalla; aquí sólo se cuenta para la pregunta de antes;
      · en la disponibilidad semanal, "Use responses for roster": los
-       cuatro grupos (Confirmed, Maybe, Not playing, No response) para
+       grupos (Confirmed, Not playing, No response; y Maybe en las
+       enviadas antes del 11 de octubre, que tenían tres respuestas) para
        verlos, copiarlos o imprimirlos. No arma el roster: es la lista
        para que lo prepares tú.
 
@@ -34,8 +35,10 @@
   const ZONA = 'America/New_York';
   const $ = (id) => document.getElementById(id);
 
-  /* Los grupos del roster: la disponibilidad tiene sus tres respuestas
-     fijas, en este orden (comms-send, RESPUESTAS_DISPONIBILIDAD). */
+  /* Los grupos del roster: la disponibilidad tiene sus respuestas fijas,
+     en este orden (comms-send, RESPUESTAS_DISPONIBILIDAD). Desde el 11 de
+     octubre son dos (sin "Maybe"); las enviadas antes tienen una tercera,
+     "Maybe", y su grupo sólo sale en ellas. */
   const ROSTER = [
     { titulo: 'Confirmed',   posicion: 1 },
     { titulo: 'Maybe',       posicion: 3 },
@@ -503,7 +506,7 @@
   function gruposRoster() {
     const { opciones, personas } = _datos;
     const idDe = new Map(opciones.map((o) => [o.position, o.id]));
-    return ROSTER.map((g) => ({
+    return ROSTER.filter((g) => g.posicion === null || idDe.has(g.posicion)).map((g) => ({
       titulo: g.titulo,
       gente: g.posicion === null ? personas.filter((p) => !p.resp)
         : personas.filter((p) => p.resp && p.resp.option_id === idDe.get(g.posicion)),
@@ -522,7 +525,10 @@
     const { poll } = _datos;
     $('co-roster-title').textContent = [_envio.meta.audience?.label, textoSesion(poll.session_date)]
       .filter(Boolean).join(' · ');
-    $('co-roster-cols').replaceChildren(...gruposRoster().map((g, i) => {
+    const grupos = gruposRoster();
+    /* Tres columnas en las nuevas (sin "Maybe"), cuatro en las antiguas. */
+    $('co-roster-cols').classList.toggle('co-roster-cols-3', grupos.length === 3);
+    $('co-roster-cols').replaceChildren(...grupos.map((g, i) => {
       const col = el('div', 'co-roster-col');
       const cab = el('div', 'co-roster-col-head');
       cab.append(el('span', 'co-roster-col-title', `${g.titulo} (${g.gente.length})`));
