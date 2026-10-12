@@ -5136,6 +5136,12 @@ async function printTournamentRoster(btn) {
     const SILVER = [192, 192, 192];
     const BRONZE = [205, 127, 50];
     const TEAL   = [36, 188, 150];
+    const FF_RED = [229, 57, 53];
+    /* A match "has its result" when it is completed and both scores are
+       there (a bye or a pending match prints empty boxes). */
+    const hasScore = (m) => m.status === 'completed'
+      && m.score_a !== null && m.score_a !== undefined && m.score_a !== ''
+      && m.score_b !== null && m.score_b !== undefined && m.score_b !== '';
 
     const dateLabel = tournamentDate
       ? new Date(tournamentDate + 'T12:00:00').toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric', year:'numeric' })
@@ -5325,6 +5331,39 @@ async function printTournamentRoster(btn) {
 
       const MATCH_H = 9;
 
+      /* ── THE TWO SCORE BOXES (12 de octubre) ──────────────────────
+         Empty boxes to write the score by hand, as before — but once a
+         match has its result, the result is printed in them: team A on
+         the left, team B on the right (games won in a best-of bracket
+         match, as the tournament screen shows). The winner's number in
+         blue and bold; "FF" next to the boxes when it was a forfeit. */
+      const drawScoreBoxes = (m, bx, ry) => {
+        doc.setDrawColor(...BORDER);
+        doc.setLineWidth(0.4);
+        doc.setFillColor(...WHITE);
+        doc.rect(bx, ry + 1.5, 6.5, MATCH_H - 3, 'FD');
+        doc.rect(bx + 7.5, ry + 1.5, 6.5, MATCH_H - 3, 'FD');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(6);
+        doc.setTextColor(...MUTED);
+        doc.text('—', bx + 7, ry + MATCH_H / 2 + 1, { align: 'center' });
+        if (!hasScore(m)) return;
+        const score = (value, x, won) => {
+          doc.setFont('helvetica', won ? 'bold' : 'normal');
+          doc.setFontSize(7.5);
+          doc.setTextColor(...(won ? BLUE : DARK));
+          doc.text(String(value), x, ry + MATCH_H / 2 + 1.3, { align: 'center' });
+        };
+        score(m.score_a, bx + 3.25, !!m.winner_id && m.winner_id === m.team_a_id);
+        score(m.score_b, bx + 10.75, !!m.winner_id && m.winner_id === m.team_b_id);
+        if (m.forfeit_team_id) {
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(6);
+          doc.setTextColor(...FF_RED);
+          doc.text('FF', bx - 1.5, ry + MATCH_H / 2 + 1, { align: 'right' });
+        }
+      };
+
       // Add a new page — both columns carry on where they stopped: the teams
       // list on the left, the schedule on the right.
       const addSchedulePage = () => {
@@ -5385,18 +5424,9 @@ async function printTournamentRoster(btn) {
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(8 * NAME_SIZE);
             doc.setTextColor(...DARK);
-            doc.text(matchLabel, schedX() + 13, ry + MATCH_H / 2 + 1.5, { maxWidth: schedW() - 30 });
+            doc.text(matchLabel, schedX() + 13, ry + MATCH_H / 2 + 1.5, { maxWidth: schedW() - 30 - (hasScore(m) && m.forfeit_team_id ? 6 : 0) });
 
-            const bx = schedX() + schedW() - 16;
-            doc.setDrawColor(...BORDER);
-            doc.setLineWidth(0.4);
-            doc.setFillColor(...WHITE);
-            doc.rect(bx, ry + 1.5, 6.5, MATCH_H - 3, 'FD');
-            doc.rect(bx + 7.5, ry + 1.5, 6.5, MATCH_H - 3, 'FD');
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(6);
-            doc.setTextColor(...MUTED);
-            doc.text('—', bx + 7, ry + MATCH_H / 2 + 1, { align: 'center' });
+            drawScoreBoxes(m, schedX() + schedW() - 16, ry);
 
             doc.setDrawColor(...BORDER);
             doc.setLineWidth(0.2);
@@ -5437,18 +5467,9 @@ async function printTournamentRoster(btn) {
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(8);
             doc.setTextColor(...DARK);
-            doc.text(matchLabel, schedX() + 3, ry + MATCH_H / 2 + 1.5, { maxWidth: schedW() - 20 });
+            doc.text(matchLabel, schedX() + 3, ry + MATCH_H / 2 + 1.5, { maxWidth: schedW() - 20 - (hasScore(m) && m.forfeit_team_id ? 6 : 0) });
 
-            const bx = schedX() + schedW() - 16;
-            doc.setDrawColor(...BORDER);
-            doc.setLineWidth(0.4);
-            doc.setFillColor(...WHITE);
-            doc.rect(bx, ry + 1.5, 6.5, MATCH_H - 3, 'FD');
-            doc.rect(bx + 7.5, ry + 1.5, 6.5, MATCH_H - 3, 'FD');
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(6);
-            doc.setTextColor(...MUTED);
-            doc.text('—', bx + 7, ry + MATCH_H / 2 + 1, { align: 'center' });
+            drawScoreBoxes(m, schedX() + schedW() - 16, ry);
 
             doc.setDrawColor(...BORDER);
             doc.setLineWidth(0.2);
