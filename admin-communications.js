@@ -444,30 +444,42 @@
   // ── PESTAÑA HISTORIAL: EL DETALLE ─────────────────────────
 
   /* ── EL CUERPO DEL CORREO, LIMPIO ANTES DE ENSEÑARLO ──────
-     Es la primera vez que un mensaje guardado se vuelve a pintar como
-     HTML vivo dentro de la sesión de un admin. El editor no limpia
-     nada: lo que se pega desde una página web se guarda tal cual, y
-     eso puede traer una imagen con un `onerror` que se ejecuta al
-     pintarla. `innerHTML` no corre un <script>, pero sí corre eso.
+     Un mensaje guardado se vuelve a pintar como HTML vivo dentro de la
+     sesión de un admin (aquí y en "Resend to…"). El editor no limpia
+     nada: lo que se pega desde una página web se guarda tal cual, y eso
+     puede traer piezas escondidas (una imagen con `onerror`, un enlace
+     `javascript:`…).
 
-     Se hace lo mínimo que cierra el agujero sin cambiar cómo se ve:
-     fuera los <script>/<style>/<iframe>, fuera cualquier atributo que
-     empiece por `on`, y fuera los enlaces que no sean http(s). */
+     Desde el 12 de octubre lo limpia DOMPurify (purify.min.js, guardado
+     en el sitio): una "lista de invitados" — sólo deja pasar lo que se
+     sabe seguro (texto, negritas, listas, enlaces, colores, imágenes) y
+     quita todo lo demás, también un truco que nadie conozca todavía.
+     Antes se quitaba sólo lo peligroso que se conocía.
+
+     Los enlaces y las imágenes: http(s), mailto, cid o relativos (y las
+     imágenes pegadas como data:, que DOMPurify permite sólo en <img>).
+     Nada de javascript:, ni otros esquemas. La regla es la de DOMPurify
+     con sólo esos esquemas: DOMPurify la aplica también a atributos
+     como color="#f00" o width="600", así que una más estricta les
+     quitaba el formato (lo vio la revisión del 12 de octubre).
+
+     Si purify.min.js no cargara, NO se pinta HTML: sólo el texto. Mejor
+     un mensaje sin formato que uno sin limpiar. */
+  const LIMPIEZA = {
+    USE_PROFILES: { html: true },
+    FORBID_TAGS: ['style', 'form', 'input', 'button', 'textarea', 'select', 'option'],
+    ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|cid):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
+  };
   function limpiarCuerpo(html) {
+    const crudo = String(html == null ? '' : html);
+    if (window.DOMPurify && typeof window.DOMPurify.sanitize === 'function') {
+      return window.DOMPurify.sanitize(crudo, LIMPIEZA);
+    }
+    console.error('[communications] purify.min.js no cargó: se enseña sólo el texto');
+    /* DOMParser no ejecuta nada ni carga imágenes. */
+    const texto = new DOMParser().parseFromString(crudo, 'text/html').body.textContent || '';
     const caja = document.createElement('div');
-    caja.innerHTML = String(html == null ? '' : html);
-    caja.querySelectorAll('script,style,iframe,object,embed,link,meta,form,base')
-        .forEach((n) => n.remove());
-    caja.querySelectorAll('*').forEach((n) => {
-      [...n.attributes].forEach((a) => {
-        const nom = a.name.toLowerCase();
-        if (nom.startsWith('on')) { n.removeAttribute(a.name); return; }
-        if ((nom === 'href' || nom === 'src' || nom === 'xlink:href')
-            && !/^(https?:|mailto:|cid:|data:image\/)/i.test(a.value.trim())) {
-          n.removeAttribute(a.name);
-        }
-      });
-    });
+    caja.textContent = texto;
     return caja.innerHTML;
   }
 
@@ -565,6 +577,12 @@
     const c = _abierto;
     if (!c || c.kind !== 'promo' || !c.body) return;
     if (window.envioEnCurso && window.envioEnCurso('abrir')) return;
+    /* Sin el limpiador el mensaje sólo se ve como texto: reenviarlo así
+       mandaría la campaña sin formato. Mejor no dejar. */
+    if (!window.DOMPurify) {
+      window.toast('Could not load part of the page. Reload it and try again.', true);
+      return;
+    }
     const html = c.meta && c.meta.cuerpo_html
       ? limpiarCuerpo(c.body)
       : window.FerociaEditor.textoAHTML(String(c.body));
@@ -1182,7 +1200,12 @@
       else window.location.href = data.signedUrl;
     } catch (e) {
       if (pestana) pestana.close();
-      window.toast(`Could not open the PDF: ${e.message}`, true);
+      /* Los PDF se guardan 30 días después del envío (12 de octubre):
+         pasado ese tiempo ya no está, y se dice así. */
+      const yaNo = /not.?found/i.test(String(e && (e.message || e.error || '')));
+      window.toast(yaNo
+        ? 'This PDF is no longer available: attachments are kept for 30 days after sending.'
+        : `Could not open the PDF: ${e.message}`, true);
     }
   }
 

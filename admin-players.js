@@ -702,33 +702,26 @@
     return { ok: true, value: Number(n.toFixed(3)) };
   };
 
-  /* ─── SHARED SUBSCRIBER HELPERS ─────────────────────────────────────────
-     Used by BOTH the Add Player form and the CSV bulk import, which used
-     to each carry their own copy of this logic — and had already drifted
-     apart (the import saved fewer columns, and its insert never actually
-     ran because it depended on a return value db.js does not provide).
+  /* ─── JUGADORES Y SUSCRIPTORES (decidido el 12 de octubre) ─────────────
+     Crear, importar o editar un jugador NUNCA lo da de alta en las
+     campañas, ni reactiva a quien se dio de baja. Para recibir campañas,
+     un jugador se suscribe con el formulario público y confirma su correo,
+     como todo el mundo. (Antes, Add Player y la importación lo metían
+     solos —sin confirmar— y volvían a dar de alta a quien se había dado
+     de baja: la función admin_ensure_subscriber, que ya no se usa.)
 
-     THE WRITE PATH IS THE admin_ensure_subscriber RPC, not a direct table
-     write. Three reasons this has to happen server-side:
+     Lo que SÍ se hace: si esa persona YA es suscriptora, sus datos se
+     ponen al día con los del jugador, que son los buenos (al inscribirse
+     en una escalera o un torneo da su teléfono de verdad):
+       · nombre, apellido, correo, teléfono y país se SOBRESCRIBEN, también
+         si el del jugador está vacío;
+       · género y nivel se RELLENAN sólo si el suscriptor no los tiene.
+     Su estado (activa, pendiente, dada de baja) no se toca nunca: si se
+     dio de baja, sigue dada de baja, con los datos al día.
 
-       1. unsubscribe_token — every subscriber needs one or their unsubscribe
-          link lands on "Invalid Link". Generating it in the browser would
-          work, but it belongs next to the same generation the public signup
-          flow (subscribe_signup) already does, so there is one definition of
-          what a valid token looks like instead of two that can drift.
-       2. Atomicity — check-then-insert across two round trips can race with
-          another admin doing the same thing. Inside the function it is one
-          statement against one snapshot.
-       3. Authorization — the function verifies the caller is an active admin.
-          Players signing in through the mobile app are `authenticated` too,
-          so table-level grants alone would not be enough.
-
-     MATCHING RULE (enforced inside the RPC, mirrored here for the preview) —
-     a subscriber is "the same person" only when email AND first name AND
-     last name all match, case-insensitively. Matching on email alone would
-     be wrong: FEROCIA legitimately has different people sharing one email
-     (e.g. a parent and their child), and email-only matching would
-     permanently lock the second person out of the mailing list.
+     "La misma persona" = mismo correo, nombre y apellido (sin mayúsculas
+     ni acentos). Sólo el correo no basta: una madre y su hija pueden
+     compartir buzón y cada una tiene su ficha.
      ──────────────────────────────────────────────────────────────────── */
 
   /* Normalises a name the same way the database does, so the browser and
@@ -748,102 +741,91 @@
       .replace(/\s+/g, ' ')
       .trim();
 
-  // True when a subscriber row refers to the same person as the given details.
-  // Mirrors the RPC's matching rule. Used ONLY to predict the outcome in the
-  // CSV preview — the RPC itself is what actually decides at import time.
+  // True when a subscriber row refers to the same person as the given details
+  // (same email, first and last name). Decides which subscriber row a
+  // player's details are copied to (actualizarSuscriptor).
   const _sameSubscriber = (row, firstName, lastName, email) =>
     (row.email || '').trim().toLowerCase() === email.trim().toLowerCase() &&
     _normName(row.first_name) === _normName(firstName) &&
     _normName(row.last_name)  === _normName(lastName);
 
-  /* Levenshtein distance, capped for speed. Only ever runs on names, so
-     the strings are short and the cost is irrelevant. */
-  const _editDistance = (a, b) => {
-    if (a === b) return 0;
-    const m = a.length, n = b.length;
-    if (!m) return n;
-    if (!n) return m;
-    let prev = Array.from({ length: n + 1 }, (_, i) => i);
-    for (let i = 1; i <= m; i++) {
-      const cur = [i];
-      for (let j = 1; j <= n; j++) {
-        cur[j] = Math.min(
-          prev[j] + 1,
-          cur[j - 1] + 1,
-          prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)
-        );
-      }
-      prev = cur;
-    }
-    return prev[n];
-  };
-
-  /* Is this probably the SAME person typed slightly differently, rather
-     than a family member sharing an inbox?
-     
-     Exact matches are already caught by the dedup, so this only sees
-     names that differ. Two signals, tuned against the real data:
-
-       · Same first name, different last  → "Luciana Garcia" vs
-         "Luciana SK Garcia". A relative would not share a first name.
-       · Same last name, and the first names are one a prefix of the
-         other or within 2 edits → "Yonayli"/"Yonaylin" (1 edit),
-         "Chris"/"Christopher" (prefix).
-
-     Checked against every shared-email pair on file: it flags the real
-     variants and stays quiet for the genuine families — Sammy/Salome
-     Mosquera (4 edits), Dirk/Dean Hall (3), William/Aiden Romanelli,
-     Andy/Henry Thomson. Zak/Jack Shimony (2 edits) is the one false
-     positive, which is why this warns instead of blocking. */
-  const _looksLikeSamePerson = (aFirst, aLast, bFirst, bLast) => {
-    const f1 = _normName(aFirst), l1 = _normName(aLast);
-    const f2 = _normName(bFirst), l2 = _normName(bLast);
-    if (f1 === f2 && l1 === l2) return false;   // handled by the dedup
-    if (f1 === f2) return true;                 // same first name
-    if (l1 === l2) {
-      if (f1.startsWith(f2) || f2.startsWith(f1)) return true;
-      if (_editDistance(f1, f2) <= 2) return true;
-    }
-    return false;
-  };
-
   /**
-   * Creates this person's subscriber record, or reactivates it if they
-   * previously unsubscribed. Delegates to the admin_ensure_subscriber RPC.
+   * Si esta persona ya es suscriptora, pone al día sus datos con los del
+   * jugador (ver arriba). No crea ni reactiva a nadie.
    *
-   * Never throws. By the time this runs the player has already been saved —
-   * that is the operation that mattered — so a subscriber failure must not
-   * surface as an error. It is logged and reported in the summary instead.
+   * No lanza errores: el jugador ya se guardó, que es lo que importaba.
    *
-   * @param {object}   opts
-   * @param {string}   opts.firstName
-   * @param {string}   opts.lastName
-   * @param {string}   opts.email       Required — no email, no subscriber.
-   * @param {string?}  opts.phone
-   * @param {string?}  opts.gender
-   * @param {string?}  opts.skillLevel
-   * @returns {Promise<'created'|'reactivated'|'skipped'|'failed'>}
+   * @param {object}  quien   cómo encontrarla: { first, last, email } (en
+   *                          Edit Player, los datos de ANTES del cambio)
+   * @param {object}  datos   los del jugador: first_name, last_name, email,
+   *                          phone, country_code, gender, skill_level
+   * @param {Array?}  lista   suscriptores ya leídos (la importación los lee
+   *                          una vez por archivo); sin ella, se buscan aquí
+   * @returns {Promise<'updated'|'none'|'failed'>}
    */
-  const ensureSubscriber = async ({ firstName, lastName, email, phone, countryCode, gender, skillLevel }) => {
-    if (!email) return 'skipped';
+  const buscarSuscriptores = async (email) => {
+    /* ilike sólo como filtro ancho: en PostgREST "_" y "%" son comodines
+       (y "_" es normal en un correo). Lo que decide es la comparación
+       exacta de _sameSubscriber. */
+    const { data, error } = await supabase
+      .from('subscribers')
+      .select('id,first_name,last_name,email,gender,skill_level')
+      .ilike('email', email)
+      .limit(25);
+    if (error) throw new Error(error.message);
+    return data || [];
+  };
+
+  /* @returns 'updated' | 'none' | 'conflict' | 'failed'
+     'conflict': los datos nuevos (correo + nombre) ya son de OTRA ficha de
+     suscriptor; no se copia nada, para no dejar dos fichas iguales (esa
+     persona recibiría cada campaña dos veces). */
+  const actualizarSuscriptor = async (quien, datos, lista = null) => {
+    const email = String(quien.email || '').trim();
+    if (!email || !quien.first || !quien.last) return 'none';
     try {
-      const { data, error } = await supabase.rpc('admin_ensure_subscriber', {
-        p_first:        firstName,
-        p_last:         lastName,
-        p_email:        email,
-        p_phone:        phone       || null,
-        p_country_code: countryCode || null,
-        p_gender:       gender      || null,
-        p_skill:        skillLevel  || null,
-      });
-      if (error) throw new Error(error.message);
-      // The function returns { action: 'created' | 'reactivated' | 'skipped' }.
-      return data?.action || 'skipped';
+      const es = (x) => _sameSubscriber(x, quien.first, quien.last, email);
+      /* La importación pasa la lista leída una vez. Si no la hay, o si
+         pudo venir cortada (el servidor da 1.000 filas como mucho), se
+         busca aquí. */
+      let sub = lista ? lista.find(es) : null;
+      if (!sub && (!lista || lista.length >= 1000)) sub = (await buscarSuscriptores(email)).find(es);
+      if (!sub) return 'none';
+
+      const nuevoEmail = String(datos.email || '').trim();
+      const mismaPersona = _sameSubscriber(sub, datos.first_name, datos.last_name, nuevoEmail);
+      if (nuevoEmail && !mismaPersona) {
+        const otra = (await buscarSuscriptores(nuevoEmail))
+          .find((x) => x.id !== sub.id && _sameSubscriber(x, datos.first_name, datos.last_name, nuevoEmail));
+        if (otra) {
+          console.warn('[players] subscriber details not copied: another subscriber already has', nuevoEmail);
+          return 'conflict';
+        }
+      }
+      const cambios = {
+        first_name:   datos.first_name,
+        last_name:    datos.last_name,
+        email:        datos.email,
+        phone:        datos.phone || null,
+        country_code: datos.country_code || null,
+      };
+      if (!sub.gender && datos.gender) cambios.gender = datos.gender;
+      if (!sub.skill_level && datos.skill_level) cambios.skill_level = datos.skill_level;
+      const { error: updErr } = await supabase.from('subscribers').update(cambios).eq('id', sub.id);
+      if (updErr) throw new Error(updErr.message);
+      return 'updated';
     } catch (err) {
-      console.warn('[ensureSubscriber] could not subscribe', email, '—', err.message);
+      console.warn('[players] could not update the subscriber details of', email, '—', err.message);
       return 'failed';
     }
   };
+
+  /* Lo que se añade al aviso de guardar, según cómo fue con su ficha de
+     suscriptor (si la tiene). */
+  const notaSuscriptor = (r) => r === 'updated'  ? ' Subscriber details updated.'
+    : r === 'conflict' ? ' (Subscriber details not copied: that email and name already belong to another subscriber.)'
+    : r === 'failed'   ? ' (Could not update the subscriber details — check the console.)'
+    : '';
 
   const initAddPlayer = () => {
     const form = document.getElementById('add-player-form');
@@ -977,35 +959,6 @@
         if (!proceed) return;
       }
 
-      // Same email already on the mailing list under a SIMILAR name?
-      // A typo of one letter used to create a second subscriber silently,
-      // and that person then received every campaign twice. This is a
-      // warning, not a block: families legitimately share one inbox.
-      if (email) {
-        const sameEmailSubs = await api(
-          `subscribers?email=ilike.${encodeURIComponent(email)}` +
-          `&select=first_name,last_name,email&limit=25`
-        );
-        const lookalikes = (sameEmailSubs || [])
-          .filter(sub => (sub.email || '').trim().toLowerCase() === email.toLowerCase())
-          .filter(sub => _looksLikeSamePerson(sub.first_name, sub.last_name, firstName, lastName));
-
-        if (lookalikes.length) {
-          const names = lookalikes.map(x => `${x.first_name} ${x.last_name}`).join(', ');
-          const proceedEmail = await confirmModal({
-            title: 'This email is already on the mailing list',
-            message:
-              `${email} is already registered for ${names}. ` +
-              `That name is very close to "${firstName} ${lastName}", so this may be ` +
-              `the same person entered twice — which would send them every campaign ` +
-              `twice. If it is a family member sharing the inbox, continue.`,
-            okLabel: 'Different person — continue',
-            cancelLabel: 'Cancel',
-          });
-          if (!proceedEmail) return;
-        }
-      }
-
       const body = {
         first_name: firstName,
         last_name:  lastName,
@@ -1029,21 +982,11 @@
 
       await api('players', 'POST', body);
 
-      // Auto-subscribe. Shared with the CSV import — see ensureSubscriber above.
-      const subResult = await ensureSubscriber({
-        firstName,
-        lastName,
-        email,
-        phone:      body.phone,
-        countryCode: body.country_code,
-        gender:     body.gender,
-        skillLevel: body.skill_level,
-      });
-
-      const subNote = subResult === 'created'     ? ' Added to subscribers.'
-                    : subResult === 'reactivated' ? ' Subscription reactivated.'
-                    : subResult === 'failed'      ? ' (Could not update subscribers — check the console.)'
-                    : '';
+      /* Ya no se le da de alta en las campañas (12 de octubre). Si ya es
+         suscriptora, se ponen al día sus datos. */
+      const subResult = await actualizarSuscriptor(
+        { first: firstName, last: lastName, email }, body);
+      const subNote = notaSuscriptor(subResult);
       toast(`${body.first_name} ${body.last_name} added successfully!${subNote}`);
       const form = document.getElementById('add-player-form');
       if (form) form.reset();
@@ -1792,13 +1735,11 @@
   // ── BULK PLAYER IMPORT ────────────────────────────────────────────────────
 
   let _importRows = []; // parsed and validated rows
-  // Subscriber rows fetched once per file, used ONLY to predict in the
-  // preview what will happen to each row's subscription (create / skip /
-  // reactivate). The actual decision at import time is made server-side by
-  // the admin_ensure_subscriber RPC, which is authoritative — this is a
-  // best-effort hint so the admin can see the reactivations before
-  // committing, not the thing that drives the write.
-  let _importSubs = [];
+  // Los suscriptores, leídos UNA vez por archivo: al importar, quien ya es
+  // suscriptor recibe sus datos al día (actualizarSuscriptor). Nadie se da
+  // de alta ni se reactiva (12 de octubre). null = no se pudieron leer:
+  // entonces cada fila busca el suyo.
+  let _importSubs = null;
 
   // ── Download CSV template ──────────────────────────────────────────────
   window.importDownloadTemplate = () => {
@@ -1828,7 +1769,7 @@
   // ── Reset import state ─────────────────────────────────────────────────
   window.importReset = () => {
     _importRows = [];
-    _importSubs = [];
+    _importSubs = null;
     document.getElementById('import-preview-area').style.display = 'none';
     document.getElementById('import-file-input').value = '';
   };
@@ -1869,18 +1810,14 @@
       importPlayers = AdminState.allPlayers || [];
     }
 
-    // Fetch subscribers ONCE for this file. The preview needs them to show
-    // whether each row will create, skip, or reactivate a subscription, and
-    // importConfirm() reuses the same array — so a 200-row CSV costs one
-    // request here rather than 200 lookups during the import.
+    // Los suscriptores, UNA vez por archivo: así 200 filas no son 200
+    // búsquedas al importar.
     try {
-      _importSubs = await api('subscribers?select=id,first_name,last_name,email,status');
+      _importSubs = await api('subscribers?select=id,first_name,last_name,email,gender,skill_level');
     } catch (err) {
-      // Non-fatal: the player import itself does not depend on this. Rows
-      // will simply show an unknown subscription outcome, and each one will
-      // fall back to its own lookup at import time.
+      // No impide importar: cada fila buscará el suyo.
       console.warn('[import] could not preload subscribers —', err.message);
-      _importSubs = [];
+      _importSubs = null;
     }
 
     const text = await file.text();
@@ -1943,9 +1880,6 @@
         // dupfile    -> this person appears earlier in THIS file
         // error      -> failed validation
         _state:     'new',
-        // What will happen to this person's subscription if the row imports:
-        // 'create' | 'skip' (already subscribed) | 'reactivate' (was unsubscribed)
-        _subState:  'create',
         _errors:    [],
       };
 
@@ -2030,13 +1964,6 @@
       if (seenInFile.has(key)) { row._state = 'dupfile'; return row; }
       seenInFile.add(key);
 
-      // Work out what will happen to this person's subscription, so the
-      // preview can show it before the admin commits.
-      const existingSub = _importSubs.find(s => _sameSubscriber(s, row.first_name, row.last_name, row.email));
-      row._subState = !existingSub ? 'create'
-                    : existingSub.status === 'unsubscribed' ? 'reactivate'
-                    : 'skip';
-
       return row;
     }).filter(r => r.first_name || r.last_name || r.email); // skip completely empty rows
 
@@ -2049,11 +1976,8 @@
     const dupRows    = _importRows.filter(r => r._state === 'duplicate');
     const dupFileRows= _importRows.filter(r => r._state === 'dupfile');
     const errRows    = _importRows.filter(r => r._state === 'error');
-    const reactRows  = newRows.filter(r => r._subState === 'reactivate');
 
-    // Summary cards. The reactivation card only appears when there is
-    // something to reactivate — it is the one outcome that reverses a
-    // choice the subscriber made themselves, so it must not be buried.
+    // Summary cards.
     document.getElementById('import-summary').innerHTML = `
       <div class="import-sum-card" style="background:rgba(36,188,150,0.04);border-color:rgba(36,188,150,0.2);">
         <div class="import-sum-val" style="color:var(--teal);">${newRows.length}</div>
@@ -2066,12 +1990,7 @@
       <div class="import-sum-card" style="background:#fee2e2;border-color:#fca5a5;">
         <div class="import-sum-val" style="color:#e53935;">${errRows.length}</div>
         <div class="import-sum-lbl">Errors (skipped)</div>
-      </div>
-      ${reactRows.length ? `
-      <div class="import-sum-card" style="background:rgba(23,76,204,0.04);border-color:rgba(23,76,204,0.25);">
-        <div class="import-sum-val" style="color:var(--blue);">${reactRows.length}</div>
-        <div class="import-sum-lbl">Subscriptions Reactivated</div>
-      </div>` : ''}`;
+      </div>`;
 
     // Table rows — show all, color-coded
     document.getElementById('import-table-body').innerHTML = _importRows.map(r => {
@@ -2083,16 +2002,9 @@
             ? '<span class="import-badge import-b-dup" title="This person appears earlier in this same CSV file">⚠ Repeated in file</span>'
             : `<span class="import-badge import-b-err" title="${esc(r._errors.join(', '))}">✕ Error</span>`;
 
-      // Reactivation flag — shown next to the main badge so the admin sees,
-      // BEFORE confirming, that importing this row will put someone who
-      // unsubscribed back onto the mailing list.
       // TEMPORARY (temp-dob-backfill.js)
       const dobBadge = (r._backfill && window.TempDobBackfill)
         ? window.TempDobBackfill.badge(r._backfill) : '';
-
-      const subBadge = (r._state === 'new' && r._subState === 'reactivate')
-        ? '<span class="import-badge" title="This person previously unsubscribed. Importing this row will reactivate their subscription." style="background:rgba(23,76,204,0.08);color:var(--blue);border:0.5px solid rgba(23,76,204,0.3);margin-left:4px;">↻ Reactivate</span>'
-        : '';
 
       const rowStyle = r._state === 'error' ? 'background:#fff8f8;'
                      : (r._state === 'duplicate' || r._state === 'dupfile') ? 'background:#fffdf0;'
@@ -2108,7 +2020,7 @@
         <td>${r.rating !== null ? esc(ratingDisplay(r.rating)) : (r.rating_raw ? `<span style="color:#e53935;">${esc(r.rating_raw)}</span>` : '—')}</td>
         <td>${(r.city && r.state) ? esc(FerociaLocation.formatLocation(r.city, r.state))
               : ((r.city_raw || r.state_raw) ? `<span style="color:#e53935;">${esc([r.city_raw, r.state_raw].filter(Boolean).join(', '))}</span>` : '—')}</td>
-        <td style="white-space:nowrap;">${badge}${subBadge}${dobBadge}</td>
+        <td style="white-space:nowrap;">${badge}${dobBadge}</td>
       </tr>`;
     }).join('');
 
@@ -2134,8 +2046,7 @@
 
     let successCount = 0;
     let failCount    = 0;
-    let subCreated   = 0;
-    let subReactivated = 0;
+    let subUpdated   = 0;
     let subFailed    = 0;
 
     for (const row of toInsert) {
@@ -2169,20 +2080,12 @@
         await api('players', 'POST', playerBody);
         successCount++;
 
-        // Sync to subscribers. The RPC does its own authoritative dedup
-        // server-side, so no pre-fetched list is passed here — _importSubs
-        // exists only to predict the outcome in the preview.
-        const subResult = await ensureSubscriber({
-          firstName:  row.first_name,
-          lastName:   row.last_name,
-          email:      row.email,
-          phone:       FerociaPhone.normalize(row.phone) || null,
-          countryCode: FerociaPhone.normalize(row.phone).length === 10 ? '+1' : null,
-          gender:     row.gender,
-        });
-        if (subResult === 'created')          subCreated++;
-        else if (subResult === 'reactivated') subReactivated++;
-        else if (subResult === 'failed')      subFailed++;
+        // Quien ya es suscriptor recibe sus datos al día; nadie se da de
+        // alta ni se reactiva (12 de octubre).
+        const subResult = await actualizarSuscriptor(
+          { first: row.first_name, last: row.last_name, email: row.email }, playerBody, _importSubs);
+        if (subResult === 'updated')     subUpdated++;
+        else if (subResult === 'failed' || subResult === 'conflict') subFailed++;
       } catch(e) {
         failCount++;
         console.warn(`[import] row ${row.rowNum} failed —`, e.message);
@@ -2212,9 +2115,8 @@
     // mentioned players, so a silent subscriber failure was invisible.
     const parts = [`✓ ${successCount} player${successCount !== 1 ? 's' : ''} imported`];
     if (failCount)       parts.push(`${failCount} failed`);
-    if (subCreated)      parts.push(`${subCreated} added to subscribers`);
-    if (subReactivated)  parts.push(`${subReactivated} subscription${subReactivated !== 1 ? 's' : ''} reactivated`);
-    if (subFailed)       parts.push(`${subFailed} subscriber sync${subFailed !== 1 ? 's' : ''} failed`);
+    if (subUpdated)      parts.push(`${subUpdated} subscriber${subUpdated !== 1 ? 's' : ''} updated`);
+    if (subFailed)       parts.push(`${subFailed} subscriber update${subFailed !== 1 ? 's' : ''} failed`);
     // TEMPORARY (temp-dob-backfill.js)
     if (dobFilled)       parts.push(`${dobFilled} date${dobFilled !== 1 ? 's' : ''} of birth added`);
     if (ratingFilled)    parts.push(`${ratingFilled} rating${ratingFilled !== 1 ? 's' : ''} added`);
@@ -2446,62 +2348,17 @@
       await api(`players?id=eq.${id}`, 'PATCH', body);
       window.logAuditAction(id, 'player_edited', 'Edited player information');
 
-      // Sync this person's subscriber record so a name/email change here
-      // does not leave the mailing list pointing at the old details.
-      //
-      // The lookup uses ilike ONLY as a wide pre-filter. PostgREST treats
-      // %, _ and * as wildcards, and underscores are common in real email
-      // addresses (john_smith@…). The previous version took the first ilike
-      // match and UPDATED it, which meant editing a player whose email
-      // contained "_" could overwrite a DIFFERENT person's subscriber row.
-      // Wildcards can only ever widen the candidate set, never narrow it,
-      // so the exact comparison below is what decides which row is touched.
-      //
-      // This also handles the shared-email case correctly: a parent and
-      // child on one address have separate subscriber rows, and matching on
-      // all three fields picks the right one.
-      try {
-        if (!_origFirst || !_origLast || !_origEmail) {
-          // Nothing reliable to match on — skip rather than guess. Happens
-          // when the player was not in the cache (see _origPlayer above).
-          console.warn('[saveEditPlayer] original details unavailable — skipping subscriber sync');
-        } else {
-          const { data: candidates, error: findErr } = await supabase
-            .from('subscribers')
-            .select('id,first_name,last_name,email')
-            .ilike('email', _origEmail)
-            .limit(25);
-          if (findErr) throw new Error(findErr.message);
-
-          // _sameSubscriber now normalises accents too, so editing a
-          // player whose subscriber row spells the name with a tilde
-          // finds it instead of silently skipping the sync.
-          const match = (candidates || []).find(s =>
-            _sameSubscriber(s, _origFirst, _origLast, _origEmail)
-          );
-
-          if (match) {
-            const { error: updErr } = await supabase
-              .from('subscribers')
-              .update({
-                first_name:   body.first_name,
-                last_name:    body.last_name,
-                email:        body.email,
-                // Phone was NOT synced here before — editing a player's
-                // number left the subscriber holding the old one forever.
-                // players is the source of truth, so it overwrites.
-                phone:        body.phone,
-                country_code: body.country_code,
-              })
-              .eq('id', match.id);
-            if (updErr) throw new Error(updErr.message);
-          }
-        }
-      } catch (e) {
-        // Non-critical: the player edit itself already succeeded, so this
-        // must not surface as a failure. Logged rather than swallowed —
-        // the old empty catch made a recurring sync failure invisible.
-        console.warn('[saveEditPlayer] subscriber sync failed:', e.message);
+      /* Si esta persona es suscriptora, sus datos se ponen al día con los
+         del jugador (ver actualizarSuscriptor, arriba). Se la busca con los
+         datos de ANTES del cambio: si no, al cambiar el correo o el nombre
+         ya no se la encontraría. Nunca se toca si está activa o dada de
+         baja. Si el jugador no estaba en la lista cargada, no hay con qué
+         buscar: se salta, mejor que adivinar. */
+      let subResult = 'none';
+      if (!_origFirst || !_origLast || !_origEmail) {
+        console.warn('[saveEditPlayer] original details unavailable — skipping subscriber update');
+      } else {
+        subResult = await actualizarSuscriptor({ first: _origFirst, last: _origLast, email: _origEmail }, body);
       }
 
       // Record history if needed. We do this AFTER the player update so
@@ -2518,7 +2375,9 @@
         });
       }
 
-      toast('Player updated!');
+      /* Sólo se dice si algo fue mal: actualizarla es lo normal. */
+      toast(`Player updated!${subResult === 'conflict' || subResult === 'failed' ? notaSuscriptor(subResult) : ''}`,
+        subResult === 'conflict' || subResult === 'failed');
       closeModal();
       // Force a reload so the inline reason preview reflects the new value
       AdminState.allPlayers = [];

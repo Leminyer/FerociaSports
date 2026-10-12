@@ -418,15 +418,6 @@
      mismo azul, el mismo borde, el mismo radio de 99px en los botones
      pequeños. El prefijo `co-` no se usa en ninguna otra pantalla. */
 
-  /* Los accesos de la pestaña Send */
-  .co-launch{display:flex;flex-direction:column;align-items:flex-start;gap:3px;
-             text-align:left;padding:15px 17px;border:0.5px solid var(--divider-color);
-             border-radius:12px;background:white;cursor:pointer;width:100%;
-             font-family:'Inter',sans-serif;transition:border-color .12s,background .12s;}
-  .co-launch:hover{border-color:#c5d6f5;background:#fafbff;}
-  .co-launch-t{font-size:13px;font-weight:800;color:var(--text);}
-  .co-launch-d{font-size:11px;font-weight:600;color:var(--text-muted);}
-
   /* El filtro de destinatarios dentro de la ventana de detalle */
   .co-pfilter{font-size:10px;font-weight:700;padding:5px 13px;border-radius:99px;
               border:0.5px solid var(--divider-color);background:white;

@@ -313,7 +313,7 @@
    falta tocar el HTML ni el JavaScript de ninguno.
 
    HAY QUE NOMBRARLOS TODOS, porque los modales de esta aplicación no se
-   abren igual. Son cinco maneras distintas:
+   abren igual. Son cuatro maneras distintas:
 
      .modal-bg.open          los 23 del admin (Communications, jugadores,
                              ladders, confirmaciones…)
@@ -321,13 +321,13 @@
                              con sus propias clases
      .modal-overlay          editar un evento
      #lp-modal               los participantes de una ladder
-     #promo-modal            la campaña de Promotions
 
-   Los tres últimos no tienen una clase que diga "abierto": se abren
+   (La campaña de Promotions era una ventana más; desde el 10 de octubre
+   vive dentro de Communications y sus reglas se quitaron el 12.)
+
+   Los dos últimos no tienen una clase que diga "abierto": se abren
    poniéndoles `display` a mano desde el JavaScript, así que se les
-   reconoce por eso mismo. El de Promotions además ya se bloquea por su
-   cuenta desde admin-promotions.js; estar aquí no le hace daño y le da
-   de paso la contención de abajo, que no tenía.
+   reconoce por eso mismo.
 
    VA EN `html` Y NO EN `body` por la segunda propiedad. `overflow` funciona
    igual en los dos —medido—, pero `overscroll-behavior` sólo llega a la
@@ -345,8 +345,7 @@
 html:has(.modal-bg.open),
 html:has(.t-modal-bg.t-modal-open),
 html:has(.modal-overlay[style*="display: flex"]),
-html:has(#lp-modal[style*="display: flex"]),
-html:has(#promo-modal[style*="display: flex"]){overflow:hidden;overscroll-behavior:none;}
+html:has(#lp-modal[style*="display: flex"]){overflow:hidden;overscroll-behavior:none;}
 
 
 /* ── EL SCROLL DE UN MODAL NO SE ESCAPA HACIA FUERA ──────────
@@ -386,8 +385,7 @@ html:has(#promo-modal[style*="display: flex"]){overflow:hidden;overscroll-behavi
 .modal-bg [style*="overflow-y:auto"],
 .t-modal-bg [style*="overflow-y:auto"],
 .modal-overlay [style*="overflow-y:auto"],
-#lp-modal [style*="overflow-y:auto"],
-#promo-modal [style*="overflow-y:auto"]{overscroll-behavior:contain;}
+#lp-modal [style*="overflow-y:auto"]{overscroll-behavior:contain;}
 
 
 /* ── AL ABRIR UN MODAL, LA PÁGINA NO DA UN SALTO LATERAL ─────

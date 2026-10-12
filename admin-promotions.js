@@ -1861,6 +1861,11 @@
            tipo, que es el orden natural del formulario. */
         const lblInp = document.getElementById('promo-header-label');
         if (lblInp) lblInp.value = ETIQUETA_POR_TIPO[pill.dataset.type] || 'ANNOUNCEMENT';
+        /* El Flyer URL es de "Other": al cambiar de tipo se borra (12 de
+           octubre). Escondido y mal escrito, el navegador frenaba
+           "Launch Campaign" sin decir por qué. */
+        const flyerOtro = document.getElementById('promo-other-flyer-url');
+        if (flyerOtro) flyerOtro.value = '';
         /* Cambiar de tipo de campaña es empezar otra campaña distinta,
            así que el asunto, el mensaje y el texto de vista previa del
            anterior no deben quedarse. Antes se arrastraban, y era fácil
@@ -1977,21 +1982,13 @@
       if (_segmentoCampana === 'selected') pintarCandidatosCampana();
       pintarCampana();
 
-      const recipEl = document.getElementById('promo-recipient-count');
-      /* Texto sin estilos escritos (11 de octubre): este elemento no se
-         ve; lo que se ve es "Recipient Preview", arriba. */
-      if (recipEl) recipEl.textContent = `${count} active subscriber${count !== 1 ? 's' : ''} will receive this campaign.`;
-
       const last = (campanas || []).find((c) => c.sent_at) || null;
       setEl('promo-last-sent', last ? _relTimePromo(last.sent_at) : 'No campaigns yet');
       setEl('promo-last-type', last ? (last.meta && last.meta.campaign_type) || 'General' : '');
 
     } catch (e) {
       if (vez !== _vezCampana) return;
-      const recipEl = document.getElementById('promo-recipient-count');
-      if (recipEl) recipEl.textContent = 'Could not load audience data.';
-      /* Que se vea (antes este aviso iba a un elemento escondido), en
-         rojo y no con el aspecto de una cuenta. */
+      /* En rojo y no con el aspecto de una cuenta. */
       ponerCuenta('', 'Could not load audience data.', 'error');
       _suscriptores = null;
       _candidatosCampana = null;
@@ -2001,10 +1998,16 @@
     }
   }
 
+  /* Cada pedido de eventos lleva su número: sólo se usa la respuesta del
+     ÚLTIMO (12 de octubre). Si pulsas Tournament y enseguida Ladder, y los
+     torneos llegan después, se ignoran: si no, la lista de Ladder salía
+     con torneos. */
+  let _turnoEventos = 0;
   const populateCampaignEventDropdown = async (type) => {
     const sel      = document.getElementById('promo-event-select');
     const flyerInp = document.getElementById('promo-event-flyer-url');
     if (!sel) return;
+    const turno = ++_turnoEventos;
     sel.innerHTML = '<option value="">Loading...</option>';
     if (flyerInp) flyerInp.value = '';
     pintarCampana();
@@ -2012,6 +2015,7 @@
       const today  = new Date().toISOString().slice(0, 10);
       const dbType = type.toLowerCase(); // 'tournament' or 'ladder'
       const events = await api(`events?event_type=eq.${dbType}&event_date=gte.${today}&select=id,title,event_date,flyer_url&order=event_date.asc`);
+      if (turno !== _turnoEventos) return;
       if (!events.length) {
         sel.innerHTML = `<option value="">No upcoming ${type.toLowerCase()} events</option>`;
         return;
@@ -2034,6 +2038,7 @@
         pintarCampana();
       };
     } catch (err) {
+      if (turno !== _turnoEventos) return;
       sel.innerHTML = '<option value="">Error loading events</option>';
     }
   };
