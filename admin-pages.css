@@ -462,3 +462,9 @@
   #co-det-body p:last-child{margin-bottom:0;}
   #co-det-body img{max-width:100%;height:auto;}
   #co-det-body table{max-width:100%;}
+
+  /* "Subscribe Again" cuando el correo de confirmación no salió
+     (ajuste 15): la misma letra que el resto de esa ventana. */
+  #sub-status-modal .ss-fallo{margin:0;font-size:13px;font-weight:600;color:var(--text);line-height:1.6;}
+  #sub-status-modal .ss-fallo-nota{margin:8px 0 0;font-size:11px;font-weight:600;color:var(--text-muted);line-height:1.5;}
+  #sub-status-modal .ss-botones{display:flex;justify-content:flex-end;gap:8px;margin-top:18px;flex-wrap:wrap;}

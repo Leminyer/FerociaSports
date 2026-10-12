@@ -825,12 +825,23 @@
   let _ssSub  = null;   // de quién habla la ventana abierta
   let _ssModo = null;   // 'baja' | 'alta'
   let _ssTecla = null;  // el oyente del teclado mientras está abierta
+  /* Mientras se guarda o se manda el correo, la ventana NO se cierra
+     (ni con Escape, ni pulsando fuera, ni con la X). Si se cerrara, al
+     terminar cerraría la ventana que estuviera abierta entonces —la de
+     otra persona— y se perdería lo escrito en ella. Lo señaló la
+     revisión del ajuste 15. */
+  let _ssOcupada = false;
+  /* Si el correo de "Subscribe Again" no salió: a quién y con qué
+     código, para "Retry email". */
+  let _ssReintento = null;
 
-  const closeSubStatus = () => {
+  const closeSubStatus = (forzar = false) => {
+    if (_ssOcupada && forzar !== true) return;
     document.getElementById('sub-status-modal').classList.remove('open');
     if (_ssTecla) { document.removeEventListener('keydown', _ssTecla); _ssTecla = null; }
     _ssSub = null;
     _ssModo = null;
+    _ssReintento = null;
   };
 
   /* ⚠️  EL CURSOR NO SE SALE DE ESTA VENTANA, Y ESCAPE LA CIERRA.
@@ -980,24 +991,18 @@
           + `<div style="margin-bottom:10px;">${esc(_cuandoSeDioDeBaja(s))}</div>`
           + '<div style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);">Reason</div>'
           + `<div>${esc(_porQueSeDioDeBaja(s))}</div>`)
-        /* ⚠️  QUIEN NUNCA CONFIRMÓ SU CORREO NO VUELVE COMO ACTIVO.
+        /* ⚠️  NADIE VUELVE COMO ACTIVO DESDE AQUÍ (ajuste 15, 12 de octubre).
 
-           Esta pantalla también deja dar de baja a una ficha pendiente
-           (una alta falsa, por ejemplo). Devolverla como "activa" la
-           metería en los envíos sin que nadie haya comprobado nunca que
-           esa dirección existe y que su dueño la quiere — justo lo que
-           el doble paso del alta está para impedir, y una dirección sin
-           comprobar en un envío masivo es lo que hunde la reputación
-           del dominio. Vuelve como pendiente, y se lo dice. Lo señaló la
-           revisión del 6 de octubre. */
+           Vuelve como PENDIENTE y se le manda el correo de confirmación,
+           con un enlace nuevo. Entra en los envíos cuando pulsa ese
+           enlace, como cualquier alta del formulario: así es ELLA quien
+           dice que quiere volver, y no sólo una pulsación nuestra. Vale
+           igual para quien estaba activa antes de irse y para quien nunca
+           llegó a confirmar. */
         + '<div style="font-size:13px;font-weight:600;color:var(--text);line-height:1.6;margin-top:16px;">'
-        + (s.confirm_token
-            ? 'They never confirmed their email, so they go back to '
-              + '<strong>Pending</strong>. They will receive campaigns once they '
-              + 'confirm — you can send them the confirmation link again from '
-              + 'this screen.'
-            : 'They will go back to <strong>Active</strong> and will receive campaigns '
-              + 'and the newsletter again, starting with the next one.')
+        + 'They will go back to <strong>Pending</strong> and get an email to '
+        + 'confirm their subscription. They will receive campaigns and the '
+        + 'newsletter once they click the link in that email.'
         + '</div>'
         + '<div style="font-size:11px;font-weight:600;color:var(--text-muted);margin-top:8px;line-height:1.5;">'
         + 'Only do this if this person asked you to. Writing to someone who chose '
@@ -1013,10 +1018,168 @@
     _atraparCursor(modal);
   };
 
+  /* ─── SUBSCRIBE AGAIN: PENDIENTE + CORREO DE CONFIRMACIÓN ─────
+     (ajuste 15, 12 de octubre)
+
+     El asunto es el MISMO que el del formulario de alta: para quien lo
+     recibe es el mismo correo, con la misma plantilla 'confirm'. El
+     enlace se arma igual que en el recordatorio
+     (admin-subscriber-reminder.js). */
+  const ASUNTO_CONFIRMAR = '✅ Please confirm your Ferocia Sports subscription';
+
+  const _enlaceConfirmar = (token) =>
+    window.location.origin
+    + window.location.pathname.replace('admin.html', '')
+    + `confirm.html?t=${token}`;
+
+  /* 64 letras hexadecimales, como las que pone la base de datos en el
+     alta. Con el generador del navegador (el que sirve para claves), no
+     con Math.random: este código es lo único que confirma a la persona. */
+  const _nuevoTokenConfirmacion = () => {
+    const b = new Uint8Array(32);
+    window.crypto.getRandomValues(b);
+    return Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
+  };
+
+  /* Paso 1: la ficha pasa a pendiente con un código nuevo. Devuelve el
+     código, o null si otra persona la cambió entretanto.
+
+     ⚠️  SÓLO SI SIGUE DE BAJA. La tabla puede llevar minutos pintada:
+     si otra administradora ya la devolvió (o la persona ya confirmó),
+     esto no toca nada. Y como el PATCH no devuelve la fila, se pregunta
+     después si el código que quedó guardado es el NUESTRO. Si no lo es,
+     no se manda nada: un correo con un enlace que no confirma a nadie es
+     peor que ningún correo. */
+  const _apuntarDeNuevo = async (s) => {
+    const token = _nuevoTokenConfirmacion();
+    await api(`subscribers?id=eq.${s.id}&status=eq.unsubscribed`, 'PATCH',
+      { status: 'pending', confirm_token: token, confirm_email_skipped_at: null });
+    const [ahora] = await api(`subscribers?id=eq.${s.id}&select=status,confirm_token`);
+    return (ahora && ahora.status === 'pending' && ahora.confirm_token === token) ? token : null;
+  };
+
+  /* Paso 2: el correo. Devuelve { llego, dudoso, detalle }.
+     `dudoso`: se cortó la conexión y no sabemos si salió. */
+  const _mandarConfirmacion = async (s, token) => {
+    window.AdminState.emailInFlight = true;
+    let r;
+    try {
+      r = await window.sendEmailServer({
+        kind:     'subscriber_confirm',
+        template: 'confirm',
+        subject:  ASUNTO_CONFIRMAR,
+        recipients: [{
+          email: s.email,
+          name:  window.nombreDestinatario(s),
+          subscriber_id: s.id,
+          vars:  { confirm_url: _enlaceConfirmar(token) },
+        }],
+        /* Una llave por código: "Retry email" repite el MISMO código y la
+           MISMA llave, así que si el primer intento sí había llegado, el
+           servidor no lo manda otra vez. Otra vuelta de Subscribe Again
+           es otro código y otra llave. */
+        idempotency_key: `reactivar-${s.id}-${token.slice(0, 16)}`,
+      });
+    } finally {
+      window.AdminState.emailInFlight = false;
+    }
+    const d = (r && r.ok && r.data) || {};
+    if (r && r.ok && ((d.sent || 0) + (d.already_sent || 0)) > 0) return { llego: true };
+    console.error('[subscribe-again] el correo no salió:', r);
+    /* Sin respuesta del servidor (se cortó, o no contestó a tiempo) no
+       sabemos si salió. Con una respuesta, sí: no salió. */
+    const dudoso = !!(r && !r.ok && r.code !== 'no_client'
+                      && (r.code === 'network' || r.status == null))
+      /* El servidor contestó que no mandó NADA y que nada falló: un
+         intento anterior con la misma llave sigue en marcha. Puede
+         llegar en un momento. */
+      || !!(r && r.ok && !d.sent && !d.already_sent && !d.failed);
+    return { llego: false, dudoso,
+             detalle: r && !r.ok ? r.message : window.resumenEnvio(d) };
+  };
+
+  /* Si el correo no salió, la ventana NO se cierra: se queda diciéndolo,
+     con "Retry email" para mandárselo a ESTA persona. Antes el aviso
+     mandaba a "Send Reminder", que escribe a TODOS los pendientes. Lo
+     señaló la revisión del ajuste 15. */
+  const _pintarFalloDeCorreo = (s, token, fallo) => {
+    _ssReintento = { s, token };
+    document.getElementById('ss-title').textContent =
+      fallo.dudoso ? 'Did the email go out?' : 'The email did not go out';
+    const body = document.getElementById('ss-body');
+    body.innerHTML =
+      `<p class="ss-fallo">${esc(s.first_name)} ${esc(s.last_name)} is already `
+      + '<strong>Pending</strong>, with a valid confirmation link. '
+      + (fallo.dudoso
+          ? 'We did not get a clear answer from the server, so we do not know yet if '
+            + 'the confirmation email reached them. Retrying is safe: if it already '
+            + 'went out, it will not be sent twice.'
+          : `But the confirmation email did not go out (${esc(fallo.detalle)}).`)
+      + '</p>'
+      + '<p class="ss-fallo-nota">If you close this, they stay Pending without the email. '
+      + 'You can send it later with "Send Reminder", which emails every pending subscriber.</p>'
+      + `<div class="ss-botones">
+           ${_ssBoton('closeSubStatus', 'Close', 'white')}
+           ${_ssBoton('confirmSubStatus', 'Retry email', 'linear-gradient(180deg,#2456d3,var(--blue))', 'id="ss-ok"')}
+         </div>`;
+    /* El foco estaba en el botón que se acaba de borrar: se pone en
+       Close, la respuesta que no hace nada. */
+    setTimeout(() => body.querySelector('[data-action="closeSubStatus"]')?.focus(), 50);
+  };
+
+  /* Lo que pasa al pulsar "Subscribe Again" o "Retry email". */
+  const _volverAApuntar = async (ok) => {
+    let s, token;
+    if (_ssReintento) {
+      ({ s, token } = _ssReintento);
+      /* Antes de reintentar se mira otra vez la ficha: si entretanto se
+         dio de baja, confirmó, u otra administradora le puso un código
+         nuevo, este correo ya no vale (su enlace no confirmaría nada).
+         Lo señaló la segunda revisión del ajuste 15. */
+      const [ahora] = await api(`subscribers?id=eq.${s.id}&select=status,confirm_token`);
+      if (!ahora || ahora.status !== 'pending' || ahora.confirm_token !== token) {
+        closeSubStatus(true);
+        toast(`${s.first_name} ${s.last_name} was changed by someone else a moment `
+            + 'ago, so the email was not sent. The list has been refreshed.', true);
+        return;
+      }
+    } else {
+      s = _ssSub;
+      try {
+        token = await _apuntarDeNuevo(s);
+      } catch (err) {
+        /* Pudo guardarse y fallar sólo la comprobación: no se ofrece
+           repetir a ciegas. Se cierra y se recarga la lista para que se
+           vea en qué estado quedó. Lo señaló la revisión del ajuste 15. */
+        closeSubStatus(true);
+        toast(`Error: ${err.message}. The list has been refreshed — check `
+            + `${s.first_name} ${s.last_name}'s status before trying again.`, true);
+        return;
+      }
+      if (!token) {
+        closeSubStatus(true);
+        toast(`${s.first_name} ${s.last_name} was changed by someone else a moment `
+            + 'ago, so nothing was changed or sent. The list has been refreshed.', true);
+        return;
+      }
+    }
+
+    if (ok) ok.textContent = 'Sending email...';
+    const fallo = await _mandarConfirmacion(s, token);
+    if (fallo.llego) {
+      closeSubStatus(true);
+      toast(`✅ ${s.first_name} ${s.last_name} is now Pending. We sent them an email `
+          + 'to confirm; they will receive campaigns once they click the link.');
+      return;
+    }
+    _pintarFalloDeCorreo(s, token, fallo);
+    toast(`${s.first_name} ${s.last_name} is now Pending, but the confirmation email `
+        + (fallo.dudoso ? 'may not have gone out.' : 'did not go out.'), true);
+  };
+
   const confirmSubStatus = async () => {
-    const s    = _ssSub;
     const modo = _ssModo;
-    if (!s || !modo) return;
+    if (!_ssSub || !modo) return;
 
     const ok = document.getElementById('ss-ok');
     let nota = '';
@@ -1025,35 +1188,41 @@
       /* Segundo cinturón: el botón ya nace apagado sin nota, pero si
          algún día ese enganche se rompiera, aquí no pasa igual. */
       if (!nota) { toast('Write why you are unsubscribing them first.', true); return; }
+    } else if (window.AdminState.emailInFlight) {
+      /* Volver a apuntar manda un correo: si hay otro envío en marcha
+         en el admin, no se toca nada todavía. */
+      toast('A send is still running somewhere in the admin. Please wait for it to finish.', true);
+      return;
     }
 
+    const textoBoton = ok ? ok.textContent : '';
     if (ok) { ok.disabled = true; ok.textContent = 'Saving...'; }
+    _ssOcupada = true;
     try {
-      /* La fecha NO se manda desde aquí: la pone la base de datos sola,
-         con la regla del `sql/69`. Así vale igual para este botón, para
-         el enlace del correo y para un SQL a mano, y no puede olvidarse
-         en ninguno de los tres. */
-      await api(`subscribers?id=eq.${s.id}`, 'PATCH',
-        modo === 'baja'
-          ? { status: 'unsubscribed', unsubscribe_note: nota }
-          /* Pendiente vuelve a pendiente: nunca confirmó su correo, y
-             devolverla como activa la metería en los envíos sin que
-             nadie haya comprobado que esa dirección existe. */
-          : { status: s.confirm_token ? 'pending' : 'active' });
-
-      closeSubStatus();
-      toast(modo === 'baja'
-        ? `${s.first_name} ${s.last_name} will not receive any more emails.`
-        : (s.confirm_token
-            ? `${s.first_name} ${s.last_name} is back, pending their email confirmation.`
-            : `${s.first_name} ${s.last_name} is back on the mailing list.`));
-      await loadSubscribers();
+      if (modo === 'baja') {
+        const s = _ssSub;
+        /* La fecha NO se manda desde aquí: la pone la base de datos sola,
+           con la regla del `sql/69`. Así vale igual para este botón, para
+           el enlace del correo y para un SQL a mano, y no puede olvidarse
+           en ninguno de los tres. */
+        await api(`subscribers?id=eq.${s.id}`, 'PATCH',
+          { status: 'unsubscribed', unsubscribe_note: nota });
+        closeSubStatus(true);
+        toast(`${s.first_name} ${s.last_name} will not receive any more emails.`);
+      } else {
+        await _volverAApuntar(ok);
+      }
     } catch (err) {
       toast(`Error: ${err.message}`, true);
-      if (ok) {
-        ok.disabled = false;
-        ok.textContent = modo === 'baja' ? 'Unsubscribe' : 'Subscribe Again';
-      }
+      const b = document.getElementById('ss-ok');
+      if (b) { b.disabled = false; b.textContent = textoBoton; }
+    } finally {
+      _ssOcupada = false;
+    }
+    try {
+      await loadSubscribers();
+    } catch (e) {
+      console.warn('[subscribe-again] no se pudo refrescar la lista:', e);
     }
   };
 
