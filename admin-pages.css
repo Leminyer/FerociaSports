@@ -523,3 +523,6 @@
   .pp-aviso-email-btn{font-family:'Inter',sans-serif;font-size:10px;font-weight:700;padding:5px 14px;border-radius:99px;
     border:1px solid rgba(198,40,40,0.35);background:white;color:#9b1c1c;cursor:pointer;}
   .pp-aviso-email-btn:hover{background:rgba(198,40,40,0.06);}
+
+  /* ── Ajuste 19: reenviar la confirmación a una persona ──────── */
+  #sub-status-modal .ss-texto-primero{margin-top:0;}

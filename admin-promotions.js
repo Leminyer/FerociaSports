@@ -563,6 +563,7 @@
   const ICON_CHECK = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></svg>';
   // Sobre tachado = "deja de recibir correo". Flecha de vuelta = "vuelve".
   const ICON_UNSUB = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 13V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h9"/><polyline points="22 7 12 13 2 7"/><line x1="16" y1="19" x2="22" y2="19"/></svg>';
+  const ICON_MAIL  = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>';
   const ICON_BACK  = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>';
 
   const iconBtn = (action, extra, title, icon, color) =>
@@ -587,6 +588,11 @@
                 'Already a player — view profile', ICON_CHECK, 'var(--teal)')
       : iconBtn('convertSubscriber', `data-subid="${s.id}"`,
                 'Convert to player', ICON_ADD, 'var(--blue)');
+    /* Ajuste 19: reenviar la confirmación a ESTA persona. */
+    if (s.status === 'pending') {
+      html += iconBtn('resendConfirmation', `data-subid="${s.id}"`,
+                      'Resend confirmation email', ICON_MAIL, 'var(--blue)');
+    }
     /* Ajuste 17: quitar la marca de rebote a mano. */
     if (s.status === 'bounced') {
       html += iconBtn('clearBounce', `data-subid="${s.id}"`,
@@ -921,9 +927,12 @@
        se recarga. Mejor que confirmar un cambio que no hace nada. */
     const yaEsta = (modo === 'baja' && s.status === 'unsubscribed')
                 || (modo === 'alta'  && s.status !== 'unsubscribed')
-                || (modo === 'rebote' && s.status !== 'bounced');
+                || (modo === 'rebote' && s.status !== 'bounced')
+                || (modo === 'reconfirmar' && s.status !== 'pending');
     if (yaEsta) {
-      toast(modo === 'rebote'
+      toast(modo === 'reconfirmar'
+        ? `${s.first_name} ${s.last_name} is no longer Pending. Refreshing the list.`
+        : modo === 'rebote'
         ? `${s.first_name} ${s.last_name} is no longer marked Bounced. Refreshing the list.`
         : `${s.first_name} ${s.last_name} is already `
           + `${modo === 'baja' ? 'unsubscribed' : 'subscribed'}. Refreshing the list.`);
@@ -937,6 +946,7 @@
     document.getElementById('ss-title').textContent =
       modo === 'baja' ? 'Unsubscribe this person?'
       : modo === 'rebote' ? 'Clear the bounce?'
+      : modo === 'reconfirmar' ? 'Resend the confirmation email?'
       : 'Subscribe this person again?';
     document.getElementById('ss-subtitle').textContent =
       `${s.first_name} ${s.last_name} · ${s.email}`;
@@ -1012,6 +1022,28 @@
       nota.addEventListener('input', mirar);
       mirar();
       setTimeout(() => nota.focus(), 50);
+    } else if (modo === 'reconfirmar') {
+      /* Ajuste 19: reenviar la confirmación a UNA persona, con su mismo
+         enlace. Lo último que se le mandó se pinta cuando llega (abajo). */
+      body.innerHTML =
+          '<p class="ss-texto ss-texto-primero">We will send <strong>' + esc(s.email) + '</strong> the '
+        + 'confirmation email again, with the same link as before. They will receive campaigns '
+        + 'once they click it.</p>'
+        + '<div id="ss-historial" class="ss-nota">Checking the last confirmation email…</div>'
+        + (s.confirm_email_skipped_at
+            ? '<p class="ss-rebote">The signup brake was on when this person signed up '
+              + `(${esc(fechaYHora(s.confirm_email_skipped_at))}), which usually means a burst of fake `
+              + 'signups. Only send it if you know this person is real.</p>'
+            : '')
+        + (s.bounced_at
+            ? '<p class="ss-rebote">This email address bounced on '
+              + `${esc(fechaYHora(s.bounced_at))}, so it will most likely not arrive.</p>`
+            : '')
+        + `<div class="ss-botones">
+             ${_ssBoton('closeSubStatus', 'Cancel', 'white')}
+             ${_ssBoton('confirmSubStatus', 'Send email', 'linear-gradient(180deg,#2456d3,var(--blue))', 'id="ss-ok"')}
+           </div>`;
+      _pintarUltimaConfirmacion(s);
     } else if (modo === 'rebote') {
       /* Ajuste 17: "Clear bounce". Los estilos, en admin-pages.css (ss-). */
       body.innerHTML =
@@ -1112,7 +1144,7 @@
 
   /* Paso 2: el correo. Devuelve { llego, dudoso, detalle }.
      `dudoso`: se cortó la conexión y no sabemos si salió. */
-  const _mandarConfirmacion = async (s, token) => {
+  const _mandarConfirmacion = async (s, token, llave = null) => {
     window.AdminState.emailInFlight = true;
     let r;
     try {
@@ -1130,7 +1162,7 @@
            MISMA llave, así que si el primer intento sí había llegado, el
            servidor no lo manda otra vez. Otra vuelta de Subscribe Again
            es otro código y otra llave. */
-        idempotency_key: `reactivar-${s.id}-${token.slice(0, 16)}`,
+        idempotency_key: llave || `reactivar-${s.id}-${token.slice(0, 16)}`,
       });
     } finally {
       window.AdminState.emailInFlight = false;
@@ -1158,8 +1190,8 @@
      con "Retry email" para mandárselo a ESTA persona. Antes el aviso
      mandaba a "Send Reminder", que escribe a TODOS los pendientes. Lo
      señaló la revisión del ajuste 15. */
-  const _pintarFalloDeCorreo = (s, token, fallo) => {
-    _ssReintento = { s, token };
+  const _pintarFalloDeCorreo = (s, token, fallo, llave = null) => {
+    _ssReintento = { s, token, llave };
     document.getElementById('ss-title').textContent =
       fallo.dudoso ? 'Did the email go out?' : 'The email did not go out';
     const body = document.getElementById('ss-body');
@@ -1181,6 +1213,54 @@
     /* El foco estaba en el botón que se acaba de borrar: se pone en
        Close, la respuesta que no hace nada. */
     setTimeout(() => body.querySelector('[data-action="closeSubStatus"]')?.focus(), 50);
+  };
+
+  /* Ajuste 19: el último correo de confirmación que se le mandó DESDE EL
+     ADMIN (los del formulario público no quedan en el historial). Si fue
+     hace menos de 24 horas, se avisa en rojo; se puede mandar igual. */
+  const _pintarUltimaConfirmacion = async (s) => {
+    /* La caja de ESTA ventana: si se cierra y se abre otra antes de que
+       llegue la respuesta, ésta ya no está en la página y no se pinta
+       (si no, el aviso rojo podía salir dos veces). */
+    const el = document.getElementById('ss-historial');
+    const caja = () => (el && el.isConnected ? el : null);
+    let texto = 'No confirmation email from the admin is on record (the signup form sends its own).';
+    let reciente = false;
+    try {
+      const filas = await api(`communication_recipients?subscriber_id=eq.${s.id}&status=eq.sent`
+        + '&select=sent_at,communications!inner(kind)&communications.kind=eq.subscriber_confirm'
+        + '&order=sent_at.desc&limit=1');
+      const ult = filas && filas[0] && filas[0].sent_at;
+      if (ult) {
+        reciente = Date.now() - new Date(ult).getTime() < 24 * 3600 * 1000;
+        texto = `Last confirmation email from the admin: ${fechaYHora(ult)}.`;
+      }
+    } catch (e) {
+      console.warn('[resend-confirmation] no se pudo leer el historial:', e);
+      texto = 'Could not check when the last confirmation email was sent.';
+    }
+    /* La ventana pudo cerrarse o cambiar de persona mientras se leía. */
+    if (!caja() || !_ssSub || _ssSub.id !== s.id || _ssModo !== 'reconfirmar') return;
+    caja().textContent = texto;
+    if (reciente) {
+      caja().insertAdjacentHTML('afterend', '<p class="ss-rebote">They got a confirmation email less than '
+        + '24 hours ago. Sending another one so soon can look like spam — they may just need to check '
+        + 'their spam folder.</p>');
+    }
+  };
+
+  /* Reenviar: el enlace que YA tiene. Si por algún motivo no tiene ninguno
+     (fichas antiguas), se le pone uno nuevo, sólo si sigue Pending y sin
+     enlace. Devuelve el enlace, o null si ya no está Pending. */
+  const _enlaceActual = async (s) => {
+    const [ahora] = await api(`subscribers?id=eq.${s.id}&select=status,confirm_token`);
+    if (!ahora || ahora.status !== 'pending') return null;
+    if (ahora.confirm_token) return ahora.confirm_token;
+    const token = _nuevoTokenConfirmacion();
+    await api(`subscribers?id=eq.${s.id}&status=eq.pending&confirm_token=is.null`, 'PATCH',
+      { confirm_token: token });
+    const [luego] = await api(`subscribers?id=eq.${s.id}&select=status,confirm_token`);
+    return (luego && luego.status === 'pending' && luego.confirm_token) ? luego.confirm_token : null;
   };
 
   /* Ajuste 17: "Clear bounce" en el servidor (función clear-bounce): la
@@ -1231,9 +1311,9 @@
 
   /* Lo que pasa al pulsar "Subscribe Again", "Clear bounce" o "Retry email". */
   const _volverAApuntar = async (ok) => {
-    let s, token;
+    let s, token, llave = null;
     if (_ssReintento) {
-      ({ s, token } = _ssReintento);
+      ({ s, token, llave } = _ssReintento);
       /* Antes de reintentar se mira otra vez la ficha: si entretanto se
          dio de baja, confirmó, u otra administradora le puso un código
          nuevo, este correo ya no vale (su enlace no confirmaría nada).
@@ -1248,7 +1328,13 @@
     } else {
       s = _ssSub;
       try {
-        token = _ssModo === 'rebote' ? await _quitarRebote(s) : await _apuntarDeNuevo(s);
+        token = _ssModo === 'rebote' ? await _quitarRebote(s)
+              : _ssModo === 'reconfirmar' ? await _enlaceActual(s)
+              : await _apuntarDeNuevo(s);
+        /* Reenviar con el MISMO enlace necesita una llave propia: con la
+           de siempre (enlace + persona) el servidor diría "ya se le mandó"
+           y no saldría nada. "Retry email" reutiliza ésta. */
+        if (_ssModo === 'reconfirmar') llave = `reconfirmar-${s.id}-${_nuevoTokenConfirmacion().slice(0, 12)}`;
       } catch (err) {
         /* Pudo guardarse y fallar sólo la comprobación: no se ofrece
            repetir a ciegas. Se cierra y se recarga la lista para que se
@@ -1267,15 +1353,21 @@
     }
 
     if (ok) ok.textContent = 'Sending email...';
-    const fallo = await _mandarConfirmacion(s, token);
+    const reenvio = _ssModo === 'reconfirmar';
+    const fallo = await _mandarConfirmacion(s, token, llave);
     if (fallo.llego) {
       closeSubStatus(true);
-      toast(`✅ ${s.first_name} ${s.last_name} is now Pending. We sent them an email `
+      toast(reenvio
+        ? `✅ Confirmation email sent again to ${s.first_name} ${s.last_name}.`
+        : `✅ ${s.first_name} ${s.last_name} is now Pending. We sent them an email `
           + 'to confirm; they will receive campaigns once they click the link.');
       return;
     }
-    _pintarFalloDeCorreo(s, token, fallo);
-    toast(`${s.first_name} ${s.last_name} is now Pending, but the confirmation email `
+    _pintarFalloDeCorreo(s, token, fallo, llave);
+    toast(reenvio
+      ? `The confirmation email to ${s.first_name} ${s.last_name} `
+        + (fallo.dudoso ? 'may not have gone out.' : 'did not go out.')
+      : `${s.first_name} ${s.last_name} is now Pending, but the confirmation email `
         + (fallo.dudoso ? 'may not have gone out.' : 'did not go out.'), true);
   };
 
@@ -2300,7 +2392,10 @@
         + events.map(ev => {
             const d = new Date(ev.event_date + 'T00:00:00');
             const label = `${ev.title} — ${d.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'})}`;
-            return `<option value="${ev.id}" data-title="${ev.title.replace(/"/g,'&quot;')}" data-flyer="${ev.flyer_url || ''}">${label}</option>`;
+            /* Todo escapado (ajuste 19): el título y el flyer los escriben
+               administradoras, y un "<", un "&" o unas comillas rompían la
+               lista o se colaban como HTML. */
+            return `<option value="${esc(ev.id)}" data-title="${esc(ev.title)}" data-flyer="${esc(ev.flyer_url || '')}">${esc(label)}</option>`;
           }).join('');
       // Wire selection → auto-fill subject + store flyer URL
       sel.onchange = () => {
@@ -2900,6 +2995,7 @@
     unsubscribeSubscriber: (btn) => _abrirSubStatus(btn.dataset.subid, 'baja'),
     resubscribeSubscriber: (btn) => _abrirSubStatus(btn.dataset.subid, 'alta'),
     clearBounce:           (btn) => _abrirSubStatus(btn.dataset.subid, 'rebote'),
+    resendConfirmation:    (btn) => _abrirSubStatus(btn.dataset.subid, 'reconfirmar'),
     closeSubStatus:        () => closeSubStatus(),
     confirmSubStatus:      () => confirmSubStatus(),
     // El resumen por origen: cambiar de periodo, y saltar de una
