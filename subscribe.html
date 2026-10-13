@@ -19,6 +19,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="design-tokens.css?v=20261013a">
 <link rel="stylesheet" href="country-codes.css?v=20261013a">
+<link rel="stylesheet" href="subscribe-turnstile.css?v=20261013d">
 <!-- Primero de todos y sin dependencias: cuanto antes corra, antes queda
      capturado de dónde viene la visita. También se carga en index.html,
      que es donde de verdad aterriza la gente que viene de un anuncio. -->
@@ -29,6 +30,10 @@
 <script src="assets.js?v=20261013a"></script>
 <script src="country-codes.js?v=20261013a"></script>
 <script src="location-fields.js?v=20260929a"></script>
+<!-- Ajuste 21: Turnstile (Cloudflare) comprueba que quien rellena esto es
+     una persona. Este archivo carga el de Cloudflare y lleva la clave
+     PÚBLICA; la secreta vive sólo en el servidor. -->
+<script src="subscribe-turnstile.js?v=20261013d"></script>
 <!-- Esta página es pública: cualquiera puede leer su código fuente. Por
      eso no carga ningún servicio de correo ni lleva ninguna credencial.
      El correo de confirmación lo manda la función `subscribe-confirm`
@@ -382,6 +387,10 @@
           </div>
         </div>
 
+        <!-- Ajuste 21: la verificación de Turnstile. Casi siempre invisible;
+             si Cloudflare pide marcar la casilla, aparece aquí. -->
+        <div id="s-turnstile" class="turnstile-box"></div>
+        <div class="error-msg turnstile-error" id="err-turnstile" role="alert"></div>
         <button type="submit" class="btn" id="subscribe-btn">Subscribe Now</button>
         <!-- Honeypot: hidden from humans, bots fill this automatically -->
         <div style="position:absolute;left:-9999px;top:-9999px;opacity:0;height:0;overflow:hidden;" aria-hidden="true">
@@ -674,6 +683,21 @@
     btn.disabled = true;
     btn.textContent = 'Processing...';
 
+    /* Ajuste 21: la verificación de Turnstile (subscribe-turnstile.js).
+       Si el archivo no cargó, se manda sin ella: el servidor guarda la
+       ficha pero no manda el correo, y la persona ve a quién escribir. */
+    const Turnstile = window.FerociaTurnstile || null;
+    if (Turnstile) Turnstile.ocultarError();
+    const verif = Turnstile ? await Turnstile.obtener() : { token: null };
+    if (verif.necesitaClic || verif.esperar) {
+      Turnstile.mostrarError(verif.esperar
+        ? 'Still checking that you are a person. Please wait a few seconds and press Subscribe Now again.'
+        : 'Please complete the quick check above, then press Subscribe Now again.');
+      btn.disabled = false;
+      btn.textContent = 'Subscribe Now';
+      return;
+    }
+
     try {
       /* ── EL ALTA LA HACE EL SERVIDOR ─────────────────────────────
          Las dos cosas —guardar a la persona y mandarle el correo de
@@ -706,8 +730,13 @@
           // Dato blando: lo que la persona dice.
           heard_about: heardVal.heard,
           heard_about_other: heardVal.other,
+          // Ajuste 21: la prueba de que es una persona (o null).
+          turnstile_token: verif.token || null,
         },
       });
+      /* Cada verificación vale UNA vez: si hay que volver a intentarlo
+         (un error, "ya existe"…), se necesita otra. */
+      if (Turnstile && verif.token) Turnstile.usado();
       /* supabase-js SÍ trata un 400/500 como fallo: pone `fnError` y
          deja `result` en null. Pero el mensaje que trae es siempre el
          mismo texto genérico ("Edge Function returned a non-2xx status
@@ -819,6 +848,8 @@
 
     } catch (err) {
       console.error('[Ferocia subscribe] Error:', err);
+      /* Si la petición se cortó, la verificación pudo gastarse igual. */
+      if (Turnstile && verif.token) Turnstile.usado();
       /* Los códigos del servidor, traducidos. Sin esto la persona veía
          literalmente "Something went wrong: falta_nombre", que no
          significa nada para nadie que no haya escrito este código. */
@@ -833,8 +864,18 @@
         unexpected_response: 'We could not reach the subscription service. Please try again in a moment.',
         method_not_allowed:  'Something went wrong. Please try again.',
       };
+      /* Ajuste 21: lo de Turnstile se dice debajo de su casilla, no
+         debajo del email (el email está bien). */
+      const MENSAJES_VERIFICACION = {
+        verificacion_fallida:  'We could not verify that you are a person. Please reload the page and try again, or write to contact@ferociasports.com.',
+        verificacion_caducada: 'The security check expired. Please press Subscribe Now again.',
+      };
       const m = (err && err.message) || '';
-      if (MENSAJES[m]) {
+      if (MENSAJES_VERIFICACION[m] && Turnstile) {
+        Turnstile.mostrarError(MENSAJES_VERIFICACION[m]);
+      } else if (MENSAJES_VERIFICACION[m]) {
+        showFieldError('s-email', 'err-email', MENSAJES_VERIFICACION[m]);
+      } else if (MENSAJES[m]) {
         showFieldError('s-email', 'err-email', MENSAJES[m]);
       } else if (m.toLowerCase().includes('duplicate')) {
         showFieldError('s-email', 'err-email', 'This email is already registered.');

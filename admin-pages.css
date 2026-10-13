@@ -533,3 +533,12 @@
     font-size:11px;font-weight:700;line-height:1.4;}
   #sub-status-modal .ss-capsula svg{flex:none;}
   #sub-status-modal .ss-capsula-gris{background:#f1f3f7;color:var(--text-muted);}
+
+  /* ── Ajuste 21: aviso de altas sin la verificación de Turnstile ── */
+  .sub-aviso-sinverif{padding:14px 20px;background:#FFF8E6;border-bottom:0.5px solid #f0d9a0;}
+  .sub-aviso-sinverif-titulo{font-size:13px;font-weight:800;color:#8a5a00;margin-bottom:4px;}
+  .sub-aviso-sinverif-texto{font-size:12px;font-weight:600;color:#8a5a00;line-height:1.5;}
+  .sub-aviso-sinverif-btn{margin-top:10px;font-family:'Inter',sans-serif;font-size:11px;font-weight:800;letter-spacing:.4px;
+    text-transform:uppercase;padding:11px 16px;border-radius:99px;border:0.5px solid #d6b25e;background:white;color:#8a5a00;cursor:pointer;}
+  /* La ficha: "Confirmation email — Not sent …" (era un estilo en línea). */
+  .sv-sin-correo{color:#c04a0e;}

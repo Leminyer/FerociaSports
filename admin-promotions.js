@@ -250,6 +250,10 @@
      decisión: mira la PRUEBA de que se tomó —fichas marcadas en las
      últimas 24 horas— que es un dato, no una copia de una regla.
      ════════════════════════════════════════════════════════════ */
+  /* Ajuste 21: POR QUÉ no salió el correo (sql/82). Las fichas de antes
+     no tienen motivo: entonces sólo existía el freno. */
+  const sinVerificacion = (s) => s.confirm_email_skipped_reason === 'unverified';
+
   const pintarAvisoDelFreno = () => {
     const caja = document.getElementById('sub-brake-banner');
     if (!caja) return;
@@ -267,8 +271,12 @@
       return t !== null && t >= desde;
     };
 
-    const frenadas = _allSubs.filter((s) => enVentana(s.confirm_email_skipped_at)).length;
-    if (!frenadas) { caja.style.display = 'none'; caja.innerHTML = ''; return; }
+    /* Ajuste 21: las que llegaron sin la verificación de Turnstile NO son
+       del freno: tienen su propio aviso, debajo. */
+    const enVentanaSinCorreo = _allSubs.filter((s) => enVentana(s.confirm_email_skipped_at));
+    const frenadas = enVentanaSinCorreo.filter((s) => !sinVerificacion(s)).length;
+    const sinVerificar = enVentanaSinCorreo.filter(sinVerificacion).length;
+    if (!frenadas && !sinVerificar) { caja.style.display = 'none'; caja.innerHTML = ''; return; }
 
     const altas = _allSubs.filter((s) => enVentana(s.subscribed_at)).length;
 
@@ -300,7 +308,7 @@
        pasar por encima con las flechas del teclado— sino que el aviso
        deje la pantalla ENTERA en el estado correcto de una vez. */
     caja.style.display = 'block';
-    caja.innerHTML = `
+    caja.innerHTML = (frenadas ? `
       <div style="padding:14px 20px;background:#FFF1E8;border-bottom:0.5px solid #f3c9ae;">
         <div style="font-size:13px;font-weight:800;color:#9a3d0e;margin-bottom:4px;">
           ⚠️ The signup brake is on
@@ -316,7 +324,17 @@
           style="margin-top:10px;font-family:'Inter',sans-serif;font-size:11px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;padding:11px 16px;border-radius:99px;border:0.5px solid #c88a5e;background:white;color:#9a3d0e;cursor:pointer;">
           Show me who
         </button>
-      </div>`;
+      </div>` : '') + (sinVerificar ? `
+      <div class="sub-aviso-sinverif">
+        <div class="sub-aviso-sinverif-titulo">⚠️ Signups that could not be verified</div>
+        <div class="sub-aviso-sinverif-texto">
+          ${alMenos}<strong>${sinVerificar}</strong> signup${sinVerificar === 1 ? '' : 's'} in the last 24 hours
+          arrived without the anti-robot check, so ${sinVerificar === 1 ? 'it' : 'they'} did not get a
+          confirmation email. It is usually a robot — but it can be a real person whose browser blocked
+          the check. If you recognize someone, resend the email with the envelope button.
+        </div>
+        <button type="button" data-action="verFrenadas" class="sub-aviso-sinverif-btn">Show me who</button>
+      </div>` : '');
   };
 
   const _renderSubsTable = () => {
@@ -763,7 +781,10 @@
          dice que sí se mandó. */
       + (s.confirm_email_skipped_at
           ? svRow('Confirmation email',
-              '<span style="color:#c04a0e;">Not sent — the signup brake was on '
+              '<span class="sv-sin-correo">'
+              + (sinVerificacion(s)
+                  ? 'Not sent — the anti-robot check could not run '
+                  : 'Not sent — the signup brake was on ')
               + `${esc(fechaYHora(s.confirm_email_skipped_at))}</span>`)
           : '')
       // Surfaces the legacy rows that have no token and therefore cannot
@@ -1038,9 +1059,13 @@
         + '<div id="ss-historial" class="ss-capsula ss-capsula-gris">' + ICON_RELOJ
         + '<span class="ss-capsula-txt">Checking the last confirmation email…</span></div>'
         + (s.confirm_email_skipped_at
-            ? '<p class="ss-rebote">The signup brake was on when this person signed up '
-              + `(${esc(fechaYHora(s.confirm_email_skipped_at))}), which usually means a burst of fake `
-              + 'signups. Only send it if you know this person is real.</p>'
+            ? (sinVerificacion(s)
+                ? '<p class="ss-rebote">This signup arrived without the anti-robot check '
+                  + `(${esc(fechaYHora(s.confirm_email_skipped_at))}). It may be a robot, or a real person `
+                  + 'whose browser blocked the check. Only send it if you know this person is real.</p>'
+                : '<p class="ss-rebote">The signup brake was on when this person signed up '
+                  + `(${esc(fechaYHora(s.confirm_email_skipped_at))}), which usually means a burst of fake `
+                  + 'signups. Only send it if you know this person is real.</p>')
             : '')
         + (s.bounced_at
             ? '<p class="ss-rebote">This email address bounced on '
