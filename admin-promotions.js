@@ -278,7 +278,11 @@
     const sinVerificar = enVentanaSinCorreo.filter(sinVerificacion).length;
     if (!frenadas && !sinVerificar) { caja.style.display = 'none'; caja.innerHTML = ''; return; }
 
-    const altas = _allSubs.filter((s) => enVentana(s.subscribed_at)).length;
+    /* Ajuste 22: con la HORA del alta (sql/83). `subscribed_at` es sólo el
+       día y aquí contaba desde la medianoche UTC (las 8 de la noche en
+       Florida); las fichas de antes del SQL 83 no tienen hora y se
+       cuentan por el día, como antes. */
+    const altas = _allSubs.filter((s) => enVentana(s.signed_up_at || s.subscribed_at)).length;
 
     /* ── LOS NÚMEROS SON UN MÍNIMO, NO UN TOTAL, Y SE DICE ─────
        `_allSubs` no son todos los suscriptores: la consulta que los trae
