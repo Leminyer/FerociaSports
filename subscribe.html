@@ -784,6 +784,11 @@
              hace es decirle la verdad y darle a dónde escribir — y ahora
              hay un botón en el admin para atenderla cuando escriba. */
           showFieldError('s-email', 'err-email', 'You unsubscribed from this list. To start receiving our emails again, write to contact@ferociasports.com and we will add you back.');
+        } else if (status === 'bounced') {
+          /* Ajuste 16: el correo a esta dirección rebotó (no existe o no
+             recibe). Decirle "ya estás registrada" sería decirle que le
+             van a llegar correos que no le llegan. */
+          showFieldError('s-email', 'err-email', 'Our emails to this address could not be delivered. Please sign up with a different email, or write to contact@ferociasports.com.');
         } else {
           showFieldError('s-email', 'err-email', 'This name and email are already registered.');
         }

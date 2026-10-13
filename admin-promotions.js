@@ -378,6 +378,8 @@
     const pillCSS = (status) => {
       if (status === 'active')       return 'background:rgba(36,188,150,0.12);color:#085041;';
       if (status === 'pending')      return 'background:rgba(242,96,36,0.12);color:#7a3d00;';
+      /* Ajuste 16: el email rebota. Rojo, como lo que hay que mirar. */
+      if (status === 'bounced')      return 'background:rgba(198,40,40,0.10);color:#9b1c1c;';
       return 'background:rgba(107,122,153,0.12);color:var(--text-muted);';
     };
     const tableHTML = slice.length ? `
@@ -755,6 +757,21 @@
       /* Cuándo y por qué se fue. Sólo se enseña a quien está fuera: a
          quien está dentro, estos dos datos son del pasado y leerlos en
          su ficha haría pensar que está de baja. */
+      /* Ajuste 16: el email rebotó (lo avisó Resend). Se enseña también a
+         quien después se dio de baja: si alguien pide volver, esto dice
+         que su dirección no recibe correo. */
+      + (s.bounced_at
+          ? svRow('Email bounced',
+              `<span class="sv-rebote">${esc(fechaYHora(s.bounced_at))}`
+              + (s.bounce_reason ? ` — ${esc(s.bounce_reason)}` : '')
+              + '</span><div class="sv-rebote-nota">'
+              + (s.status === 'bounced'
+                  ? 'Campaigns and the newsletter skip this address. They can sign up '
+                    + 'again with a different email.'
+                  : 'This address bounced before. If emails to it fail again, check it '
+                    + 'with them.')
+              + '</div>')
+          : '')
       + (s.status === 'unsubscribed'
           ? svRow('Unsubscribed', esc(_cuandoSeDioDeBaja(s)))
             + svRow('Reason', esc(_porQueSeDioDeBaja(s)))
@@ -819,7 +836,8 @@
     if (!correo) return 0;
     return _allSubs.filter((x) => x.id !== s.id
       && String(x.email || '').trim().toLowerCase() === correo
-      && x.status !== 'unsubscribed').length;
+      /* Ajuste 16: quien rebota tampoco recibe. */
+      && (x.status === 'active' || x.status === 'pending')).length;
   };
 
   let _ssSub  = null;   // de quién habla la ventana abierta
@@ -999,6 +1017,13 @@
            dice que quiere volver, y no sólo una pulsación nuestra. Vale
            igual para quien estaba activa antes de irse y para quien nunca
            llegó a confirmar. */
+        /* Ajuste 16: si su dirección rebotó, el correo de confirmación
+           no le va a llegar. Se dice antes de pulsar. */
+        + (s.bounced_at
+            ? '<p class="ss-rebote">This email address bounced on '
+              + `${esc(fechaYHora(s.bounced_at))}, so the confirmation email will `
+              + 'most likely not arrive. Ask them for a different email.</p>'
+            : '')
         + '<div style="font-size:13px;font-weight:600;color:var(--text);line-height:1.6;margin-top:16px;">'
         + 'They will go back to <strong>Pending</strong> and get an email to '
         + 'confirm their subscription. They will receive campaigns and the '

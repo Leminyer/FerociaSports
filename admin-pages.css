@@ -468,3 +468,46 @@
   #sub-status-modal .ss-fallo{margin:0;font-size:13px;font-weight:600;color:var(--text);line-height:1.6;}
   #sub-status-modal .ss-fallo-nota{margin:8px 0 0;font-size:11px;font-weight:600;color:var(--text-muted);line-height:1.5;}
   #sub-status-modal .ss-botones{display:flex;justify-content:flex-end;gap:8px;margin-top:18px;flex-wrap:wrap;}
+
+  /* ── Ajuste 16: rebotes y quejas de spam (Resend) ───────────── */
+  /* La ficha del suscriptor y la ventana de Subscribe Again. */
+  .sv-rebote{color:#9b1c1c;font-weight:700;}
+  .sv-rebote-nota{margin-top:3px;font-size:11px;font-weight:600;color:var(--text-muted);line-height:1.5;}
+  #sub-status-modal .ss-rebote{margin:14px 0 0;padding:10px 12px;border-radius:8px;background:rgba(198,40,40,0.06);
+    border:1px solid rgba(198,40,40,0.25);font-size:12px;font-weight:700;color:#9b1c1c;line-height:1.5;}
+
+  /* La ficha del jugador. */
+  .pp-aviso-email{margin:4px 0 8px;padding:8px 12px;border-radius:8px;background:rgba(198,40,40,0.06);
+    border:1px solid rgba(198,40,40,0.25);font-size:12px;font-weight:700;color:#9b1c1c;line-height:1.5;}
+
+  /* La pestaña Delivery problems de Communications. */
+  .dp-card{padding:0;overflow:hidden;}
+  .dp-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;
+    padding:18px 20px;border-bottom:0.5px solid var(--divider-color);}
+  .dp-title{margin:0;}
+  .dp-sub{margin:6px 0 0;max-width:620px;font-size:12px;font-weight:600;color:var(--text-muted);line-height:1.5;}
+  .dp-scroll{overflow-x:auto;}
+  .dp-tabla{width:100%;border-collapse:collapse;}
+  .dp-tabla th{font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text);
+    padding:10px 16px;text-align:left;border-bottom:0.5px solid #e0e7f5;background:#fafbff;white-space:nowrap;}
+  .dp-tabla td{padding:11px 16px;border-bottom:0.5px solid #f4f5f8;vertical-align:top;font-size:12px;color:var(--text);}
+  .dp-tabla tbody tr:hover td{background:rgba(23,76,204,0.025);}
+  .dp-cuando{white-space:nowrap;color:var(--text-muted) !important;}
+  .dp-email{font-weight:700;word-break:break-all;}
+  .dp-accion{font-weight:600;}
+  .dp-envio{color:var(--text-muted) !important;}
+  .dp-muted{color:var(--text-muted);font-style:italic;}
+  .dp-detalle{margin-top:4px;font-size:11px;color:var(--text-muted);line-height:1.4;}
+  .dp-pill{display:inline-block;font-size:9px;font-weight:800;padding:3px 9px;border-radius:99px;
+    letter-spacing:.5px;text-transform:uppercase;white-space:nowrap;}
+  .dp-pill-bounce{background:rgba(198,40,40,0.10);color:#9b1c1c;}
+  .dp-pill-spam{background:rgba(242,96,36,0.14);color:#7a3d00;}
+  .dp-pill-temp{background:rgba(107,122,153,0.12);color:var(--text-muted);}
+  .dp-empty{padding:44px 20px;text-align:center;font-size:13px;color:var(--text-muted);}
+  .dp-loading{padding:20px;}
+  .dp-more-row{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;
+    border-top:0.5px solid var(--divider-color);}
+  .dp-more-row[hidden]{display:none;}
+  .dp-info{font-size:11px;font-weight:600;color:var(--text-muted);}
+  .dp-more{font-size:10px;font-weight:700;padding:7px 18px;border-radius:99px;border:0.5px solid #c5d6f5;
+    background:white;color:var(--blue);cursor:pointer;font-family:'Inter',sans-serif;}

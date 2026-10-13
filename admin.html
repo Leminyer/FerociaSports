@@ -22,9 +22,9 @@
      four must stay in this sequence. See the header of admin-layout.css. -->
 <link rel="stylesheet" href="admin-layout.css?v=20261012a">
 <link rel="stylesheet" href="admin-components.css?v=20261008a">
-<link rel="stylesheet" href="admin-pages.css?v=20261012b">
+<link rel="stylesheet" href="admin-pages.css?v=20261012d">
 <link rel="stylesheet" href="admin-ftc.css?v=20260928b">
-<link rel="stylesheet" href="admin-comms-hub.css?v=20261011k">
+<link rel="stylesheet" href="admin-comms-hub.css?v=20261012a">
 
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="config.js?v=20260929j"></script>
@@ -1920,6 +1920,12 @@
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>
         History
       </button>
+      <!-- Ajuste 16: los rebotes y quejas de spam que avisa Resend
+           (admin-delivery-problems.js). -->
+      <button class="pp-tab co-tab" data-action="commShowTab" data-tab="problems">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        Delivery problems
+      </button>
     </div>
 
     <!-- ── PESTAÑA 1: SEND ──────────────────────────────────── -->
@@ -2441,6 +2447,33 @@
       </div>
     </div>
 
+    <!-- ── PESTAÑA 3: DELIVERY PROBLEMS (ajuste 16) ──────────── -->
+    <!-- El style="display:none" lo pide el cambio de pestaña (mostrarTab),
+         igual que las otras dos. Lo demás, en admin-pages.css (dp-). -->
+    <div class="co-tab-content" data-tab="problems" style="display:none;">
+      <div class="card dp-card">
+        <div class="dp-head">
+          <div>
+            <div class="card-title dp-title">Delivery problems</div>
+            <p class="dp-sub">Emails that bounced or were marked as spam, as reported by Resend.
+              Subscribers who mark an email as spam are unsubscribed; addresses that bounce
+              are marked Bounced and skipped. Players are only flagged so you can fix their email.</p>
+          </div>
+          <select id="dp-filter" class="co-hist-filter" aria-label="Kind of problem">
+            <option value="">All problems</option>
+            <option value="bounced">Bounced</option>
+            <option value="complained">Marked as spam</option>
+            <option value="temporary">Temporary</option>
+          </select>
+        </div>
+        <div id="dp-table"></div>
+        <div id="dp-more-row" class="dp-more-row" hidden>
+          <span id="dp-info" class="dp-info"></span>
+          <button type="button" class="dp-more" data-action="dpLoadMore">Load 25 more</button>
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <div id="page-promotions" class="page">
@@ -2605,6 +2638,10 @@
                  La lógica está en _renderSubsTable, admin-promotions.js. -->
             <option value="__frenadas">Pending — no email sent</option>
             <option value="unsubscribed">Unsubscribed</option>
+            <!-- Ajuste 16: el email rebotó (Resend). Es un estado de
+                 verdad: las campañas, el newsletter y los recordatorios
+                 se lo saltan. -->
+            <option value="bounced">Bounced</option>
           </select>
           <svg style="position:absolute;right:12px;top:50%;transform:translateY(-50%);pointer-events:none;" width="10" height="6" viewBox="0 0 10 6"><path d="M0 0l5 6 5-6z" fill="var(--text-muted)"/></svg>
         </div>
@@ -3793,17 +3830,18 @@
 <script src="admin-rich-editor.js?v=20261009b"></script>
 <script src="admin-share.js?v=20260928b"></script>
 <script src="admin-player-status-history.js?v=20260928b"></script>
-<script src="admin-player-profile.js?v=20261009b"></script>
+<script src="admin-player-profile.js?v=20261012c"></script>
 <script src="admin-ladder-standings.js?v=20260930a"></script>
 <script src="admin-sessions.js?v=20260928b"></script>
 <script src="admin-print-roster.js?v=20260928b"></script>
 <script src="admin-ladder-management.js?v=20261008a"></script>
 <!-- El limpiador de los mensajes guardados (DOMPurify 3.4.16, Apache-2.0 / MPL-2.0), copiado en el sitio. -->
 <script src="purify.min.js?v=3.4.16"></script>
-<script src="admin-communications.js?v=20261012a"></script>
+<script src="admin-communications.js?v=20261012b"></script>
+<script src="admin-delivery-problems.js?v=20261012a"></script>
 <script src="admin-comms-hub.js?v=20261011e"></script>
 <script src="admin-comms-results.js?v=20261011d"></script>
-<script src="admin-promotions.js?v=20261012b"></script>
+<script src="admin-promotions.js?v=20261012c"></script>
 <script src="admin-subscriber-reminder.js?v=20261005a"></script>
 <script src="admin-newsletter.js?v=20261005b"></script>
 <!-- TEMPORARY: fills in missing dates of birth from a CSV import.

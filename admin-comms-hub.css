@@ -175,6 +175,9 @@
 .co-hist-filters [hidden]{display:none !important;}
 
 .co-hist-responded{margin-top:2px;font-size:10px;font-weight:700;color:var(--blue);}
+/* Ajuste 16: lo que avisó Resend después de mandar (rebotes y quejas). */
+.co-hist-problemas{margin-top:2px;font-size:10px;font-weight:700;color:#9b1c1c;}
+.co-det-problema{margin-top:3px;font-size:10px;font-weight:700;color:#9b1c1c;}
 
 /* En el móvil:
    · el correo de la lista para elegir baja debajo del nombre: no cabe al

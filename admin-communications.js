@@ -96,6 +96,7 @@
   let _hayMas        = false;  // ¿queda algo más por traer?
   let _cargando      = false;  // para que dos clics no pidan lo mismo dos veces
   let _respuestas    = new Map();  // id de un envío con encuesta → { recipients, responded }
+  let _problemas     = new Map();  // id de un envío → { rebotes, quejas } (ajuste 16)
   let _filtroTipo    = '';     // '' = todos
   /* Una escalera o un torneo concreto (decidido el 10 de octubre: el
      historial de cada audiencia vive aquí, no debajo del formulario).
@@ -153,7 +154,14 @@
      eran cuatrocientos trozos de texto cargados en cada página de la
      lista para nada. El reintento sí lo necesita, y se lo pide él solo
      cuando toca. */
-  const COLS_PERSONA = ['id', 'email', 'status', 'error', 'sent_at', 'attempts'].join(',');
+  /* `delivery_problem`: lo que avisó Resend DESPUÉS de mandarlo
+     (rebote o queja de spam), ajuste 16. */
+  const COLS_PERSONA_BASE = ['id', 'email', 'status', 'error', 'sent_at', 'attempts'];
+  const COLS_PERSONA = COLS_PERSONA_BASE.concat(['delivery_problem', 'delivery_problem_at']).join(',');
+  /* Si el sitio se sube ANTES que el SQL 80, la base aún no tiene esas dos
+     columnas y el detalle entero fallaría. Entonces se piden las de antes
+     (y no se enseña lo de los rebotes) hasta recargar la página. */
+  let _colsPersona = COLS_PERSONA;
 
   /* Los nombres que ve ella. En la base de datos son etiquetas
      técnicas; aquí se llaman como los llama la aplicación. */
@@ -273,6 +281,8 @@
        que no sabe que hay una caché por medio, eso significa que el
        envío no quedó registrado. */
     if (cual === 'history') cargarEnvios(true);
+    /* Ajuste 16: la pestaña de rebotes y quejas (admin-delivery-problems.js). */
+    if (cual === 'problems') window.cargarProblemasDeEntrega?.(true);
   }
 
   // ── PESTAÑA HISTORIAL: LA LISTA ───────────────────────────
@@ -323,10 +333,11 @@
       const yaEstan = new Set(_envios.map((x) => String(x.id)));
       const nuevas = filas.slice(0, POR_PAGINA).filter((x) => !yaEstan.has(String(x.id)));
       /* Las encuestas dicen cuántos contestaron (entregable 5). */
-      const cuentas = await leerRespuestas(nuevas);
+      const [cuentas, problemas] = await Promise.all([leerRespuestas(nuevas), leerProblemas(nuevas)]);
       if (mia !== _vez) return;
-      if (desdeElPrincipio) _respuestas = new Map();
+      if (desdeElPrincipio) { _respuestas = new Map(); _problemas = new Map(); }
       cuentas.forEach((v, k) => _respuestas.set(k, v));
+      problemas.forEach((v, k) => _problemas.set(k, v));
       _envios = _envios.concat(nuevas);
       pintarEnvios();
     } catch (err) {
@@ -399,6 +410,14 @@
               ? `<div class="co-hist-responded">${cuenta.responded}/${cuenta.recipients} responded</div>`
               : '';
             const encuesta = tipoEncuesta(e);
+            /* Ajuste 16: lo que avisó Resend después del envío. */
+            const prob = _problemas.get(String(e.id));
+            const problemas = prob
+              ? `<div class="co-hist-problemas">${window.esc([
+                  prob.rebotes ? `${prob.rebotes} bounced` : '',
+                  prob.quejas ? `${prob.quejas} marked as spam` : '',
+                ].filter(Boolean).join(' · '))}</div>`
+              : '';
             return `<tr ${FILA}>
               <td style="${TD}font-size:12px;color:var(--text-muted);white-space:nowrap;">${window.esc(cuando(e.sent_at || e.created_at))}</td>
               <td style="${TD}white-space:nowrap;">${pastillaTipo(e.kind)}${
@@ -409,7 +428,7 @@
                   ? ' ' + pastilla('Test', { bg: '#f4f5f8', fg: '#6b7a99' })
                   : ''}${encuesta ? ' ' + pastilla(encuesta, { bg: '#e8f0ff', fg: '#174CCC' }) : ''}</td>
               <td style="${TD}font-size:13px;font-weight:700;color:var(--text);">${window.esc(e.subject || '(no subject)')}</td>
-              <td style="${TD}font-size:12px;color:var(--text-muted);white-space:nowrap;">${window.esc(entrega)}${fallos}${contestaron}</td>
+              <td style="${TD}font-size:12px;color:var(--text-muted);white-space:nowrap;">${window.esc(entrega)}${fallos}${problemas}${contestaron}</td>
               <td style="${TD}white-space:nowrap;">${pastillaEstado(e.status)}</td>
               <td style="${TD}text-align:right;white-space:nowrap;">
                 <button class="btn btn-outline btn-sm" data-action="openCommDetail" data-commid="${e.id}"
@@ -605,7 +624,7 @@
     if (desdeElPrincipio) { _personas = []; _personasMas = false; _personasOk = false; }
 
     const filtro = _filtroPersona ? `&status=eq.${encodeURIComponent(_filtroPersona)}` : '';
-    const ruta = `communication_recipients?select=${COLS_PERSONA}`
+    const ruta = (cols) => `communication_recipients?select=${cols}`
                + `&communication_id=eq.${encodeURIComponent(deQuien)}${filtro}`
                /* Los que fallaron primero: son los que hay que mirar.
                   Un listado alfabético obligaría a buscarlos a mano
@@ -614,7 +633,18 @@
                + `&limit=${PERSONAS_POR_PAGINA + 1}&offset=${_personas.length}`;
 
     try {
-      const filas = await window.api(ruta);
+      let filas;
+      try {
+        filas = await window.api(ruta(_colsPersona));
+      } catch (err) {
+        if (_colsPersona === COLS_PERSONA && /delivery_problem/i.test(String(err && err.message))) {
+          console.warn('[communications] falta el SQL 80: el detalle se enseña sin los rebotes');
+          _colsPersona = COLS_PERSONA_BASE.join(',');
+          filas = await window.api(ruta(_colsPersona));
+        } else {
+          throw err;
+        }
+      }
       /* Que siga abierto EL MISMO envío y que no se haya cambiado el
          filtro por el camino. Si no, esta respuesta pertenece a otra
          pregunta y pintarla sería mentir. */
@@ -726,11 +756,17 @@
                verdad —que no se va a reintentar— y el caso reconocido
                añade el porqué. Si el reconocimiento falla, se degrada a
                algo feo pero cierto. */
-            const aviso = seDioDeBaja
+            /* Ajuste 16: salió bien, pero Resend avisó después. */
+            const despues = p.delivery_problem === 'complained'
+              ? '<div class="co-det-problema">Marked this email as spam — unsubscribed</div>'
+              : (p.delivery_problem === 'bounced' || p.delivery_problem === 'suppressed')
+                ? '<div class="co-det-problema">Bounced — this address does not receive email</div>'
+                : '';
+            const aviso = despues + (seDioDeBaja
               ? '<div style="font-size:10px;font-weight:700;color:var(--text-muted);margin-top:3px;">Not a bad address — they asked not to be emailed</div>'
               : agotada
                 ? '<div style="font-size:10px;font-weight:700;color:var(--text-muted);margin-top:3px;">Will not be retried again</div>'
-                : '';
+                : '');
             return `<tr ${FILA}>
               <td style="${TD}font-size:12px;color:var(--text);">${window.esc(p.email)}</td>
               <td style="${TD}white-space:nowrap;">${pastillaPersona(p.status)}</td>
@@ -1154,6 +1190,29 @@
 
   /** Cuántos contestaron cada encuesta de la lista: id → { recipients,
       responded }. Si no se puede leer, vacío: la lista se pinta igual. */
+  /* Ajuste 16: cuántos rebotaron o se quejaron en cada envío de la página.
+     Un fallo aquí no rompe la lista: se queda sin ese dato. */
+  async function leerProblemas(filas) {
+    const ids = (filas || []).filter((f) => !(f.meta && f.meta.solo_admin))
+      .map((f) => Number(f.id)).filter((x) => Number.isSafeInteger(x));
+    if (!ids.length) return new Map();
+    try {
+      const r = await window.api('communication_recipients?select=communication_id,delivery_problem'
+        + `&communication_id=in.(${ids.join(',')})&delivery_problem=not.is.null`);
+      const m = new Map();
+      for (const x of r || []) {
+        const k = String(x.communication_id);
+        const c = m.get(k) || { rebotes: 0, quejas: 0 };
+        if (x.delivery_problem === 'complained') c.quejas++; else c.rebotes++;
+        m.set(k, c);
+      }
+      return m;
+    } catch (err) {
+      console.error('[communications] no se pudieron leer los rebotes:', err);
+      return new Map();
+    }
+  }
+
   async function leerRespuestas(filas) {
     /* Los ensayos no: su encuesta sólo tiene la copia de muestra. */
     const ids = (filas || []).filter((f) => f.meta && f.meta.poll && !f.meta.solo_admin)

@@ -450,7 +450,24 @@
     const p = d.p;
     const age = ageFromDOB(p.date_of_birth);
 
-    const quickInfoHTML = `
+    /* Ajuste 16: Resend avisó de que su email rebota o de que marcó un
+       correo como spam. Nosotros no le quitamos nada (los jugadores no se
+       dan de baja), pero RESEND deja de entregar a esa dirección, así que
+       tampoco le llega lo del ladder ni los torneos: se dice tal cual. La
+       marca se quita sola al cambiar el email (sql/80). */
+    const problemaEmail = p.email_problem === 'complained'
+      ? `<div class="pp-aviso-email">This player marked one of our emails as spam`
+        + `${p.email_problem_at ? ` on ${esc(fmtDate(p.email_problem_at))}` : ''}. `
+        + 'Resend now blocks this address, so ladder and tournament emails will not '
+        + 'reach them either. Talk to the player.</div>'
+      : p.email_problem === 'bounced'
+        ? `<div class="pp-aviso-email">Emails to this address bounce`
+          + `${p.email_problem_at ? ` (since ${esc(fmtDate(p.email_problem_at))})` : ''}, `
+          + 'so ladder and tournament emails are not reaching them. Check the address '
+          + 'with the player and edit it.</div>'
+        : '';
+
+    const quickInfoHTML = `${problemaEmail}
       <div class="pp-quick-row"><div class="pp-quick-lbl">${ppSVG(ICONS.mail)} Email</div><div class="pp-quick-val">${p.email ? esc(p.email) : '—'} ${p.email ? `<span class="${p.email_verified ? 'pp-pill-verified' : 'pp-pill-unverified'}">${p.email_verified ? 'Verified' : 'Unverified'}</span>` : ''}</div></div>
       <div class="pp-quick-row"><div class="pp-quick-lbl">${ppSVG(ICONS.phone)} Phone</div><div class="pp-quick-val">${p.phone ? esc(FerociaPhone.format(p.country_code, p.phone)) : '—'} ${p.phone ? `<span class="${p.phone_verified ? 'pp-pill-verified' : 'pp-pill-unverified'}">${p.phone_verified ? 'Verified' : 'Unverified'}</span>` : ''}</div></div>
       <div class="pp-quick-row"><div class="pp-quick-lbl">${ppSVG(ICONS.skill)} Skill Level</div><div class="pp-quick-val">${p.skill_level ? esc(p.skill_level) : '—'}</div></div>
