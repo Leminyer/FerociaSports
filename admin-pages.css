@@ -511,3 +511,15 @@
   .dp-info{font-size:11px;font-weight:600;color:var(--text-muted);}
   .dp-more{font-size:10px;font-weight:700;padding:7px 18px;border-radius:99px;border:0.5px solid #c5d6f5;
     background:white;color:var(--blue);cursor:pointer;font-family:'Inter',sans-serif;}
+
+  /* ── Ajuste 17: "Clear bounce" ─────────────────────────────── */
+  #sub-status-modal .ss-caja-rebote{padding:14px 16px;background:rgba(198,40,40,0.05);border:1px solid rgba(198,40,40,0.25);
+    border-radius:10px;font-size:13px;font-weight:600;color:var(--text);line-height:1.6;}
+  #sub-status-modal .ss-etiqueta{font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);}
+  #sub-status-modal .ss-etiqueta-sep{margin-top:10px;}
+  #sub-status-modal .ss-texto{margin:16px 0 0;font-size:13px;font-weight:600;color:var(--text);line-height:1.6;}
+  #sub-status-modal .ss-nota{margin:8px 0 0;font-size:11px;font-weight:600;color:var(--text-muted);line-height:1.5;}
+  .pp-aviso-email-pie{margin-top:6px;text-align:right;}
+  .pp-aviso-email-btn{font-family:'Inter',sans-serif;font-size:10px;font-weight:700;padding:5px 14px;border-radius:99px;
+    border:1px solid rgba(198,40,40,0.35);background:white;color:#9b1c1c;cursor:pointer;}
+  .pp-aviso-email-btn:hover{background:rgba(198,40,40,0.06);}

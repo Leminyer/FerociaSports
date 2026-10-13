@@ -587,6 +587,11 @@
                 'Already a player — view profile', ICON_CHECK, 'var(--teal)')
       : iconBtn('convertSubscriber', `data-subid="${s.id}"`,
                 'Convert to player', ICON_ADD, 'var(--blue)');
+    /* Ajuste 17: quitar la marca de rebote a mano. */
+    if (s.status === 'bounced') {
+      html += iconBtn('clearBounce', `data-subid="${s.id}"`,
+                      'Clear bounce', ICON_BACK, 'var(--blue)');
+    }
     html += iconBtn('unsubscribeSubscriber', `data-subid="${s.id}"`,
                     'Unsubscribe', ICON_UNSUB, '#c04a0e');
     return html;
@@ -915,9 +920,12 @@
        el estado al que ibas a llevarla, no se pregunta nada: se dice y
        se recarga. Mejor que confirmar un cambio que no hace nada. */
     const yaEsta = (modo === 'baja' && s.status === 'unsubscribed')
-                || (modo === 'alta'  && s.status !== 'unsubscribed');
+                || (modo === 'alta'  && s.status !== 'unsubscribed')
+                || (modo === 'rebote' && s.status !== 'bounced');
     if (yaEsta) {
-      toast(`${s.first_name} ${s.last_name} is already `
+      toast(modo === 'rebote'
+        ? `${s.first_name} ${s.last_name} is no longer marked Bounced. Refreshing the list.`
+        : `${s.first_name} ${s.last_name} is already `
           + `${modo === 'baja' ? 'unsubscribed' : 'subscribed'}. Refreshing the list.`);
       loadSubscribers();
       return;
@@ -927,7 +935,9 @@
     _ssModo = modo;
 
     document.getElementById('ss-title').textContent =
-      modo === 'baja' ? 'Unsubscribe this person?' : 'Subscribe this person again?';
+      modo === 'baja' ? 'Unsubscribe this person?'
+      : modo === 'rebote' ? 'Clear the bounce?'
+      : 'Subscribe this person again?';
     document.getElementById('ss-subtitle').textContent =
       `${s.first_name} ${s.last_name} · ${s.email}`;
 
@@ -1002,6 +1012,23 @@
       nota.addEventListener('input', mirar);
       mirar();
       setTimeout(() => nota.focus(), 50);
+    } else if (modo === 'rebote') {
+      /* Ajuste 17: "Clear bounce". Los estilos, en admin-pages.css (ss-). */
+      body.innerHTML =
+          `<div class="ss-caja-rebote"><div class="ss-etiqueta">Bounced</div>`
+        + `<div>${esc(fechaYHora(s.bounced_at) || '—')}</div>`
+        + (s.bounce_reason
+            ? `<div class="ss-etiqueta ss-etiqueta-sep">Reason</div><div>${esc(s.bounce_reason)}</div>` : '')
+        + '</div>'
+        + '<p class="ss-texto">We will ask Resend to remove this address from its block list. '
+        + 'Then they go back to <strong>Pending</strong> and get an email to confirm their '
+        + 'subscription. They will receive campaigns once they click the link.</p>'
+        + '<p class="ss-nota">Only do this if you know the address works now (for example, they '
+        + 'told you their mailbox is fixed). If it bounces again, it will be marked Bounced again.</p>'
+        + `<div class="ss-botones">
+             ${_ssBoton('closeSubStatus', 'Cancel', 'white')}
+             ${_ssBoton('confirmSubStatus', 'Clear bounce', 'linear-gradient(180deg,#2456d3,var(--blue))', 'id="ss-ok"')}
+           </div>`;
     } else {
       body.innerHTML =
         aviso('rgba(36,188,150,0.06)', 'rgba(36,188,150,0.25)',
@@ -1123,6 +1150,10 @@
              detalle: r && !r.ok ? r.message : window.resumenEnvio(d) };
   };
 
+  /* Ajuste 17: Edit Player también lo usa (al corregir el email de alguien
+     que rebotó). Devuelve { llego, dudoso, detalle }. */
+  window.mandarConfirmacionSuscriptor = (s, token) => _mandarConfirmacion(s, token);
+
   /* Si el correo no salió, la ventana NO se cierra: se queda diciéndolo,
      con "Retry email" para mandárselo a ESTA persona. Antes el aviso
      mandaba a "Send Reminder", que escribe a TODOS los pendientes. Lo
@@ -1152,7 +1183,53 @@
     setTimeout(() => body.querySelector('[data-action="closeSubStatus"]')?.focus(), 50);
   };
 
-  /* Lo que pasa al pulsar "Subscribe Again" o "Retry email". */
+  /* Ajuste 17: "Clear bounce" en el servidor (función clear-bounce): la
+     saca de la lista de bloqueos de Resend y la deja pendiente con un
+     enlace nuevo. Devuelve el enlace, null si otra persona la cambió, o
+     lanza un error con un mensaje para la pantalla. */
+  const _quitarRebote = async (s) => {
+    /* El enlace nuevo lo genera el navegador y viaja en la petición: si
+       se corta la conexión con el trabajo ya hecho en el servidor, aquí
+       se puede comprobar que quedó guardado ESTE enlace y seguir con el
+       correo (lo señaló la revisión del ajuste 17). */
+    const token = _nuevoTokenConfirmacion();
+    const r = await window.llamarFuncionAdmin({ subscriber_id: s.id, confirm_token: token }, 'clear-bounce');
+    if (r.ok && r.data && r.data.confirm_token === token) return token;
+    const codigo = r.code || '';
+    const CONOCIDOS = ['changed', 'not_bounced', 'not_found', 'bad_email', 'bad_request', 'not_authorized',
+                       'resend_key_cannot_manage', 'resend_failed', 'resend_unreachable'];
+    if (!CONOCIDOS.includes(codigo)) {
+      /* No sabemos si el servidor terminó (se cortó la conexión, o un error
+         sin explicación). Se espera un poco y se mira la ficha: si tiene
+         NUESTRO enlace, terminó, y se sigue con el correo. */
+      for (const espera of [0, 3000]) {
+        if (espera) await new Promise((res) => setTimeout(res, espera));
+        const [ahora] = await api(`subscribers?id=eq.${s.id}&select=status,confirm_token`);
+        if (ahora && ahora.status === 'pending' && ahora.confirm_token === token) return token;
+      }
+      throw new Error('We could not confirm whether the bounce was cleared (the server did not '
+        + 'answer clearly). Refresh in a minute and check this person');
+    }
+    if (codigo === 'not_bounced') return null;
+    if (codigo === 'changed') {
+      throw new Error('This person was changed by someone else a moment ago. Their address was '
+        + 'removed from Resend\'s block list, but nothing else was changed or sent');
+    }
+    if (codigo === 'resend_key_cannot_manage') {
+      throw new Error('Resend did not let us remove this address from its block list: your Resend '
+        + 'API key can only send emails. Remove it by hand in Resend → Suppressions and try again. '
+        + 'Nothing was changed');
+    }
+    if (codigo === 'resend_failed' || codigo === 'resend_unreachable') {
+      throw new Error('Resend could not remove this address from its block list right now. '
+        + 'Nothing was changed — try again in a few minutes');
+    }
+    throw new Error(codigo === 'not_authorized'
+      ? 'Your admin access could not be confirmed. Log in again and retry'
+      : 'The bounce could not be cleared (' + codigo + '). Nothing was changed');
+  };
+
+  /* Lo que pasa al pulsar "Subscribe Again", "Clear bounce" o "Retry email". */
   const _volverAApuntar = async (ok) => {
     let s, token;
     if (_ssReintento) {
@@ -1171,13 +1248,13 @@
     } else {
       s = _ssSub;
       try {
-        token = await _apuntarDeNuevo(s);
+        token = _ssModo === 'rebote' ? await _quitarRebote(s) : await _apuntarDeNuevo(s);
       } catch (err) {
         /* Pudo guardarse y fallar sólo la comprobación: no se ofrece
            repetir a ciegas. Se cierra y se recarga la lista para que se
            vea en qué estado quedó. Lo señaló la revisión del ajuste 15. */
         closeSubStatus(true);
-        toast(`Error: ${err.message}. The list has been refreshed — check `
+        toast(`Error: ${String(err.message).replace(/\.$/, '')}. The list has been refreshed — check `
             + `${s.first_name} ${s.last_name}'s status before trying again.`, true);
         return;
       }
@@ -1214,8 +1291,8 @@
          algún día ese enganche se rompiera, aquí no pasa igual. */
       if (!nota) { toast('Write why you are unsubscribing them first.', true); return; }
     } else if (window.AdminState.emailInFlight) {
-      /* Volver a apuntar manda un correo: si hay otro envío en marcha
-         en el admin, no se toca nada todavía. */
+      /* Volver a apuntar (o quitar un rebote) manda un correo: si hay
+         otro envío en marcha en el admin, no se toca nada todavía. */
       toast('A send is still running somewhere in the admin. Please wait for it to finish.', true);
       return;
     }
@@ -2825,6 +2902,7 @@
     // Los dos abren la ventana; ninguno cambia nada por sí solo.
     unsubscribeSubscriber: (btn) => _abrirSubStatus(btn.dataset.subid, 'baja'),
     resubscribeSubscriber: (btn) => _abrirSubStatus(btn.dataset.subid, 'alta'),
+    clearBounce:           (btn) => _abrirSubStatus(btn.dataset.subid, 'rebote'),
     closeSubStatus:        () => closeSubStatus(),
     confirmSubStatus:      () => confirmSubStatus(),
     // El resumen por origen: cambiar de periodo, y saltar de una

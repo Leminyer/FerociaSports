@@ -769,7 +769,7 @@
        exacta de _sameSubscriber. */
     const { data, error } = await supabase
       .from('subscribers')
-      .select('id,first_name,last_name,email,gender,skill_level')
+      .select('id,first_name,last_name,email,gender,skill_level,status')
       .ilike('email', email)
       .limit(25);
     if (error) throw new Error(error.message);
@@ -813,6 +813,31 @@
       if (!sub.skill_level && datos.skill_level) cambios.skill_level = datos.skill_level;
       const { error: updErr } = await supabase.from('subscribers').update(cambios).eq('id', sub.id);
       if (updErr) throw new Error(updErr.message);
+
+      /* Ajuste 17: si su email había REBOTADO y se acaba de corregir, la
+         base de datos la deja pendiente con un enlace nuevo (sql/81), y
+         aquí se le manda el correo de confirmación a la dirección nueva.
+         Recibe campañas cuando confirma. */
+      const cambioEmail = String(sub.email || '').trim().toLowerCase()
+                       !== String(datos.email || '').trim().toLowerCase();
+      if (sub.status === 'bounced' && cambioEmail) {
+        try {
+          const { data: ahora } = await supabase.from('subscribers')
+            .select('status,confirm_token').eq('id', sub.id).maybeSingle();
+          /* Si no quedó pendiente (falta el SQL 81, u otra persona la
+             cambió), no se manda nada y se dice que lo mire. */
+          if (!ahora || ahora.status !== 'pending' || !ahora.confirm_token) return 'reconfirm_check';
+          if (typeof window.mandarConfirmacionSuscriptor !== 'function') return 'reconfirm_failed';
+          if (window.AdminState?.emailInFlight) return 'reconfirm_failed';
+          const r = await window.mandarConfirmacionSuscriptor(
+            { id: sub.id, email: datos.email, first_name: datos.first_name, last_name: datos.last_name },
+            ahora.confirm_token);
+          return r && r.llego ? 'reconfirm_sent' : 'reconfirm_failed';
+        } catch (e) {
+          console.warn('[players] no se pudo mandar la confirmación tras corregir el email:', e.message);
+          return 'reconfirm_failed';
+        }
+      }
       return 'updated';
     } catch (err) {
       console.warn('[players] could not update the subscriber details of', email, '—', err.message);
@@ -823,6 +848,9 @@
   /* Lo que se añade al aviso de guardar, según cómo fue con su ficha de
      suscriptor (si la tiene). */
   const notaSuscriptor = (r) => r === 'updated'  ? ' Subscriber details updated.'
+    : r === 'reconfirm_sent'   ? ' Subscriber details updated. Their old email had bounced: they are now Pending, and we sent a confirmation email to the new address.'
+    : r === 'reconfirm_failed' ? ' Subscriber details updated. Their old email had bounced: they are now Pending, but the confirmation email did not go out. You can send it with "Send Reminder" in Promotions (it emails every pending subscriber).'
+    : r === 'reconfirm_check'  ? ' Subscriber details updated. Their old email had bounced — check their status in Promotions; no confirmation email was sent.'
     : r === 'conflict' ? ' (Subscriber details not copied: that email and name already belong to another subscriber.)'
     : r === 'failed'   ? ' (Could not update the subscriber details — check the console.)'
     : '';
@@ -2084,7 +2112,8 @@
         // alta ni se reactiva (12 de octubre).
         const subResult = await actualizarSuscriptor(
           { first: row.first_name, last: row.last_name, email: row.email }, playerBody, _importSubs);
-        if (subResult === 'updated')     subUpdated++;
+        if (subResult === 'updated' || subResult === 'reconfirm_sent') subUpdated++;
+        else if (subResult === 'reconfirm_failed' || subResult === 'reconfirm_check') { subUpdated++; subFailed++; }
         else if (subResult === 'failed' || subResult === 'conflict') subFailed++;
       } catch(e) {
         failCount++;
@@ -2375,9 +2404,11 @@
         });
       }
 
-      /* Sólo se dice si algo fue mal: actualizarla es lo normal. */
-      toast(`Player updated!${subResult === 'conflict' || subResult === 'failed' ? notaSuscriptor(subResult) : ''}`,
-        subResult === 'conflict' || subResult === 'failed');
+      /* Sólo se dice si algo fue mal, o si su email había rebotado y se
+         le mandó la confirmación (ajuste 17): actualizarla es lo normal. */
+      const decirlo = ['conflict', 'failed', 'reconfirm_sent', 'reconfirm_failed', 'reconfirm_check'].includes(subResult);
+      const malo = ['conflict', 'failed', 'reconfirm_failed', 'reconfirm_check'].includes(subResult);
+      toast(`Player updated!${decirlo ? notaSuscriptor(subResult) : ''}`, malo);
       closeModal();
       // Force a reload so the inline reason preview reflects the new value
       AdminState.allPlayers = [];

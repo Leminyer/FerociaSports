@@ -310,6 +310,12 @@
     const caja = document.getElementById('co-hist-table');
     if (desdeElPrincipio && caja) caja.innerHTML = cargando('Loading history...');
 
+    /* Ajuste 17: los envíos que llevan más de 30 minutos en "Sending…" sin
+       NINGUNA persona apuntada se pasan a Failed antes de leer la lista
+       (sql/81). No había nada que retomar: la lista a la que iban se
+       perdió. Si falla (o falta el SQL 81), la lista se lee igual. */
+    if (desdeElPrincipio) await cerrarColgados();
+
     const filtro = (_filtroTipo ? `&kind=eq.${encodeURIComponent(_filtroTipo)}` : '')
       + (_filtroAudiencia ? `&meta->audience->>id=eq.${encodeURIComponent(_filtroAudiencia)}` : '');
     const ruta = `communications?select=${COLS_LISTA}${filtro}`
@@ -352,6 +358,18 @@
          queda en "Loading history..." para siempre y ni el filtro ni el
          botón de traer más vuelven a funcionar. Sólo recarga la página. */
       if (mia === _vez) _cargando = false;
+    }
+  }
+
+  async function cerrarColgados() {
+    try {
+      const sb = window.supabase;
+      if (!sb || typeof sb.rpc !== 'function') return;
+      const { data, error } = await sb.rpc('cerrar_envios_colgados');
+      if (error) { console.warn('[communications] no se pudieron cerrar los envíos colgados:', error.message); return; }
+      if (data) console.log(`[communications] ${data} envío(s) colgado(s) pasado(s) a Failed`);
+    } catch (e) {
+      console.warn('[communications] no se pudieron cerrar los envíos colgados:', e);
     }
   }
 

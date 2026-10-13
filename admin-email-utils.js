@@ -822,6 +822,9 @@
   window.addEventListener('beforeunload', beforeUnloadGuard);
 
   window.sendEmailServer = sendEmailServer;
+  /* Ajuste 17: lo mismo, con un nombre que no diga "correo", para las
+     funciones de administradora que no mandan nada (clear-bounce). */
+  window.llamarFuncionAdmin = (payload, funcion) => sendEmailServer(payload, funcion);
   window.leerErrorDeFuncion = leerError;   // el Hub lee igual los errores de sus funciones
   window.crearClaveador  = crearClaveador;
   window.nombreDestinatario = nombreDestinatario;

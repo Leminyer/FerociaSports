@@ -455,16 +455,22 @@
        dan de baja), pero RESEND deja de entregar a esa dirección, así que
        tampoco le llega lo del ladder ni los torneos: se dice tal cual. La
        marca se quita sola al cambiar el email (sql/80). */
+    /* Ajuste 17: quitar la marca a mano (y sacar la dirección de la lista
+       de bloqueos de Resend). Estilos en admin-pages.css. */
+    const _botonQuitarMarca = '<div class="pp-aviso-email-pie"><button type="button" '
+      + 'class="pp-aviso-email-btn" data-action="ppClearEmailProblem">Clear</button></div>';
     const problemaEmail = p.email_problem === 'complained'
       ? `<div class="pp-aviso-email">This player marked one of our emails as spam`
         + `${p.email_problem_at ? ` on ${esc(fmtDate(p.email_problem_at))}` : ''}. `
         + 'Resend now blocks this address, so ladder and tournament emails will not '
-        + 'reach them either. Talk to the player.</div>'
+        + 'reach them either. Talk to the player.'
+        + _botonQuitarMarca + '</div>'
       : p.email_problem === 'bounced'
         ? `<div class="pp-aviso-email">Emails to this address bounce`
           + `${p.email_problem_at ? ` (since ${esc(fmtDate(p.email_problem_at))})` : ''}, `
           + 'so ladder and tournament emails are not reaching them. Check the address '
-          + 'with the player and edit it.</div>'
+          + 'with the player and edit it.'
+          + _botonQuitarMarca + '</div>'
         : '';
 
     const quickInfoHTML = `${problemaEmail}
@@ -2264,6 +2270,47 @@
   // yet (email_verified/phone_verified are just columns for now), so these
   // can't actually send or track a verification. Once that system exists,
   // wire the real send here instead of this toast.
+  /* Ajuste 17: "Clear" en el aviso de email de la ficha. La función
+     clear-bounce saca la dirección de la lista de bloqueos de Resend y
+     quita la marca. Si Resend no deja, no se cambia nada. */
+  const ppClearEmailProblem = async () => {
+    const p = _ppCurrent && _ppCurrent.p;
+    if (!p) return;
+    const seguro = await window.confirmModal({
+      title: 'Clear the email warning?',
+      message: (p.email_problem === 'complained'
+        ? 'This player marked one of our emails as spam. '
+        : 'Emails to this address bounced. ')
+        + 'We will ask Resend to stop blocking the address and remove the warning. Only do this if '
+        + 'you have checked the address with the player. If it fails again, the warning comes back.',
+      okLabel: 'Clear',
+      cancelLabel: 'Cancel',
+      focusCancel: true,
+    });
+    if (!seguro) return;
+    const r = await window.llamarFuncionAdmin({ player_id: p.id }, 'clear-bounce');
+    if (!r.ok) {
+      toast(r.code === 'resend_key_cannot_manage'
+        ? 'Resend did not let us remove this address from its block list: your Resend API key can '
+          + 'only send emails. Remove it by hand in Resend → Suppressions and try again. Nothing was changed.'
+        : (r.code === 'resend_failed' || r.code === 'resend_unreachable')
+          ? 'Resend could not remove this address from its block list right now. Nothing was changed — try again in a few minutes.'
+          : r.code === 'changed'
+            ? 'This player was changed a moment ago (a new warning arrived or the email was edited). Reload the profile and check.'
+            : (r.code === 'network' || !r.code)
+              ? 'We could not confirm whether the warning was cleared (the server did not answer clearly). Reload the profile in a minute and check.'
+              : `The warning could not be cleared (${r.code}). Nothing was changed.`, true);
+      return;
+    }
+    /* La ficha se pinta con la copia de la lista de jugadores que ya está
+       cargada: se pone al día aquí, o el aviso volvería a salir. */
+    for (const x of [p, (AdminState.allPlayers || []).find((y) => y.id === p.id)]) {
+      if (x) { x.email_problem = null; x.email_problem_at = null; }
+    }
+    toast(`✅ The email warning for ${p.first_name} ${p.last_name} was cleared.`);
+    await loadPlayerProfilePage(null, p.id);
+  };
+
   const ppResendEmailVerification = () => toast('Email verification isn\'t built yet — this will send a real verification email once that system exists.', true);
   const ppResendSmsVerification   = () => toast('SMS verification isn\'t built yet — this will send a real verification text once that system exists.', true);
 
@@ -2316,6 +2363,7 @@
     ppEditPlayer:   () => ppEditPlayer(),
     ppViewHistory:  () => ppViewHistory(),
     ppResendEmailVerification: () => ppResendEmailVerification(),
+    ppClearEmailProblem:       () => ppClearEmailProblem(),
     ppResendSmsVerification:   () => ppResendSmsVerification(),
     ppResetPlayerDna:          () => ppResetPlayerDna(),
     ppSendMessage:  () => ppSendMessage(),
