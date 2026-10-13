@@ -22,7 +22,7 @@
      four must stay in this sequence. See the header of admin-layout.css. -->
 <link rel="stylesheet" href="admin-layout.css?v=20261012a">
 <link rel="stylesheet" href="admin-components.css?v=20261008a">
-<link rel="stylesheet" href="admin-pages.css?v=20261013d">
+<link rel="stylesheet" href="admin-pages.css?v=20261013f">
 <link rel="stylesheet" href="admin-ftc.css?v=20260928b">
 <link rel="stylesheet" href="admin-comms-hub.css?v=20261013c">
 
@@ -2637,6 +2637,9 @@
                  un valor real de la columna `status`.
                  La lógica está en _renderSubsTable, admin-promotions.js. -->
             <option value="__frenadas">Pending — no email sent</option>
+            <!-- Ajuste 23: tampoco es un estado — las fichas cuyo correo
+                 comparten varias (familias). Lógica en _renderSubsTable. -->
+            <option value="__compartidos">Shared email</option>
             <option value="unsubscribed">Unsubscribed</option>
             <!-- Ajuste 16: el email rebotó (Resend). Es un estado de
                  verdad: las campañas, el newsletter y los recordatorios
@@ -3841,7 +3844,7 @@
 <script src="admin-delivery-problems.js?v=20261013c"></script>
 <script src="admin-comms-hub.js?v=20261011e"></script>
 <script src="admin-comms-results.js?v=20261011d"></script>
-<script src="admin-promotions.js?v=20261013e"></script>
+<script src="admin-promotions.js?v=20261013f"></script>
 <script src="admin-subscriber-reminder.js?v=20261005a"></script>
 <script src="admin-newsletter.js?v=20261013a"></script>
 <!-- TEMPORARY: fills in missing dates of birth from a CSV import.

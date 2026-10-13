@@ -341,6 +341,29 @@
       </div>` : '');
   };
 
+  /* ── Ajuste 23: BUZONES COMPARTIDOS ───────────────────────────
+     Hasta 4 fichas pueden compartir dirección (una familia). La
+     dirección se compara sin espacios y sin mayúsculas. */
+  const _correoDe = (s) => String((s && s.email) || '').trim().toLowerCase();
+  /* Cuántas fichas tiene cada dirección (estén como estén). */
+  const _fichasPorCorreo = () => {
+    const m = new Map();
+    for (const x of _allSubs) {
+      const c = _correoDe(x);
+      if (c) m.set(c, (m.get(c) || 0) + 1);
+    }
+    return m;
+  };
+  /* Las OTRAS fichas con la misma dirección, estén como estén. */
+  const _mismoCorreo = (s) => {
+    const c = _correoDe(s);
+    return c ? _allSubs.filter((x) => x.id !== s.id && _correoDe(x) === c) : [];
+  };
+  /* Al pulsar la pastilla se escribe la dirección en el buscador y, MIENTRAS
+     el buscador diga exactamente eso, se compara la dirección entera: si
+     no, "a@x.com" también sacaría a "ana@x.com". */
+  let _buzonExacto = '';
+
   const _renderSubsTable = () => {
     const search = (document.getElementById('sub-search')?.value || '').toLowerCase().trim();
     const filter = document.getElementById('sub-status-filter')?.value || 'all';
@@ -353,8 +376,12 @@
        devolver siempre lo mismo. */
     const perFil = document.getElementById('sub-period-filter')?.value || 'all';
     const desde  = _desdeDelPeriodo(perFil);
+    const porCorreo = _fichasPorCorreo();
+    const exacto = _buzonExacto !== '' && search === _buzonExacto;
     const filtered = _allSubs.filter(s => {
-      const nameMatch = `${s.first_name} ${s.last_name} ${s.email} ${s.phone || ''} ${FerociaPhone.searchable(s.country_code, s.phone)}`.toLowerCase().includes(search);
+      const nameMatch = exacto
+        ? _correoDe(s) === _buzonExacto
+        : `${s.first_name} ${s.last_name} ${s.email} ${s.phone || ''} ${FerociaPhone.searchable(s.country_code, s.phone)}`.toLowerCase().includes(search);
       /* '__frenadas' no es un estado: son las fichas a las que el freno
          del formulario público no les mandó el correo de confirmación.
          Su estado sigue siendo 'pending', así que se mira la marca y no
@@ -374,6 +401,10 @@
       const statusMatch = filter === 'all' ? true
         : filter === '__frenadas'
             ? (s.status === 'pending' && !!s.confirm_email_skipped_at)
+        /* Ajuste 23: tampoco es un estado — las fichas cuyo correo
+           comparten varias. */
+        : filter === '__compartidos'
+            ? (porCorreo.get(_correoDe(s)) || 0) > 1
         : s.status === filter;
       /* Los CUATRO filtros se combinan (Y, no O): buscar "maria", estado
          Active, origen Instagram y este mes devuelve las Marías activas
@@ -386,6 +417,12 @@
       const perMatch = _enPeriodo(s, desde);
       return nameMatch && statusMatch && srcMatch && perMatch;
     });
+    /* Con "Shared email", cada familia junta: por dirección y luego por
+       nombre. */
+    if (filter === '__compartidos') {
+      filtered.sort((a, b) => _correoDe(a).localeCompare(_correoDe(b))
+        || `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`));
+    }
     const slice   = filtered.slice(0, _subsShown);
     const total   = filtered.length;
 
@@ -428,7 +465,15 @@
                   <div style="font-size:13px;font-weight:700;color:var(--text);">${esc(s.first_name)} ${esc(s.last_name)}</div>
                 </div>
               </td>
-              <td style="padding:11px 16px;border-bottom:0.5px solid #f4f5f8;font-size:12px;color:var(--text-muted);">${esc(s.email || '—')}</td>
+              <td style="padding:11px 16px;border-bottom:0.5px solid #f4f5f8;font-size:12px;color:var(--text-muted);">${esc(s.email || '—')}${(() => {
+                /* Ajuste 23: la pastilla del buzón compartido. */
+                const n = porCorreo.get(_correoDe(s)) || 0;
+                return n > 1
+                  ? ` <button type="button" class="sub-buzon" data-action="verBuzon" data-email="${esc(_correoDe(s))}"`
+                    + ` title="${n} subscriptions share this email" aria-label="${n} subscriptions share this email">`
+                    + `${ICON_USERS}<span>${n}</span></button>`
+                  : '';
+              })()}</td>
               ${/* Misma regla que el modal, y aqui tambien sin la marca:
                     la tabla se lee de un vistazo, el modal es el que
                     explica de donde sale cada dato. */''}
@@ -587,6 +632,9 @@
   /* Ajuste 20: campana tachada ("no más avisos"). Antes era un sobre con
      una rayita y se confundía con el sobre de "Resend confirmation". */
   const ICON_UNSUB = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.7 3A6 6 0 0 1 18 8a21.3 21.3 0 0 0 .6 5"/><path d="M17 17H3s3-2 3-9a4.67 4.67 0 0 1 .3-1.7"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/><path d="m2 2 20 20"/></svg>';
+  /* Ajuste 23: dos personas, para los buzones compartidos (mismo trazo
+     que los demás iconos de la fila). */
+  const ICON_USERS = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>';
   /* Ajuste 20: el relojito de la cápsula "Last confirmation email…". */
   const ICON_RELOJ = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
   const ICON_MAIL  = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>';
@@ -815,10 +863,26 @@
       + (s.status === 'unsubscribed'
           ? svRow('Unsubscribed', esc(_cuandoSeDioDeBaja(s)))
             + svRow('Reason', esc(_porQueSeDioDeBaja(s)))
-          : '');
+          : '')
+      /* Ajuste 23: las otras fichas con este mismo correo. */
+      + (() => {
+          const otras = _mismoCorreo(s);
+          if (!otras.length) return '';
+          return svSection(`Same email · ${esc(_correoDe(s))}`)
+            + '<div class="sv-buzon">'
+            + otras.map((x) => `<div class="sv-buzon-fila">${ICON_USERS}`
+                + `<span class="sv-buzon-nombre">${esc(x.first_name)} ${esc(x.last_name)}</span>`
+                + `<span class="sv-buzon-estado sv-buzon-${esc(x.status)}">${esc(_etiquetaEstado(x.status))}</span>`
+                + `<button type="button" class="sv-buzon-ver" data-action="viewSubscriber" data-subid="${esc(x.id)}">View</button></div>`).join('')
+            + '</div>';
+        })();
 
     document.getElementById('sub-view-modal').classList.add('open');
   };
+
+  /* Ajuste 23: el nombre de cada estado, como en la tabla. */
+  const _etiquetaEstado = (st) => ({ active: 'Active', pending: 'Pending', unsubscribed: 'Unsubscribed',
+                                     bounced: 'Bounced' })[st] || String(st || '—');
 
   window.closeSubView = () =>
     document.getElementById('sub-view-modal').classList.remove('open');
@@ -871,13 +935,20 @@
   /* Las OTRAS fichas que comparten esa misma dirección y siguen dentro.
      Hasta cuatro personas pueden compartir buzón (una familia), y la
      lista de envío se arma por FICHA, no por dirección. */
+  /* Ajuste 23: devuelve las fichas (antes, sólo cuántas), para poder
+     nombrarlas y darlas de baja juntas. */
   const _otrasEnEseBuzon = (s) => {
     const correo = String(s.email || '').trim().toLowerCase();
-    if (!correo) return 0;
+    if (!correo) return [];
     return _allSubs.filter((x) => x.id !== s.id
       && String(x.email || '').trim().toLowerCase() === correo
       /* Ajuste 16: quien rebota tampoco recibe. */
-      && (x.status === 'active' || x.status === 'pending')).length;
+      && (x.status === 'active' || x.status === 'pending'));
+  };
+  /* "Ana", "Ana and Beto", "Ana, Beto and Carla". */
+  const _listaNombres = (fichas) => {
+    const n = fichas.map((x) => `${x.first_name} ${x.last_name}`);
+    return n.length <= 1 ? (n[0] || '') : `${n.slice(0, -1).join(', ')} and ${n[n.length - 1]}`;
   };
 
   let _ssSub  = null;   // de quién habla la ventana abierta
@@ -892,6 +963,9 @@
   /* Si el correo de "Subscribe Again" no salió: a quién y con qué
      código, para "Retry email". */
   let _ssReintento = null;
+  /* Ajuste 23: las fichas que se darían de baja con "Everyone at this
+     email" (la abierta primero), tal como se enseñaron en la ventana. */
+  let _ssBuzon = [];
 
   const closeSubStatus = (forzar = false) => {
     if (_ssOcupada && forzar !== true) return;
@@ -900,6 +974,7 @@
     _ssSub = null;
     _ssModo = null;
     _ssReintento = null;
+    _ssBuzon = [];
   };
 
   /* ⚠️  EL CURSOR NO SE SALE DE ESTA VENTANA, Y ESCAPE LA CIERRA.
@@ -923,8 +998,10 @@
     _ssTecla = (e) => {
       if (e.key === 'Escape') { closeSubStatus(); return; }
       if (e.key !== 'Tab') return;
-      const foco = [...modal.querySelectorAll('button, textarea')]
-        .filter((el) => !el.disabled && el.offsetParent !== null);
+      /* De las opciones (radio) sólo la marcada, como hace el navegador:
+         entre ellas se pasa con las flechas. */
+      const foco = [...modal.querySelectorAll('button, textarea, input')]
+        .filter((el) => !el.disabled && el.offsetParent !== null && !(el.type === 'radio' && !el.checked));
       if (!foco.length) return;
       e.preventDefault();
       const i = foco.indexOf(document.activeElement);
@@ -986,16 +1063,17 @@
     const body = document.getElementById('ss-body');
 
     if (modo === 'baja') {
+      /* Ajuste 23: si el correo lo comparten otras fichas que reciben, se
+         elige entre "sólo esta persona" (marcada, como siempre) y "todo el
+         buzón". */
+      const otras = _otrasEnEseBuzon(s);
+      _ssBuzon = otras.length ? [s].concat(otras) : [];
       body.innerHTML =
         aviso('rgba(192,74,14,0.06)', 'rgba(192,74,14,0.25)',
             'They will stop receiving campaigns and the newsletter from now on. '
           + 'Nothing is deleted: their record, their history and where they came '
           + 'from all stay.'
-          + (_playerIndex.get(_personKey(s))
-              ? '<div style="margin-top:10px;font-weight:700;color:#c04a0e;">'
-                + 'This person is also a player, so they will still get ladder '
-                + 'and tournament emails. Those are not part of the mailing list.</div>'
-              : '')
+          + '<div id="ss-jugadores"></div>')
           /* ⚠️  EL BUZÓN COMPARTIDO. 19 de sus 490 direcciones llevan más
              de una ficha —familias que comparten correo— y la lista de
              envío se arma por FICHA, no por dirección. Sin este aviso,
@@ -1004,19 +1082,15 @@
              al buzón le siguen llegando los correos a nombre de otro. Lo
              siguiente que se pulsa ahí es spam. Lo señaló la revisión del
              6 de octubre. */
-          + (() => {
-              const n = _otrasEnEseBuzon(s);
-              if (!n) return '';
-              return '<div style="margin-top:10px;font-weight:700;color:#c04a0e;">'
-                + (n === 1
-                    ? '1 other subscription shares this email address and will keep '
-                      + 'receiving campaigns. Unsubscribe it too if the whole inbox '
-                      + 'should stop.'
-                    : `${n} other subscriptions share this email address and will keep `
-                      + 'receiving campaigns. Unsubscribe them too if the whole inbox '
-                      + 'should stop.')
-                + '</div>';
-            })())
+          + (otras.length
+              ? `<div class="ss-etiqueta ss-buzon-titulo">This email is shared by ${_ssBuzon.length} subscriptions</div>`
+                + '<label class="ss-opcion ss-opcion-sel"><input type="radio" name="ss-alcance" value="uno" checked>'
+                + `<span><strong>Only ${esc(s.first_name)} ${esc(s.last_name)}</strong>`
+                + `<small>${esc(_listaNombres(otras))} will keep receiving campaigns at this email.</small></span></label>`
+                + '<label class="ss-opcion"><input type="radio" name="ss-alcance" value="todos">'
+                + `<span><strong>Everyone at this email (${_ssBuzon.length})</strong>`
+                + `<small>${esc(_listaNombres(_ssBuzon))}. The inbox stops getting campaigns.</small></span></label>`
+              : '')
         + '<div style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--text-muted);margin:18px 0 4px;">'
         + 'Why are you unsubscribing them? <span style="color:#e53935;">*</span></div>'
         + '<textarea id="ss-note" rows="3" maxlength="200"'
@@ -1050,6 +1124,27 @@
       };
       nota.addEventListener('input', mirar);
       mirar();
+      /* Ajuste 23: el botón y el aviso de jugadores siguen a la opción. */
+      const pintarAlcance = () => {
+        const todos = body.querySelector('input[name="ss-alcance"]:checked')?.value === 'todos';
+        body.querySelectorAll('.ss-opcion').forEach((l) =>
+          l.classList.toggle('ss-opcion-sel', !!l.querySelector('input:checked')));
+        ok.textContent = todos ? `Unsubscribe all ${_ssBuzon.length}` : 'Unsubscribe';
+        const quienes = (todos ? _ssBuzon : [s]).filter((x) => _playerIndex.get(_personKey(x)));
+        const caja = document.getElementById('ss-jugadores');
+        if (caja) {
+          caja.className = quienes.length ? 'ss-jugadores' : '';
+          caja.textContent = !quienes.length ? ''
+            : !todos
+              ? 'This person is also a player, so they will still get ladder and tournament emails. '
+                + 'Those are not part of the mailing list.'
+              : `${_listaNombres(quienes)} ${quienes.length === 1 ? 'is' : 'are'} also `
+                + `${quienes.length === 1 ? 'a player' : 'players'}, so they will still get ladder and `
+                + 'tournament emails. Those are not part of the mailing list.';
+        }
+      };
+      body.querySelectorAll('input[name="ss-alcance"]').forEach((r) => r.addEventListener('change', pintarAlcance));
+      pintarAlcance();
       setTimeout(() => nota.focus(), 50);
     } else if (modo === 'reconfirmar') {
       /* Ajuste 19: reenviar la confirmación a UNA persona, con su mismo
@@ -1440,10 +1535,52 @@
            con la regla del `sql/69`. Así vale igual para este botón, para
            el enlace del correo y para un SQL a mano, y no puede olvidarse
            en ninguno de los tres. */
-        await api(`subscribers?id=eq.${s.id}`, 'PATCH',
-          { status: 'unsubscribed', unsubscribe_note: nota });
-        closeSubStatus(true);
-        toast(`${s.first_name} ${s.last_name} will not receive any more emails.`);
+        const todos = _ssBuzon.length > 1
+          && document.querySelector('#ss-body input[name="ss-alcance"]:checked')?.value === 'todos';
+        if (!todos) {
+          await api(`subscribers?id=eq.${s.id}`, 'PATCH',
+            { status: 'unsubscribed', unsubscribe_note: nota });
+          closeSubStatus(true);
+          toast(`${s.first_name} ${s.last_name} will not receive any more emails.`);
+        } else {
+          /* Ajuste 23: todo el buzón — las fichas que se enseñaron en la
+             ventana y que SIGAN dentro (Active o Pending): si otra
+             administradora cambió alguna mientras tanto, ésa no se toca. */
+          const ids = _ssBuzon.map((x) => Number(x.id)).filter((x) => Number.isSafeInteger(x));
+          const total = ids.length;
+          const dir = String(s.email || '').trim().toLowerCase();
+          const antes = await api(`subscribers?id=in.(${ids.join(',')})&select=id,status`);
+          /* La persona de la ventana se da de baja esté como esté (igual
+             que con "Only…": por ejemplo, si rebotó); las demás, sólo si
+             siguen Active o Pending. Lo encontró la revisión: con la
+             abierta en Bounced, "Everyone" la dejaba fuera y el aviso
+             culpaba a "otra administradora". */
+          const dentro = (antes || []).filter((x) => (String(x.id) === String(s.id)
+            ? x.status !== 'unsubscribed'
+            : (x.status === 'active' || x.status === 'pending'))).map((x) => x.id);
+          let hechas = 0;
+          if (dentro.length) {
+            const otrasIds = dentro.filter((x) => String(x) !== String(s.id));
+            if (dentro.some((x) => String(x) === String(s.id))) {
+              await api(`subscribers?id=eq.${s.id}&status=neq.unsubscribed`, 'PATCH',
+                { status: 'unsubscribed', unsubscribe_note: nota });
+            }
+            if (otrasIds.length) {
+              await api(`subscribers?id=in.(${otrasIds.join(',')})&status=in.(active,pending)`, 'PATCH',
+                { status: 'unsubscribed', unsubscribe_note: nota });
+            }
+            const despues = await api(`subscribers?id=in.(${dentro.join(',')})&select=id,status`);
+            hechas = (despues || []).filter((x) => x.status === 'unsubscribed').length;
+          }
+          closeSubStatus(true);
+          if (hechas === 0) {
+            toast(`Nobody at ${dir} was still subscribed — someone changed them meanwhile. Refreshing the list.`, true);
+          } else {
+            toast(hechas === total
+              ? `✅ ${hechas} subscriptions at ${dir} unsubscribed.`
+              : `✅ ${hechas} of ${total} subscriptions at ${dir} unsubscribed. The others had already been changed by someone else.`);
+          }
+        }
       } else {
         await _volverAApuntar(ok);
       }
@@ -3021,7 +3158,13 @@
   /* "Resend to…" de History (admin-communications.js). */
   window.campanaReenviar = (campana) => openSendPromo(campana);
   document.getElementById('sub-status-filter')?.addEventListener('change', () => { _subsShown = 25; _renderSubsTable(); });
-  document.getElementById('sub-search')?.addEventListener('input', () => { _subsShown = 25; _renderSubsTable(); });
+  document.getElementById('sub-search')?.addEventListener('input', () => {
+    /* Ajuste 23: en cuanto se escribe otra cosa, se olvida la dirección
+       exacta de la pastilla. */
+    const v = (document.getElementById('sub-search')?.value || '').toLowerCase().trim();
+    if (v !== _buzonExacto) _buzonExacto = '';
+    _subsShown = 25; _renderSubsTable();
+  });
   document.getElementById('sub-source-filter')?.addEventListener('change', () => { _subsShown = 25; _renderSubsTable(); });
   document.getElementById('sub-period-filter')?.addEventListener('change', () => { _subsShown = 25; _renderSubsTable(); });
 
@@ -3110,6 +3253,22 @@
        frenadas del 31 de octubre y "This Month" las esconde. Esa lista
        nunca es una pregunta de calendario: es "a quién le falta su
        correo ahora mismo". */
+    /* Ajuste 23: la pastilla del buzón compartido — la tabla enseña a toda
+       la familia (sólo esa dirección, entera) y nada más. */
+    verBuzon: (btn) => {
+      const dir = String(btn.dataset.email || '').trim().toLowerCase();
+      if (!dir) return;
+      const poner = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+      poner('sub-status-filter', 'all');
+      poner('sub-period-filter', 'all');
+      poner('sub-source-filter', 'all');
+      poner('sub-search', dir);
+      _buzonExacto = dir;
+      _subsShown = 25;
+      _renderSubsTable();
+      document.getElementById('subscribers-table')
+        ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    },
     verFrenadas: () => {
       const poner = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
       poner('sub-status-filter', '__frenadas');
