@@ -1297,7 +1297,9 @@
            terminado, "on this attempt" frente a "in total" deja ver que
            pueden ser los mismos. */
         (data.failed && !data.complete) ? `${data.failed} failed on this attempt` : '',
-        data.skipped           ? `${data.skipped} already had it` : '',
+        /* `already_sent` desde el ajuste 18 (antes `skipped`, el único
+           envío que lo llamaba distinto). */
+        (data.already_sent ?? data.skipped) ? `${data.already_sent ?? data.skipped} already had it` : '',
         /* ── LOS QUE YA NO VAN A RECIBIRLO ────────────────────────
            El servidor manda estos dos números desde que existe el motor
            compartido, y esta pantalla no leía ninguno. Era el agujero

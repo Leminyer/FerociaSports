@@ -1922,7 +1922,7 @@
       subject: c.subject || '',
       tipo,
       flyer,
-      conFlyer: !!flyer && flyer !== SPACER_FLYER,
+      conFlyer: !!flyer && !String(flyer).endsWith(SPACER_VIEJO),
       cuando: dia ? `${c.sent_at ? 'sent' : 'created'} ${dia}` : '',
     };
     const $id = (id) => document.getElementById(id);
@@ -2283,7 +2283,12 @@
     if (flyerInp) flyerInp.value = '';
     pintarCampana();
     try {
-      const today  = new Date().toISOString().slice(0, 10);
+      /* "Hoy" en la hora del club (Boca Raton), no en la de Londres:
+         con toISOString, desde las 8 de la tarde los eventos de ese
+         mismo día desaparecían de la lista (ajuste 18). */
+      const partes = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York',
+        year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date()).map((x) => [x.type, x.value]));
+      const today  = `${partes.year}-${partes.month}-${partes.day}`;
       const dbType = type.toLowerCase(); // 'tournament' or 'ladder'
       const events = await api(`events?event_type=eq.${dbType}&event_date=gte.${today}&select=id,title,event_date,flyer_url&order=event_date.asc`);
       if (turno !== _turnoEventos) return;
@@ -2345,19 +2350,13 @@
          Una clave que no existe allí se ignora en silencio: no da
          error, simplemente no aparece en el correo. */
 
-  /* Cuando no hay flyer se manda un espaciador transparente de 600x1.
-
-     Antes se mandaba un GIF de 1x1 incrustado en el propio correo, y
-     eso fallaba por dos motivos:
-       · la plantilla lo estiraba al 100% de ancho y, al ser cuadrado,
-         crecía también a 600 de ALTO: un hueco vacío enorme en medio
-         del correo (medido: 1245px de alto contra 646px sin él);
-       · Gmail elimina las imágenes incrustadas en formato data:, así
-         que además aparecía rota.
-     Un archivo de 600x1 ya tiene la proporción correcta y ocupa 1px. */
-  const SPACER_FLYER =
-    'https://yyocceadorckkfbgnbqk.supabase.co/storage/v1/object/public/'
-    + 'newsletter-images/logo/spacer-600x1.png';
+  /* Sin flyer NO se manda nada (ajuste 18). Hasta el 13 de octubre se
+     mandaba un espaciador transparente de 600x1 porque la plantilla de
+     entonces dejaba una caja rota; la del servidor (renderPromo) ya
+     omite la fila entera si no hay flyer, así que había dos soluciones
+     para lo mismo y sobraba ésta. Las campañas viejas guardadas con el
+     espaciador se siguen viendo igual: la imagen sigue existiendo. */
+  const SPACER_VIEJO = 'newsletter-images/logo/spacer-600x1.png';
 
   /* La etiqueta de la cabecera, arriba a la derecha. Sale del tipo de
      campaña que ya se elige arriba, así que no hay que escribirla dos
@@ -2495,10 +2494,8 @@
          que no existe allí se ignora en silencio: no da error,
          simplemente no aparece en el correo. */
   const metaPromo = ({ campaignType, texto, flyerUrl }) => ({
-    /* Cuando no hay flyer va el espaciador, NO una cadena vacía. La
-       plantilla omite la fila de la imagen si la URL está vacía, y eso
-       cambiaría el alto del correo respecto a como sale hoy. */
-    flyer_url:     flyerUrl || SPACER_FLYER,
+    /* Sin flyer, vacío: la plantilla omite la fila de la imagen. */
+    flyer_url:     flyerUrl || '',
     email_type:    etiquetaCabecera(campaignType),
     /* El texto de la bandeja sale del TEXTO, no del HTML: si saliera
        del HTML, la bandeja de entrada enseñaría `<p style="color...`

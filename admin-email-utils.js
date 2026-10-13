@@ -591,12 +591,10 @@
    * frase lo dice.
    *
    * ⚠️  ESTA FUNCIÓN ES LA ÚNICA VOZ DEL CORTE, TAMBIÉN PARA EL
-   * NEWSLETTER. El servidor compone su propia frase (`mensajeCorte`, en
-   * send-newsletter), y la segunda revisión demostró que las dos no
-   * coincidían: la del servidor decía "vuelve a pulsar" para los tres
-   * motivos y sin mirar si algo salió sin apuntarse. Así que la pantalla
-   * del Newsletter ignora `message` cuando hay corte y usa esto. Un
-   * aviso, un sitio.
+   * NEWSLETTER. El servidor componía su propia frase (`mensajeCorte`, en
+   * send-newsletter) y no coincidía con ésta, así que la pantalla del
+   * Newsletter la ignoraba; desde el ajuste 18 el servidor ya no la
+   * manda. Un aviso, un sitio.
    *
    * @param   {object} d  lo que contesta la Edge Function
    * @returns {string}    el aviso entero, o '' si no se cortó
