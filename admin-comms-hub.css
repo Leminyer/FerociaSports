@@ -178,6 +178,11 @@
 /* Ajuste 16: lo que avisó Resend después de mandar (rebotes y quejas). */
 .co-hist-problemas{margin-top:2px;font-size:10px;font-weight:700;color:#9b1c1c;}
 .co-det-problema{margin-top:3px;font-size:10px;font-weight:700;color:#9b1c1c;}
+/* Ajuste 20: correos rechazados por el servidor del destinatario. */
+.co-hist-alerta{margin-top:5px;max-width:240px;min-width:180px;white-space:normal;padding:6px 9px;border-radius:8px;
+  background:rgba(198,40,40,0.07);border:1px solid rgba(198,40,40,0.25);font-size:10px;font-weight:700;
+  line-height:1.45;color:#9b1c1c;}
+.co-det-rechazo{margin-top:3px;font-size:10px;font-weight:700;color:var(--text-muted);}
 
 /* En el móvil:
    · el correo de la lista para elegir baja debajo del nombre: no cabe al

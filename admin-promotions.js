@@ -551,7 +551,7 @@
        · otherwise          → person-with-plus, opens the convert modal
 
      Y desde el 6 de octubre uno más, el de la suscripción:
-       · activa o pendiente → sobre tachado, para darla de baja
+       · activa o pendiente → campana tachada, para darla de baja
        · dada de baja       → flecha de vuelta, para volver a activarla
 
      ⚠️  NINGUNO DE LOS DOS HACE NADA AL PULSARLO. Los dos abren una
@@ -561,8 +561,12 @@
   const ICON_EYE   = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>';
   const ICON_ADD   = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>';
   const ICON_CHECK = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></svg>';
-  // Sobre tachado = "deja de recibir correo". Flecha de vuelta = "vuelve".
-  const ICON_UNSUB = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 13V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h9"/><polyline points="22 7 12 13 2 7"/><line x1="16" y1="19" x2="22" y2="19"/></svg>';
+  // Campana tachada = "deja de recibir correo". Flecha de vuelta = "vuelve".
+  /* Ajuste 20: campana tachada ("no más avisos"). Antes era un sobre con
+     una rayita y se confundía con el sobre de "Resend confirmation". */
+  const ICON_UNSUB = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.7 3A6 6 0 0 1 18 8a21.3 21.3 0 0 0 .6 5"/><path d="M17 17H3s3-2 3-9a4.67 4.67 0 0 1 .3-1.7"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/><path d="m2 2 20 20"/></svg>';
+  /* Ajuste 20: el relojito de la cápsula "Last confirmation email…". */
+  const ICON_RELOJ = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
   const ICON_MAIL  = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>';
   const ICON_BACK  = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>';
 
@@ -1029,7 +1033,10 @@
           '<p class="ss-texto ss-texto-primero">We will send <strong>' + esc(s.email) + '</strong> the '
         + 'confirmation email again, with the same link as before. They will receive campaigns '
         + 'once they click it.</p>'
-        + '<div id="ss-historial" class="ss-nota">Checking the last confirmation email…</div>'
+        /* Ajuste 20: en una cápsula. Gris mientras se lee (o si no hay
+           registro); azul cuando hay fecha. */
+        + '<div id="ss-historial" class="ss-capsula ss-capsula-gris">' + ICON_RELOJ
+        + '<span class="ss-capsula-txt">Checking the last confirmation email…</span></div>'
         + (s.confirm_email_skipped_at
             ? '<p class="ss-rebote">The signup brake was on when this person signed up '
               + `(${esc(fechaYHora(s.confirm_email_skipped_at))}), which usually means a burst of fake `
@@ -1226,14 +1233,16 @@
     const caja = () => (el && el.isConnected ? el : null);
     let texto = 'No confirmation email from the admin is on record (the signup form sends its own).';
     let reciente = false;
+    let hayFecha = false;
     try {
       const filas = await api(`communication_recipients?subscriber_id=eq.${s.id}&status=eq.sent`
         + '&select=sent_at,communications!inner(kind)&communications.kind=eq.subscriber_confirm'
         + '&order=sent_at.desc&limit=1');
       const ult = filas && filas[0] && filas[0].sent_at;
       if (ult) {
+        hayFecha = true;
         reciente = Date.now() - new Date(ult).getTime() < 24 * 3600 * 1000;
-        texto = `Last confirmation email from the admin: ${fechaYHora(ult)}.`;
+        texto = `Last confirmation email from the admin: ${fechaYHora(ult)}`;
       }
     } catch (e) {
       console.warn('[resend-confirmation] no se pudo leer el historial:', e);
@@ -1241,7 +1250,10 @@
     }
     /* La ventana pudo cerrarse o cambiar de persona mientras se leía. */
     if (!caja() || !_ssSub || _ssSub.id !== s.id || _ssModo !== 'reconfirmar') return;
-    caja().textContent = texto;
+    const txt = caja().querySelector('.ss-capsula-txt');
+    if (txt) txt.textContent = texto; else caja().textContent = texto;
+    /* Azul sólo si hay una fecha que enseñar. */
+    caja().classList.toggle('ss-capsula-gris', !hayFecha);
     if (reciente) {
       caja().insertAdjacentHTML('afterend', '<p class="ss-rebote">They got a confirmation email less than '
         + '24 hours ago. Sending another one so soon can look like spam — they may just need to check '

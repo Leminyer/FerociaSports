@@ -97,6 +97,8 @@
   let _cargando      = false;  // para que dos clics no pidan lo mismo dos veces
   let _respuestas    = new Map();  // id de un envío con encuesta → { recipients, responded }
   let _problemas     = new Map();  // id de un envío → { rebotes, quejas } (ajuste 16)
+  let _rechazos      = new Map();  // id de un envío → cuántas direcciones rechazadas (ajuste 20)
+  let _rechazadosDet = { id: null, emails: new Set() };  // las del envío abierto (ajuste 20)
   let _filtroTipo    = '';     // '' = todos
   /* Una escalera o un torneo concreto (decidido el 10 de octubre: el
      historial de cada audiencia vive aquí, no debajo del formulario).
@@ -162,6 +164,51 @@
      columnas y el detalle entero fallaría. Entonces se piden las de antes
      (y no se enseña lo de los rebotes) hasta recargar la página. */
   let _colsPersona = COLS_PERSONA;
+
+  /* ── Ajuste 20: correos RECHAZADOS ──────────────────────────
+     Un servidor de correo que rechaza el mensaje (MessageRejected:
+     contenido, autenticación del dominio…) no dice nada malo de la
+     dirección, así que el SQL 80 sólo lo anota en email_events y no
+     marca a nadie. Aquí se cuentan para que History lo enseñe: si se
+     rechaza media campaña, casi seguro es un problema del dominio.
+
+     MISMA REGLA que procesar_evento_resend (sql/80): un rebote
+     permanente es "de verdad" sólo con subtipo General, NoEmail,
+     Suppressed u OnAccountSuppressionList (o sin subtipo). Cualquier
+     otro subtipo es un rechazo. Si cambia allí, hay que cambiarla aquí
+     y en admin-delivery-problems.js. */
+  const FILTRO_RECHAZO = '&type=eq.email.bounced&bounce_type=ilike.permanent&bounce_subtype=not.is.null'
+    + '&and=(bounce_subtype.not.ilike.general,bounce_subtype.not.ilike.noemail,'
+    + 'bounce_subtype.not.ilike.suppressed,bounce_subtype.not.ilike.onaccountsuppressionlist)';
+  /* La base no devuelve más de 1.000 filas por pregunta: si una campaña
+     grande se rechaza entera, se piden por tandas para no quedarse
+     cortos justo en el caso que importa. Se sigue hasta que una tanda
+     llega VACÍA (no "más corta de lo pedido": si algún día el servidor
+     devolviera menos por pregunta, eso cortaría antes de tiempo), y
+     cada tanda empieza donde terminó la anterior. */
+  const RECHAZOS_POR_TANDA = 500;
+  const RECHAZOS_TANDAS_MAX = 60;
+  /* El aviso fuerte: 10% o más de lo enviado, y por lo menos 3
+     (decidido el 13 de octubre). */
+  const RECHAZOS_MINIMO_AVISO = 3;
+  const hayQueAvisarRechazos = (rechazados, enviados) =>
+    rechazados >= RECHAZOS_MINIMO_AVISO && rechazados * 10 >= (Number(enviados) || 0);
+
+  /** Las filas de rechazo (communication_id, email) que cumplen `filtro`. */
+  async function leerFilasRechazo(filtro) {
+    const todas = [];
+    for (let t = 0; t < RECHAZOS_TANDAS_MAX; t++) {
+      const r = await window.api(`email_events?select=communication_id,email${filtro}${FILTRO_RECHAZO}`
+        + `&order=id.asc&limit=${RECHAZOS_POR_TANDA}&offset=${todas.length}`);
+      if (!Array.isArray(r)) throw new Error('unexpected_response');
+      if (!r.length) return todas;
+      todas.push(...r);
+    }
+    console.warn('[communications] demasiados rechazados: la cuenta puede quedarse corta');
+    return todas;
+  }
+
+  const normal = (x) => String(x || '').trim().toLowerCase();
 
   /* Los nombres que ve ella. En la base de datos son etiquetas
      técnicas; aquí se llaman como los llama la aplicación. */
@@ -339,11 +386,13 @@
       const yaEstan = new Set(_envios.map((x) => String(x.id)));
       const nuevas = filas.slice(0, POR_PAGINA).filter((x) => !yaEstan.has(String(x.id)));
       /* Las encuestas dicen cuántos contestaron (entregable 5). */
-      const [cuentas, problemas] = await Promise.all([leerRespuestas(nuevas), leerProblemas(nuevas)]);
+      const [cuentas, problemas, rechazos] = await Promise.all(
+        [leerRespuestas(nuevas), leerProblemas(nuevas), leerRechazos(nuevas)]);
       if (mia !== _vez) return;
-      if (desdeElPrincipio) { _respuestas = new Map(); _problemas = new Map(); }
+      if (desdeElPrincipio) { _respuestas = new Map(); _problemas = new Map(); _rechazos = new Map(); }
       cuentas.forEach((v, k) => _respuestas.set(k, v));
       problemas.forEach((v, k) => _problemas.set(k, v));
+      rechazos.forEach((v, k) => _rechazos.set(k, v));
       _envios = _envios.concat(nuevas);
       pintarEnvios();
     } catch (err) {
@@ -430,11 +479,19 @@
             const encuesta = tipoEncuesta(e);
             /* Ajuste 16: lo que avisó Resend después del envío. */
             const prob = _problemas.get(String(e.id));
-            const problemas = prob
-              ? `<div class="co-hist-problemas">${window.esc([
-                  prob.rebotes ? `${prob.rebotes} bounced` : '',
-                  prob.quejas ? `${prob.quejas} marked as spam` : '',
-                ].filter(Boolean).join(' · '))}</div>`
+            /* Ajuste 20: y los que rechazó el servidor del destinatario. */
+            const rech = _rechazos.get(String(e.id)) || 0;
+            const partes = [
+              prob && prob.rebotes ? `${prob.rebotes} bounced` : '',
+              prob && prob.quejas ? `${prob.quejas} marked as spam` : '',
+              rech ? `${rech} rejected` : '',
+            ].filter(Boolean);
+            const problemas = partes.length
+              ? `<div class="co-hist-problemas">${window.esc(partes.join(' · '))}</div>`
+              : '';
+            const alertaRechazos = hayQueAvisarRechazos(rech, e.sent_count)
+              ? '<div class="co-hist-alerta" role="note">Many emails of this send were rejected by the receiving '
+                + 'servers — this usually means a problem with the domain setup. Tell your developer.</div>'
               : '';
             return `<tr ${FILA}>
               <td style="${TD}font-size:12px;color:var(--text-muted);white-space:nowrap;">${window.esc(cuando(e.sent_at || e.created_at))}</td>
@@ -446,7 +503,7 @@
                   ? ' ' + pastilla('Test', { bg: '#f4f5f8', fg: '#6b7a99' })
                   : ''}${encuesta ? ' ' + pastilla(encuesta, { bg: '#e8f0ff', fg: '#174CCC' }) : ''}</td>
               <td style="${TD}font-size:13px;font-weight:700;color:var(--text);">${window.esc(e.subject || '(no subject)')}</td>
-              <td style="${TD}font-size:12px;color:var(--text-muted);white-space:nowrap;">${window.esc(entrega)}${fallos}${problemas}${contestaron}</td>
+              <td style="${TD}font-size:12px;color:var(--text-muted);white-space:nowrap;">${window.esc(entrega)}${fallos}${problemas}${alertaRechazos}${contestaron}</td>
               <td style="${TD}white-space:nowrap;">${pastillaEstado(e.status)}</td>
               <td style="${TD}text-align:right;white-space:nowrap;">
                 <button class="btn btn-outline btn-sm" data-action="openCommDetail" data-commid="${e.id}"
@@ -640,6 +697,10 @@
     const mia = _vez;
     const deQuien = _abierto.id;
     if (desdeElPrincipio) { _personas = []; _personasMas = false; _personasOk = false; }
+    /* Ajuste 20: quién de este envío fue rechazado. Se lee una vez, al
+       abrir, en paralelo con la primera página. */
+    const rechazados = (desdeElPrincipio || _rechazadosDet.id !== deQuien)
+      ? leerRechazadosDe(deQuien) : null;
 
     const filtro = _filtroPersona ? `&status=eq.${encodeURIComponent(_filtroPersona)}` : '';
     const ruta = (cols) => `communication_recipients?select=${cols}`
@@ -668,6 +729,11 @@
          pregunta y pintarla sería mentir. */
       if (mia !== _vez || !_abierto || _abierto.id !== deQuien) return;
       if (!Array.isArray(filas)) throw new Error('unexpected_response');
+      if (rechazados) {
+        const set = await rechazados;
+        if (mia !== _vez || !_abierto || _abierto.id !== deQuien) return;
+        _rechazadosDet = { id: deQuien, emails: set };
+      }
 
       _personasMas = filas.length > PERSONAS_POR_PAGINA;
       /* Igual que arriba: un reintento cambia el estado de alguien, y
@@ -701,6 +767,17 @@
       pintarReintento();
     } finally {
       _cargandoPersonas = false;
+    }
+  }
+
+  /** Ajuste 20: las direcciones rechazadas de un envío (vacío si falla). */
+  async function leerRechazadosDe(id) {
+    try {
+      const r = await leerFilasRechazo(`&communication_id=eq.${encodeURIComponent(id)}`);
+      return new Set(r.map((x) => normal(x.email)));
+    } catch (err) {
+      console.error('[communications] no se pudieron leer los rechazados del envío:', err);
+      return new Set();
     }
   }
 
@@ -779,7 +856,10 @@
               ? '<div class="co-det-problema">Marked this email as spam — unsubscribed</div>'
               : (p.delivery_problem === 'bounced' || p.delivery_problem === 'suppressed')
                 ? '<div class="co-det-problema">Bounced — this address does not receive email</div>'
-                : '';
+                /* Ajuste 20: rechazado por su servidor; la dirección no se marcó. */
+                : (_rechazadosDet.id === (_abierto && _abierto.id) && _rechazadosDet.emails.has(normal(p.email)))
+                  ? '<div class="co-det-rechazo">Rejected by their mail server — address not marked</div>'
+                  : '';
             const aviso = despues + (seDioDeBaja
               ? '<div style="font-size:10px;font-weight:700;color:var(--text-muted);margin-top:3px;">Not a bad address — they asked not to be emailed</div>'
               : agotada
@@ -1227,6 +1307,29 @@
       return m;
     } catch (err) {
       console.error('[communications] no se pudieron leer los rebotes:', err);
+      return new Map();
+    }
+  }
+
+  /* Ajuste 20: cuántas direcciones DISTINTAS rechazó el servidor en cada
+     envío de la página. Un fallo aquí no rompe la lista. */
+  async function leerRechazos(filas) {
+    const ids = (filas || []).filter((f) => !(f.meta && f.meta.solo_admin))
+      .map((f) => Number(f.id)).filter((x) => Number.isSafeInteger(x));
+    if (!ids.length) return new Map();
+    try {
+      const r = await leerFilasRechazo(`&communication_id=in.(${ids.join(',')})`);
+      const porEnvio = new Map();
+      for (const x of r) {
+        const k = String(x.communication_id);
+        if (!porEnvio.has(k)) porEnvio.set(k, new Set());
+        porEnvio.get(k).add(normal(x.email));
+      }
+      const m = new Map();
+      porEnvio.forEach((emails, k) => m.set(k, emails.size));
+      return m;
+    } catch (err) {
+      console.error('[communications] no se pudieron leer los rechazados:', err);
       return new Map();
     }
   }

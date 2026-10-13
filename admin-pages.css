@@ -526,3 +526,10 @@
 
   /* ── Ajuste 19: reenviar la confirmación a una persona ──────── */
   #sub-status-modal .ss-texto-primero{margin-top:0;}
+
+  /* ── Ajuste 20: la cápsula "Last confirmation email…" ─────────── */
+  #sub-status-modal .ss-capsula{display:flex;align-items:center;gap:6px;width:fit-content;max-width:100%;
+    margin:12px 0 0;padding:6px 12px;border-radius:16px;background:#e8f0ff;color:#174CCC;
+    font-size:11px;font-weight:700;line-height:1.4;}
+  #sub-status-modal .ss-capsula svg{flex:none;}
+  #sub-status-modal .ss-capsula-gris{background:#f1f3f7;color:var(--text-muted);}

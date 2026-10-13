@@ -22,10 +22,15 @@
   /* Qué se pide a la base con cada opción del desplegable. */
   const FILTROS = {
     '':           '',
-    /* Sólo los que marcaron a alguien: los rechazados y los ajenos
-       ("Recorded only…") salen en "All problems". */
-    bounced:      '&or=(type.eq.email.suppressed,and(type.eq.email.bounced,bounce_type.ilike.permanent))'
-                + '&action=not.like.Recorded%20only*',
+    /* Los rebotes de verdad (el buzón no existe, o Resend ya lo tiene
+       bloqueado), aunque la persona ya no esté en la base. Los rechazados
+       y los de correos que no mandó esta app salen en "All problems".
+       Ajuste 20: antes se quitaban todos los "Recorded only…", y con eso
+       desaparecía el rebote de alguien que ya no estaba en la base. */
+    bounced:      '&or=(type.eq.email.suppressed,and(type.eq.email.bounced,bounce_type.ilike.permanent,'
+                + 'or(bounce_subtype.is.null,bounce_subtype.ilike.general,bounce_subtype.ilike.noemail,'
+                + 'bounce_subtype.ilike.suppressed,bounce_subtype.ilike.onaccountsuppressionlist)))'
+                + '&action=not.like.' + encodeURIComponent('*not sent by this app*'),
     complained:   '&type=eq.email.complained',
     /* Resend los llama Transient, Undetermined o Temporary: todo lo que
        no es Permanent. */
@@ -47,15 +52,25 @@
          + ' · ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
   };
 
+  /* MISMA REGLA que procesar_evento_resend (sql/80) y que History
+     (admin-communications.js): un rebote permanente es "de verdad" sólo
+     con estos subtipos, o sin subtipo. Cualquier otro es un RECHAZO. */
+  const SUBTIPOS_REBOTE = ['general', 'noemail', 'suppressed', 'onaccountsuppressionlist'];
+  /* Sin subtipo (null) cuenta como General; uno vacío (''), no: así lo
+     hace el SQL (coalesce sólo cambia el null). */
+  const esRechazo = (f) => !SUBTIPOS_REBOTE.includes(String(f.bounce_subtype == null ? 'general' : f.bounce_subtype).toLowerCase());
+
   /** Lo que pasó, en palabras, y de qué color. */
   const queFue = (f) => {
     if (f.type === 'email.complained') return { txt: 'Marked as spam', cls: 'dp-pill-spam' };
     if (f.type === 'email.suppressed') return { txt: 'Blocked by Resend', cls: 'dp-pill-bounce' };
     if (String(f.bounce_type || '').toLowerCase() === 'permanent') {
-      /* Si no marcó a nadie (mensaje rechazado por el servidor del
-         destinatario, u otro motivo que no es "el buzón no existe"), no
-         se pinta como un rebote: lo dice la columna de al lado. */
-      return /^Recorded only/.test(String(f.action || ''))
+      /* Un mensaje rechazado por el servidor del destinatario no es "el
+         buzón no existe": no se pinta como un rebote. Ajuste 20: se mira
+         el subtipo y no la columna "What we did" — un rebote de verdad de
+         alguien que ya no está en la base también dice "Recorded only…",
+         y salía como Rejected. */
+      return esRechazo(f)
         ? { txt: 'Rejected', cls: 'dp-pill-temp' }
         : { txt: 'Bounced', cls: 'dp-pill-bounce' };
     }
