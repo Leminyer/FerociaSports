@@ -22,7 +22,7 @@
      four must stay in this sequence. See the header of admin-layout.css. -->
 <link rel="stylesheet" href="admin-layout.css?v=20261012a">
 <link rel="stylesheet" href="admin-components.css?v=20261008a">
-<link rel="stylesheet" href="admin-pages.css?v=20261013f">
+<link rel="stylesheet" href="admin-pages.css?v=20261013g">
 <link rel="stylesheet" href="admin-ftc.css?v=20260928b">
 <link rel="stylesheet" href="admin-comms-hub.css?v=20261013c">
 
@@ -140,9 +140,11 @@
       <span class="sb-item-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" ><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span>
       <span class="sb-item-label">Promotions</span>
     </button>
-    <button class="sb-item" id="sb-newsletter" data-action="showPage" data-page="newsletter">
-      <span class="sb-item-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-4 0v-9h4"/><path d="M18 14h-8M15 18h-5M10 6h8v4h-8z"/></svg></span>
-      <span class="sb-item-label">Newsletter</span>
+    <!-- Ajuste 24: Videos ocupa el sitio de Newsletter. El Newsletter se
+         abre desde Communications (su tarjeta "Newsletter"). -->
+    <button class="sb-item" id="sb-videos" data-action="showPage" data-page="videos">
+      <span class="sb-item-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="3"/><path d="M10 9.5v5l4.5-2.5z"/></svg></span>
+      <span class="sb-item-label">Videos</span>
     </button>
     <button class="sb-item" id="sb-communications" data-action="showPage" data-page="communications">
       <span class="sb-item-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></span>
@@ -2877,6 +2879,64 @@
   </div>
 
 
+<!-- ══ Ajuste 24: VIDEOS (Ferocia Pickleball Academy) ══════════
+     Los videos de la sección "Play Smarter." de ferociasports.com. Lo
+     maneja admin-videos.js; los estilos, admin-pages.css (av-). -->
+<div id="page-videos" class="page">
+  <div class="av-cabecera">
+    <div class="av-titulo">Videos</div>
+    <div class="av-sub">Ferocia Pickleball Academy — the videos on ferociasports.com. Every video opens on
+      <a href="https://www.youtube.com/@ferociasports" target="_blank" rel="noopener">YouTube</a>.</div>
+  </div>
+
+  <div class="card av-card">
+    <div class="ap-section-title" id="av-form-titulo">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      <span id="av-form-titulo-txt">Add a video</span>
+    </div>
+    <form id="av-form" class="av-form" novalidate>
+      <div class="av-form-cols">
+        <div class="av-form-campos">
+          <div class="ap-group">
+            <label class="ap-label" for="av-link">YouTube link <span class="av-req">*</span></label>
+            <input type="text" id="av-link" class="ap-input" placeholder="https://www.youtube.com/watch?v=… or https://youtu.be/…" autocomplete="off">
+            <div class="av-ayuda" id="av-link-ayuda">Paste the link of a video from your channel.</div>
+          </div>
+          <div class="ap-group">
+            <label class="ap-label" for="av-title">Title <span class="av-req">*</span></label>
+            <input type="text" id="av-title" class="ap-input" maxlength="120" autocomplete="off">
+          </div>
+          <div class="av-fila">
+            <div class="ap-group">
+              <label class="ap-label" for="av-topic">Topic <span class="av-req">*</span></label>
+              <select id="av-topic" class="ap-input"></select>
+            </div>
+            <label class="av-check"><input type="checkbox" id="av-featured"> <span>Make it the <strong>Video of the Month</strong></span></label>
+          </div>
+          <div class="ap-group">
+            <label class="ap-label" for="av-desc">One line about it <span class="av-opc">(optional)</span></label>
+            <input type="text" id="av-desc" class="ap-input" maxlength="200" autocomplete="off" placeholder="What they will learn">
+          </div>
+          <div class="av-botones">
+            <button type="button" class="av-btn av-btn-sec" id="av-cancel" data-action="avCancelar" hidden>Cancel</button>
+            <button type="submit" class="av-btn av-btn-pri" id="av-save">Add video</button>
+          </div>
+        </div>
+        <div class="av-vista" id="av-vista" aria-live="polite">
+          <div class="av-vista-vacia">The video preview shows up here.</div>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <div class="card av-card">
+    <div class="av-lista-cab">
+      <div class="card-title av-lista-titulo">On the website <span class="av-cuenta" id="av-count"></span></div>
+    </div>
+    <div id="av-list"><div class="loading">Loading videos...</div></div>
+  </div>
+</div>
+
 <div id="page-newsletter" class="page">
   <div style="padding:24px 28px;max-width:1100px;">
 
@@ -3011,8 +3071,8 @@
   <button class="more-drawer-item" id="md-promotions" data-action="showPage" data-page="promotions">
     <span class="more-drawer-icon">📣</span>Promotions
   </button>
-  <button class="more-drawer-item" id="md-newsletter" data-action="showPage" data-page="newsletter">
-    <span class="more-drawer-icon">📰</span>Newsletter
+  <button class="more-drawer-item" id="md-videos" data-action="showPage" data-page="videos">
+    <span class="more-drawer-icon more-drawer-svg"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="3"/><path d="M10 9.5v5l4.5-2.5z"/></svg></span>Videos
   </button>
   <button class="more-drawer-item" id="md-communications" data-action="showPage" data-page="communications">
     <span class="more-drawer-icon">✉️</span>Communications
@@ -3829,6 +3889,9 @@
 <script src="admin-incident-reports.js?v=20260928b"></script>
 <script src="admin-ladder-selector.js?v=20260928b"></script>
 <script src="admin-orders.js?v=20260928b"></script>
+<!-- Ajuste 24: los videos de la Academy (lo común, y la pantalla). -->
+<script src="videos-common.js?v=20261013g"></script>
+<script src="admin-videos.js?v=20261013g"></script>
 <script src="admin-email-utils.js?v=20261013a"></script>
 <script src="admin-rich-editor.js?v=20261009b"></script>
 <script src="admin-share.js?v=20260928b"></script>
@@ -3855,7 +3918,7 @@
 <script src="admin-ftc-standings.js?v=20260928b"></script>
 <script src="admin-ftc-playoffs-schedule.js?v=20260928b"></script>
 <script src="admin-ftc-teams.js?v=20260928b"></script>
-<script src="app.js?v=20261011a"></script>
+<script src="app.js?v=20261013g"></script>
 <script src="tournament.js?v=20261012a"></script>
 <script>
   // ── Sidebar toggle — persisted in localStorage ──────────────────────

@@ -573,3 +573,60 @@
   .sv-buzon-bounced{background:rgba(198,40,40,0.10);color:#9b1c1c;}
   .sv-buzon-ver{margin-left:auto;flex:none;font-family:'Inter',sans-serif;font-size:10px;font-weight:800;letter-spacing:.4px;
     text-transform:uppercase;padding:6px 12px;border-radius:99px;border:0.5px solid #c5d6f5;background:white;color:var(--blue);cursor:pointer;}
+
+  /* ── Ajuste 24: Videos (Ferocia Pickleball Academy) ──────────── */
+  .av-cabecera{margin-bottom:20px;}
+  .av-titulo{font-family:'Inter',sans-serif;font-size:28px;color:var(--text);letter-spacing:1px;line-height:1;margin-bottom:4px;}
+  .av-sub{font-size:12px;font-weight:600;color:var(--text-muted);}
+  .av-sub a{color:var(--blue);}
+  .av-card{padding:24px;margin-bottom:24px;max-width:1100px;}
+  .av-form-cols{display:flex;flex-wrap:wrap;gap:24px;margin-top:8px;}
+  .av-form-campos{flex:999 1 420px;min-width:0;display:flex;flex-direction:column;gap:12px;}
+  .av-fila{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;}
+  .av-fila .ap-group{flex:1 1 220px;}
+  .av-check{display:flex;align-items:center;gap:8px;min-height:40px;font-size:13px;font-weight:600;color:var(--text);cursor:pointer;}
+  .av-check input{width:16px;height:16px;accent-color:var(--blue);}
+  .av-req{color:var(--orange);}
+  .av-opc{font-weight:600;color:var(--text-muted);text-transform:none;letter-spacing:0;}
+  .av-ayuda{margin-top:5px;font-size:11px;font-weight:600;color:var(--text-muted);}
+  .av-ayuda-error{color:#c62828;}
+  .av-ayuda-aviso{color:#9a5b00;}
+  .av-botones{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-top:4px;}
+  .av-btn{font-family:'Inter',sans-serif;font-size:12px;font-weight:700;padding:10px 22px;border-radius:99px;cursor:pointer;min-height:40px;}
+  .av-btn-pri{border:1px solid transparent;background:linear-gradient(180deg,#2456d3,var(--blue));color:white;}
+  .av-btn-pri:disabled{opacity:.55;cursor:not-allowed;}
+  .av-btn-sec{border:1px solid var(--divider-color);background:white;color:var(--text);}
+  .av-vista{flex:1 1 260px;min-width:0;max-width:340px;padding:14px;border-radius:12px;background:#0d1a4a;color:white;align-self:flex-start;}
+  .av-vista-vacia{display:flex;align-items:center;justify-content:center;aspect-ratio:16/9;border-radius:8px;
+    border:1px dashed rgba(255,255,255,0.25);font-size:11px;font-weight:600;color:rgba(255,255,255,0.6);text-align:center;padding:12px;}
+  .av-vista-img{aspect-ratio:16/9;border-radius:8px;overflow:hidden;background:#13235e;}
+  .av-vista-img img{width:100%;height:100%;object-fit:cover;display:block;}
+  .av-vista-tema{margin-top:10px;font-size:9px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#24BC96;}
+  .av-vista-titulo{margin-top:4px;font-size:14px;font-weight:800;line-height:1.3;overflow-wrap:anywhere;}
+  .av-vista-ver{display:inline-flex;align-items:center;gap:6px;margin-top:8px;font-size:10px;font-weight:800;letter-spacing:1.5px;
+    text-transform:uppercase;color:#C6F221;text-decoration:none;}
+  .av-lista-cab{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+  .av-lista-titulo{margin:0;}
+  .av-cuenta{font-size:11px;background:var(--gray);padding:3px 10px;border-radius:99px;font-weight:800;color:var(--text-muted);margin-left:6px;}
+  .av-vacio{padding:28px 12px;text-align:center;font-size:13px;font-weight:600;color:var(--text-muted);}
+  .av-fila-video{display:flex;align-items:center;gap:14px;padding:12px 0;border-bottom:0.5px solid var(--divider-color);flex-wrap:wrap;}
+  .av-fila-video:last-child{border-bottom:none;}
+  .av-oculto .av-mini,.av-oculto .av-datos{opacity:.55;}
+  .av-mini{display:block;width:128px;flex:none;aspect-ratio:16/9;border-radius:8px;overflow:hidden;background:#13235e;}
+  .av-mini img{width:100%;height:100%;object-fit:cover;display:block;}
+  .av-datos{flex:1 1 240px;min-width:0;}
+  .av-pills{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:4px;}
+  .av-pill{font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;padding:3px 9px;border-radius:99px;}
+  .av-pill-mes{background:#C6F221;color:#080f2e;}
+  .av-pill-oculto{background:rgba(107,122,153,0.15);color:var(--text-muted);}
+  .av-pill-tema{background:rgba(36,188,150,0.12);color:#085041;}
+  .av-nombre{font-size:14px;font-weight:700;color:var(--text);line-height:1.35;overflow-wrap:anywhere;}
+  .av-desc{font-size:12px;font-weight:500;color:var(--text-muted);margin-top:2px;overflow-wrap:anywhere;}
+  .av-acciones{display:flex;gap:2px;flex:none;margin-left:auto;}
+  .av-icono{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:8px;border:none;
+    background:none;color:var(--blue);cursor:pointer;text-decoration:none;}
+  .av-icono:hover{background:rgba(23,76,204,0.08);}
+  .av-icono-peligro{color:#c04a0e;}
+  .av-icono-peligro:hover{background:rgba(192,74,14,0.08);}
+  /* El menú "More" del móvil: el icono de Videos es SVG. */
+  .more-drawer-svg{display:inline-flex;align-items:center;justify-content:center;}
