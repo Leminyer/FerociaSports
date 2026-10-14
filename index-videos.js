@@ -10,13 +10,13 @@
    · Sin videos (o si la lectura falla): la sección y la píldora
      "Videos" de la franja se quedan escondidas. Nunca se ve vacía.
    · El grande es el "Video of the Month"; si no hay, el más reciente.
-   · "From the library": los 4 más recientes después del grande. En PC
-     van a la derecha del grande (mitad y mitad), en 2 filas de 2; si
-     hay menos de 4, el hueco lo llena una tarjeta del canal (ajuste 26).
-     En el móvil, la lista de siempre (sin la tarjeta: arriba ya está).
-   · Los filtros por tema y la cuadrícula salen cuando hay más de 4
-     videos (con menos, ya se ven todos arriba). Sólo los temas que
-     tienen videos.
+   · Al lado del grande (en PC, mitad y mitad; en el móvil, debajo) va
+     la caja para suscribirse, que está en el HTML (ajuste 27).
+   · "More videos": todos los demás, SIN el del mes (ya está arriba), en
+     la cuadrícula. Sale desde que hay 2 videos. Los filtros por tema
+     salen cuando esos videos son de 2 temas o más, y sólo con los temas
+     que tienen videos (ajuste 27: antes había una lista al lado del
+     grande que repetía los de abajo).
    · Los textos se pintan como texto (textContent), nunca como HTML.
    · Las imágenes son las de YouTube (i.ytimg.com), armadas a partir del
      código del video; la grande intenta la de alta resolución y, si ese
@@ -31,9 +31,8 @@
   if (!FV || !seccion || typeof window.api !== 'function') return;
 
   const SVG = 'http://www.w3.org/2000/svg';
-  /* Ajuste 26: el grande + hasta 4 pequeños al lado (en PC, 2 filas de 2). */
-  const MAX_ARRIBA = 5;
   let _videos = [];
+  let _resto = [];      // todos menos el grande
   let _tema = '';
 
   /* Un elemento con clase y, si se da, texto (siempre como texto). */
@@ -109,40 +108,6 @@
     return a;
   }
 
-  function mini(v) {
-    const a = enlace(v, 'ac-mini');
-    a.setAttribute('aria-label', `${v.title} — watch on YouTube`);
-    const img = imagen(v, 'mq');
-    const boton = el('span', 'ac-play ac-play-chico');
-    boton.appendChild(play(18, '#C6F221'));
-    img.appendChild(boton);
-    const txt = el('span', 'ac-mini-txt');
-    txt.appendChild(el('span', 'ac-tema', FV.etiqueta(v.topic)));
-    txt.appendChild(el('span', 'ac-mini-nombre', v.title));
-    a.append(img, txt);
-    return a;
-  }
-
-  /* Ajuste 26: llena el hueco de la derecha mientras haya pocos videos.
-     Ocupa una fila entera si quedan 2 o 4 huecos, una casilla si 1 o 3. */
-  function tarjetaCanal(hay) {
-    const c = el('div', `ac-relleno${hay % 2 === 0 ? ' ac-relleno-ancho' : ''}`);
-    const logo = el('span', 'ac-relleno-logo');
-    /* El mismo icono de "video" de la franja: un rectángulo y un triángulo. */
-    logo.appendChild(icono(['M5 5h14a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3z', 'M10 9.5v5l4.5-2.5z'], { size: 26 }));
-    c.appendChild(logo);
-    c.appendChild(el('span', 'ac-relleno-titulo', 'More videos on our YouTube channel'));
-    c.appendChild(el('span', 'ac-relleno-sub', 'A new technique every month. Subscribe so you don\'t miss the next one.'));
-    const btns = el('span', 'ac-relleno-btns');
-    const sus = el('a', 'ac-btn ac-btn-lima', 'Subscribe');
-    sus.href = FV.SUSCRIBIRSE; sus.target = '_blank'; sus.rel = 'noopener';
-    const todos = el('a', 'ac-btn ac-btn-borde', 'See all videos');
-    todos.href = FV.TODOS; todos.target = '_blank'; todos.rel = 'noopener';
-    btns.append(sus, todos);
-    c.appendChild(btns);
-    return c;
-  }
-
   function tarjeta(v) {
     const a = enlace(v, 'ac-tarjeta');
     a.setAttribute('aria-label', `${v.title} — watch on YouTube`);
@@ -160,7 +125,7 @@
 
   function pintarCuadricula() {
     const g = document.getElementById('ac-grid');
-    g.replaceChildren(...(_tema ? _videos.filter((v) => v.topic === _tema) : _videos).map(tarjeta));
+    g.replaceChildren(...(_tema ? _resto.filter((v) => v.topic === _tema) : _resto).map(tarjeta));
     document.querySelectorAll('#ac-chips .ac-chip').forEach((b) =>
       b.setAttribute('aria-pressed', b.dataset.tema === _tema ? 'true' : 'false'));
   }
@@ -170,21 +135,15 @@
     const resto = _videos.filter((v) => v !== grande);
     document.getElementById('ac-destacado').replaceChildren(destacado(grande));
 
-    const bib = document.getElementById('ac-biblioteca');
-    const recientes = resto.slice(0, MAX_ARRIBA - 1);
-    const piezas = recientes.map(mini);
-    if (recientes.length < MAX_ARRIBA - 1) piezas.push(tarjetaCanal(recientes.length));
-    document.getElementById('ac-recientes').replaceChildren(...piezas);
-    bib.hidden = false;
-    bib.classList.toggle('ac-biblioteca-sin-videos', !recientes.length);
+    _resto = resto;
 
+    const mas = document.getElementById('ac-mas');
     const chips = document.getElementById('ac-chips');
-    const grid = document.getElementById('ac-grid');
-    const hayMas = _videos.length > MAX_ARRIBA;
-    chips.hidden = !hayMas;
-    grid.hidden = !hayMas;
-    if (hayMas) {
-      const presentes = FV.TOPICS.filter((t) => _videos.some((v) => v.topic === t.key));
+    mas.hidden = !resto.length;
+    const presentes = FV.TOPICS.filter((t) => resto.some((v) => v.topic === t.key));
+    chips.hidden = presentes.length < 2;
+    if (!presentes.some((t) => t.key === _tema)) _tema = '';
+    if (presentes.length >= 2) {
       const botones = [{ key: '', label: 'All' }].concat(presentes).map((t) => {
         const b = el('button', 'ac-chip', t.label);
         b.type = 'button';
@@ -193,8 +152,10 @@
         return b;
       });
       chips.replaceChildren(...botones);
-      pintarCuadricula();
+    } else {
+      chips.replaceChildren();
     }
+    pintarCuadricula();
     seccion.hidden = false;
     const pildora = document.getElementById('pill-videos');
     if (pildora) pildora.hidden = false;

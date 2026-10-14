@@ -303,7 +303,7 @@ footer{
 <!-- Ajuste 24: la franja de programas y la Ferocia Pickleball Academy.
      Después del <style> de arriba a propósito: sus reglas de la franja
      mandan sobre las de allí. -->
-<link rel="stylesheet" href="index-academy.css?v=20261014a">
+<link rel="stylesheet" href="index-academy.css?v=20261014b">
 </head>
 <body>
 
@@ -385,34 +385,28 @@ footer{
       <p class="ac-titulo">Play Smarter.</p>
       <p class="ac-lead">Free technique videos from the Ferocia coaches — dinks, drops, returns and doubles strategy. A new video every month on our YouTube channel.</p>
     </div>
-    <div class="ac-canal">
-      <div class="ac-canal-logo"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="3"/><path d="M10 9.5v5l4.5-2.5z"/></svg></div>
-      <div class="ac-canal-txt">
-        <div class="ac-canal-nombre">Ferocia Sports on YouTube</div>
-        <div class="ac-canal-sub">A new technique video every month</div>
-      </div>
-      <a class="ac-btn ac-btn-lima" href="https://www.youtube.com/@ferociasports?sub_confirmation=1" target="_blank" rel="noopener">Subscribe</a>
-    </div>
   </div>
+  <!-- Ajuste 27: el video del mes a la izquierda y, a la derecha, la caja
+       para suscribirse (antes estaba al final). En el móvil, una debajo de
+       la otra. Ya no hay lista de videos al lado: se repetían abajo. -->
   <div class="ac-principal">
     <div id="ac-destacado" class="ac-destacado-caja"></div>
-    <div class="ac-biblioteca" id="ac-biblioteca" hidden>
-      <div class="ac-rotulo">From the library</div>
-      <div id="ac-recientes" class="ac-recientes"></div>
-      <a class="ac-ver-todos" href="https://www.youtube.com/@ferociasports/videos" target="_blank" rel="noopener">See all videos on YouTube <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7"></path><path d="M8 7h9v9"></path></svg></a>
+    <div class="ac-cierre">
+      <div class="ac-cierre-txt">
+        <div class="ac-cierre-titulo">A new technique every month. <span>Don't miss one.</span></div>
+        <div class="ac-cierre-sub">Subscribe on YouTube and get notified when the next one drops.</div>
+      </div>
+      <div class="ac-cierre-btns">
+        <a class="ac-btn ac-btn-lima" href="https://www.youtube.com/@ferociasports?sub_confirmation=1" target="_blank" rel="noopener">Subscribe on YouTube</a>
+        <a class="ac-btn ac-btn-borde" href="https://www.youtube.com/@ferociasports/videos" target="_blank" rel="noopener">All videos</a>
+      </div>
     </div>
   </div>
-  <div class="ac-chips" id="ac-chips" role="group" aria-label="Filter videos by topic" hidden></div>
-  <div class="ac-grid" id="ac-grid" hidden></div>
-  <div class="ac-cierre">
-    <div class="ac-cierre-txt">
-      <div class="ac-cierre-titulo">A new technique every month. <span>Don't miss one.</span></div>
-      <div class="ac-cierre-sub">Subscribe on YouTube and get notified when the next one drops.</div>
-    </div>
-    <div class="ac-cierre-btns">
-      <a class="ac-btn ac-btn-lima" href="https://www.youtube.com/@ferociasports?sub_confirmation=1" target="_blank" rel="noopener">Subscribe on YouTube</a>
-      <a class="ac-btn ac-btn-borde" href="https://www.youtube.com/@ferociasports/videos" target="_blank" rel="noopener">All videos</a>
-    </div>
+  <!-- Los demás videos (sin el del mes), con filtros por tema. -->
+  <div class="ac-mas" id="ac-mas" hidden>
+    <div class="ac-rotulo">More videos</div>
+    <div class="ac-chips" id="ac-chips" role="group" aria-label="Filter videos by topic" hidden></div>
+    <div class="ac-grid" id="ac-grid"></div>
   </div>
 </section>
 
@@ -584,6 +578,6 @@ footer{
 <!-- Ajuste 24: la franja de programas y la Academy. -->
 <script src="videos-common.js?v=20261013h"></script>
 <script src="index-programs.js?v=20261013g"></script>
-<script src="index-videos.js?v=20261014a"></script>
+<script src="index-videos.js?v=20261014b"></script>
 </body>
 </html>
