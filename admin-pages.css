@@ -652,3 +652,17 @@
     .nlv-ficha{flex-direction:column;align-items:stretch;}
     .nlv-imagen{width:100%;}
   }
+
+  /* ── Ajuste 30: el contador rojo de problemas de entrega nuevos
+     (admin-avisos-problemas.js) y la etiqueta "New" de la lista. ── */
+  .avp-ancla{position:relative;}
+  .avp-num{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;box-sizing:border-box;
+    border-radius:99px;background:#e53935;color:#fff;font-family:'Inter',sans-serif;font-size:10px;font-weight:800;line-height:1;
+    letter-spacing:0;font-style:normal;text-transform:none;}
+  .avp-num[hidden]{display:none;}
+  .avp-num-icono{position:absolute;top:-8px;right:-11px;box-shadow:0 0 0 2px var(--dark);pointer-events:none;}
+  .avp-num-fila{margin-left:auto;}
+  .avp-num-tab{margin-left:7px;}
+  .avp-nuevo{display:inline-block;margin-right:8px;padding:2px 7px;border-radius:99px;background:#e53935;color:#fff;
+    font-family:'Inter',sans-serif;font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;vertical-align:1px;}
+  .dp-fila-nueva td{background:#fff5f5;}

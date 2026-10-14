@@ -77,6 +77,19 @@
     return { txt: 'Temporary bounce', cls: 'dp-pill-temp' };
   };
 
+  /* Ajuste 30: "New" en los que llegaron después de la última vez que
+     abrió la pestaña, y SÓLO en los que suben el contador rojo (quejas y
+     rebotes permanentes de verdad — la misma regla que sql/87). */
+  const esAviso = (f) => !String(f.action || '').includes('not sent by this app')
+    && (f.type === 'email.complained' || f.type === 'email.suppressed'
+        || (f.type === 'email.bounced' && String(f.bounce_type || '').toLowerCase() === 'permanent' && !esRechazo(f)));
+  const esNuevo = (f) => {
+    const antes = window.FerociaAvisos?.vistoAntes;
+    if (!antes || !f.received_at) return false;
+    const r = new Date(f.received_at);
+    return !isNaN(r.getTime()) && r > antes && esAviso(f);
+  };
+
   function pintar() {
     const caja = document.getElementById('dp-table');
     if (!caja) return;
@@ -101,8 +114,9 @@
             const envio = f.communications && f.communications.subject
               ? esc(f.communications.subject)
               : '<span class="dp-muted">Signup confirmation or not linked</span>';
-            return `<tr>
-              <td class="dp-cuando">${esc(cuando(f.occurred_at || f.received_at))}</td>
+            const nuevo = esNuevo(f);
+            return `<tr${nuevo ? ' class="dp-fila-nueva"' : ''}>
+              <td class="dp-cuando">${nuevo ? '<span class="avp-nuevo">New</span>' : ''}${esc(cuando(f.occurred_at || f.received_at))}</td>
               <td class="dp-email">${esc(f.email || '—')}</td>
               <td><span class="dp-pill ${q.cls}">${esc(q.txt)}</span>${f.detail
                 ? `<div class="dp-detalle">${esc(String(f.detail).slice(0, 200))}</div>` : ''}</td>
@@ -154,7 +168,24 @@
     }
   }
 
-  window.cargarProblemasDeEntrega = (desdeElPrincipio = true) => cargar(desdeElPrincipio);
+  /* Al abrir la pestaña (admin-communications.js): primero "ya lo vi",
+     que devuelve la vez anterior para pintar "New"; luego la lista. Si
+     marcar falla (p. ej. sin el SQL 87), la lista sale igual, sin "New".
+     Cambiar el filtro NO vuelve a marcar: los "New" siguen ahí. */
+  window.cargarProblemasDeEntrega = async (desdeElPrincipio = true) => {
+    const av = window.FerociaAvisos;
+    /* "New" = llegó después de la última vez que miraste ANTES de esta
+       visita al panel. Se guarda la fecha MÁS ANTIGUA: volver a la pestaña
+       (o dos clics seguidos) no borra los "New" que ya estaban, y lo que
+       llegue mientras tanto también sale como "New". */
+    if (desdeElPrincipio && av) {
+      const caja = document.getElementById('dp-table');
+      if (caja) caja.innerHTML = '<div class="loading dp-loading">Loading...</div>';
+      const antes = await av.marcarVistos();
+      if (antes && (!av.vistoAntes || antes < av.vistoAntes)) av.vistoAntes = antes;
+    }
+    return cargar(desdeElPrincipio);
+  };
 
   document.getElementById('dp-filter')?.addEventListener('change', () => cargar(true));
 

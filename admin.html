@@ -22,7 +22,7 @@
      four must stay in this sequence. See the header of admin-layout.css. -->
 <link rel="stylesheet" href="admin-layout.css?v=20261012a">
 <link rel="stylesheet" href="admin-components.css?v=20261008a">
-<link rel="stylesheet" href="admin-pages.css?v=20261014a">
+<link rel="stylesheet" href="admin-pages.css?v=20261014b">
 <link rel="stylesheet" href="admin-ftc.css?v=20260928b">
 <link rel="stylesheet" href="admin-comms-hub.css?v=20261013c">
 
@@ -147,7 +147,8 @@
       <span class="sb-item-label">Videos</span>
     </button>
     <button class="sb-item" id="sb-communications" data-action="showPage" data-page="communications">
-      <span class="sb-item-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></span>
+      <!-- Ajuste 30: el contador rojo de problemas de entrega nuevos (admin-avisos-problemas.js). -->
+      <span class="sb-item-icon avp-ancla"><span class="avp-num avp-num-icono" id="avp-sb" hidden></span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></span>
       <span class="sb-item-label">Communications</span>
     </button>
     <button class="sb-item" id="sb-share" data-action="showPage" data-page="share">
@@ -1924,9 +1925,9 @@
       </button>
       <!-- Ajuste 16: los rebotes y quejas de spam que avisa Resend
            (admin-delivery-problems.js). -->
-      <button class="pp-tab co-tab" data-action="commShowTab" data-tab="problems">
+      <button class="pp-tab co-tab" id="co-tab-problems" data-action="commShowTab" data-tab="problems">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-        Delivery problems
+        Delivery problems<span class="avp-num avp-num-tab" id="avp-tab" hidden></span>
       </button>
     </div>
 
@@ -3047,7 +3048,7 @@
     </button>
     <button class="bn-item" id="bn-more" data-action="sbToggleMore">
       <div class="bn-dot"></div>
-      <div class="bn-icon">⋯</div>
+      <div class="bn-icon avp-ancla">⋯<span class="avp-num avp-num-icono" id="avp-bn" hidden></span></div>
       <div class="bn-label">More</div>
     </button>
   </div>
@@ -3075,7 +3076,7 @@
     <span class="more-drawer-icon more-drawer-svg"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="3"/><path d="M10 9.5v5l4.5-2.5z"/></svg></span>Videos
   </button>
   <button class="more-drawer-item" id="md-communications" data-action="showPage" data-page="communications">
-    <span class="more-drawer-icon">✉️</span>Communications
+    <span class="more-drawer-icon">✉️</span>Communications<span class="avp-num avp-num-fila" id="avp-md" hidden></span>
   </button>
   <button class="more-drawer-item" id="md-share" data-action="showPage" data-page="share">
     <span class="more-drawer-icon">🔗</span>Share Links
@@ -3904,7 +3905,7 @@
 <!-- El limpiador de los mensajes guardados (DOMPurify 3.4.16, Apache-2.0 / MPL-2.0), copiado en el sitio. -->
 <script src="purify.min.js?v=3.4.16"></script>
 <script src="admin-communications.js?v=20261013c"></script>
-<script src="admin-delivery-problems.js?v=20261013c"></script>
+<script src="admin-delivery-problems.js?v=20261014a"></script>
 <script src="admin-comms-hub.js?v=20261011e"></script>
 <script src="admin-comms-results.js?v=20261011d"></script>
 <script src="admin-promotions.js?v=20261013f"></script>
@@ -3920,6 +3921,8 @@
 <script src="admin-ftc-teams.js?v=20260928b"></script>
 <script src="app.js?v=20261013g"></script>
 <script src="tournament.js?v=20261012a"></script>
+<!-- Ajuste 30: después de app.js, porque espera a window.app.authReady. -->
+<script src="admin-avisos-problemas.js?v=20261014a"></script>
 <script>
   // ── Sidebar toggle — persisted in localStorage ──────────────────────
   (function() {
