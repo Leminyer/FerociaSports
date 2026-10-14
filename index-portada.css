@@ -1,0 +1,18 @@
+/* ============================================================
+   FEROCIA — ferociasports.com: la portada en el teléfono
+   Ajuste 29 (14 de octubre) — decisiones §38
+
+   "PICKLEBALL" tenía un mínimo de 72 px: en cualquier teléfono (de 320
+   a 430 px de ancho) medía unos 460 px y se cortaba por la derecha.
+   Ahora, en pantallas de hasta 768 px, el título toma el tamaño que
+   cabe en el ancho de la pantalla menos los 24 + 24 px de margen.
+
+   6.9: "PICKLEBALL" en Inter Bold mide unas 6.1 veces el tamaño de la
+   letra, más 20 px fijos de espacio entre letras. Dividir entre 6.9 deja
+   sitio para esos 20 px y un margen por si el teléfono usa otra letra
+   (Arial) mientras carga Inter. Medido de 320 a 768 px.
+   En PC no cambia nada.
+   ============================================================ */
+@media(max-width:768px){
+  .headline{font-size:min(clamp(72px,13vw,140px), calc((100vw - 48px) / 6.9));}
+}

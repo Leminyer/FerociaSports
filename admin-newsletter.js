@@ -328,7 +328,133 @@
     ${field('Signature', 'coach.author', { placeholder: 'Coach Leminyer' })}
     ${field("This month's challenge", 'coach.challenge', { textarea: true, rows: 3 })}`);
 
-  const secPick = () => sectionCard(5, 'FEROCIA Pick of the Month', 'One product — never a carousel', `
+  /* ─── VIDEO OF THE MONTH (ajuste 29, decisiones §38) ─────────
+     The Academy video marked as "Video of the Month" in the Videos screen,
+     brought in with one click — like "Add from Events". It is a COPY:
+     what the preview shows is what is sent, even if the Video of the Month
+     changes later. Only the 11-character YouTube code is kept; the email
+     builds the link and the picture from it (send-newsletter/template.ts),
+     always towards youtube.com and i.ytimg.com. */
+  const FV = window.FerociaVideos;
+  let _videoAviso = '';   // the line under the button: "looking…", "none marked", errors
+  let _trayendoVideo = null;   // the edition whose video is being looked up, if any
+
+  /* Wrapped in its own box so it can be redrawn ALONE: redrawing every
+     section would take the cursor out of whatever field she is typing in
+     while the video loads. */
+  const secVideo = () => `<div id="nlv-seccion">${secVideoDentro()}</div>`;
+  const pintarVideo = () => {
+    const caja = document.getElementById('nlv-seccion');
+    if (caja) caja.innerHTML = secVideoDentro(); else renderSections();
+  };
+
+  const secVideoDentro = () => {
+    const v = get('video', null);
+    const ocupado = _trayendoVideo !== null && _trayendoVideo === _current;
+    const dis = ocupado ? ' disabled' : '';
+    const hay = !!(v && FV && FV.idValido(v.youtube_id));
+    const aviso = _videoAviso ? `<div class="nlv-aviso" role="status">${esc(_videoAviso)}</div>` : '';
+    if (!hay) {
+      return sectionCard(5, 'Video of the Month', 'The Academy video of the month — readers watch it on YouTube',
+        (isSent()
+          ? '<div class="nlv-vacio">This edition went out without a video.</div>'
+          : `<button type="button" class="nlv-traer" data-action="nlAddVideo"${dis}>
+               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="3"/><path d="M10 9.5v5l4.5-2.5z"/></svg>
+               Add Video of the Month
+             </button>
+             <div class="nlv-ayuda">Brings in the video marked with the star in Videos. Leave it out and the section is not shown.</div>`)
+        + aviso);
+    }
+    return sectionCard(5, 'Video of the Month', 'The Academy video of the month — readers watch it on YouTube', `
+      <div class="nlv-ficha">
+        <img class="nlv-imagen" src="${esc(FV.imagen(v.youtube_id, 'mq'))}" alt="">
+        <div class="nlv-ficha-txt">
+          <div class="nlv-codigo">youtube.com/watch?v=${esc(v.youtube_id)}</div>
+          ${isSent() ? '' : `
+          <div class="nlv-botones">
+            <button type="button" class="nlv-enlace" data-action="nlAddVideo"${dis}>Bring in the current one again</button>
+            <button type="button" class="nlv-quitar" data-action="nlRemoveVideo"${dis}>Remove</button>
+          </div>`}
+        </div>
+      </div>
+      ${aviso}
+      ${field('Title', 'video.title')}
+      ${field('Short description', 'video.description', { textarea: true, rows: 2,
+         hint: 'Optional. Copied from Videos — changing it here only changes this email.' })}`);
+  };
+
+  /* maxresdefault does not exist for every video: YouTube then answers
+     with a 120px grey picture (or an error). The email cannot check that
+     when it is opened, so it is checked here, once, and the size is kept. */
+  const tamanoImagen = (id) => new Promise((resolve) => {
+    const img = new Image();
+    const fin = (t) => { clearTimeout(reloj); img.onload = img.onerror = null; resolve(t); };
+    const reloj = setTimeout(() => fin('mq'), 6000);
+    img.onload = () => fin(img.naturalWidth > 120 ? 'max' : 'mq');
+    img.onerror = () => fin('mq');
+    img.src = FV.imagen(id, 'max');
+  });
+
+  window.nlAddVideo = async () => {
+    if (isSent() || !FV || (_trayendoVideo && _trayendoVideo === _current)) return;
+    const edicion = _current;
+    /* Bringing it in again replaces the title and the line she may have
+       rewritten here, so it asks first — like Remove. */
+    if (get('video', null)) {
+      const ok = await confirmModal({
+        title: 'Bring in the Video of the Month again?',
+        focusCancel: true,
+        message: 'The title and the line in this email go back to what is in Videos.',
+        okLabel: 'Bring it in', cancelLabel: 'Cancel',
+      });
+      if (!ok || _current !== edicion) return;
+    }
+    _trayendoVideo = edicion;
+    _videoAviso = 'Looking for the Video of the Month…';
+    pintarVideo();
+    try {
+      const filas = await window.api('videos?select=youtube_id,title,description,topic'
+        + '&is_featured=eq.true&is_visible=eq.true&limit=1');
+      const v = Array.isArray(filas) ? filas[0] : null;
+      if (_current !== edicion) return;            // another edition was opened meanwhile
+      if (!v || !FV.idValido(v.youtube_id)) {
+        _videoAviso = 'No video is marked as Video of the Month. Mark one with the star in Videos, then try again.';
+        return;
+      }
+      const tam = await tamanoImagen(v.youtube_id);
+      if (_current !== edicion) return;
+      set('video', {
+        youtube_id: v.youtube_id,
+        title: String(v.title || ''),
+        description: String(v.description || ''),
+        topic_label: FV.etiqueta(v.topic),
+        thumb: tam,
+      });
+      _videoAviso = '';
+    } catch (err) {
+      console.warn('[newsletter] Video of the Month:', err);
+      if (_current === edicion) _videoAviso = 'The video could not be loaded. Check the connection and try again.';
+    } finally {
+      if (_trayendoVideo === edicion) _trayendoVideo = null;
+      if (_current === edicion) pintarVideo();
+    }
+  };
+
+  window.nlRemoveVideo = async () => {
+    if (isSent()) return;
+    const ok = await confirmModal({
+      title: 'Remove the video from this edition?',
+      focusCancel: true,
+      message: 'Only this email changes. The video stays in Videos and on YouTube.',
+      okLabel: 'Remove', cancelLabel: 'Cancel',
+    });
+    if (!ok || (_trayendoVideo && _trayendoVideo === _current)) return;
+    set('video', null);
+    _videoAviso = '';
+    pintarVideo();
+  };
+
+  const secPick = () => sectionCard(6, 'FEROCIA Pick of the Month', 'One product — never a carousel', `
     ${field('Product name', 'pick.name')}
     ${imageField('Product photo', 'pick.image_url',
        'Optional. A photo of the product — the email still reads fine without one.')}
@@ -338,7 +464,7 @@
 
   const secNumbers = () => {
     const items = get('numbers.items', []);
-    return sectionCard(6, 'Around FEROCIA', 'Monthly activity — only the metrics worth showing',
+    return sectionCard(7, 'Around FEROCIA', 'Monthly activity — only the metrics worth showing',
       field('Subtitle', 'numbers.subtitle', { placeholder: 'September by the numbers' })
       + items.map((_, i) => `
         <div style="display:flex;gap:8px;align-items:flex-start;">
@@ -354,7 +480,7 @@
     const el = document.getElementById('nl-sections');
     if (!el || !_current) return;
     el.innerHTML = secHeader() + secUpcoming() + secSpotlight() + secChampions()
-                 + secCoach() + secPick() + secNumbers();
+                 + secCoach() + secVideo() + secPick() + secNumbers();
   };
 
   // One delegated listener rather than one per field: the sections are
@@ -809,6 +935,7 @@
     const n = preloaded || _issues.find((x) => String(x.id) === String(id));
     if (!n) { toast('Edition not found.', true); return; }
     _current = { ...n, content: n.content || {} };
+    _videoAviso = '';
     setDirty(false);
 
     document.getElementById('nl-list-view').style.display = 'none';
@@ -1040,6 +1167,12 @@
      El aviso nombra lo que está en juego: que lo que saldría NO es lo
      que ella está viendo. */
   const guardarAntesDe = async (queIba) => {
+    /* Ajuste 29: the video arrives a few seconds after the click. Going
+       ahead now would save — and use — the edition without it. */
+    if (_trayendoVideo && _trayendoVideo === _current) {
+      toast(`The Video of the Month is still loading, so ${queIba} was not started. Try again in a moment.`, true);
+      return false;
+    }
     if (!_dirty) return true;
     const ok = await window.nlSave();
     /* Sólo se añade el aviso cuando la escritura FALLÓ. Si se guardó y lo
@@ -1420,5 +1553,7 @@
     nlAddChampion:     () => listAdd('champions', { division: '', level: '', podium: ['', '', ''] }),
     nlAddMetric:       () => listAdd('numbers.items', { value: '', label: '' }),
     nlAddPlayer:       (btn) => listAdd(btn.dataset.path, { name: '', detail: '' }),
+    nlAddVideo:        () => window.nlAddVideo(),
+    nlRemoveVideo:     () => window.nlRemoveVideo(),
   });
 })();

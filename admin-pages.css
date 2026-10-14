@@ -630,3 +630,25 @@
   .av-icono-peligro:hover{background:rgba(192,74,14,0.08);}
   /* El menú "More" del móvil: el icono de Videos es SVG. */
   .more-drawer-svg{display:inline-flex;align-items:center;justify-content:center;}
+
+  /* ── Newsletter: Video of the Month (ajuste 29). Mismo aspecto que
+     "Add from Events" y las fichas del resto del editor. ── */
+  .nlv-traer{display:inline-flex;align-items:center;gap:7px;padding:9px 16px;border:1px solid var(--blue);border-radius:99px;
+    background:#f0f5ff;color:var(--blue);font-family:'Inter',sans-serif;font-size:12px;font-weight:700;cursor:pointer;min-height:40px;}
+  .nlv-traer:hover{background:#e3ecff;}
+  .nlv-ayuda,.nlv-vacio{font-family:'Inter',sans-serif;font-size:11px;font-weight:600;color:var(--text-light);margin-top:8px;line-height:1.5;}
+  .nlv-vacio{margin-top:0;color:var(--text-muted);}
+  .nlv-aviso{font-family:'Inter',sans-serif;font-size:12px;font-weight:600;color:var(--blue);margin:10px 0 2px;line-height:1.5;}
+  .nlv-ficha{display:flex;align-items:center;gap:14px;padding:10px;border:1px solid var(--divider-color);border-radius:8px;margin-bottom:14px;}
+  .nlv-imagen{width:128px;aspect-ratio:16/9;object-fit:cover;border-radius:6px;flex-shrink:0;background:var(--bg);}
+  .nlv-ficha-txt{flex:1;min-width:0;}
+  .nlv-codigo{font-family:'Inter',sans-serif;font-size:11px;font-weight:600;color:var(--text-muted);overflow-wrap:anywhere;}
+  .nlv-botones{display:flex;flex-wrap:wrap;gap:14px;margin-top:8px;}
+  .nlv-enlace,.nlv-quitar{background:none;border:none;padding:6px 0;font-family:'Inter',sans-serif;font-size:11.5px;font-weight:700;cursor:pointer;min-height:32px;}
+  .nlv-enlace{color:var(--blue);}
+  .nlv-quitar{color:#e53935;}
+  .nlv-traer:disabled,.nlv-enlace:disabled,.nlv-quitar:disabled{opacity:.5;cursor:wait;}
+  @media(max-width:480px){
+    .nlv-ficha{flex-direction:column;align-items:stretch;}
+    .nlv-imagen{width:100%;}
+  }
