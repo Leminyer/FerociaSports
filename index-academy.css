@@ -125,3 +125,9 @@
   .ac-principal .ac-cierre-btns{flex-direction:column;width:100%;max-width:340px;}
   .ac-principal .ac-cierre-btns .ac-btn{width:100%;}
 }
+
+/* ── Ajuste 28: "Watch on YouTube" siempre abajo, alineado en todas las
+   cajitas de una misma fila (y en la del video del mes). ── */
+.ac-destacado .ac-cuerpo,.ac-tarjeta .ac-cuerpo{display:flex;flex-direction:column;align-items:flex-start;flex:1 1 auto;}
+.ac-destacado .ac-cuerpo > *,.ac-tarjeta .ac-cuerpo > *{max-width:100%;}
+.ac-destacado .ac-ver,.ac-tarjeta .ac-ver{margin-top:auto;padding-top:12px;}
