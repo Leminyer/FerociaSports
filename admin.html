@@ -22,7 +22,7 @@
      four must stay in this sequence. See the header of admin-layout.css. -->
 <link rel="stylesheet" href="admin-layout.css?v=20261012a">
 <link rel="stylesheet" href="admin-components.css?v=20261008a">
-<link rel="stylesheet" href="admin-pages.css?v=20261014b">
+<link rel="stylesheet" href="admin-pages.css?v=20261014c">
 <link rel="stylesheet" href="admin-ftc.css?v=20260928b">
 <link rel="stylesheet" href="admin-comms-hub.css?v=20261013c">
 
@@ -105,6 +105,11 @@
     <button class="sb-item" id="sb-players" data-action="showPage" data-page="players">
       <span class="sb-item-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
       <span class="sb-item-label">Players</span>
+    </button>
+    <!-- Portal del Jugador (hitos 3 y 4): reclamos por revisar y mensajes de ayuda (admin-player-claims.js). -->
+    <button class="sb-item" id="sb-player-claims" data-action="showPage" data-page="player-claims">
+      <span class="sb-item-icon avp-ancla"><span class="avp-num avp-num-icono" id="pc-sb" hidden></span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="8" r="4"/><path d="M3 21c0-4 3.1-7 7-7 1.4 0 2.6.3 3.7.9"/><path d="M16 18l2 2 4-4.5"/></svg></span>
+      <span class="sb-item-label">Player claims</span>
     </button>
     <button class="sb-item" id="sb-match-hub" data-action="showPage" data-page="match-hub">
       <span class="sb-item-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></span>
@@ -2938,6 +2943,23 @@
   </div>
 </div>
 
+<!-- ══ Portal del Jugador (hitos 3 y 4): PLAYER CLAIMS ══════════
+     Las cuentas del portal que hay que unir a mano a una ficha, y los
+     mensajes de "Need help?". Lo maneja admin-player-claims.js; los
+     estilos, admin-pages.css (pc-). -->
+<div id="page-player-claims" class="page">
+  <div class="av-cabecera">
+    <div class="av-titulo">Player claims</div>
+    <div class="av-sub">Player Portal accounts waiting to be connected to a FEROCIA player record, and help messages from the portal.</div>
+  </div>
+  <div class="pc-tabs" role="tablist" aria-label="Player claims">
+    <button type="button" role="tab" class="pc-tab active" id="pc-tab-review" data-action="pcTab" data-tab="review" aria-selected="true">To review<span class="avp-num avp-num-tab" id="pc-n-review" hidden></span></button>
+    <button type="button" role="tab" class="pc-tab" id="pc-tab-help" data-action="pcTab" data-tab="help" aria-selected="false">Help messages<span class="avp-num avp-num-tab" id="pc-n-help" hidden></span></button>
+    <button type="button" role="tab" class="pc-tab" id="pc-tab-resolved" data-action="pcTab" data-tab="resolved" aria-selected="false">Resolved</button>
+  </div>
+  <div id="pc-body"><div class="loading">Loading...</div></div>
+</div>
+
 <div id="page-newsletter" class="page">
   <div style="padding:24px 28px;max-width:1100px;">
 
@@ -3077,6 +3099,9 @@
   </button>
   <button class="more-drawer-item" id="md-communications" data-action="showPage" data-page="communications">
     <span class="more-drawer-icon">✉️</span>Communications<span class="avp-num avp-num-fila" id="avp-md" hidden></span>
+  </button>
+  <button class="more-drawer-item" id="md-player-claims" data-action="showPage" data-page="player-claims">
+    <span class="more-drawer-icon more-drawer-svg"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="8" r="4"/><path d="M3 21c0-4 3.1-7 7-7 1.4 0 2.6.3 3.7.9"/><path d="M16 18l2 2 4-4.5"/></svg></span>Player claims<span class="avp-num avp-num-fila" id="pc-md" hidden></span>
   </button>
   <button class="more-drawer-item" id="md-share" data-action="showPage" data-page="share">
     <span class="more-drawer-icon">🔗</span>Share Links
@@ -3919,10 +3944,13 @@
 <script src="admin-ftc-standings.js?v=20260928b"></script>
 <script src="admin-ftc-playoffs-schedule.js?v=20260928b"></script>
 <script src="admin-ftc-teams.js?v=20260928b"></script>
-<script src="app.js?v=20261013g"></script>
+<script src="app.js?v=20261014c"></script>
 <script src="tournament.js?v=20261012a"></script>
 <!-- Ajuste 30: después de app.js, porque espera a window.app.authReady. -->
 <script src="admin-avisos-problemas.js?v=20261014a"></script>
+<!-- Portal del Jugador (hitos 3 y 4): Player claims. Después de app.js, como el
+     contador de arriba: necesita window.app.authReady para su círculo rojo. -->
+<script src="admin-player-claims.js?v=20261014a"></script>
 <script>
   // ── Sidebar toggle — persisted in localStorage ──────────────────────
   (function() {

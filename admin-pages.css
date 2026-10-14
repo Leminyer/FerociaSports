@@ -666,3 +666,84 @@
   .avp-nuevo{display:inline-block;margin-right:8px;padding:2px 7px;border-radius:99px;background:#e53935;color:#fff;
     font-family:'Inter',sans-serif;font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;vertical-align:1px;}
   .dp-fila-nueva td{background:#fff5f5;}
+
+  /* ── Portal del Jugador (hitos 3 y 4): PLAYER CLAIMS (admin-player-claims.js) ── */
+  .pc-tabs{display:flex;flex-wrap:wrap;gap:6px;border-bottom:1px solid var(--divider-color);margin-bottom:20px;max-width:1100px;}
+  .pc-tab{height:42px;padding:0 14px;border:none;border-bottom:2px solid transparent;background:none;color:var(--text-muted);
+    font-family:'Inter',sans-serif;font-size:13px;font-weight:700;display:flex;align-items:center;cursor:pointer;}
+  .pc-tab.active{border-bottom-color:var(--blue);color:var(--blue);}
+  .pc-split{display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start;max-width:1100px;}
+  .pc-list{flex:1 1 280px;max-width:360px;display:flex;flex-direction:column;gap:10px;}
+  .pc-item{text-align:left;padding:16px;border:1px solid var(--divider-color);border-radius:12px;background:#fff;cursor:pointer;
+    display:flex;flex-direction:column;gap:8px;font-family:'Inter',sans-serif;}
+  .pc-item.active{border:1.5px solid var(--blue);box-shadow:0 6px 18px rgba(23,76,204,.10);}
+  .pc-item-top{display:flex;justify-content:space-between;gap:8px;}
+  .pc-item-name{font-size:14px;font-weight:800;color:var(--text);overflow-wrap:anywhere;}
+  .pc-item-when{font-size:12px;font-weight:600;color:var(--text-muted);white-space:nowrap;}
+  .pc-pill{align-self:flex-start;display:inline-block;padding:3px 9px;border-radius:99px;font-family:'Inter',sans-serif;font-size:11px;font-weight:800;}
+  .pc-pill-warn{background:#fde8d8;color:#9A3412;}
+  .pc-pill-blue{background:#e8f0ff;color:var(--blue);}
+  .pc-pill-gray{background:#EFEFEF;color:#374151;}
+  .pc-pill-red{background:#fdecea;color:#B42318;}
+  .pc-pill-green{background:#D4F5ED;color:#0B6B53;}
+  .pc-mini-red{color:#B42318;font-size:10px;font-weight:800;text-transform:uppercase;}
+  .pc-detail{flex:999 1 480px;min-width:0;background:#fff;border:1px solid var(--divider-color);border-radius:14px;padding:24px 26px;
+    display:flex;flex-direction:column;gap:16px;}
+  .pc-detail-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:8px;}
+  .pc-detail-name{margin:0;font-family:'Inter',sans-serif;font-size:18px;font-weight:800;color:var(--text);}
+  .pc-detail-when,.pc-detail-extra{font-size:12px;font-weight:600;color:var(--text-muted);}
+  .pc-detail-sub{display:flex;flex-wrap:wrap;align-items:center;gap:10px;}
+  .pc-cands{display:flex;flex-wrap:wrap;gap:8px;}
+  .pc-cand{min-height:36px;padding:0 14px;border:1px solid var(--divider-color);border-radius:99px;background:#fff;cursor:pointer;
+    font-family:'Inter',sans-serif;font-size:12px;font-weight:700;color:var(--text);}
+  .pc-cand.active{border-color:var(--blue);color:var(--blue);background:#f3f7ff;}
+  .pc-tabla-wrap{position:relative;overflow-x:auto;border:1px solid var(--divider-color);border-radius:10px;}
+  .pc-tabla{width:100%;border-collapse:collapse;font-family:'Inter',sans-serif;font-size:13px;min-width:520px;}
+  .pc-tabla th{background:#F8FAFC;text-align:left;padding:11px 14px;font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);}
+  .pc-tabla td{padding:11px 14px;border-top:1px solid #F1F2F4;font-weight:700;color:var(--text);overflow-wrap:anywhere;vertical-align:top;}
+  .pc-tabla td.pc-campo{color:var(--text-muted);font-weight:600;}
+  .pc-fila-aviso td{background:#FFF8F3;}
+  .pc-si{color:#0B6B53;font-weight:800;}
+  .pc-no{color:#9A3412;font-weight:800;}
+  .pc-nada{color:var(--text-muted);}
+  .pc-aviso{padding:12px 14px;border-radius:10px;background:#fdecea;color:#B42318;font-size:13px;font-weight:700;line-height:1.5;}
+  .pc-nota{font-size:12.5px;font-weight:600;color:var(--text-muted);line-height:1.5;}
+  .pc-datos{display:flex;flex-direction:column;gap:8px;font-size:13px;font-weight:700;}
+  .pc-datos .pc-campo{display:inline-block;min-width:130px;color:var(--text-muted);font-weight:600;}
+  .pc-buscar{display:flex;flex-direction:column;gap:8px;padding:14px;border:1px dashed var(--divider-color);border-radius:10px;}
+  .pc-buscar[hidden]{display:none;}
+  .pc-buscar-fila{display:flex;gap:8px;}
+  .pc-buscar-fila .ap-input{flex:1;min-width:0;}
+  .pc-resultados{display:flex;flex-direction:column;gap:8px;}
+  .pc-res{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;border:1px solid #F1F2F4;border-radius:8px;}
+  .pc-res-txt{display:flex;flex-direction:column;gap:2px;font-size:13px;min-width:0;overflow-wrap:anywhere;}
+  .pc-res-txt span{font-size:12px;color:var(--text-muted);font-weight:600;}
+  .pc-nota-campo{margin:0;}
+  .pc-correo{margin:0;}
+  .pc-correo span{text-transform:none;letter-spacing:0;font-size:13px;font-weight:600;}
+  .pc-botones{display:flex;flex-wrap:wrap;gap:10px;align-items:center;}
+  .pc-botones a.av-btn{display:inline-flex;align-items:center;text-decoration:none;}
+  .pc-btn-peligro{border:1px solid #F5C2C0;background:#fff;color:#B42318;}
+  .pc-btn-peligro:disabled,.pc-botones .av-btn:disabled{opacity:.55;cursor:not-allowed;}
+  .pc-pie{margin:0;font-size:12.5px;font-weight:500;color:var(--text-muted);}
+  .pc-vacio{padding:28px;border:1px dashed var(--divider-color);border-radius:12px;text-align:center;font-size:13px;font-weight:600;color:var(--text-muted);max-width:1100px;}
+  .pc-vacio-ok{background:#fff;}
+  .pc-msgs{display:flex;flex-direction:column;gap:12px;max-width:900px;}
+  .pc-msg{background:#fff;border:1px solid var(--divider-color);border-radius:12px;padding:18px 20px;display:flex;flex-direction:column;gap:10px;}
+  .pc-msg-hecho{opacity:.8;}
+  .pc-msg-top{display:flex;flex-wrap:wrap;align-items:center;gap:8px;}
+  .pc-msg-top .pc-item-when{margin-left:auto;}
+  .pc-msg-who{font-size:13px;color:var(--text);overflow-wrap:anywhere;}
+  .pc-msg-who span{color:var(--text-muted);font-weight:600;}
+  .pc-msg-txt{margin:0;font-size:14px;line-height:1.6;color:var(--text);white-space:pre-wrap;overflow-wrap:anywhere;}
+  .pc-card{padding:22px;margin-bottom:20px;max-width:1100px;}
+  .pc-card .card-title{margin-bottom:14px;}
+  .pc-sub{display:block;font-size:11.5px;font-weight:600;color:var(--text-muted);margin-top:3px;}
+  .pc-td-nota{max-width:220px;font-weight:500;}
+  .pc-tabla-res td{font-weight:600;}
+  .pc-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;}
+  @media(max-width:600px){
+    .pc-list{max-width:none;}
+    .pc-detail{padding:18px 16px;}
+    .pc-buscar-fila{flex-direction:column;}
+  }
