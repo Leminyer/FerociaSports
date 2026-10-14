@@ -25,6 +25,8 @@
     { key: 'drills',        label: 'Drills' },
     { key: 'kitchen_rules', label: 'Kitchen Rules' },
     { key: 'mistakes',      label: 'Mistakes' },
+    /* Ajuste 25 (sql/85). */
+    { key: 'ratings',       label: 'Ratings & Levels' },
   ];
   const ETIQUETA = Object.fromEntries(TOPICS.map((t) => [t.key, t.label]));
 
