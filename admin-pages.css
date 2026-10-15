@@ -756,3 +756,22 @@
   .pp-dna-blue{color:var(--blue);}
   .pp-dna-tag{display:inline-block;padding:4px 10px;border-radius:99px;background:#e8f0ff;color:var(--blue);font-size:11px;font-weight:700;margin:2px 0 2px 4px;}
   .pp-dna-src{font-size:10px;font-weight:700;color:var(--text-muted);margin-left:6px;text-transform:none;letter-spacing:0;}
+
+  /* ── PLAYER SAFETY (Matchmaking M-2a, 15 de octubre) ─────────
+     Usa las piezas de Player claims (pc-) y del perfil (pp-perf-). */
+  .ps-item-sub{font-size:12px;font-weight:600;color:var(--text-muted);}
+  .ps-rows{display:flex;flex-direction:column;}
+  .ps-rows .pp-perf-row{align-items:flex-start;gap:16px;}
+  .ps-rows .pp-perf-lbl{flex:0 0 190px;}
+  .ps-val{flex:1;min-width:0;text-align:right;font-size:13px;font-weight:700;color:var(--text);overflow-wrap:anywhere;}
+  .ps-muted{color:var(--text-muted);font-weight:600;}
+  .ps-texto{font-size:13px;font-weight:500;line-height:1.55;color:var(--text);white-space:pre-line;overflow-wrap:anywhere;}
+  .ps-alerta{color:#B42318;}
+  .ps-nota{display:block;margin:4px 0 0;}
+  .ps-nota textarea{width:100%;min-height:72px;border:1px solid var(--divider-color);border-radius:10px;padding:10px 12px;font:500 13px/1.5 'Inter',sans-serif;color:var(--text);resize:vertical;box-sizing:border-box;}
+  .ps-nota textarea:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px #e8f0ff;}
+  @media (max-width:700px){
+    .ps-rows .pp-perf-row{flex-direction:column;gap:4px;}
+    .ps-rows .pp-perf-lbl{flex:none;}
+    .ps-val{text-align:left;}
+  }

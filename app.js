@@ -94,6 +94,7 @@ window.selectLadderType = (type) => {
       'tournament-view': ['sb-tournament', 'bn-tournament'],
       'players':      ['sb-players',     'bn-players'],
       'player-claims': ['sb-player-claims', null],
+      'player-safety': ['sb-player-safety', null],
       'player-profile': ['sb-players',   'bn-players'],
       'add-player':   ['sb-add-player',  null],
       'ladders':      ['sb-ladders',     null],
@@ -113,7 +114,7 @@ window.selectLadderType = (type) => {
     ids.forEach(id => { if (id) { const el = document.getElementById(id); if (el) el.classList.add('active'); } });
 
     // Bottom nav: pages in "more" drawer activate the ⋯ button
-    const morePages = ['add-player','ladders','t-tournaments','events','orders','promotions','newsletter','videos','communications','share','match-hub','player-claims'];
+    const morePages = ['add-player','ladders','t-tournaments','events','orders','promotions','newsletter','videos','communications','share','match-hub','player-claims','player-safety'];
     if (morePages.includes(pageOrKey)) {
       document.getElementById('bn-more')?.classList.add('active');
       const mdEl = document.getElementById(`md-${pageOrKey === 'newsletter' ? 'communications' : pageOrKey}`);
@@ -540,6 +541,8 @@ window.selectLadderType = (type) => {
     if (name === 'orders') window.AdminPageLoaders.orders?.();
     if (name === 'videos') window.AdminPageLoaders.videos?.();
     if (name === 'player-claims') window.AdminPageLoaders.playerClaims?.();
+    if (name === 'player-safety') window.AdminPageLoaders.playerSafety?.();
+
     if (name === 'events') loadEventsPage();
     if (name === 'newsletter' && window.loadNewsletterPage) window.loadNewsletterPage();
     if (name === 'communications') window.openCommunications?.();

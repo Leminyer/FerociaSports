@@ -22,7 +22,7 @@
      four must stay in this sequence. See the header of admin-layout.css. -->
 <link rel="stylesheet" href="admin-layout.css?v=20261012a">
 <link rel="stylesheet" href="admin-components.css?v=20261008a">
-<link rel="stylesheet" href="admin-pages.css?v=20261015c">
+<link rel="stylesheet" href="admin-pages.css?v=20261015d">
 <link rel="stylesheet" href="admin-ftc.css?v=20260928b">
 <link rel="stylesheet" href="admin-comms-hub.css?v=20261013c">
 
@@ -112,6 +112,11 @@
     <button class="sb-item" id="sb-player-claims" data-action="showPage" data-page="player-claims">
       <span class="sb-item-icon avp-ancla"><span class="avp-num avp-num-icono" id="pc-sb" hidden></span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="8" r="4"/><path d="M3 21c0-4 3.1-7 7-7 1.4 0 2.6.3 3.7.9"/><path d="M16 18l2 2 4-4.5"/></svg></span>
       <span class="sb-item-label">Player claims</span>
+    </button>
+    <!-- Matchmaking M-2a: los reportes de los jugadores (admin-player-safety.js). -->
+    <button class="sb-item" id="sb-player-safety" data-action="showPage" data-page="player-safety">
+      <span class="sb-item-icon avp-ancla"><span class="avp-num avp-num-icono" id="ps-sb" hidden></span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg></span>
+      <span class="sb-item-label">Player Safety</span>
     </button>
     <button class="sb-item" id="sb-match-hub" data-action="showPage" data-page="match-hub">
       <span class="sb-item-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></span>
@@ -2949,6 +2954,23 @@
      Las cuentas del portal que hay que unir a mano a una ficha, y los
      mensajes de "Need help?". Lo maneja admin-player-claims.js; los
      estilos, admin-pages.css (pc-). -->
+<!-- Matchmaking M-2a: PLAYER SAFETY. Los reportes de los jugadores (de un
+     juego o de la tarjeta de un jugador) y las suspensiones del
+     matchmaking. Lo maneja admin-player-safety.js; los estilos,
+     admin-pages.css (pc- de Player claims, pp-perf- y ps-). -->
+<div id="page-player-safety" class="page">
+  <div class="av-cabecera">
+    <div class="av-titulo">Player Safety</div>
+    <div class="av-sub">Reports from players about games and behavior. Only admins see this — the reported player never knows who reported.</div>
+  </div>
+  <div class="pc-tabs" role="tablist" aria-label="Player Safety">
+    <button type="button" role="tab" class="pc-tab active" data-action="psTab" data-tab="open" aria-selected="true">Open<span class="avp-num avp-num-tab" id="ps-n-open" hidden></span></button>
+    <button type="button" role="tab" class="pc-tab" data-action="psTab" data-tab="resolved" aria-selected="false">Resolved</button>
+    <button type="button" role="tab" class="pc-tab" data-action="psTab" data-tab="suspended" aria-selected="false">Suspended players</button>
+  </div>
+  <div id="ps-body"><div class="loading">Loading...</div></div>
+</div>
+
 <div id="page-player-claims" class="page">
   <div class="av-cabecera">
     <div class="av-titulo">Player claims</div>
@@ -3104,6 +3126,9 @@
   </button>
   <button class="more-drawer-item" id="md-player-claims" data-action="showPage" data-page="player-claims">
     <span class="more-drawer-icon more-drawer-svg"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="8" r="4"/><path d="M3 21c0-4 3.1-7 7-7 1.4 0 2.6.3 3.7.9"/><path d="M16 18l2 2 4-4.5"/></svg></span>Player claims<span class="avp-num avp-num-fila" id="pc-md" hidden></span>
+  </button>
+  <button class="more-drawer-item" id="md-player-safety" data-action="showPage" data-page="player-safety">
+    <span class="more-drawer-icon more-drawer-svg"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg></span>Player Safety<span class="avp-num avp-num-fila" id="ps-md" hidden></span>
   </button>
   <button class="more-drawer-item" id="md-share" data-action="showPage" data-page="share">
     <span class="more-drawer-icon">🔗</span>Share Links
@@ -3946,13 +3971,16 @@
 <script src="admin-ftc-standings.js?v=20260928b"></script>
 <script src="admin-ftc-playoffs-schedule.js?v=20260928b"></script>
 <script src="admin-ftc-teams.js?v=20260928b"></script>
-<script src="app.js?v=20261014d"></script>
+<script src="app.js?v=20261015a"></script>
+
 <script src="tournament.js?v=20261012a"></script>
 <!-- Ajuste 30: después de app.js, porque espera a window.app.authReady. -->
 <script src="admin-avisos-problemas.js?v=20261014a"></script>
 <!-- Portal del Jugador (hitos 3 y 4): Player claims. Después de app.js, como el
      contador de arriba: necesita window.app.authReady para su círculo rojo. -->
 <script src="admin-player-claims.js?v=20261014e"></script>
+<!-- Matchmaking M-2a: Player Safety (también después de app.js, por su círculo rojo). -->
+<script src="admin-player-safety.js?v=20261015a"></script>
 <script>
   // ── Sidebar toggle — persisted in localStorage ──────────────────────
   (function() {
