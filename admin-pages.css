@@ -747,3 +747,12 @@
     .pc-detail{padding:18px 16px;}
     .pc-buscar-fila{flex-direction:column;}
   }
+
+  /* ── Player DNA (etapa DNA-1, 15 de octubre): la pestaña DNA de la ficha ── */
+  .pp-dna-loading{padding:40px;}
+  .pp-dna-kpi{font-size:20px;}
+  .pp-dna-ok{color:var(--teal);}
+  .pp-dna-warn{color:var(--orange);}
+  .pp-dna-blue{color:var(--blue);}
+  .pp-dna-tag{display:inline-block;padding:4px 10px;border-radius:99px;background:#e8f0ff;color:var(--blue);font-size:11px;font-weight:700;margin:2px 0 2px 4px;}
+  .pp-dna-src{font-size:10px;font-weight:700;color:var(--text-muted);margin-left:6px;text-transform:none;letter-spacing:0;}

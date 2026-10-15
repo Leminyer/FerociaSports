@@ -13,6 +13,9 @@
    SCOPE OF THIS DELIVERY — only "Overview" has a finished design from
    the founder's team, so only it is built with real content. The other
    6 tabs render a "Coming Soon" placeholder until designs arrive.
+   (Player DNA, etapa DNA-1 — 15 de octubre: la pestaña DNA ya enseña lo
+   que el jugador dijo en el portal, lo que FEROCIA ve en sus juegos y
+   sus reconocimientos, con admin_dna_jugador() del SQL 92.)
 
    HONEST DATA NOTES (flagged and approved as temporary/estimated):
      - No player photos — initials avatar only (matches the rest of
@@ -2144,6 +2147,112 @@
     </div>`;
   };
 
+  // ── DNA tab (Player DNA, etapa DNA-1 — 15 de octubre, §62 y §63) ─────
+  // Lo que el jugador dijo en el portal, lo que FEROCIA ve en sus juegos
+  // y sus reconocimientos (sólo cuántos: nunca quién los dio). Lo lee
+  // admin_dna_jugador() (sólo administradores). La fiabilidad sigue en su
+  // propia pestaña. Todo lo que viene de la base pasa por esc().
+  const DNA_TXT = {
+    style: { aggressive: 'Aggressive / Banger', control: 'Control Player', patient: 'Patient', strategic: 'Strategic',
+      fast_hands: 'Fast Hands', soft_game: 'Soft Game / Dinker', balanced: 'Balanced' },
+    side: { right: 'Right side', left: 'Left side', either: 'Either side' },
+    format: { singles: 'Singles', doubles: 'Doubles', mixed: 'Mixed doubles' },
+    competition: { recreational: 'Recreational', social: 'Social', friendly_competitive: 'Friendly Competitive',
+      league: 'League Player', tournament_focused: 'Tournament Focused', practice: 'Practice Oriented' },
+    when: { weekday_morning: 'Weekday mornings', weekday_afternoon: 'Weekday afternoons', weekday_evening: 'Weekday evenings',
+      weekend_morning: 'Weekend mornings', weekend_afternoon: 'Weekend afternoons', weekend_evening: 'Weekend evenings',
+      flexible: 'Flexible', last_minute: 'Last-minute games' },
+    venue: { indoor: 'Indoor', outdoor: 'Outdoor', both: 'Indoor & outdoor' },
+    intent: { tournament_practice: 'Tournament practice', friendly_doubles: 'Friendly doubles', need_tonight: 'Need one player tonight',
+      singles_training: 'Singles training', weekend_social: 'Social games this weekend' },
+    rec: { great_partner: 'Great Partner', great_communication: 'Great Communication', reliable: 'Reliable',
+      positive_energy: 'Positive Energy', competitive: 'Competitive', encouraging: 'Encouraging', respectful: 'Respectful',
+      would_play_again: 'Would Play Again' },
+  };
+  const dnaList = (map, codes) => Object.keys(map).filter((k) => (codes || []).includes(k)).map((k) => map[k]);
+  const dnaDate = (iso, withDay) => (iso ? new Date(iso).toLocaleDateString('en-US', Object.assign(
+    { timeZone: 'America/New_York', month: 'short', day: 'numeric' }, withDay ? { weekday: 'short' } : { year: 'numeric' })) : '—');
+  const dnaPlural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+  const DNA_DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+  const renderDNA = async (d) => {
+    const el = document.getElementById('pp-tab-dna');
+    if (!el || el.dataset.rendered) return;
+    el.dataset.rendered = '1';
+    el.innerHTML = '<div class="loading pp-dna-loading">Loading Player DNA...</div>';
+    const playerIdAtStart = d.p.id;
+    let x = null;
+    try {
+      const { data, error } = await supabase.rpc('admin_dna_jugador', { p_player_id: d.p.id });
+      if (error) throw error;
+      x = data || null;
+    } catch (e) { console.warn('[dna] failed:', e.message); }
+    if (!_ppCurrent || _ppCurrent.p.id !== playerIdAtStart) return;
+    if (!x) { el.innerHTML = '<div class="pp-perf-card"><div class="pp-empty">Player DNA data unavailable.</div></div>'; return; }
+
+    const dec = x.declared;
+    const der = x.derived || {};
+    const social = x.social || [];
+    const row = (lbl, val) => `<div class="pp-perf-row"><span class="pp-perf-lbl">${esc(lbl)}</span><span class="pp-perf-val">${val}</span></div>`;
+    const tags = (list) => (list.length ? list.map((t) => `<span class="pp-dna-tag">${esc(t)}</span>`).join('') : '—');
+    const kpi = (lbl, val, sub, cls) => `<div class="pp-kpi-card"><div class="pp-kpi-lbl">${esc(lbl)}</div><div class="pp-kpi-val pp-dna-kpi${cls ? ` ${cls}` : ''}">${esc(val)}</div><div class="pp-kpi-sub">${esc(sub)}</div></div>`;
+    const recTotal = social.reduce((n, r) => n + (r.count || 0), 0);
+
+    const kpis = [
+      dec ? kpi('Player DNA', 'Complete', `Updated ${dnaDate(dec.updated_at)} by the player`, 'pp-dna-ok')
+        : kpi('Player DNA', 'Not completed', x.has_account ? 'Asked the next time they sign in' : 'No Player Portal account yet', 'pp-dna-warn'),
+      kpi('Competition', dec ? (DNA_TXT.competition[dec.competition] || '—') : '—', dec ? 'Declared by the player' : '—'),
+      kpi('Right Now', dec && dec.intent ? (DNA_TXT.intent[dec.intent] || '—') : 'Nothing set',
+        dec && dec.intent ? `Until ${dnaDate(new Date(new Date(dec.intent_until).getTime() - 60000).toISOString(), true)}` : 'Clears on its own', dec && dec.intent ? 'pp-dna-blue' : ''),
+      kpi('Recognitions Received', String(recTotal), recTotal ? `From ${dnaPlural(x.social_givers || 0, 'player', 'players')} · last 12 months` : 'None in the last 12 months'),
+    ].join('');
+
+    const declared = dec ? [
+      row('Play Style', tags(dnaList(DNA_TXT.style, dec.play_styles))),
+      row('Side', esc(DNA_TXT.side[dec.side] || '—')),
+      row('Format', esc(dnaList(DNA_TXT.format, dec.formats).join(' · ') || '—')),
+      row('When They Play', esc(dnaList(DNA_TXT.when, dec.availability).join(' · ') || '—')),
+      row('Where They Play', esc(DNA_TXT.venue[dec.venue_pref] || '—')),
+      row('Visible When Matching Launches', esc([dec.show_style && 'Style', dec.show_availability && 'Availability',
+        dec.show_intent && 'Right now', dec.show_social && 'Social DNA'].filter(Boolean).join(' · ') || 'Nothing')),
+    ].join('') : '<div class="pp-empty">The player has not completed their Player DNA yet.</div>';
+
+    const socialHTML = social.length
+      ? social.map((r) => row(DNA_TXT.rec[r.recognition] || r.recognition, esc(String(r.count)))).join('')
+      : '<div class="pp-empty">No recognitions in the last 12 months.</div>';
+
+    const slot = { morning: 'mornings', afternoon: 'afternoons', evening: 'evenings' };
+    const u = der.usual;
+    const f = der.formats || {};
+    const fmts = [['doubles', 'Doubles'], ['mixed', 'Mixed'], ['singles', 'Singles']].filter(([k]) => f[k] > 0)
+      .sort((a, b) => f[b[0]] - f[a[0]]).map(([k, t]) => `${t} (${f[k]})`);
+    const titles = [der.ladder_titles ? dnaPlural(der.ladder_titles, 'ladder title', 'ladder titles') : '',
+      der.tournament_titles ? dnaPlural(der.tournament_titles, 'tournament title', 'tournament titles') : ''].filter(Boolean);
+    const sees = [
+      row('Usual Days', esc(u && slot[u.slot] ? `${DNA_DAYS[u.day]} ${slot[u.slot]} (${u.sessions} of last ${u.of} sessions)` : 'Not enough ladder sessions yet')),
+      row('Formats Played', esc(fmts.join(' · ') || '—')),
+      row('Competitions', esc(`${dnaPlural(der.ladders || 0, 'ladder', 'ladders')} · ${dnaPlural(der.tournaments || 0, 'tournament', 'tournaments')}`)),
+      row('Titles', esc(titles.join(' · ') || '—')),
+      row('Ladder Sessions (6 months)', esc(String(der.ladder_sessions_180 || 0))),
+      row('Activity', esc(`${dnaPlural(der.games_30 || 0, 'game', 'games')} in the last 30 days`)),
+    ].join('');
+
+    el.innerHTML = `
+      <div class="pp-kpi-row pp-section-gap">${kpis}</div>
+      <div class="pp-2col pp-section-gap">
+        <div class="pp-perf-card"><div class="pp-perf-title">Declared by the Player</div>${declared}</div>
+        <div class="pp-perf-card"><div class="pp-perf-title">Social DNA <span class="pp-dna-src">from recognitions · never shows who gave them</span></div>${socialHTML}</div>
+      </div>
+      <div class="pp-2col">
+        <div class="pp-perf-card"><div class="pp-perf-title">What FEROCIA Sees <span class="pp-dna-src">from verified games · last 12 months</span></div>${sees}</div>
+        <div class="pp-perf-card"><div class="pp-perf-title">Recognitions Given</div>
+          ${row('Sessions answered', esc(String(x.given_sessions || 0)))}
+          ${row('Recognitions given', esc(String(x.given_total || 0)))}
+          ${row('Received (all time)', esc(String(x.social_total || 0)))}
+        </div>
+      </div>`;
+  };
+
   const renderSoon = (tabId, label) => {
     const el = document.getElementById(`pp-tab-${tabId}`);
     if (!el || el.dataset.rendered) return;
@@ -2166,7 +2275,8 @@
     if (tab === 'adminnotes') { if (_ppCurrent) renderAdmin(_ppCurrent); return; }
     if (tab === 'reliability') { if (_ppCurrent) renderReliability(_ppCurrent); return; }
     if (tab === 'history') { if (_ppCurrent) renderHistory(_ppCurrent); return; }
-    const labels = { dna: 'DNA', membership: 'Membership' };
+    if (tab === 'dna') { if (_ppCurrent) renderDNA(_ppCurrent); return; }
+    const labels = { membership: 'Membership' };
     if (labels[tab]) renderSoon(tab, labels[tab]);
   };
 
