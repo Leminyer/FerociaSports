@@ -1,0 +1,192 @@
+/* ============================================================
+   FEROCIA SPORTS CENTER — Páginas legales (Terms y Privacy)
+   Hito 5 del Portal del Jugador (14 de octubre)
+
+   Lo usan terms.html y privacy.html. Los colores y la letra vienen
+   de design-tokens.css, igual que el resto del sitio: cabecera azul
+   noche con la raya lima, tarjeta blanca y pie como el de la portada.
+   ============================================================ */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  font-family: 'Inter', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.65;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* ── CABECERA (igual que confirm.html) ── */
+.legal-header {
+  background: var(--dark);
+  padding: 0 28px;
+  height: 68px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 3px solid var(--lime);
+}
+.legal-header .logo { height: 30px; width: auto; display: block; }
+.legal-back {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .5px;
+  color: rgba(156, 227, 255, .75);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.legal-back:hover, .legal-back:focus-visible { color: var(--lime); }
+
+/* ── CUERPO ── */
+.legal-main { flex: 1; padding: 48px 20px 64px; }
+.legal-card {
+  max-width: 820px;
+  margin: 0 auto;
+  background: var(--white);
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius-large);
+  box-shadow: 0 8px 40px rgba(23, 76, 204, .08);
+  padding: 48px 56px;
+}
+
+.legal-kicker {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--primary);
+}
+.legal-card h1 {
+  margin: 0 0 6px;
+  font-size: clamp(28px, 5vw, 38px);
+  line-height: 1.15;
+  font-weight: 800;
+  letter-spacing: -.5px;
+}
+.legal-updated { margin: 0 0 28px; font-size: 13px; color: var(--muted); }
+
+.legal-summary {
+  margin: 0 0 32px;
+  padding: 20px 24px;
+  border-radius: var(--radius);
+  background: var(--primary-light);
+  border-left: 4px solid var(--primary);
+}
+.legal-card .legal-summary h2 { margin: 0 0 8px; font-size: 16px; }
+.legal-summary ul { margin: 0; padding-left: 20px; }
+.legal-summary li { margin: 4px 0; }
+
+/* Índice */
+.legal-toc {
+  margin: 0 0 36px;
+  padding: 20px 24px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.legal-card .legal-toc h2 {
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.legal-toc ol { margin: 0; padding-left: 22px; columns: 2; column-gap: 32px; }
+.legal-toc li { margin: 3px 0; break-inside: avoid; font-size: 14px; }
+
+.legal-card section { scroll-margin-top: 24px; }
+.legal-card h2 { margin: 36px 0 10px; font-size: 20px; line-height: 1.3; font-weight: 800; }
+.legal-card h3 { margin: 22px 0 6px; font-size: 16px; font-weight: 700; }
+.legal-card p, .legal-card li { font-size: 15px; }
+.legal-card p { margin: 0 0 12px; }
+.legal-card ul { margin: 0 0 14px; padding-left: 22px; }
+.legal-card li { margin: 5px 0; }
+.legal-card a { color: var(--primary); text-underline-offset: 2px; }
+.legal-card a:hover { color: var(--primary-hover); }
+.legal-card strong { font-weight: 700; }
+
+/* Tabla de proveedores */
+.legal-table-wrap { overflow-x: auto; margin: 0 0 16px; }
+.legal-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.legal-table th, .legal-table td {
+  text-align: left;
+  vertical-align: top;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.legal-table th {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: var(--bg);
+}
+
+/* Datos que ella tiene que completar antes de publicar.
+   Se ven en amarillo A PROPÓSITO, para que no se escape ninguno. */
+.legal-pendiente {
+  background: #fff3b0;
+  color: #6b4e00;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-weight: 700;
+}
+
+.legal-contact {
+  margin-top: 36px;
+  padding: 20px 24px;
+  border-radius: var(--radius);
+  background: var(--bg);
+  border: 1px solid var(--border);
+}
+.legal-card .legal-contact h2 { margin-top: 0; }
+.legal-contact p:last-child { margin-bottom: 0; }
+
+/* ── PIE (igual que la portada) ── */
+.legal-footer {
+  background: var(--dark);
+  padding: 32px 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 20px;
+  border-top: 3px solid var(--lime);
+}
+.legal-footer .footer-logo { height: 26px; width: auto; display: block; }
+.legal-footer-links { display: flex; gap: 24px; flex-wrap: wrap; }
+.legal-footer-links a {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .5px;
+  color: rgba(156, 227, 255, .5);
+  text-decoration: none;
+}
+.legal-footer-links a:hover, .legal-footer-links a:focus-visible { color: var(--lime); }
+.legal-footer-links a[aria-current="page"] { color: var(--lime); }
+.legal-copy { font-size: 11px; color: rgba(255, 255, 255, .35); font-weight: 500; }
+
+/* ── CELULAR ── */
+@media (max-width: 768px) {
+  .legal-header { padding: 0 20px; height: 60px; }
+  .legal-header .logo { height: 26px; }
+  .legal-main { padding: 20px 12px 40px; }
+  .legal-card { padding: 28px 20px; border-radius: var(--radius); }
+  .legal-toc ol { columns: 1; }
+  .legal-footer { padding: 28px 24px; flex-direction: column; align-items: flex-start; gap: 16px; }
+  .legal-footer-links { gap: 16px; }
+}
+
+@media print {
+  .legal-header, .legal-footer, .legal-toc { display: none; }
+  .legal-main { padding: 0; }
+  .legal-card { box-shadow: none; border: 0; padding: 0; }
+}
