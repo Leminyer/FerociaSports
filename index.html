@@ -477,7 +477,9 @@ footer{
   });
 
   // ── Load upcoming events ──────────────────────────────────
-  const today = new Date().toISOString().split('T')[0];
+  /* "Hoy" en la hora del club (Florida). toISOString() da la fecha de
+     Londres: después de las 8 de la noche ya era "mañana" (ajuste 2). */
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date());
   let events = [];
   /* WHICH EVENTS ARE STILL SHOWN
      event_date means different things per type: for a tournament it is the
@@ -486,15 +488,15 @@ footer{
      began, even though it runs every week.
 
        · tournament / other  → hidden once their date has passed
-       · ladder              → shown until end_date (or forever if unset,
-                               so an older ladder never silently disappears)
+       · ladder              → hidden the day after it STARTS (registration
+                               is closed by then) — portal ajuste 2, §52
        · clinic / private    → always shown; they recur with no end
 
      Order by date, then time. nullslast matters twice: PostgREST puts
      nulls FIRST by default, which would push an event with no time ahead
      of one starting at 8am the same day. */
   try {
-    events = await api(`events?or=(event_date.gte.${today},and(event_type.eq.ladder,or(end_date.gte.${today},end_date.is.null)),event_type.in.(clinic,private_session))&select=*&order=event_date.asc,event_time.asc.nullslast`);
+    events = await api(`events?or=(event_date.gte.${today},event_type.in.(clinic,private_session))&select=*&order=event_date.asc,event_time.asc.nullslast`);
   } catch(_) {}
 
   /* Recurring events last. A clinic that started in July would otherwise

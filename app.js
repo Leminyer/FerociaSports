@@ -336,12 +336,15 @@ window.selectLadderType = (type) => {
       // ── Upcoming Events ────────────────────────────────────
       const eventsEl = document.getElementById('dash-events-list');
       if (eventsEl) {
-        const today = new Date().toISOString().split('T')[0];
+        // "Hoy" en la hora del club (antes: la de Londres, que después de
+        // las 8 de la noche ya era "mañana").
+        const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date());
         let events = [];
-        // Same visibility rule as the events page — a clinic should not
-        // vanish from the dashboard the day after it started either.
+        // La misma regla que la portada del sitio (portal ajuste 2, §52):
+        // torneos y LADDERS hasta su fecha (una ladder desaparece el día
+        // después de empezar); clinics y private sessions siempre.
         try {
-          events = await api(`events?or=(event_date.gte.${today},and(event_type.eq.ladder,or(end_date.gte.${today},end_date.is.null)),event_type.in.(clinic,private_session))&select=id,title,event_date,event_type&order=event_date.asc&limit=8`);
+          events = await api(`events?or=(event_date.gte.${today},event_type.in.(clinic,private_session))&select=id,title,event_date,event_type&order=event_date.asc&limit=8`);
           const RECURRING = ['clinic', 'private_session'];
           events.sort((a, b) => {
             const ra = RECURRING.includes(a.event_type) ? 1 : 0;
@@ -624,13 +627,17 @@ window.selectLadderType = (type) => {
     const el = document.getElementById('events-list');
     if (!el) return;
     try {
-      const today = new Date().toISOString().split('T')[0];
-      /* Same rule as the public page, so both lists agree.
+      const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date());   // la fecha del club (ajuste 2)
+      /* La pantalla Events de la administradora. Aquí las ladders siguen
+         hasta su end_date (o siempre si no tiene), para poder verlas y
+         editarlas mientras se juegan. La portada del sitio, el Dashboard
+         y el portal, en cambio, las quitan el día después de empezar
+         (decisión §52, portal ajuste 2).
 
          event_date means the day a tournament happens but the day a ladder
          or clinic STARTED, so filtering on it alone made every clinic
-         disappear the day after it began. Ladders stay until end_date (or
-         forever when unset); clinics and private sessions always show. */
+         disappear the day after it began. Clinics and private sessions
+         always show. */
       const events = await api(`events?or=(event_date.gte.${today},and(event_type.eq.ladder,or(end_date.gte.${today},end_date.is.null)),event_type.in.(clinic,private_session))&select=*&order=event_date.asc,event_time.asc.nullslast`);
 
       // Recurring events last, so what happens next is at the top.
