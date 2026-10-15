@@ -2201,7 +2201,7 @@
     const kpis = [
       dec ? kpi('Player DNA', 'Complete', `Updated ${dnaDate(dec.updated_at)} by the player`, 'pp-dna-ok')
         : kpi('Player DNA', 'Not completed', x.has_account ? 'Asked the next time they sign in' : 'No Player Portal account yet', 'pp-dna-warn'),
-      kpi('Competition', dec ? (DNA_TXT.competition[dec.competition] || '—') : '—', dec ? 'Declared by the player' : '—'),
+      kpi('Competition', dec ? (dnaList(DNA_TXT.competition, Array.isArray(dec.competitions) ? dec.competitions : [dec.competition]).join(' · ') || '—') : '—', dec ? 'Declared by the player' : '—'),
       kpi('Right Now', dec && dec.intent ? (DNA_TXT.intent[dec.intent] || '—') : 'Nothing set',
         dec && dec.intent ? `Until ${dnaDate(new Date(new Date(dec.intent_until).getTime() - 60000).toISOString(), true)}` : 'Clears on its own', dec && dec.intent ? 'pp-dna-blue' : ''),
       kpi('Recognitions Received', String(recTotal), recTotal ? `From ${dnaPlural(x.social_givers || 0, 'player', 'players')} · last 12 months` : 'None in the last 12 months'),
