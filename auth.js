@@ -9,6 +9,11 @@
      - signOut()               Sign out and reload
      - onAuthStateChange(fn)   Subscribe to login/logout events
      - requireAuth(onAuthed)   Show login modal if not authed; call cb when authed
+
+   Hito 5 del Portal del Jugador (14 de octubre): al entrar se pide la
+   verificación de Cloudflare (ferocia-captcha.js, que se carga antes)
+   y se manda con la contraseña. Mientras el captcha esté APAGADO en
+   Supabase, la verificación se ignora y todo funciona igual.
    ============================================================ */
 
 (function () {
@@ -83,6 +88,10 @@
       }
       #auth-login-modal button:hover { opacity: .88; }
       #auth-login-modal button:disabled { opacity: .5; cursor: not-allowed; }
+      /* Hito 5 del portal: la caja del captcha (vacía casi siempre). */
+      #auth-login-modal .auth-captcha { display: flex; justify-content: center; }
+      #auth-login-modal .auth-captcha:not(.is-visible) { height: 0; overflow: hidden; }
+      #auth-login-modal .auth-captcha.is-visible { min-height: 65px; margin-bottom: 14px; }
     `;
     document.head.appendChild(style);
 
@@ -98,6 +107,7 @@
           <input type="email" id="auth-email" autocomplete="username" required>
           <label for="auth-password">Password</label>
           <input type="password" id="auth-password" autocomplete="current-password" required>
+          <div class="auth-captcha" id="auth-captcha"></div>
           <div class="auth-error" id="auth-error"></div>
           <button type="submit" id="auth-submit-btn">Sign in</button>
         </form>
@@ -247,8 +257,15 @@
     btn.disabled = true;
     btn.textContent = 'Signing in...';
 
+    /* Hito 5 del portal: la verificación de Cloudflare (ferocia-captcha.js).
+       Cuando el captcha está encendido en Supabase, sin ella no se entra.
+       Vale una sola vez: después de cada intento se pide otra. */
+    const C = window.FerociaCaptcha;
+    const caja = document.getElementById('auth-captcha');
     try {
-      const { error } = await sb.auth.signInWithPassword({ email, password });
+      const captchaToken = C && caja ? await C.token(caja) : null;
+      const { error } = await sb.auth.signInWithPassword(
+        captchaToken ? { email, password, options: { captchaToken } } : { email, password });
       if (error) throw error;
       // onAuthStateChange in app.js will hide the modal and boot the app
     } catch (err) {
@@ -257,11 +274,14 @@
       errEl.textContent =
         /invalid login credentials/i.test(msg)
           ? 'Incorrect email or password.'
-          : msg;
+          : /captcha/i.test(msg)
+            ? 'We could not check that you are a person. If you use an ad blocker, pause it for this page, then try again.'
+            : msg;
       errEl.style.display = 'block';
       passEl.value = '';
       passEl.focus();
     } finally {
+      if (C && caja) C.usado(caja);
       btn.disabled = false;
       btn.textContent = 'Sign in';
     }

@@ -29,9 +29,8 @@
 (function () {
   'use strict';
 
-  /* La dirección del portal para los correos. Mientras se prueba es la
-     de GitHub; en el hito 5 pasa a https://players.ferociasports.com */
-  const PORTAL_URL = 'https://leminyer.github.io/FerociaPlayers/';
+  /* La dirección del portal para los correos (hito 5: su dominio). */
+  const PORTAL_URL = 'https://players.ferociasports.com/';
   const CADA = 3 * 60 * 1000;
 
   const sb = () => window.supabase;
