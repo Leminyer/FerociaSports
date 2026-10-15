@@ -775,3 +775,5 @@
     .ps-rows .pp-perf-lbl{flex:none;}
     .ps-val{text-align:left;}
   }
+  /* M-2b: el mensaje del chat reportado */
+  .ps-quote{margin:0 0 4px;padding:10px 12px;border-left:3px solid #F5C2C0;border-radius:8px;background:#FEF3F2;font-size:13px;font-weight:500;line-height:1.5;color:var(--text);text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;}

@@ -1,6 +1,9 @@
 /* ============================================================
    FEROCIA SPORTS CENTER — ADMIN: PLAYER SAFETY
    Matchmaking M-2a (15 de octubre) — decisiones §73, §74
+   M-2b (§75): un reporte de un mensaje del chat trae la copia del mensaje.
+   El panel NO puede leer los chats: sólo ese mensaje.
+
    Pantalla aprobada en el diseño ("Admin panel — Player Safety").
 
    Los reportes que mandan los jugadores desde el portal (un juego o la
@@ -151,6 +154,7 @@
       <div class="ps-rows">
         ${fila('Reported by', `${esc(r.reporter.name)} <span class="ps-muted">(never shown to ${esc(r.reported.name.split(' ')[0])})</span>`)}
         ${fila('Where', esc(donde(r)))}
+        ${r.message ? fila('Reported message', `<blockquote class="ps-quote">${esc(r.message.text)}</blockquote><span class="ps-muted">Sent in the game chat · ${esc(cuando(r.message.at))}</span>`) : ''}
         ${fila('What happened', r.detail ? `<span class="ps-texto">${esc(r.detail)}</span>` : '<span class="ps-muted">No details</span>')}
         ${fila('Blocked by reporter', r.also_blocked ? 'Yes' : 'No')}
         ${fila(`Other reports about ${r.reported.name.split(' ')[0]}`, otros ? `<strong class="ps-alerta">${otros}</strong>` : '0')}
@@ -197,7 +201,7 @@
       const [txt, cls] = ACCION[r.action] || ['Resolved', 'pc-pill-green'];
       return `<tr>
         <td><strong>${esc(r.reported.name)}</strong><span class="pc-sub">Reported by ${esc(r.reporter.name)}</span></td>
-        <td>${pastillaMotivo(r.reason)}<span class="pc-sub">${esc(donde(r))}</span></td>
+        <td>${pastillaMotivo(r.reason)}<span class="pc-sub">${esc(r.message ? `Chat message: “${r.message.text.slice(0, 80)}${r.message.text.length > 80 ? '…' : ''}”` : donde(r))}</span></td>
         <td><span class="pc-pill ${cls}">${esc(txt)}</span></td>
         <td>${esc(r.resolved_at ? cuando(r.resolved_at) : '')}<span class="pc-sub">${esc(r.by ? `by ${r.by}` : '')}</span></td>
         <td class="pc-td-nota">${esc(r.admin_note || '')}</td>
