@@ -2217,9 +2217,12 @@
         dec.show_intent && 'Right now', dec.show_social && 'Social DNA'].filter(Boolean).join(' · ') || 'Nothing')),
     ].join('') : '<div class="pp-empty">The player has not completed their Player DNA yet.</div>';
 
-    const socialHTML = social.length
+    // Los de los últimos 5 días el jugador todavía no los ve (SQL 93).
+    const waiting = x.social_waiting || 0;
+    const socialHTML = (social.length
       ? social.map((r) => row(DNA_TXT.rec[r.recognition] || r.recognition, esc(String(r.count)))).join('')
-      : '<div class="pp-empty">No recognitions in the last 12 months.</div>';
+      : '<div class="pp-empty">No recognitions in the last 12 months.</div>')
+      + (waiting ? row('Waiting to appear (shown after 5 days)', esc(String(waiting))) : '');
 
     const slot = { morning: 'mornings', afternoon: 'afternoons', evening: 'evenings' };
     const u = der.usual;
