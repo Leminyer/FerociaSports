@@ -45,8 +45,12 @@
   const ESTADO = {
     pending: ['Waiting for players', 'pc-pill-warn'], declined: ['Declined — host can correct', 'pc-pill-warn'],
     disputed: ['In review', 'pc-pill-red'], verified: ['Verified', 'pc-pill-green'], discarded: ['Discarded', 'pc-pill-gray'],
+    self: ['Self-reported', 'pc-pill-gray'],   // M-3b: sólo con invitados
   };
-  const COMO = { accepted: 'accepted by a player', auto: 'automatically after 48 h', team: 'by the team' };
+  const COMO = { accepted: 'accepted by a player', auto: 'automatically after 48 h', team: 'by the team', self: 'guests only' };
+  const VINCULO = { pending: 'waiting for them to confirm', accepted: 'confirmed', declined: 'said it wasn\'t them', expired: 'could not be linked' };
+  /* M-3b: un juego registrado ("Log a game") lleva su etiqueta; el lugar es opcional. */
+  const etiquetaLogged = (g) => (g.logged ? ' <span class="pc-pill pc-pill-gray">Logged</span>' : '');
 
   let _tab = 'review';
   let _datos = { items: [], counts: {} };
@@ -56,7 +60,7 @@
 
   const cuando = (iso) => new Date(iso).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
   const dia = (iso) => new Date(iso).toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-  const juegoTxt = (g) => `${TIPO[g.kind] || 'Game'} · ${dia(g.plays_at)} · ${g.place}`;
+  const juegoTxt = (g) => [TIPO[g.kind] || 'Game', dia(g.plays_at), g.place].filter(Boolean).join(' · ');
   const nombres = (t) => (t || []).map((p) => p.name).join(' & ');
 
   const errorLegible = (err) => {
@@ -144,7 +148,7 @@
       const no = (r.log || []).filter((l) => l.action === 'declined');
       const sub = no.length ? `Declined by ${no.map((l) => l.name).join(', ')}` : `Reported ${cuando(r.reported_at)}`;
       return `<button type="button" class="pc-item${r.game.id === _sel ? ' active' : ''}" data-action="pgSel" data-id="${esc(r.game.id)}" aria-pressed="${r.game.id === _sel}">
-        <span class="pc-item-top"><span class="pc-item-name">${esc(TIPO[r.game.kind] || 'Game')} · ${esc(new Date(r.game.plays_at).toLocaleDateString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric' }))}</span><span class="pc-item-when">${esc(r.game.place)}</span></span>
+        <span class="pc-item-top"><span class="pc-item-name">${esc(TIPO[r.game.kind] || 'Game')} · ${esc(new Date(r.game.plays_at).toLocaleDateString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric' }))}</span><span class="pc-item-when">${esc(r.game.place || (r.game.logged ? 'Logged game' : ''))}</span></span>
         <span class="ps-item-sub">Hosted by ${esc(r.game.host.name)} · ${esc(sub)}</span>
       </button>`;
     }).join('');
@@ -160,12 +164,17 @@
     const [estado, cls] = ESTADO[r.status] || ['', ''];
     const fuera = (r.people || []).filter((p) => p.role !== 'host');
     const asistencia = fuera.map((p) => {
+      /* M-3b: añadido con su código (jugó; no se cambia aquí). */
+      if (p.role === 'added') {
+        const voto = p.vote ? `<span class="pc-pill ${p.vote === 'accepted' ? 'pc-pill-green' : 'pc-pill-red'}">${p.vote === 'accepted' ? 'Accepted' : 'Declined'}</span>` : '<span class="ps-muted">No answer</span>';
+        return `<tr><td>${esc(p.name)}<span class="pc-sub">Added with their player code</span></td><td>Played</td><td>${voto}</td></tr>`;
+      }
       const ops = (p.role === 'late' ? ['late', 'late_excused'] : ['played', 'no_show', 'excused'])
         .map((v) => `<option value="${v}"${p.attendance === v ? ' selected' : ''}>${esc(ASISTE[v])}</option>`).join('');
       const voto = p.vote ? `<span class="pc-pill ${p.vote === 'accepted' ? 'pc-pill-green' : 'pc-pill-red'}">${p.vote === 'accepted' ? 'Accepted' : 'Declined'}</span>` : '<span class="ps-muted">No answer</span>';
       return `<tr><td>${esc(p.name)}${p.role === 'late' ? '<span class="pc-sub">Left less than 12 h before</span>' : ''}</td>
         <td><label class="pc-sr" for="pg-at-${esc(p.player_id)}">Attendance of ${esc(p.name)}</label><select class="pg-select" id="pg-at-${esc(p.player_id)}" data-pid="${esc(p.player_id)}">${ops}</select></td><td>${voto}</td></tr>`;
-    }).join('');
+    }).join('') + (r.guests || []).map((g) => `<tr><td>${esc(g.name)}<span class="pc-sub">Guest (not on FEROCIA)${g.link_status ? ` · linked to ${esc(g.link_name || 'a player')}: ${esc(VINCULO[g.link_status] || g.link_status)}` : ''}</span></td><td>Played</td><td><span class="ps-muted">—</span></td></tr>`).join('');
     const partidos = (r.entries || []).map((e) => {
       const marcadores = e.score_a.map((x, i) => `<span class="pg-game"><input class="pg-sc" inputmode="numeric" maxlength="2" aria-label="Entry ${e.pos}, game ${i + 1}, team A" data-pos="${esc(e.pos)}" data-i="${i}" data-lado="a" value="${esc(x)}">–<input class="pg-sc" inputmode="numeric" maxlength="2" aria-label="Entry ${e.pos}, game ${i + 1}, team B" data-pos="${esc(e.pos)}" data-i="${i}" data-lado="b" value="${esc(e.score_b[i])}"></span>`).join('');
       return `<tr><td>${esc(e.pos)} · ${esc(FORMATO[e.format] || e.format)}</td><td>${esc(nombres(e.team_a))}</td><td>${esc(nombres(e.team_b))}</td><td class="pg-scores">${marcadores}</td></tr>`;
@@ -174,7 +183,7 @@
       `<div class="ps-quote"><b>${esc(l.name)}</b> declined (round ${esc(l.round)}): ${esc(MOTIVO[l.reason] || l.reason)}${l.detail ? ` — “${esc(l.detail)}”` : ''}</div>`).join('');
     caja.innerHTML = `
       <div class="pc-detail-head">
-        <h2 class="pc-detail-name">${esc(juegoTxt(r.game))}</h2>
+        <h2 class="pc-detail-name">${esc(juegoTxt(r.game))}${etiquetaLogged(r.game)}</h2>
         <span class="pc-pill ${cls}">${esc(estado)}</span>
       </div>
       <div class="ps-rows">
@@ -198,7 +207,7 @@
 
   /* Lo que el equipo cambió en pantalla (asistencia y marcadores). */
   function leerCorreccion(r) {
-    const people = (r.people || []).filter((p) => p.role !== 'host').map((p) => ({ player_id: p.player_id, attendance: ($(`pg-at-${p.player_id}`) || {}).value || p.attendance }));
+    const people = (r.people || []).filter((p) => p.role === 'in' || p.role === 'late').map((p) => ({ player_id: p.player_id, attendance: ($(`pg-at-${p.player_id}`) || {}).value || p.attendance }));
     const entries = (r.entries || []).map((e) => {
       const lee = (lado, i) => {
         const el = document.querySelector(`#pg-detail .pg-sc[data-pos="${e.pos}"][data-i="${i}"][data-lado="${lado}"]`);
@@ -243,7 +252,7 @@
       const [txt, cls] = ESTADO[r.status] || ['', ''];
       const partidos = (r.entries || []).map((e) => `${nombres(e.team_a)} vs ${nombres(e.team_b)}: ${e.score_a.map((x, i) => `${x}–${e.score_b[i]}`).join(', ')}`).join(' · ');
       return `<tr>
-        <td><strong>${esc(TIPO[r.game.kind] || 'Game')}</strong><span class="pc-sub">${esc(dia(r.game.plays_at))} · ${esc(r.game.place)}</span></td>
+        <td><strong>${esc(TIPO[r.game.kind] || 'Game')}</strong>${etiquetaLogged(r.game)}<span class="pc-sub">${esc([dia(r.game.plays_at), r.game.place].filter(Boolean).join(' · '))}</span></td>
         <td>${esc(r.game.host.name)}</td>
         <td class="pc-td-nota">${esc(partidos || 'Attendance only')}</td>
         <td><span class="pc-pill ${cls}">${esc(txt)}</span><span class="pc-sub">${esc(r.decided_at ? `${cuando(r.decided_at)}, ${COMO[r.decided_how] || ''}` : '')}${esc(r.by ? ` (${r.by})` : '')}</span></td>
