@@ -788,3 +788,7 @@
   .pg-game{display:inline-flex;align-items:center;gap:3px;margin:0 8px 4px 0;font-weight:800;color:var(--text-muted);}
   .pg-sc{width:46px;height:34px;padding:0;box-sizing:border-box;border:1px solid var(--divider-color);border-radius:8px;text-align:center;font:800 13px 'Inter',sans-serif;color:var(--text);}
   .pg-sc:focus,.pg-select:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px #e8f0ff;}
+
+/* SQL 102: revisar y descartar un Self-reported desde "Verified" */
+.pg-btn-review { display: inline-flex; margin-top: 6px; }
+.pg-detail-below { margin-top: 16px; max-width: 1100px; }

@@ -278,7 +278,7 @@
             </div>`;
           }).join('');
 
-          const courtIncidents = allLadderIncidents.filter((r) => r.session_date === s.session_date && r.court === `Court ${s.court_group}`);
+          const courtIncidents = incidentesDeCancha(allLadderIncidents, s);
           const incidentsListHTML = window.renderIncidentReportsList ? window.renderIncidentReportsList(courtIncidents) : '';
 
           // Players who actually played (or no-showed) this specific
@@ -1460,6 +1460,16 @@
   window.searchPlayersEntry  = searchPlayersEntry;   // called from the generic input listener
   window.autoCalcGame        = autoCalcGame;         // called from the generic input listener
   window.autoCalcExtraGame   = autoCalcExtraGame;    // called from the generic input listener
+
+  // Los incidentes de UNA cancha de UNA sesión: misma fecha, misma cancha
+  // y misma hora (dos juegos en la cancha 8 el mismo día, a las 8 y a las
+  // 10, tienen cada uno los suyos). Un incidente viejo guardado sin hora
+  // (o una sesión sin hora) sale en todas las de esa fecha y cancha, como antes.
+  function incidentesDeCancha(lista, s) {
+    const hora = (t) => String(t || '').slice(0, 5);   // "08:00:00" → "08:00"
+    return (lista || []).filter((r) => r.session_date === s.session_date && r.court === `Court ${s.court_group}`
+      && (!r.session_time || !s.session_time || hora(r.session_time) === hora(s.session_time)));
+  }
 
   // Opens the shared Incident Report modal, pre-filled with this
   // ladder's context and this specific court pre-selected.

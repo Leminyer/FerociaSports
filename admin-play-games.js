@@ -176,7 +176,8 @@
         <td><label class="pc-sr" for="pg-at-${esc(p.player_id)}">Attendance of ${esc(p.name)}</label><select class="pg-select" id="pg-at-${esc(p.player_id)}" data-pid="${esc(p.player_id)}">${ops}</select></td><td>${voto}</td></tr>`;
     }).join('') + (r.guests || []).map((g) => `<tr><td>${esc(g.name)}<span class="pc-sub">Guest (not on FEROCIA)${g.link_status ? ` · linked to ${esc(g.link_name || 'a player')}: ${esc(VINCULO[g.link_status] || g.link_status)}` : ''}</span></td><td>Played</td><td><span class="ps-muted">—</span></td></tr>`).join('');
     const partidos = (r.entries || []).map((e) => {
-      const marcadores = e.score_a.map((x, i) => `<span class="pg-game"><input class="pg-sc" inputmode="numeric" maxlength="2" aria-label="Entry ${e.pos}, game ${i + 1}, team A" data-pos="${esc(e.pos)}" data-i="${i}" data-lado="a" value="${esc(x)}">–<input class="pg-sc" inputmode="numeric" maxlength="2" aria-label="Entry ${e.pos}, game ${i + 1}, team B" data-pos="${esc(e.pos)}" data-i="${i}" data-lado="b" value="${esc(e.score_b[i])}"></span>`).join('');
+      /* Un Self-reported sólo se descarta: el marcador, sin casillas. */
+      const marcadores = r.status === 'self' ? esc(e.score_a.map((x, i) => `${x}–${e.score_b[i]}`).join(', ')) : e.score_a.map((x, i) => `<span class="pg-game"><input class="pg-sc" inputmode="numeric" maxlength="2" aria-label="Entry ${e.pos}, game ${i + 1}, team A" data-pos="${esc(e.pos)}" data-i="${i}" data-lado="a" value="${esc(x)}">–<input class="pg-sc" inputmode="numeric" maxlength="2" aria-label="Entry ${e.pos}, game ${i + 1}, team B" data-pos="${esc(e.pos)}" data-i="${i}" data-lado="b" value="${esc(e.score_b[i])}"></span>`).join('');
       return `<tr><td>${esc(e.pos)} · ${esc(FORMATO[e.format] || e.format)}</td><td>${esc(nombres(e.team_a))}</td><td>${esc(nombres(e.team_b))}</td><td class="pg-scores">${marcadores}</td></tr>`;
     }).join('');
     const historia = (r.log || []).filter((l) => l.action === 'declined').map((l) =>
@@ -197,12 +198,14 @@
       <label class="ps-nota"><span class="pc-sr">Note for the team</span>
         <textarea id="pg-nota" maxlength="1000" rows="3" placeholder="Note for the team (required). Players don't see it."></textarea></label>
       <div class="pc-botones">
-        <button type="button" class="av-btn av-btn-pri" data-action="pgDecidir" data-accion="verify">Verify as reported</button>
-        <button type="button" class="av-btn av-btn-sec" data-action="pgDecidir" data-accion="correct">Correct and verify</button>
+        ${r.status === 'self' ? '' : `<button type="button" class="av-btn av-btn-pri" data-action="pgDecidir" data-accion="verify">Verify as reported</button>
+        <button type="button" class="av-btn av-btn-sec" data-action="pgDecidir" data-accion="correct">Correct and verify</button>`}
         <button type="button" class="av-btn pc-btn-peligro" data-action="pgDecidir" data-accion="discard">Discard the result</button>
         <button type="button" class="av-btn av-btn-sec" data-action="showPage" data-page="player-profile" data-pid="${esc(r.game.host.player_id)}">View host profile</button>
       </div>
-      <p class="pc-pie">"Correct and verify" saves the scores and attendance you change above (the teams stay as reported). Verified results count in the players' Play games and reliability; ladder standings never change. Everything is saved in the host's history.</p>`;
+      <p class="pc-pie">${r.status === 'self'
+        ? 'Self-reported: logged with guests only, so nobody else from FEROCIA can confirm it. It counts only in this player\'s Play games (not reliability or recognitions). Discard it if it isn\'t real; it\'s saved in the player\'s history.'
+        : '"Correct and verify" saves the scores and attendance you change above (the teams stay as reported). Verified results count in the players\' Play games and reliability; ladder standings never change. Everything is saved in the host\'s history.'}</p>`;
   }
 
   /* Lo que el equipo cambió en pantalla (asistencia y marcadores). */
@@ -256,12 +259,14 @@
         <td>${esc(r.game.host.name)}</td>
         <td class="pc-td-nota">${esc(partidos || 'Attendance only')}</td>
         <td><span class="pc-pill ${cls}">${esc(txt)}</span><span class="pc-sub">${esc(r.decided_at ? `${cuando(r.decided_at)}, ${COMO[r.decided_how] || ''}` : '')}${esc(r.by ? ` (${r.by})` : '')}</span></td>
-        <td class="pc-td-nota">${esc(r.admin_note || '')}</td>
+        <td class="pc-td-nota">${esc(r.admin_note || '')}${r.status === 'self' ? `<button type="button" class="av-btn av-btn-sec pg-btn-review" data-action="pgSel" data-id="${esc(r.game.id)}" aria-pressed="${r.game.id === _sel}">Review</button>` : ''}</td>
       </tr>`;
     }).join('');
     $('pg-body').innerHTML = `<div class="card pc-card"><div class="pc-tabla-wrap"><table class="pc-tabla pc-tabla-res">
       <thead><tr><th scope="col">Game</th><th scope="col">Host</th><th scope="col">Result</th><th scope="col">Status</th><th scope="col">Note</th></tr></thead>
-      <tbody>${filas}</tbody></table></div></div>`;
+      <tbody>${filas}</tbody></table></div></div>${_sel && lista.some((r) => r.game.id === _sel && r.status === 'self') ? '<section class="pc-detail pg-detail-below" id="pg-detail" aria-live="polite"></section>' : ''}`;
+    /* SQL 102: un Self-reported se puede revisar y descartar desde aquí. */
+    pintarDetalle();
   }
 
   // ── Active games ─────────────────────────────────────────────
@@ -284,7 +289,7 @@
   window.AdminPageLoaders.playGames = () => { cargar(); contar(); };
   Object.assign(window.CLICK_HANDLERS, {
     pgTab: (btn) => { _tab = btn.dataset.tab; cargar(); },
-    pgSel: (btn) => { _sel = Number(btn.dataset.id); pintarDecidir(); },
+    pgSel: (btn) => { _sel = Number(btn.dataset.id); if (_tab === 'verified') { pintarCerrados(); $('pg-detail')?.scrollIntoView({ block: 'nearest' }); } else pintarDecidir(); },
     pgDecidir: (btn) => decidir(btn.dataset.accion),
   });
 
