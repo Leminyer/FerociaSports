@@ -7,7 +7,11 @@
      1. Los números grandes (cuentas, reclamos, % de activos con cuenta).
      2. "Needs your attention": reclamos de más de 24 h, mensajes de
         Help sin responder, reportes de Player Safety (cada uno lleva a
-        su pantalla).
+        su pantalla). Y (SQL 107, 17 de octubre) "Level changes to check":
+        jugadores que cambiaron su nivel en el portal y no cuadra con el
+        rating del coach (o saltaron de Beginner a Advanced o al revés).
+        Cada uno con "View player" y "Mark as seen". Al jugador no se le
+        bloquea nada: sólo es un aviso para el equipo.
      3. El embudo del jugador (dónde se quedan).
      4. La gráfica: cuentas nuevas y reclamos aprobados.
      5. Qué hacen en el portal (sólo cuentas).
@@ -51,6 +55,7 @@
   let _datos = null;
   let _todos = false;
   let _vez = 0;
+  let _niveles = [];   // los cambios de nivel por revisar (SQL 107)
 
   /* "12 min ago", "Yesterday, 7:42 PM", "Oct 3". */
   function hace(iso) {
@@ -66,6 +71,10 @@
     if (dia(d) === dia(new Date(hoy.getTime() - 86400000))) return `Yesterday, ${hora}`;
     return new Intl.DateTimeFormat('en-US', { timeZone: ZONA, month: 'short', day: 'numeric' }).format(d);
   }
+  // La misma escala que usa Play: menos de 3.0 Beginner, hasta 3.99 Intermediate, 4.0 o más Advanced.
+  // 3.5 → "3.5", 3.96 → "3.96", 4 → "4.0" (sin redondear de más: 3.96 no es 4.0).
+  const rating = (r) => { const t = String(Math.round(Number(r) * 1000) / 1000); return t.includes('.') ? t : `${t}.0`; };
+  const nivelDeRating = (r) => (Number(r) < 3 ? 'Beginner' : Number(r) < 4 ? 'Intermediate' : 'Advanced');
   const corto = (isoDia) => { const [y, m, d] = String(isoDia).split('-').map(Number); return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }); };
 
   async function cargar() {
@@ -76,10 +85,18 @@
     caja.setAttribute('aria-busy', 'true');
     if (!_datos) caja.innerHTML = '<div class="loading">Loading...</div>';
     try {
+      /* Los cambios de nivel van aparte: si fallan (p. ej. sin el SQL 107),
+         la página sale igual, sin esa fila. */
+      const niveles = sb().rpc('admin_cambios_nivel').then((r) => {
+        if (r.error) { console.warn('[admin] level changes:', r.error.message); return []; }
+        return Array.isArray(r.data) ? r.data : [];
+      }, () => []);
       const { data, error } = await sb().rpc('admin_portal_actividad', { p_rango: _rango });
       if (error) throw error;
+      const lv = await niveles;
       if (mia !== _vez) return;
       _datos = data;
+      _niveles = lv;
       pintar();
       const est = $('pa-estado');
       if (est) est.textContent = `Showing: ${PERIODO[_rango]}`;
@@ -131,9 +148,25 @@
     else if (at.claims) aten.push(filaAt(at.claims, at.claims === 1 ? 'Claim to review' : 'Claims to review', 'All within the last 24 hours', 'player-claims', 'Player claims'));
     if (at.help) aten.push(filaAt(at.help, at.help === 1 ? 'Help message not answered' : 'Help messages not answered', `The oldest: ${hace(at.help_oldest)}`, 'player-claims', 'Help messages'));
     if (at.reports) aten.push(filaAt(at.reports, at.reports === 1 ? 'Player report to review' : 'Player reports to review', `The oldest: ${hace(at.reports_oldest)}`, 'player-safety', 'Player Safety'));
-    const atencion = aten.length
-      ? `<section class="pa-at" aria-labelledby="pa-at-t"><h2 class="pa-h2 pa-at-h" id="pa-at-t">Needs your attention</h2><div class="pa-at-list">${aten.join('')}</div></section>`
-      : '<section class="pa-at is-ok" aria-label="Needs your attention"><span class="pa-at-ok">Nothing needs your attention right now.</span></section>';
+    // Los cambios de nivel por revisar (SQL 107)
+    const lvTexto = (c) => (c.flag === 'coach'
+      ? `Coach rating ${rating(c.coach_rating)} · usually ${nivelDeRating(c.coach_rating)}`
+      : 'Big jump · no coach rating yet');
+    const lvFilas = _niveles.map((c) => `<li class="pa-lv">
+        <span class="pa-lv-t"><strong>${esc(c.who)}</strong> <span class="pa-lv-de">${esc(c.from || '—')} → ${esc(c.to)}</span>
+          <span class="pa-lv-s">${esc(lvTexto(c))} · ${esc(hace(c.at))}</span></span>
+        <span class="pa-lv-b">
+          <button type="button" class="pa-lv-btn" data-action="showPage" data-page="player-profile" data-pid="${esc(c.player_id)}">View player</button>
+          <button type="button" class="pa-lv-btn pa-lv-ok" data-action="paNivelVisto" data-id="${esc(c.id)}">Mark as seen</button>
+        </span></li>`).join('');
+    const niveles = _niveles.length
+      ? `<div class="pa-lv-box"><h3 class="pa-lv-h"><span class="pa-at-n">${esc(fmtN(_niveles.length))}</span>${_niveles.length === 1 ? 'Level change to check' : 'Level changes to check'}</h3>
+          <p class="pa-lv-p">The player changed their level in the portal and it doesn't match what we see. Nothing is blocked — talk to them or update their coach rating if needed.</p>
+          <ul class="pa-lv-list">${lvFilas}</ul></div>`
+      : '';
+    const atencion = aten.length || niveles
+      ? `<section class="pa-at" aria-labelledby="pa-at-t"><h2 class="pa-h2 pa-at-h" id="pa-at-t" tabindex="-1">Needs your attention</h2>${aten.length ? `<div class="pa-at-list">${aten.join('')}</div>` : ''}${niveles}</section>`
+      : '<section class="pa-at is-ok" aria-labelledby="pa-at-t"><span class="pa-at-ok" id="pa-at-t" tabindex="-1">Nothing needs your attention right now.</span></section>';
 
     // El embudo
     const pasos = d.funnel || [];
@@ -217,5 +250,22 @@
   Object.assign(window.CLICK_HANDLERS, {
     paRango: (btn) => { _rango = btn.dataset.r; _todos = false; cargar(); },
     paTodos: () => { _todos = true; pintar(); },
+    paNivelVisto: async (btn) => {
+      const id = Number(btn.dataset.id);
+      if (!id || btn.disabled) return;
+      btn.disabled = true;
+      try {
+        const { error } = await sb().rpc('admin_cambio_nivel_visto', { p_id: id });
+        if (error) throw error;
+        _niveles = _niveles.filter((c) => Number(c.id) !== id);
+        pintar();
+        window.toast('Marked as seen.');
+        $('pa-at-t')?.focus?.();
+      } catch (e) {
+        console.warn('[admin] mark level change:', e);
+        btn.disabled = false;
+        window.toast(/not_authorized/.test(String((e && e.message) || '')) ? 'Only the Admin can do this.' : 'We couldn\'t save that. Please try again.', true);
+      }
+    },
   });
 })();
