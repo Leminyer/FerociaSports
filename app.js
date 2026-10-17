@@ -93,6 +93,7 @@ window.selectLadderType = (type) => {
       'ftc-playoffs':     ['sb-ftc-playoffs','bn-ladder'],
       'tournament-view': ['sb-tournament', 'bn-tournament'],
       'players':      ['sb-players',     'bn-players'],
+      'portal-activity': ['sb-portal-activity', null],
       'player-claims': ['sb-player-claims', null],
       'player-safety': ['sb-player-safety', null],
       'play-games':   ['sb-play-games', null],
@@ -115,7 +116,7 @@ window.selectLadderType = (type) => {
     ids.forEach(id => { if (id) { const el = document.getElementById(id); if (el) el.classList.add('active'); } });
 
     // Bottom nav: pages in "more" drawer activate the ⋯ button
-    const morePages = ['add-player','ladders','t-tournaments','events','orders','promotions','newsletter','videos','communications','share','match-hub','player-claims','player-safety','play-games'];
+    const morePages = ['add-player','ladders','t-tournaments','events','orders','promotions','newsletter','videos','communications','share','match-hub','player-claims','player-safety','play-games','portal-activity'];
     if (morePages.includes(pageOrKey)) {
       document.getElementById('bn-more')?.classList.add('active');
       const mdEl = document.getElementById(`md-${pageOrKey === 'newsletter' ? 'communications' : pageOrKey}`);
@@ -544,6 +545,7 @@ window.selectLadderType = (type) => {
     if (name === 'player-claims') window.AdminPageLoaders.playerClaims?.();
     if (name === 'player-safety') window.AdminPageLoaders.playerSafety?.();
     if (name === 'play-games') window.AdminPageLoaders.playGames?.();
+    if (name === 'portal-activity') window.AdminPageLoaders.portalActivity?.();
 
     if (name === 'events') loadEventsPage();
     if (name === 'newsletter' && window.loadNewsletterPage) window.loadNewsletterPage();
