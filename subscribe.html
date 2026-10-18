@@ -29,7 +29,7 @@
 <script src="db.js?v=20261004c"></script>
 <script src="assets.js?v=20261013a"></script>
 <script src="country-codes.js?v=20261013a"></script>
-<script src="location-fields.js?v=20260929a"></script>
+<script src="location-fields.js?v=20261018a"></script>
 <!-- Ajuste 21: Turnstile (Cloudflare) comprueba que quien rellena esto es
      una persona. Este archivo carga el de Cloudflare y lleva la clave
      PÚBLICA; la secreta vive sólo en el servidor. -->
@@ -682,6 +682,14 @@
     const btn = document.getElementById('subscribe-btn');
     btn.disabled = true;
     btn.textContent = 'Processing...';
+
+    /* SQL 109 (§93): la ciudad tiene que estar en el estado elegido.
+       Si no, el aviso con el botón para arreglarlo queda bajo los campos. */
+    if (!(await FerociaLocation.comprobarLugar('s-city', 's-state', cityVal.value, stateVal.value))) {
+      btn.disabled = false;
+      btn.textContent = 'Subscribe Now';
+      return;
+    }
 
     /* Ajuste 21: la verificación de Turnstile (subscribe-turnstile.js).
        Si el archivo no cargó, se manda sin ella: el servidor guarda la
