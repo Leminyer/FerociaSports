@@ -899,3 +899,7 @@
   .pa-ev-w{font-size:11px;}
   .pa-ch{gap:1px;}
 }
+
+/* ── Sesiones de escalera: un juego con el mismo puntaje en los dos equipos (SQL 111, §94) ── */
+.sess-check-pill { display: block; width: max-content; margin-top: 4px; padding: 2px 8px; border-radius: 99px;
+  background: var(--orange-light, #FFF4EC); color: #9A3412; font-size: 9px; font-weight: 800; letter-spacing: .3px; text-transform: uppercase; }
