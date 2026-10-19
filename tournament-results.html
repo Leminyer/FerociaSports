@@ -19,7 +19,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="design-tokens.css?v=20261013a">
 <script src="config.js?v=20260820e"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- SRI (§101): supabase-js fijo en 2.118.0; el navegador sólo lo ejecuta si es EXACTAMENTE ese archivo.
+     Si se cambia la versión, hay que poner la huella nueva al mismo tiempo (o la página no arranca). -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js" integrity="sha384-TcHRA3zBbn+Lexh5n+Oil4guNPOS3rjNDpGRAN46u/s/mB2IZ50ceC6TYDU2yvgK" crossorigin="anonymous"></script>
 <script src="db.js?v=20260820e"></script>
 <script src="assets.js?v=20261013a"></script>
 <style>
