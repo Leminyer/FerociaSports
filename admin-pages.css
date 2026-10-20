@@ -903,3 +903,22 @@
 /* ── Sesiones de escalera: un juego con el mismo puntaje en los dos equipos (SQL 111, §94) ── */
 .sess-check-pill { display: block; width: max-content; margin-top: 4px; padding: 2px 8px; border-radius: 99px;
   background: var(--orange-light, #FFF4EC); color: #9A3412; font-size: 9px; font-weight: 800; letter-spacing: .3px; text-transform: uppercase; }
+
+/* ── §105 Events: los días de una clínica (Mon … Sun) ── */
+.ev-days-wrap { margin-top: 12px; }
+.ev-days-wrap[hidden] { display: none; }
+.ev-days-req { color: var(--orange); }
+.ev-days { display: flex; flex-wrap: wrap; gap: 6px; }
+.ev-day { position: relative; cursor: pointer; }
+.ev-day input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.ev-day span { display: inline-flex; align-items: center; justify-content: center; min-width: 48px; min-height: 36px; padding: 0 12px;
+  border-radius: 99px; border: 1px solid var(--divider-color); background: #fff; color: var(--text-muted);
+  font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 700; transition: background .15s, border-color .15s, color .15s; }
+.ev-day:hover span { border-color: #c5d6f5; color: var(--text); }
+.ev-day input:checked + span { background: var(--blue); border-color: var(--blue); color: #fff; box-shadow: 0 2px 6px rgba(23, 76, 204, .22); }
+.ev-day input:focus-visible + span { box-shadow: 0 0 0 4px rgba(23, 76, 204, .18); }
+.ev-days-hint { margin: 6px 0 0; font-size: 11px; color: var(--text-muted); line-height: 1.45; }
+/* Para lectores de pantalla ("required"), sin verse. */
+.ev-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+/* Alto contraste de Windows: lo marcado se distingue por el borde. */
+@media (forced-colors: active) { .ev-day input:checked + span { outline: 3px solid Highlight; outline-offset: 1px; } }

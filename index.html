@@ -32,6 +32,8 @@
 <script src="config.js?v=20260929j"></script>
 <script src="db.js?v=20261004c"></script>
 <script src="assets.js?v=20261013a"></script>
+<!-- §105: las clínicas enseñan el día y la hora, no una fecha. -->
+<script src="event-days.js?v=20261020a"></script>
 <style>
 :root {
   /* Dark-theme override — this page uses a dark hero background with
@@ -523,7 +525,13 @@ footer{
       .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
     grid.innerHTML = events.map((ev) => {
       const d = new Date(ev.event_date + 'T00:00:00');
-      const dateLabel = d.toLocaleDateString('en-US', { weekday:'short', month:'long', day:'numeric', year:'numeric' });
+      /* §105: una clínica se repite cada semana. En vez de su fecha de inicio
+         (que parecía vencida) dice el día: "Tuesday", "Tue & Thu". Si todavía
+         no empezó, además "Starts Nov 4". */
+      const DIAS = window.FerociaEventDays;
+      const dateLabel = (ev.event_type === 'clinic' && DIAS && DIAS.days(ev).length)
+        ? [DIAS.label(DIAS.days(ev)), DIAS.startsLabel(ev, today)].filter(Boolean).join(' · ')
+        : d.toLocaleDateString('en-US', { weekday:'short', month:'long', day:'numeric', year:'numeric' });
       const img = ev.flyer_url
         ? `<img class="ecard-img" src="${esc(ev.flyer_url)}" alt="${esc(ev.title)}" loading="lazy">`
         : `<div class="ecard-placeholder">🏓</div>`;

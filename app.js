@@ -725,6 +725,7 @@ window.selectLadderType = (type) => {
                 data-evendtime="${esc(ev.end_time || '')}"
                 data-evtype="${esc(ev.event_type || '')}"
                 data-evend="${esc(ev.end_date || '')}"
+                data-evdays="${esc(Array.isArray(ev.weekdays) ? ev.weekdays.join(',') : '')}"
                 title="Edit event">${editSVG}</button>
               <button class="sess-edit-btn" data-action="deleteEvent"
                 data-evid="${ev.id}"
@@ -762,6 +763,10 @@ window.selectLadderType = (type) => {
     if (_timeErr) { toast(_timeErr, true); return; }
     const _dateErr = checkEventDates(date, endDate);
     if (_dateErr) { toast(_dateErr, true); return; }
+    // §105: a clinic needs its day(s) of the week.
+    const _daysErr = window.FerociaClinicDays ? window.FerociaClinicDays.error('create', eventType) : '';
+    if (_daysErr) { toast(_daysErr, true); return; }
+    const weekdays = (eventType === 'clinic' && window.FerociaClinicDays) ? window.FerociaClinicDays.leer('create') : null;
     if (file && file.size > 5 * 1024 * 1024) { toast('Flyer must be under 5MB.', true); return; }
 
     const btn = document.getElementById('create-event-btn');
@@ -799,6 +804,7 @@ window.selectLadderType = (type) => {
         end_date: (eventType === 'ladder' && endDate) ? endDate : null,
         event_time: startTime || null,
         end_time:   endTime   || null,
+        weekdays:   weekdays && weekdays.length ? weekdays : null,
         event_type: eventType,
         description: desc || null,
         registration_url: regUrl || null,
@@ -874,6 +880,11 @@ window.selectLadderType = (type) => {
     // would blank a ladder's saved end date.
     const editEndEl = document.getElementById('edit-event-end-date');
     if (editEndEl) editEndEl.value = btn.dataset.evend || '';
+    // §105: the clinic's saved days go in BEFORE the type is set, so the
+    // form does not fill them from the start date instead.
+    if (window.FerociaClinicDays) {
+      window.FerociaClinicDays.cargar('edit', String(btn.dataset.evdays || '').split(',').filter(Boolean).map(Number));
+    }
     setEventType('edit', btn.dataset.evtype || '');
 
     // Wire styled file label to hidden input (once only)
@@ -987,6 +998,9 @@ window.selectLadderType = (type) => {
     // start date would sit in half the width with an empty gap beside it.
     const row = document.getElementById(`${p}event-dates-row`);
     if (row) row.classList.toggle('ev-dates-single', !rules.endDate);
+
+    // §105: the days of the week, for clinics only (admin-event-days.js).
+    if (window.FerociaClinicDays) window.FerociaClinicDays.mostrar(form, type === 'clinic');
   };
 
   /* Kept for backwards compatibility: any inline handler still calling the
@@ -1040,6 +1054,10 @@ window.selectLadderType = (type) => {
     if (_timeErr) { toast(_timeErr, true); return; }
     const _dateErr = checkEventDates(date, endDate);
     if (_dateErr) { toast(_dateErr, true); return; }
+    // §105: a clinic needs its day(s) of the week.
+    const _daysErr = window.FerociaClinicDays ? window.FerociaClinicDays.error('edit', eventType) : '';
+    if (_daysErr) { toast(_daysErr, true); return; }
+    const weekdays = (eventType === 'clinic' && window.FerociaClinicDays) ? window.FerociaClinicDays.leer('edit') : null;
     if (file && file.size > 5 * 1024 * 1024) { toast('Flyer must be under 5MB.', true); return; }
 
     const btn = document.getElementById('edit-event-btn');
@@ -1092,6 +1110,7 @@ window.selectLadderType = (type) => {
         end_date: (eventType === 'ladder' && endDate) ? endDate : null,
         event_time: startTime || null,
         end_time:   endTime   || null,
+        weekdays:   weekdays && weekdays.length ? weekdays : null,
         event_type: eventType,
         description: desc || null,
         registration_url: regUrl || null,
