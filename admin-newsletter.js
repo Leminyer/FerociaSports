@@ -134,6 +134,13 @@
     if (file.size > 5 * 1024 * 1024)     { setStatus('Image must be under 5MB.', true); return; }
 
     setStatus('Uploading...');
+    /* §106: el flyer de un evento vive en una lista ("upcoming.2.image_url").
+       Si mientras sube se quita un evento, las posiciones cambian: se recuerda
+       el evento mismo (y el correo abierto) y, al terminar, la imagen va a
+       donde esté ahora ese evento; si ya no está, no se guarda. */
+    const edicion = _current;
+    const enLista = /^([a-z_]+)\.(\d+)\.([a-z_]+)$/i.exec(path);
+    const item = enLista && Array.isArray(get(enLista[1], null)) ? get(enLista[1], [])[Number(enLista[2])] : null;
     try {
       const ext  = file.name.split('.').pop().toLowerCase();
       const name = `${Date.now()}_${path.replace(/[^a-z0-9]/gi, '_')}.${ext}`;
@@ -147,7 +154,14 @@
         const e = await res.json().catch(() => ({}));
         throw new Error(e.message || `Upload failed (${res.status})`);
       }
-      set(path, `${CFG.SUPABASE_URL}/storage/v1/object/public/newsletter-images/${name}`);
+      if (_current !== edicion) return;   // se abrió otro correo mientras subía
+      let destino = path;
+      if (item) {
+        const ahora = get(enLista[1], []).indexOf(item);
+        if (ahora < 0) { toast('The event was removed before its image finished uploading.', true); return; }
+        destino = `${enLista[1]}.${ahora}.${enLista[3]}`;
+      }
+      set(destino, `${CFG.SUPABASE_URL}/storage/v1/object/public/newsletter-images/${name}`);
       setStatus('');
       renderSections();
       toast('Image uploaded.');
@@ -249,6 +263,11 @@
       </div>`)
       + items.map((_, i) => itemBox(
         field('Name', `upcoming.${i}.title`) +
+        /* §106 (opción B): el flyer lo sube la persona aquí, evento por
+           evento. "Add from Events" no lo trae. Con flyer, el correo enseña
+           la imagen a lo ancho en vez de la tarjeta del calendario. */
+        imageField('Flyer image', `upcoming.${i}.image_url`,
+          'Optional. With a flyer, the email shows the image full width (instead of the calendar card), then the short description and the button.') +
         field('Date', `upcoming.${i}.date`, { placeholder: 'Starts October 2, 2026' }) +
         field('Time', `upcoming.${i}.time`, { placeholder: '8:30 AM – 10:30 AM' }) +
         field('Location', `upcoming.${i}.location`) +
@@ -1548,7 +1567,7 @@
     nlPickConfirm:     () => window.nlPickConfirm(),
     nlLadderChoose:    (btn) => window.nlLadderChoose(parseInt(btn.dataset.i, 10)),
     nlTournamentChoose:(btn) => window.nlTournamentChoose(parseInt(btn.dataset.i, 10)),
-    nlAddUpcoming:     () => listAdd('upcoming',  { title: '', date: '', time: '', url: '', cta_label: 'Register Now' }),
+    nlAddUpcoming:     () => listAdd('upcoming',  { title: '', image_url: '', date: '', time: '', url: '', cta_label: 'Register Now' }),
     nlAddSpotlight:    () => listAdd('spotlight', { ladder: '', period: '', top_men: [], top_women: [] }),
     nlAddChampion:     () => listAdd('champions', { division: '', level: '', podium: ['', '', ''] }),
     nlAddMetric:       () => listAdd('numbers.items', { value: '', label: '' }),
