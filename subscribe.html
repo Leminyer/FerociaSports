@@ -36,6 +36,8 @@
      una persona. Este archivo carga el de Cloudflare y lleva la clave
      PÚBLICA; la secreta vive sólo en el servidor. -->
 <script src="subscribe-turnstile.js?v=20261013d"></script>
+<!-- §107: al suscribirse bien, a la portada con el mensaje en un popup. -->
+<script src="alta-hecha.js?v=20261022a"></script>
 <!-- Esta página es pública: cualquiera puede leer su código fuente. Por
      eso no carga ningún servicio de correo ni lleva ninguna credencial.
      El correo de confirmación lo manda la función `subscribe-confirm`
@@ -408,7 +410,7 @@
       <div class="success-body" id="success-normal">
         We sent a confirmation email to:<br>
         <span class="success-email" id="confirm-email-shown"></span>
-        Please check your inbox and click the confirmation link to complete your subscription.
+        Please check your inbox — including your spam folder — and click the confirmation link to complete your subscription.
       </div>
       <!-- El servidor guardó a la persona pero NO pudo mandarle el
            correo. Antes se le enseñaba igualmente "te hemos enviado un
@@ -625,6 +627,8 @@
       document.getElementById('form-section').style.display = 'none';
       document.getElementById('confirm-email-shown').textContent = email;
       document.getElementById('success-screen').style.display = 'block';
+      // §107: lo mismo que una suscripción buena, para no darle pistas a un robot.
+      try { if (window.FerociaSubscribeDone) window.FerociaSubscribeDone.go('sent', email); } catch (_) {}
       return;
     }
 
@@ -855,6 +859,11 @@
       document.getElementById('success-normal').style.display = salioElCorreo ? '' : 'none';
       document.getElementById('success-sin-correo').style.display = salioElCorreo ? 'none' : '';
       document.getElementById('success-screen').style.display = 'block';
+      /* §107: a la portada, con este mismo mensaje en un popup. La pantalla
+         de arriba queda de respaldo por si el archivo no cargara. */
+      /* Ya está suscrita: si el salto fallara, NO debe caer en el "error" de abajo. */
+      try { if (window.FerociaSubscribeDone) window.FerociaSubscribeDone.go(salioElCorreo ? 'sent' : 'no_email', email); }
+      catch (e) { console.error('[Ferocia subscribe] No se pudo ir a la portada:', e); }
 
     } catch (err) {
       console.error('[Ferocia subscribe] Error:', err);

@@ -1,0 +1,50 @@
+/* FEROCIA — el popup "Almost Done!" de la portada (§107 — nombres neutros para que los bloqueadores de anuncios no lo escondan). Lo crea alta-aviso.js. */
+.fa-abierto,
+.fa-abierto body { overflow: hidden; }
+
+.fa-capa {
+  position: fixed; inset: 0; z-index: 300;
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px;
+  background: rgba(10, 22, 52, .72);
+  backdrop-filter: blur(6px);
+  animation: fa-aparece .2s ease-out;
+}
+.fa-caja {
+  width: 100%; max-width: 440px; overflow-y: auto;
+  max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);   /* el iPhone: sin pasar por debajo de su barra */
+  background: #fff; border-radius: var(--radius-large, 16px);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, .3);
+  padding: 36px 28px 28px; text-align: center;
+  font-family: 'Inter', sans-serif;
+}
+.fa-icono {
+  width: 72px; height: 72px; margin: 0 auto 20px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--success, #24BC96); border-radius: 50%; font-size: 32px;
+  box-shadow: 0 8px 24px rgba(36, 188, 150, .3);
+}
+.fa-titulo {
+  margin: 0 0 12px; font-size: 30px; font-weight: 800; letter-spacing: .5px;
+  color: var(--text-primary, #111827);
+}
+.fa-texto { font-size: 14px; line-height: 1.7; color: var(--text-secondary, #6B7280); }
+.fa-texto p { margin: 0 0 8px; }
+.fa-correo {
+  font-size: 15px; font-weight: 800; color: var(--primary, #174CCC);
+  word-break: break-all; margin: 4px 0 12px !important;
+}
+.fa-boton {
+  margin-top: 20px; width: 100%; padding: 14px 20px;
+  border: none; border-radius: var(--radius-pill, 999px);
+  background: var(--primary, #174CCC); color: #fff;
+  font-family: inherit; font-size: 15px; font-weight: 800; cursor: pointer;
+  transition: background .15s;
+}
+.fa-boton:hover { background: var(--primary-hover, #0F3FB0); }
+.fa-boton:focus-visible { outline: 3px solid var(--accent, #C6F221); outline-offset: 3px; }
+
+@keyframes fa-aparece { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .fa-capa { animation: none; } }
+@media (forced-colors: active) { .fa-caja { border: 2px solid CanvasText; } .fa-boton { border: 2px solid ButtonText; } }
