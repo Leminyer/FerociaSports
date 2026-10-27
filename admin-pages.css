@@ -922,3 +922,22 @@
 .ev-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 /* Alto contraste de Windows: lo marcado se distingue por el borde. */
 @media (forced-colors: active) { .ev-day input:checked + span { outline: 3px solid Highlight; outline-offset: 1px; } }
+
+/* ── §109 Videos: varios tópicos y "From YouTube — not on the website yet" ── */
+.av-temas-grupo { flex-basis: 100% !important; }
+.av-temas .ev-day span { min-width: 0; }
+.av-yt { padding: 14px; margin-bottom: 14px; border: 1px dashed #c5d6f5; border-radius: 10px; background: #f6f9ff; }
+.av-yt[hidden] { display: none; }
+.av-yt-fila { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.av-yt-fila select { flex: 1 1 260px; min-width: 0; }
+.av-yt-btn { padding: 8px 14px; min-height: 38px; white-space: nowrap; }
+.av-yt-btn:disabled { opacity: .5; cursor: not-allowed; }
+.av-yt-ocultos { margin-top: 10px; font-size: 12px; color: var(--text-muted); }
+.av-yt-ocultos summary { cursor: pointer; font-weight: 700; }
+.av-yt-oculto { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 0.5px solid var(--divider-color); }
+.av-yt-oculto:last-child { border-bottom: none; }
+.av-yt-oculto a { color: var(--text); text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.av-yt-oculto a:hover { text-decoration: underline; }
+.av-yt-restaurar { flex-shrink: 0; border: none; background: none; color: var(--blue); font: 700 12px 'Inter', sans-serif; cursor: pointer; padding: 4px 0; }
+.av-yt-restaurar:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+@media (forced-colors: active) { .av-yt { border: 1px solid CanvasText; } }

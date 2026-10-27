@@ -11,6 +11,13 @@
    CLICK_HANDLERS). La seguridad de verdad está en la base (sql/84): esta
    pantalla sólo funciona para una administradora activa.
    Estilos: admin-pages.css (av-).
+
+   §109 (27 de octubre, SQL 121):
+     · Un video puede tener VARIOS tópicos (casillas; al menos uno).
+     · "From YouTube — not on the website yet": la lista de los videos
+       públicos del canal que faltan en el sitio (función youtube-videos).
+       Al elegir uno se llenan el enlace y el título. "Not for the website"
+       lo saca de la lista para siempre (se puede deshacer: Restore).
    ============================================================ */
 
 (function () {
@@ -18,7 +25,7 @@
 
   const FV = window.FerociaVideos;
   const esc = (x) => window.esc(x == null ? '' : String(x));
-  const COLS = 'id,youtube_id,title,description,topic,is_featured,is_visible,created_at';
+  const COLS = 'id,youtube_id,title,description,topic,topics,is_featured,is_visible,created_at';
 
   let _videos = [];
   let _editando = null;     // id del video que se edita, o null (añadir)
@@ -43,7 +50,7 @@
     if (/videos_youtube_id_valido/.test(m)) return 'That is not a valid YouTube video.';
     if (/videos_title_valido/.test(m)) return 'The title is missing or too long (120 characters at most).';
     if (/videos_description_valida/.test(m)) return 'The description is too long (200 characters at most).';
-    if (/videos_topic_valido/.test(m)) return 'Choose a topic from the list.';
+    if (/videos_topic_valido|videos_topics_validos/.test(m)) return 'Choose one or more topics from the list.';
     if (/videos_un_solo_destacado/.test(m)) return 'Another video was just made the Video of the Month. Refresh and try again.';
     if (/row-level security|not_authorized|permission denied|not_saved/i.test(m)) return 'The change was not saved — your admin access could not be confirmed. Sign in again.';
     return 'Something went wrong. Please try again in a moment.';
@@ -60,19 +67,26 @@
      que después de guardar se lee y se comprueba. */
   async function comprobar(id, esperado) {
     const [fila] = await api(`videos?id=eq.${Number(id)}&select=${COLS}`);
+    /* Las listas (topics) se comparan por su contenido. */
+    const igual = (a, b) => (Array.isArray(a) || Array.isArray(b)) ? JSON.stringify(a ?? null) === JSON.stringify(b ?? null) : a === b;
     const ok = esperado === null ? !fila
-      : !!fila && Object.keys(esperado).every((k) => (fila[k] ?? null) === (esperado[k] ?? null));
+      : !!fila && Object.keys(esperado).every((k) => igual(fila[k] ?? null, esperado[k] ?? null));
     if (!ok) throw new Error('not_saved');
   }
 
   // ── EL FORMULARIO ─────────────────────────────────────────
 
+  /* §109: una casilla por tópico (mismo aspecto que los días de las clínicas). */
   function pintarTemas() {
-    const sel = $('av-topic');
-    if (!sel || sel.options.length) return;
-    sel.innerHTML = '<option value="">Choose a topic…</option>'
-      + FV.TOPICS.map((t) => `<option value="${esc(t.key)}">${esc(t.label)}</option>`).join('');
+    const caja = $('av-topics');
+    if (!caja || caja.children.length) return;
+    caja.innerHTML = FV.TOPICS.map((t) =>
+      `<label class="ev-day"><input type="checkbox" value="${esc(t.key)}"><span>${esc(t.label)}</span></label>`).join('');
   }
+  /* Los marcados, en el orden de la lista (el mismo que guarda la base). */
+  const leerTemas = () => [...document.querySelectorAll('#av-topics input:checked')].map((c) => c.value)
+    .filter((k) => FV.etiqueta(k)).sort((a, b) => FV.TOPICS.findIndex((t) => t.key === a) - FV.TOPICS.findIndex((t) => t.key === b));
+  const ponerTemas = (lista) => document.querySelectorAll('#av-topics input').forEach((c) => { c.checked = lista.includes(c.value); });
 
   function pintarVista() {
     const caja = $('av-vista');
@@ -83,7 +97,7 @@
       return;
     }
     const titulo = limpio($('av-title').value, 120) || 'Title';
-    const tema = FV.etiqueta($('av-topic').value);
+    const tema = FV.etiquetas({ topics: leerTemas() });
     caja.innerHTML = `<div class="av-vista-img"><img src="${esc(FV.imagen(id, 'mq'))}" alt=""></div>
       <div class="av-vista-tema">${esc(tema || 'Topic')}</div>
       <div class="av-vista-titulo">${esc(titulo)}</div>
@@ -123,7 +137,8 @@
       ayuda.textContent = 'Heads up: this video is not from the @ferociasports channel.';
       ayuda.className = 'av-ayuda av-ayuda-aviso';
     } else {
-      ayuda.textContent = titulo ? 'Title filled in from YouTube — change it if you like.'
+      /* §109: elegido de la lista, el título ya viene puesto aunque YouTube no conteste. */
+      ayuda.textContent = (titulo || $('av-title').value.trim()) ? 'Title filled in from YouTube — change it if you like.'
         : 'Could not get the title from YouTube. Type it in.';
       ayuda.className = 'av-ayuda';
     }
@@ -139,6 +154,8 @@
     $('av-cancel').hidden = true;
     $('av-link-ayuda').textContent = 'Paste the link of a video from your channel.';
     $('av-link-ayuda').className = 'av-ayuda';
+    $('av-yt-grupo').hidden = false;
+    pintarYouTube();
     pintarVista();
   }
 
@@ -150,7 +167,8 @@
     $('av-link').value = FV.verEnYouTube(v.youtube_id);
     $('av-link').disabled = true;
     $('av-title').value = v.title;
-    $('av-topic').value = v.topic;
+    ponerTemas(FV.temas(v));
+    $('av-yt-grupo').hidden = true;   // al editar no se elige otro video
     $('av-desc').value = v.description || '';
     $('av-featured').checked = !!v.is_featured;
     $('av-form-titulo-txt').textContent = 'Edit video';
@@ -168,12 +186,17 @@
     if (_ocupada) return;
     const id = _editando ? null : FV.codigoDe($('av-link').value);
     const title = limpio($('av-title').value, 120);
-    const topic = $('av-topic').value;
+    const topics = leerTemas();
     const description = limpio($('av-desc').value, 200) || null;
     const destacado = $('av-featured').checked;
     if (!_editando && !id) { toast('Paste a valid YouTube video link first.', true); $('av-link').focus(); return; }
     if (!title) { toast('Write a title.', true); $('av-title').focus(); return; }
-    if (!FV.etiqueta(topic)) { toast('Choose a topic.', true); $('av-topic').focus(); return; }
+    if (!topics.length) {
+      toast('Choose at least one topic.', true);
+      const primera = document.querySelector('#av-topics input');
+      if (primera) primera.focus();
+      return;
+    }
 
     _ocupada = true;
     const btn = $('av-save');
@@ -183,20 +206,22 @@
       let vid = _editando;
       if (_editando) {
         const antes = _videos.find((v) => v.id === _editando);
-        const cambios = { title, topic, description };
+        const cambios = { title, topics, description };
         /* Quitar la marca de "del mes" se hace aquí; ponerla, con la
            función de la base (de una vez, sin dejar dos ni ninguno). */
         if (antes && antes.is_featured && !destacado) cambios.is_featured = false;
         await api(`videos?id=eq.${_editando}`, 'PATCH', cambios);
-        await comprobar(_editando, { title, topic, description });
+        await comprobar(_editando, { title, topics, description });
       } else {
-        await api('videos', 'POST', { youtube_id: id, title, topic, description, is_visible: true });
+        await api('videos', 'POST', { youtube_id: id, title, topics, description, is_visible: true });
         const [nuevo] = await api(`videos?youtube_id=eq.${encodeURIComponent(id)}&select=id`);
         vid = nuevo && nuevo.id;
         if (!vid) throw new Error('not_saved');
       }
       if (destacado && vid) await marcarDelMes(vid, false);
       toast(_editando ? '✅ Video updated.' : `✅ "${title}" is now on the website.`);
+      /* Ya está en el sitio: fuera de la lista de "faltan". */
+      if (!_editando) _yt.videos = _yt.videos.filter((v) => v.youtube_id !== id);
       limpiarFormulario();
       await cargar();
     } catch (err) {
@@ -290,7 +315,7 @@
           <div class="av-pills">
             ${v.is_featured ? '<span class="av-pill av-pill-mes">Video of the Month</span>' : ''}
             ${v.is_visible ? '' : '<span class="av-pill av-pill-oculto">Hidden</span>'}
-            <span class="av-pill av-pill-tema">${esc(FV.etiqueta(v.topic))}</span>
+            ${FV.temas(v).map((k) => `<span class="av-pill av-pill-tema">${esc(FV.etiqueta(k))}</span>`).join('')}
           </div>
           <div class="av-nombre">${esc(v.title)}</div>
           ${v.description ? `<div class="av-desc">${esc(v.description)}</div>` : ''}
@@ -314,11 +339,171 @@
       if (mia !== _vezLista) return;
       _videos = (Array.isArray(filas) ? filas : []).filter((v) => FV.idValido(v.youtube_id));
       pintarLista();
+      pintarYouTube();   // lo que acaba de entrar al sitio sale de la lista de YouTube
     } catch (err) {
       if (mia !== _vezLista) return;
       console.error('[videos] no se pudieron leer:', err);
       if (caja) caja.innerHTML = '<div class="av-vacio">Could not load the videos. Please try again in a moment.</div>';
     }
+  }
+
+  // ── §109: "FROM YOUTUBE — NOT ON THE WEBSITE YET" ──────────
+
+  const _yt = { videos: [], vez: 0, listo: false, aviso: '', descartados: [], shorts: 0 };
+
+  /* Lo que contesta la función, en palabras. Pegar un enlace funciona siempre. */
+  const AVISOS_YT = {
+    missing_key: 'The YouTube list is not set up yet: the Google key (YOUTUBE_API_KEY) is missing in Supabase → Edge Functions → Secrets. You can still paste a link below.',
+    youtube_key_problem: 'YouTube did not accept the Google key. Check YOUTUBE_API_KEY in Supabase, and that "YouTube Data API v3" is enabled in Google Cloud. You can still paste a link below.',
+    youtube_quota: 'YouTube\u2019s daily limit was reached. Try again tomorrow — you can still paste a link below.',
+    channel_not_found: 'YouTube could not find the @ferociasports channel. You can still paste a link below.',
+    not_authorized: 'Your admin access could not be confirmed. Sign in again.',
+  };
+  const AVISO_YT_OTRO = 'Could not get the list from YouTube right now. Try Refresh in a moment — you can still paste a link below.';
+
+  const fechaCorta = (iso) => {
+    const d = new Date(iso);
+    return isNaN(d) ? '' : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'America/New_York' });
+  };
+
+  function pintarYouTube() {
+    const sel = $('av-yt'), ayuda = $('av-yt-ayuda'), quitar = $('av-yt-descartar');
+    if (!sel) return;
+    const elegido = sel.value;
+    /* Por si alguno se añadió por enlace: lo que ya está en el sitio no sale. */
+    const lista = _yt.videos.filter((v) => !_videos.some((x) => x.youtube_id === v.youtube_id)
+      && !_yt.descartados.some((d) => d.youtube_id === v.youtube_id));
+    const primera = document.createElement('option');
+    primera.value = '';
+    sel.replaceChildren(primera);
+    if (!_yt.listo) {
+      primera.textContent = _yt.aviso ? 'The list is not available' : 'Looking for new videos on YouTube…';
+      sel.disabled = true;
+    } else if (!lista.length) {
+      primera.textContent = 'All your YouTube videos are on the website';
+      sel.disabled = true;
+    } else {
+      primera.textContent = `Choose a video… (${lista.length} not on the website yet)`;
+      lista.forEach((v) => {
+        const o = document.createElement('option');
+        o.value = v.youtube_id;
+        const f = fechaCorta(v.published_at);
+        o.textContent = `${f ? `${f} — ` : ''}${v.title || v.youtube_id}`;   // como texto, nunca como HTML
+        sel.appendChild(o);
+      });
+      sel.disabled = false;
+      /* Si el que estaba elegido sigue en la lista, se queda elegido. */
+      if (elegido && lista.some((v) => v.youtube_id === elegido)) sel.value = elegido;
+    }
+    quitar.disabled = !sel.value;
+    ayuda.textContent = _yt.aviso || (_yt.listo
+      ? `Public videos from your channel, newest first. ${_yt.shorts ? `${_yt.shorts} Short${_yt.shorts === 1 ? ' was' : 's were'} left out.` : 'Shorts are left out.'}`
+      : 'Looking for new videos on YouTube…');
+    ayuda.className = _yt.aviso ? 'av-ayuda av-ayuda-aviso' : 'av-ayuda';
+  }
+
+  async function leerCodigoDeError(error) {
+    try {
+      const resp = error && error.context;
+      if (resp && typeof resp.json === 'function') return ((await resp.clone().json()) || {}).error || '';
+    } catch (_) { /* sin cuerpo legible */ }
+    return '';
+  }
+
+  async function cargarYouTube() {
+    const mia = ++_yt.vez;
+    _yt.listo = false; _yt.aviso = '';
+    pintarYouTube();
+    let codigo = '';
+    try {
+      const sb = window.supabase;
+      if (!sb || !sb.functions) throw new Error('no_client');
+      const { data, error } = await sb.functions.invoke('youtube-videos', { body: {} });
+      if (error) codigo = (await leerCodigoDeError(error)) || 'unexpected';
+      else if (!data || data.ok !== true || !Array.isArray(data.videos)) codigo = (data && data.error) || 'unexpected';
+      if (mia !== _yt.vez) return;
+      if (!codigo) {
+        _yt.videos = data.videos.filter((v) => v && FV.idValido(v.youtube_id))
+          .map((v) => ({ youtube_id: v.youtube_id, title: limpio(v.title, 120), published_at: String(v.published_at || '') }));
+        _yt.shorts = Number(data.shorts) || 0;
+        _yt.listo = true;
+      }
+    } catch (err) {
+      console.error('[videos] la lista de YouTube:', err);
+      codigo = 'unexpected';
+    }
+    if (mia !== _yt.vez) return;
+    if (codigo) { _yt.aviso = AVISOS_YT[codigo] || AVISO_YT_OTRO; _yt.videos = []; }
+    pintarYouTube();
+  }
+
+  /* Al elegir uno: el enlace y el título, como si se hubiera pegado. */
+  function alElegirDeYouTube() {
+    const id = $('av-yt').value;
+    $('av-yt-descartar').disabled = !id;
+    if (!id) return;
+    const v = _yt.videos.find((x) => x.youtube_id === id);
+    $('av-link').value = FV.verEnYouTube(id);
+    $('av-title').value = v ? v.title : '';
+    alCambiarEnlace();
+  }
+
+  async function cargarDescartados() {
+    try {
+      const filas = await api('videos_descartados?select=youtube_id,title,created_at&order=created_at.desc');
+      _yt.descartados = (Array.isArray(filas) ? filas : []).filter((d) => FV.idValido(d.youtube_id));
+    } catch (err) {
+      console.error('[videos] los "Not for the website":', err);
+      _yt.descartados = [];
+    }
+    const caja = $('av-yt-ocultos'), lista = $('av-yt-ocultos-lista');
+    if (!caja) return;
+    caja.hidden = !_yt.descartados.length;
+    $('av-yt-ocultos-n').textContent = `(${_yt.descartados.length})`;
+    lista.innerHTML = _yt.descartados.map((d) => `
+      <div class="av-yt-oculto">
+        <a href="${esc(FV.verEnYouTube(d.youtube_id))}" target="_blank" rel="noopener">${esc(d.title || d.youtube_id)}</a>
+        <button type="button" class="av-yt-restaurar" data-action="avYtRestaurar" data-yt="${esc(d.youtube_id)}">Restore</button>
+      </div>`).join('');
+  }
+
+  async function descartar() {
+    const id = $('av-yt').value;
+    const v = _yt.videos.find((x) => x.youtube_id === id);
+    if (!v || _ocupada) return;
+    _ocupada = true;
+    try {
+      await api('videos_descartados', 'POST', { youtube_id: v.youtube_id, title: v.title || null });
+      _yt.videos = _yt.videos.filter((x) => x.youtube_id !== v.youtube_id);
+      if (FV.codigoDe($('av-link').value) === v.youtube_id) limpiarFormulario();
+      toast(`"${v.title}" is out of this list. It stays on YouTube — "Restore" brings it back.`);
+    } catch (err) {
+      console.error('[videos] Not for the website:', err);
+      toast(/duplicate key/.test(String(err && err.message)) ? 'That video was already out of the list.' : errorLegible(err), true);
+    } finally {
+      _ocupada = false;
+    }
+    pintarYouTube();
+    await cargarDescartados();
+    pintarYouTube();
+    $('av-yt').focus();   // el botón se apagó: el cursor vuelve a la lista
+  }
+
+  async function restaurar(yt) {
+    if (!FV.idValido(yt) || _ocupada) return;
+    _ocupada = true;
+    try {
+      await api(`videos_descartados?youtube_id=eq.${encodeURIComponent(yt)}`, 'DELETE');
+      toast('Back in the list.');
+    } catch (err) {
+      console.error('[videos] Restore:', err);
+      toast(errorLegible(err), true);
+    } finally {
+      _ocupada = false;
+    }
+    await cargarDescartados();
+    $('av-yt-ocultos').hidden ? $('av-yt').focus() : $('av-yt-ocultos').querySelector('summary').focus();
+    await cargarYouTube();
   }
 
   function abrir() {
@@ -327,10 +512,13 @@
       $('av-form')._enganchado = true;
       $('av-form').addEventListener('submit', guardar);
       $('av-link').addEventListener('input', alCambiarEnlace);
-      ['av-title', 'av-topic'].forEach((x) => $(x).addEventListener('input', pintarVista));
-      $('av-topic').addEventListener('change', pintarVista);
+      $('av-title').addEventListener('input', pintarVista);
+      $('av-topics').addEventListener('change', pintarVista);
+      $('av-yt').addEventListener('change', alElegirDeYouTube);
     }
     cargar();
+    cargarYouTube();
+    cargarDescartados();
   }
 
   window.AdminPageLoaders.videos = abrir;
@@ -340,5 +528,8 @@
     avOcultar: (btn) => mostrarOcultar(btn.dataset.vid),
     avBorrar:  (btn) => borrar(btn.dataset.vid),
     avDelMes:  (btn) => accion(() => marcarDelMes(btn.dataset.vid, false), '✅ That is now the Video of the Month.'),
+    avYtRefrescar: () => cargarYouTube(),
+    avYtDescartar: () => descartar(),
+    avYtRestaurar: (btn) => restaurar(btn.dataset.yt),
   });
 })();

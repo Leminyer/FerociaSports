@@ -100,7 +100,7 @@
     boton.appendChild(play(30, '#080f2e'));
     img.appendChild(boton);
     const cuerpo = el('span', 'ac-cuerpo');
-    cuerpo.appendChild(el('span', 'ac-tema', FV.etiqueta(v.topic)));
+    cuerpo.appendChild(el('span', 'ac-tema', FV.etiquetas(v)));   // §109: todos sus tópicos
     cuerpo.appendChild(el('span', 'ac-nombre-grande', v.title));
     if (v.description) cuerpo.appendChild(el('span', 'ac-desc', v.description));
     cuerpo.appendChild(verEnYouTube());
@@ -116,7 +116,7 @@
     boton.appendChild(play(22, '#C6F221'));
     img.appendChild(boton);
     const cuerpo = el('span', 'ac-cuerpo');
-    cuerpo.appendChild(el('span', 'ac-tema', FV.etiqueta(v.topic)));
+    cuerpo.appendChild(el('span', 'ac-tema', FV.etiquetas(v)));   // §109: todos sus tópicos
     cuerpo.appendChild(el('span', 'ac-nombre', v.title));
     cuerpo.appendChild(verEnYouTube());
     a.append(img, cuerpo);
@@ -125,7 +125,8 @@
 
   function pintarCuadricula() {
     const g = document.getElementById('ac-grid');
-    g.replaceChildren(...(_tema ? _resto.filter((v) => v.topic === _tema) : _resto).map(tarjeta));
+    /* §109: el video sale en CADA tópico que tiene. */
+    g.replaceChildren(...(_tema ? _resto.filter((v) => FV.temas(v).includes(_tema)) : _resto).map(tarjeta));
     document.querySelectorAll('#ac-chips .ac-chip').forEach((b) =>
       b.setAttribute('aria-pressed', b.dataset.tema === _tema ? 'true' : 'false'));
   }
@@ -140,7 +141,7 @@
     const mas = document.getElementById('ac-mas');
     const chips = document.getElementById('ac-chips');
     mas.hidden = !resto.length;
-    const presentes = FV.TOPICS.filter((t) => resto.some((v) => v.topic === t.key));
+    const presentes = FV.TOPICS.filter((t) => resto.some((v) => FV.temas(v).includes(t.key)));
     chips.hidden = presentes.length < 2;
     if (!presentes.some((t) => t.key === _tema)) _tema = '';
     if (presentes.length >= 2) {
@@ -167,8 +168,11 @@
          al público: una administradora con la sesión del panel abierta
          en el mismo navegador lee con SU permiso, y vería los ocultos en
          la página pública. Lo encontró una prueba. */
-      const filas = await window.api('videos?select=id,youtube_id,title,description,topic,is_featured,created_at'
-        + '&is_visible=eq.true&order=is_featured.desc,created_at.desc&limit=200');
+      const resto = '&is_visible=eq.true&order=is_featured.desc,created_at.desc&limit=200';
+      /* §109: si la base todavía no tiene "topics" (el SQL 121 sin correr),
+         se pide como antes, para que la sección no desaparezca. */
+      const filas = await window.api(`videos?select=id,youtube_id,title,description,topic,topics,is_featured,created_at${resto}`)
+        .catch(() => window.api(`videos?select=id,youtube_id,title,description,topic,is_featured,created_at${resto}`));
       _videos = (Array.isArray(filas) ? filas : [])
         .filter((v) => v && FV.idValido(v.youtube_id) && typeof v.title === 'string' && v.title.trim())
         .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));

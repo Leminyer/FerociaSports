@@ -439,7 +439,7 @@
     _videoAviso = 'Looking for the Video of the Month…';
     pintarVideo();
     try {
-      const filas = await window.api('videos?select=youtube_id,title,description,topic'
+      const filas = await window.api('videos?select=youtube_id,title,description,topic,topics'
         + '&is_featured=eq.true&is_visible=eq.true&limit=1');
       const v = Array.isArray(filas) ? filas[0] : null;
       if (_current !== edicion) return;            // another edition was opened meanwhile
@@ -453,7 +453,8 @@
         youtube_id: v.youtube_id,
         title: String(v.title || ''),
         description: String(v.description || ''),
-        topic_label: FV.etiqueta(v.topic),
+        // §109: todos los tópicos del video ("Serve & Return · Mistakes").
+        topic_label: FV.etiquetas(v),
         thumb: tam,
       });
       _videoAviso = '';

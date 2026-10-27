@@ -22,7 +22,7 @@
      four must stay in this sequence. See the header of admin-layout.css. -->
 <link rel="stylesheet" href="admin-layout.css?v=20261012a">
 <link rel="stylesheet" href="admin-components.css?v=20261008a">
-<link rel="stylesheet" href="admin-pages.css?v=20261020a">
+<link rel="stylesheet" href="admin-pages.css?v=20261027a">
 <link rel="stylesheet" href="admin-ftc.css?v=20260928b">
 <link rel="stylesheet" href="admin-comms-hub.css?v=20261013c">
 
@@ -2957,6 +2957,21 @@
     <form id="av-form" class="av-form" novalidate>
       <div class="av-form-cols">
         <div class="av-form-campos">
+          <!-- §109: los videos del canal que todavía no están en el sitio
+               (función youtube-videos). Se esconde al editar. -->
+          <div class="ap-group av-yt" id="av-yt-grupo">
+            <label class="ap-label" for="av-yt">From YouTube — not on the website yet</label>
+            <div class="av-yt-fila">
+              <select id="av-yt" class="ap-input" disabled><option value="">Looking for new videos on YouTube…</option></select>
+              <button type="button" class="av-btn av-btn-sec av-yt-btn" id="av-yt-refrescar" data-action="avYtRefrescar" title="Look again on YouTube">Refresh</button>
+              <button type="button" class="av-btn av-btn-sec av-yt-btn" id="av-yt-descartar" data-action="avYtDescartar" disabled title="Take it out of this list for good (it stays on YouTube)">Not for the website</button>
+            </div>
+            <div class="av-ayuda" id="av-yt-ayuda" aria-live="polite"></div>
+            <details class="av-yt-ocultos" id="av-yt-ocultos" hidden>
+              <summary>Not for the website <span id="av-yt-ocultos-n"></span></summary>
+              <div id="av-yt-ocultos-lista"></div>
+            </details>
+          </div>
           <div class="ap-group">
             <label class="ap-label" for="av-link">YouTube link <span class="av-req">*</span></label>
             <input type="text" id="av-link" class="ap-input" placeholder="https://www.youtube.com/watch?v=… or https://youtu.be/…" autocomplete="off">
@@ -2967,9 +2982,11 @@
             <input type="text" id="av-title" class="ap-input" maxlength="120" autocomplete="off">
           </div>
           <div class="av-fila">
-            <div class="ap-group">
-              <label class="ap-label" for="av-topic">Topic <span class="av-req">*</span></label>
-              <select id="av-topic" class="ap-input"></select>
+            <!-- §109: uno o varios tópicos (las casillas las pinta admin-videos.js). -->
+            <div class="ap-group av-temas-grupo">
+              <span class="ap-label" id="av-topics-label">Topics <span class="av-req" aria-hidden="true">*</span><span class="ev-sr">(choose one or more)</span></span>
+              <div class="ev-days av-temas" id="av-topics" role="group" aria-labelledby="av-topics-label"></div>
+              <div class="av-ayuda">Choose one or more. On the website, the video shows under each of them.</div>
             </div>
             <label class="av-check"><input type="checkbox" id="av-featured"> <span>Make it the <strong>Video of the Month</strong></span></label>
           </div>
@@ -4031,8 +4048,8 @@
 <script src="admin-ladder-selector.js?v=20260928b"></script>
 <script src="admin-orders.js?v=20260928b"></script>
 <!-- Ajuste 24: los videos de la Academy (lo común, y la pantalla). -->
-<script src="videos-common.js?v=20261013h"></script>
-<script src="admin-videos.js?v=20261013g"></script>
+<script src="videos-common.js?v=20261027a"></script>
+<script src="admin-videos.js?v=20261027a"></script>
 <script src="admin-email-utils.js?v=20261013a"></script>
 <script src="admin-rich-editor.js?v=20261009b"></script>
 <script src="admin-share.js?v=20260928b"></script>
@@ -4050,7 +4067,7 @@
 <script src="admin-comms-results.js?v=20261011d"></script>
 <script src="admin-promotions.js?v=20261013f"></script>
 <script src="admin-subscriber-reminder.js?v=20261005a"></script>
-<script src="admin-newsletter.js?v=20261026a"></script>
+<script src="admin-newsletter.js?v=20261027a"></script>
 <!-- TEMPORARY: fills in missing dates of birth from a CSV import.
      Delete this line and temp-dob-backfill.js once every player has one.
      See the header of that file. -->

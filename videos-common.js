@@ -8,7 +8,8 @@
    ⚠️  En la base sólo se guarda el CÓDIGO de 11 caracteres de cada video
    (sql/84). Los enlaces y las imágenes se arman AQUÍ, siempre hacia
    youtube.com / i.ytimg.com: así nadie puede colar un enlace a otro sitio.
-   Los temas válidos son los mismos que exige el SQL 84 (videos_topic_valido).
+   Los temas válidos son los mismos que exige el SQL 84 (videos_topic_valido)
+   y el SQL 121 (videos_topics_validos: uno o varios por video).
    ============================================================ */
 
 (function () {
@@ -62,12 +63,24 @@
     ? `https://i.ytimg.com/vi/${id}/${{ hq: 'hqdefault', mq: 'mqdefault', max: 'maxresdefault' }[tam] || 'hqdefault'}.jpg`
     : '';
 
+  /* §109 (SQL 121): un video puede tener varios tópicos (v.topics). Si
+     todavía no los trae (la base de antes), vale su único v.topic. Siempre
+     sin repetidos y en el orden de la lista de arriba. */
+  function temas(v) {
+    const lista = (v && Array.isArray(v.topics) && v.topics.length) ? v.topics : (v && v.topic ? [v.topic] : []);
+    return TOPICS.map((t) => t.key).filter((k) => lista.includes(k));
+  }
+  /* "Serve & Return · Mistakes" */
+  const etiquetas = (v) => temas(v).map((k) => ETIQUETA[k]).join(' \u00b7 ');
+
   window.FerociaVideos = {
     CANAL,
     SUSCRIBIRSE: `${CANAL}?sub_confirmation=1`,
     TODOS: `${CANAL}/videos`,
     TOPICS,
     etiqueta: (k) => ETIQUETA[k] || '',
+    temas,
+    etiquetas,
     codigoDe,
     verEnYouTube,
     imagen,
