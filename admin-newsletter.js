@@ -325,9 +325,16 @@
       // something to edit. Importing fills the name in, so an empty field
       // and an "Add division" button up front asked the admin to do work
       // the importer was about to do for them.
-      + (items.length
+      /* §108: con un collage y sin divisiones la sección sale igual (con su
+         nombre), así que el nombre del torneo se enseña también entonces. */
+      + (items.length || get('champions_image')
           ? field('Tournament name', 'champions_sub', { placeholder: 'Mamba Day 2026 · Sunday, August 23, 2026' })
           : '')
+      /* §108: el collage de los ganadores (una sola imagen, la hace la dueña).
+         En el correo va a lo ancho, debajo del nombre y antes de las tarjetas.
+         Sin collage, nada: ni hueco. */
+      + imageField('Champions collage', 'champions_image',
+          'Optional. One image with the winners\' photos — it shows full width under the tournament name, above the divisions. Landscape, about 1200 px wide, looks best.')
       + items.map((_, i) => {
         const pod = get(`champions.${i}.podium`, ['', '', '']);
         return itemBox(
