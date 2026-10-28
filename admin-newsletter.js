@@ -733,18 +733,60 @@
         return;
       }
       const catIds = cats.map((c) => c.id).join(',');
-      const [teams, matches] = await Promise.all([
-        api(`tournament_teams?category_id=in.(${catIds})&select=id,category_id,name`),
+      const [teams, matches, bracket] = await Promise.all([
+        api(`tournament_teams?category_id=in.(${catIds})&select=id,category_id,name,player1_id,player2_id,player3_id,player4_id`),
         api(`tournament_rr_matches?category_id=in.(${catIds})`
           + `&select=category_id,status,team_a_id,team_b_id,score_a,score_b,winner_id,forfeit_team_id`),
+        /* §110: la fase final, para que el podio sea el de la página de resultados. */
+        api(`tournament_bracket_matches?category_id=in.(${catIds})&select=category_id,round_name,status,team_a_id,team_b_id,winner_id`),
       ]);
+
+      /* §110 (1 A): los nombres de los jugadores de cada equipo, "Nombre Apellido & Nombre Apellido",
+         como en la página de resultados. Se piden de 150 en 150 (la dirección no puede ser infinita). */
+      const miembros = (tm) => [tm.player1_id, tm.player2_id, tm.player3_id, tm.player4_id].filter(Boolean);
+      const ids = [...new Set((teams || []).flatMap(miembros))];
+      const nombres = new Map();
+      try {
+        for (let k = 0; k < ids.length; k += 150) {
+          const filas = await api(`players?id=in.(${ids.slice(k, k + 150).join(',')})&select=id,first_name,last_name`);
+          (filas || []).forEach((p) => nombres.set(p.id, [p.first_name, p.last_name].map((x) => String(x || '').trim()).filter(Boolean).join(' ')));
+        }
+      } catch (e) {
+        /* Si los nombres no se pueden leer, se importa igual, con los nombres de equipo. */
+        console.warn('[newsletter] no se pudieron leer los jugadores:', e);
+        nombres.clear();
+      }
+      /* Si un equipo no tiene jugadores (o no se encuentran), queda su nombre de equipo, como antes. */
+      const nombreDe = (tm) => {
+        if (!tm) return '';
+        const n = miembros(tm).map((id) => nombres.get(id)).filter(Boolean);
+        return n.length ? n.join(' & ') : String(tm.name || '');
+      };
+      const equipo = new Map((teams || []).map((tm) => [tm.id, tm]));
+
+      /* §110 (2 A): con fase final, el podio sale de la Final (campeón y 2.º) y del partido
+         por el 3.er puesto, igual que la página de resultados. Sin Final terminada, de la
+         fase de grupos, como antes. */
+      const podioDeLaFinal = (cb) => {
+        const fin = cb.find((m) => m.round_name === 'Final' && m.status === 'completed' && m.winner_id);
+        if (!fin) return null;
+        const segundo = fin.team_a_id === fin.winner_id ? fin.team_b_id : fin.team_a_id;
+        const tercero = cb.find((m) => m.round_name === '3rd Place' && m.status === 'completed' && m.winner_id);
+        /* Si el campeón no se encuentra, no se sube a nadie de puesto: fase de grupos. */
+        if (!equipo.get(fin.winner_id)) return null;
+        /* Cada puesto en su sitio (un hueco se queda vacío, no se corre). */
+        return [fin.winner_id, segundo, tercero && tercero.winner_id].map((id) => (id && equipo.get(id)) || null);
+      };
 
       const added = [];
       (cats || []).forEach((c) => {
         const ct = (teams || []).filter((x) => x.category_id === c.id);
         const cm = (matches || []).filter((m) => m.category_id === c.id);
         if (!ct.length) return;
-        const podium = calcPodium(ct, cm).slice(0, 3).map((r) => r.team.name);
+        const cb = (bracket || []).filter((m) => m.category_id === c.id);
+        const podium = (podioDeLaFinal(cb) || calcPodium(ct, cm).slice(0, 3).map((r) => r.team)).map(nombreDe);
+        /* Siempre los tres campos (Champion, 2nd, 3rd) en el editor, aunque uno quede vacío. */
+        while (podium.length < 3) podium.push('');
         // A division with no completed matches produces no real podium.
         if (!podium.length) return;
         // tournament_categories has no skill/level column — the level is
