@@ -104,6 +104,8 @@
     inactive:      { corto: 'Inactive',      plural: (n) => `${n} inactive` },
     no_email:      { corto: 'No email',      plural: (n) => `${n} with no email` },
     invalid_email: { corto: 'Invalid email', plural: (n) => `${n} with an invalid email` },
+    /* §112 (SQL 124): marcado "Do not email" en su ficha. */
+    do_not_email:  { corto: 'Do not email',  plural: (n) => `${n} marked "Do not email"` },
   };
 
   /* Los errores que el servidor devuelve con un código fijo, en una
@@ -876,7 +878,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     const filas = orden.map((p) => {
       const estado = p.included
         ? '<span class="pill pill-active">Receives</span>'
-        : `<span class="pill ${p.excluded_reason === 'sub' || p.excluded_reason === 'inactive'
+        : `<span class="pill ${p.excluded_reason === 'sub' || p.excluded_reason === 'inactive' || p.excluded_reason === 'do_not_email'
               ? 'pill-inactive' : 'hub-pill-warn'}">${esc(MOTIVOS[p.excluded_reason]?.corto || p.excluded_reason)}</span>`;
       return `<tr class="${p.included ? '' : 'hub-row-out'}">
         <td>${esc(window.nombreDestinatario(p))}</td>
@@ -1588,6 +1590,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     inactive:      'is inactive. Inactive players don\'t receive emails — reactivate them first.',
     no_email:      'has no email on file.',
     invalid_email: 'has an email address that isn\'t valid. Fix it in their profile first.',
+    do_not_email:  'is marked "Do not email". To write to them, uncheck it in Edit Player first.',
   };
   /* No aparece en la lista de jugadores (por ejemplo, se borró mientras
      tanto): no se inventa un motivo. */

@@ -444,7 +444,8 @@
           stats,
           ind,
           statusText,
-          statusHTML: getStatusHTML(statusText),
+          /* §112: "Do not email" se ve también en la lista. */
+          statusHTML: getStatusHTML(statusText) + (p.do_not_email ? ' <span class="pill pill-nomail" title="No Communications Hub emails">Do not email</span>' : ''),
           initials:   `${p.first_name?.[0]||''}${p.last_name?.[0]||''}`.toUpperCase(),
           avColor:    getAvColor(p.id || idx),
         };
@@ -2203,6 +2204,14 @@
     }
     document.getElementById('edit-gender').value = p.gender || '';
     document.getElementById('edit-status').value = p.status || 'active';
+    /* §112: "Do not email". */
+    const noMail = document.getElementById('edit-do-not-email');
+    if (noMail) {
+      noMail.checked = p.do_not_email === true;
+      noMail.dataset.antes = String(p.do_not_email === true);   // para el historial, al guardar
+      /* Sin el SQL 124 la casilla no se enseña (no se guardaría). */
+      noMail.closest('label').hidden = !('do_not_email' in p);
+    }
 
     // Reset reason field state
     const reasonEl = document.getElementById('edit-reason');
@@ -2365,6 +2374,11 @@
             : {}),
       gender: document.getElementById('edit-gender').value || null,
       status: newStatus,
+      /* §112: sólo si la casilla se enseñó al abrir (la ficha que se abrió trae
+         "do_not_email": la base ya tiene el SQL 124). Si no, guarda como antes. */
+      ...(document.getElementById('edit-do-not-email')
+          && !document.getElementById('edit-do-not-email').closest('label').hidden
+            ? { do_not_email: document.getElementById('edit-do-not-email').checked } : {}),
     };
 
     try {
@@ -2376,6 +2390,13 @@
 
       await api(`players?id=eq.${id}`, 'PATCH', body);
       window.logAuditAction(id, 'player_edited', 'Edited player information');
+      /* §112: queda en su historial cuándo se marcó o se quitó "Do not email". */
+      const antesNoMail = document.getElementById('edit-do-not-email')?.dataset.antes === 'true';
+      if ('do_not_email' in body && antesNoMail !== body.do_not_email) {
+        window.logAuditAction(id, 'player_edited', body.do_not_email
+          ? 'Marked "Do not email": no Communications Hub emails'
+          : 'Removed "Do not email": receives Communications Hub emails again');
+      }
 
       /* Si esta persona es suscriptora, sus datos se ponen al día con los
          del jugador (ver actualizarSuscriptor, arriba). Se la busca con los

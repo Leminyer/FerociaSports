@@ -941,3 +941,15 @@
 .av-yt-restaurar { flex-shrink: 0; border: none; background: none; color: var(--blue); font: 700 12px 'Inter', sans-serif; cursor: pointer; padding: 4px 0; }
 .av-yt-restaurar:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 @media (forced-colors: active) { .av-yt { border: 1px solid CanvasText; } }
+
+/* ── §112: "Do not email" (Edit Player y la lista de Players) ── */
+.pl-nomail[hidden] { display: none; }
+.pl-nomail { display: flex; align-items: flex-start; gap: 10px; margin: 4px 0 14px; padding: 10px 12px;
+  border: 1px solid #f3d3c2; border-radius: 8px; background: #fff7f2; cursor: pointer;
+  font-size: 12px; line-height: 1.5; color: var(--text-muted); }
+/* Las etiquetas del formulario van en mayúsculas; este texto, no. */
+.modal .pl-nomail, .pl-nomail span { text-transform: none; letter-spacing: normal; font-weight: 500; font-size: 12px; }
+.pl-nomail input { width: 16px; height: 16px; margin-top: 2px; flex-shrink: 0; accent-color: var(--orange); }
+.pl-nomail strong { color: var(--text); }
+.pill-nomail { background: #fde6da; color: #9a3412; white-space: nowrap; }
+@media (forced-colors: active) { .pl-nomail { border-color: CanvasText; } }
