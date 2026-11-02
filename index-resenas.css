@@ -1,0 +1,16 @@
+/* ============================================================
+   FEROCIA — ferociasports.com: "What players say" (§113)
+   Las tarjetas de las reviews publicadas, en el mismo tono oscuro que
+   las tarjetas de eventos.
+   ============================================================ */
+.rvs[hidden] { display: none; }
+.rvs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 24px; }
+.rvs-card { display: flex; flex-direction: column; gap: 14px; margin: 0; padding: 24px; border-radius: 16px;
+  background: #0d1a4a; border: 1px solid rgba(255,255,255,.08); }
+.rvs-estrellas { font-size: 18px; letter-spacing: 2px; color: #F5B301; line-height: 1; }
+.rvs-estrellas .rvs-off { color: rgba(255,255,255,.18); }
+.rvs-texto { margin: 0; font-size: 15px; line-height: 1.6; color: rgba(255,255,255,.88); white-space: pre-wrap; overflow-wrap: anywhere; }
+.rvs-quien { margin-top: auto; font-size: 12px; font-weight: 700; color: var(--lime); letter-spacing: .5px; }
+.rvs-evento { display: block; margin-top: 2px; font-weight: 500; color: rgba(255,255,255,.45); letter-spacing: 0; }
+@media (max-width: 600px) { .rvs-grid { grid-template-columns: 1fr; gap: 16px; } .rvs-card { padding: 20px; } }
+@media (forced-colors: active) { .rvs-card { border-color: CanvasText; } }

@@ -22,7 +22,7 @@
      four must stay in this sequence. See the header of admin-layout.css. -->
 <link rel="stylesheet" href="admin-layout.css?v=20261012a">
 <link rel="stylesheet" href="admin-components.css?v=20261008a">
-<link rel="stylesheet" href="admin-pages.css?v=20261029a">
+<link rel="stylesheet" href="admin-pages.css?v=20261102a">
 <link rel="stylesheet" href="admin-ftc.css?v=20260928b">
 <link rel="stylesheet" href="admin-comms-hub.css?v=20261013c">
 
@@ -181,6 +181,11 @@
       <!-- Ajuste 30: el contador rojo de problemas de entrega nuevos (admin-avisos-problemas.js). -->
       <span class="sb-item-icon avp-ancla"><span class="avp-num avp-num-icono" id="avp-sb" hidden></span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></span>
       <span class="sb-item-label">Communications</span>
+    </button>
+    <!-- §113: las reviews de los jugadores y el contador de nuevas (admin-reviews.js). -->
+    <button class="sb-item" id="sb-reviews" data-action="showPage" data-page="reviews">
+      <span class="sb-item-icon avp-ancla"><span class="avp-num avp-num-icono" id="rv-sb" hidden></span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></span>
+      <span class="sb-item-label">Reviews</span>
     </button>
     <button class="sb-item" id="sb-share" data-action="showPage" data-page="share">
       <span class="sb-item-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" ><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span>
@@ -2327,7 +2332,11 @@
                     <button type="button" class="co-pfilter" aria-pressed="false" data-action="hubKind" data-kind="announcement">Announcement</button>
                     <button type="button" class="co-pfilter" aria-pressed="false" data-action="hubKind" data-kind="availability" id="hub-kind-availability">Weekly Availability</button>
                     <button type="button" class="co-pfilter" aria-pressed="false" data-action="hubKind" data-kind="custom">Custom Poll</button>
+                    <!-- §113: pedir una review. Sólo con la escalera o el torneo
+                         completado; si no, el botón se ve apagado con el porqué. -->
+                    <button type="button" class="co-pfilter" aria-pressed="false" data-action="hubKind" data-kind="review" id="hub-kind-review" aria-describedby="hub-kind-review-hint">&#x2B50; Review Request</button>
                   </div>
+                  <div class="hub-hint hub-hint-after" id="hub-kind-review-hint" hidden></div>
                 </div>
 
                 <div class="hub-field" id="hub-preset-wrap" hidden>
@@ -2368,6 +2377,17 @@
                     <label class="hub-field-label" for="hub-deadline">Response Deadline <span class="hub-req">*</span></label>
                     <input type="datetime-local" class="hub-input hub-input-short" id="hub-deadline" aria-describedby="hub-deadline-hint">
                     <div class="hub-hint hub-hint-after" id="hub-deadline-hint">Florida time. Players can change their answer until then.</div>
+                  </div>
+                </div>
+
+                <!-- §113: la review. La pregunta, las estrellas y los 30 días los
+                     pone el servidor; aquí sólo se enseña lo que recibirán. -->
+                <div class="hub-field" id="hub-review-wrap" hidden>
+                  <div class="hub-field-label">What players will get</div>
+                  <div class="hub-poll-fixed hub-review-box">
+                    <p><strong id="hub-review-question"></strong></p>
+                    <p>&#x2B50;&#x2B50;&#x2B50;&#x2B50;&#x2B50; 5 stars to tap in the email, then a private page with two optional questions: &ldquo;Tell us about it&rdquo; and &ldquo;What could we do better?&rdquo; (private, only for the FEROCIA team).</p>
+                    <p>Sent to everyone who played (subs are not included). Players can share or update their review for 30 days.</p>
                   </div>
                 </div>
 
@@ -3081,6 +3101,40 @@
   <div id="pc-body"><div class="loading">Loading...</div></div>
 </div>
 
+<!-- §113: REVIEWS. Lo que dijeron los jugadores después de cada escalera
+     o torneo (se piden desde el Communications Hub, "Review Request").
+     Lo maneja admin-reviews.js; los estilos, admin-pages.css (rvw-). -->
+<div id="page-reviews" class="page">
+  <div class="av-cabecera">
+    <div class="av-titulo">Reviews</div>
+    <div class="av-sub">What players said after each ladder and tournament. Only the reviews you mark &ldquo;Show on website&rdquo; appear on ferociasports.com, with the player&rsquo;s first name and last initial.</div>
+  </div>
+  <div class="rvw-filtros" id="rvw-filtros" hidden>
+    <label class="rvw-filtro">Event
+      <select class="hub-select" id="rvw-f-evento"><option value="">All events</option></select>
+    </label>
+    <label class="rvw-filtro">Rating
+      <select class="hub-select" id="rvw-f-estrellas">
+        <option value="">All ratings</option>
+        <option value="5">5 stars</option><option value="4">4 stars</option><option value="3">3 stars</option>
+        <option value="2">2 stars</option><option value="1">1 star</option>
+      </select>
+    </label>
+    <label class="rvw-filtro">Show
+      <select class="hub-select" id="rvw-f-ver">
+        <option value="">All reviews</option>
+        <option value="new">New</option>
+        <option value="public">On the website</option>
+        <option value="comment">With a comment</option>
+        <option value="improve">With a suggestion</option>
+      </select>
+    </label>
+  </div>
+  <span class="pa-sr" id="rvw-estado" aria-live="polite"></span>
+  <div id="rvw-resumen" class="rvw-resumen" hidden></div>
+  <div id="rvw-body"><div class="loading">Loading...</div></div>
+</div>
+
 <div id="page-newsletter" class="page">
   <div style="padding:24px 28px;max-width:1100px;">
 
@@ -3234,6 +3288,9 @@
   </button>
   <button class="more-drawer-item" id="md-communications" data-action="showPage" data-page="communications">
     <span class="more-drawer-icon">✉️</span>Communications<span class="avp-num avp-num-fila" id="avp-md" hidden></span>
+  </button>
+  <button class="more-drawer-item" id="md-reviews" data-action="showPage" data-page="reviews">
+    <span class="more-drawer-icon more-drawer-svg"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></span>Reviews<span class="avp-num avp-num-fila" id="rv-md" hidden></span>
   </button>
   <button class="more-drawer-item" id="md-share" data-action="showPage" data-page="share">
     <span class="more-drawer-icon">🔗</span>Share Links
@@ -4057,7 +4114,7 @@
 <!-- Ajuste 24: los videos de la Academy (lo común, y la pantalla). -->
 <script src="videos-common.js?v=20261027a"></script>
 <script src="admin-videos.js?v=20261027a"></script>
-<script src="admin-email-utils.js?v=20261013a"></script>
+<script src="admin-email-utils.js?v=20261102a"></script>
 <script src="admin-rich-editor.js?v=20261009b"></script>
 <script src="admin-share.js?v=20260928b"></script>
 <script src="admin-player-status-history.js?v=20260928b"></script>
@@ -4070,7 +4127,7 @@
 <script src="purify.min.js?v=3.4.16"></script>
 <script src="admin-communications.js?v=20261013c"></script>
 <script src="admin-delivery-problems.js?v=20261014a"></script>
-<script src="admin-comms-hub.js?v=20261029a"></script>
+<script src="admin-comms-hub.js?v=20261102a"></script>
 <script src="admin-comms-results.js?v=20261011d"></script>
 <script src="admin-promotions.js?v=20261013f"></script>
 <script src="admin-subscriber-reminder.js?v=20261005a"></script>
@@ -4086,7 +4143,7 @@
 <!-- §105: los días de las clínicas (antes de app.js, que los usa al guardar). -->
 <script src="event-days.js?v=20261020a"></script>
 <script src="admin-event-days.js?v=20261020a"></script>
-<script src="app.js?v=20261020a"></script>
+<script src="app.js?v=20261102a"></script>
 
 <script src="tournament.js?v=20261012a"></script>
 <!-- Ajuste 30: después de app.js, porque espera a window.app.authReady. -->
@@ -4099,6 +4156,8 @@
 <script src="admin-play-games.js?v=20261016b"></script>
 <!-- SQL 106: Player Portal → Portal activity (después de app.js). -->
 <script src="admin-portal-activity.js?v=20261017a"></script>
+<!-- §113: Reviews (después de app.js, por su círculo rojo). -->
+<script src="admin-reviews.js?v=20261102a"></script>
 <script>
   // ── Sidebar toggle — persisted in localStorage ──────────────────────
   (function() {

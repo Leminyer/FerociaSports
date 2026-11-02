@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- LA PÁGINA DONDE LOS JUGADORES DEJAN SU REVIEW DE UN EVENTO (§113).
+     Se abre con el enlace privado de cada correo (#t=...&s=...): las
+     estrellas que pulsó en el correo ya vienen marcadas. Es pública y
+     sin contraseña, así que lleva lo mismo que respond.html:
+       · no-referrer: la dirección no se le pasa a ninguna otra web;
+       · ningún script de fuera: sólo los archivos del propio sitio (CSP);
+       · noindex: que ningún buscador la guarde.
+     Abrir la página NO guarda nada: hay que pulsar "Submit my review". -->
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex, nofollow">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src https://yyocceadorckkfbgnbqk.supabase.co; base-uri 'none'; form-action 'none'">
+<title>Ferocia Sports Center — Your Review</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="design-tokens.css?v=20261013a">
+<link rel="stylesheet" href="respond.css?v=20261011a">
+<link rel="stylesheet" href="review.css?v=20261102a">
+<script src="config.js?v=20260929j"></script>
+<script src="assets.js?v=20261013a"></script>
+<script src="review.js?v=20261102a" defer></script>
+</head>
+<body>
+
+<header class="rs-header">
+  <img class="rs-logo" data-asset="ferociaLogo" alt="Ferocia">
+</header>
+
+<main class="rs-main">
+  <div class="rs-card">
+
+    <div class="rs-loading" id="rv-loading">Loading…</div>
+
+    <!-- La review: los textos los pone review.js. -->
+    <section id="rv-form" hidden>
+      <div class="rs-sample" id="rv-sample" hidden>Sample copy &mdash; nothing you enter here is saved.</div>
+      <div class="rs-title" id="rv-title"></div>
+      <h1 class="rs-question" id="rv-question"></h1>
+      <div class="rs-for" id="rv-for" hidden></div>
+
+      <div class="rv-stars" id="rv-stars" role="radiogroup" aria-labelledby="rv-question"></div>
+      <p class="rv-stars-label" id="rv-stars-label">Tap a star — 1 is poor, 5 is excellent.</p>
+
+      <label class="rv-label" for="rv-comment">Tell us about it <span class="rv-optional">(optional)</span></label>
+      <textarea class="rv-text" id="rv-comment" rows="4" maxlength="1000"></textarea>
+      <div class="rv-help">
+        <span>Your rating and comment may be shown on ferociasports.com with your first name and last initial (for example, &ldquo;Ana U.&rdquo;).</span>
+        <span class="rv-count" id="rv-comment-count"></span>
+      </div>
+
+      <label class="rv-label" for="rv-improve">What could we do better? <span class="rv-optional">(optional)</span></label>
+      <textarea class="rv-text" id="rv-improve" rows="3" maxlength="1000"></textarea>
+      <div class="rv-help">
+        <span>Private: only the FEROCIA team reads this, to make every event better.</span>
+        <span class="rv-count" id="rv-improve-count"></span>
+      </div>
+
+      <button type="button" class="rs-confirm" id="rv-submit" disabled>Submit my review</button>
+      <p class="rs-error" id="rv-error" role="alert" hidden></p>
+      <p class="rs-deadline" id="rv-deadline"></p>
+    </section>
+
+    <!-- Después de enviar. -->
+    <section id="rv-done" hidden>
+      <div class="rs-badge rs-badge-ok">Thank you!</div>
+      <div class="rs-title" id="rv-done-title"></div>
+      <p class="rs-done-label">Your rating:</p>
+      <p class="rv-done-stars" id="rv-done-stars"></p>
+      <p class="rs-done-note" id="rv-done-note"></p>
+      <button type="button" class="rs-change" id="rv-edit">Edit my review</button>
+    </section>
+
+    <!-- Plazo terminado. -->
+    <section id="rv-closed" hidden>
+      <div class="rs-badge rs-badge-closed">Reviews are closed</div>
+      <div class="rs-title" id="rv-closed-title"></div>
+      <p class="rs-text">This review can no longer be changed. Thank you for playing with us!</p>
+      <p class="rs-text" id="rv-closed-note" hidden>The time to share or update your review ended before you pressed &ldquo;Submit&rdquo;, so your last changes were not saved.</p>
+      <p class="rv-done-stars" id="rv-closed-stars" hidden></p>
+    </section>
+
+    <!-- Un enlace que no vale, demasiados intentos o sin conexión. -->
+    <section id="rv-message" hidden>
+      <h1 class="rs-message-title" id="rv-message-title"></h1>
+      <p class="rs-text" id="rv-message-text"></p>
+      <button type="button" class="rs-change" id="rv-retry" hidden>Try again</button>
+    </section>
+
+  </div>
+</main>
+
+<footer class="rs-footer">
+  Ferocia Sports Center &middot; <a href="mailto:contact@ferociasports.com">contact@ferociasports.com</a>
+</footer>
+
+</body>
+</html>

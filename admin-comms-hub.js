@@ -267,15 +267,23 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
   /* ── ANUNCIO O ENCUESTA ─────────────────────────────────────
      Qué se puede mandar a cada audiencia, y cómo se llama el botón. */
   const CLASES_DE = {
-    ladder:      ['announcement', 'availability', 'custom'],
-    tournament:  ['announcement', 'custom'],
+    ladder:      ['announcement', 'availability', 'custom', 'review'],
+    tournament:  ['announcement', 'custom', 'review'],
     all_players: ['announcement'],
   };
   const BOTON = {
     announcement: 'Send Email',
     availability: 'Send Availability Request',
     custom:       'Send Poll',
+    review:       'Send Review Request',
   };
+  /* §113: una review. La pregunta, las 5 estrellas y los 30 días los pone
+     el servidor (comms-send); aquí sólo se dice lo que recibirán. Sólo se
+     puede pedir de una escalera o un torneo COMPLETADO (un torneo
+     cancelado no cuenta), y a todos los que jugaron. */
+  const RESENA_DIAS = 30;
+  const AVISO_RESENA = 'Optional. Shown above the stars. Each player gets their own private link.';
+  const resenaPregunta = (nombre) => `How was your experience at ${nombre}?`;
   /* Las respuestas con las que empieza una encuesta propia. */
   const RESPUESTAS_INICIALES = ['Yes', 'No', 'Maybe'];
   const MIN_RESPUESTAS = 2;
@@ -302,9 +310,10 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
   let _turnoVista     = 0;
   let _espera = null;
   let _nombres     = new Map();  // id → nombre de cada escalera o torneo de la lista
+  let _completas   = new Set();  // §113: ids de las escaleras o torneos completados (no cancelados)
   let _ultimaVista = null;       // la vista previa que se ve AHORA; null mientras carga
   let _plantilla   = { subject: '', html: '' };  // lo último que puso una plantilla
-  let _clase       = 'announcement';  // 'announcement' | 'availability' | 'custom'
+  let _clase       = 'announcement';  // 'announcement' | 'availability' | 'custom' | 'review'
   let _encuestaTocada = false;   // ¿cambió ella algo de la encuesta?
   let _preguntaSola   = true;    // la pregunta aún la pone la fecha de la sesión
   let _plazoSolo      = true;    // el plazo aún lo pone la fecha de la sesión
@@ -499,7 +508,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     try {
       filas = _tipo === 'ladder'
         ? await api('ladders?select=id,name,status,start_date&order=start_date.desc')
-        : await api('tournaments?select=id,name,date,status&order=date.desc');
+        : await api('tournaments?select=id,name,date,status,emergency_closed&order=date.desc');
     } catch (e) {
       if (turno !== _turnoAudiencia) return;
       sel.replaceChildren(new Option('Could not load the list', ''));
@@ -526,6 +535,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
       opciones.push(grupo);
     });
     _nombres = new Map(filas.map((f) => [f.id, f.name]));
+    _completas = new Set(filas.filter((f) => f.status === 'completed' && f.emergency_closed !== true).map((f) => f.id));
     sel.replaceChildren(...opciones);
     sel.value = '';
     sel.disabled = false;
@@ -597,7 +607,8 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     if (turno !== _turnoAudiencia) return;
     _encuestas = (filas || []).map((f) => {
       const p = Array.isArray(f.comm_polls) ? f.comm_polls[0] : f.comm_polls;
-      return p && {
+      /* §113: una review no es un grupo para escribir ("By Poll Answer"). */
+      return p && p.kind !== 'review' && {
         id: p.id,
         etiqueta: etiquetaEncuesta(p, f.created_at),
         opciones: [...(p.comm_poll_options || [])].sort((a, b) => a.position - b.position),
@@ -664,6 +675,8 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
 
   /* ── DESTINATARIOS ──────────────────────────────────────── */
   async function ponerSegmento(segmento) {
+    /* §113: una review va a todos los que jugaron. */
+    if (_clase === 'review' && segmento !== 'all') return;
     _segmento = segmento;
     _turnoVista++;
     /* La vista previa del segmento anterior deja de valer YA: mientras
@@ -957,15 +970,17 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     cuenta.classList.toggle('hub-count-over', largo > MAX_TEXTO_HUB);
 
     const encuesta = _clase !== 'announcement';
+    const resena = _clase === 'review';
     const hecho = {
       subject: !!asunto,
-      message: encuesta ? !!$('hub-question').value.trim() : largo > 0,
+      /* Una review no lleva pregunta que escribir: la pone el servidor. */
+      message: resena || (encuesta ? !!$('hub-question').value.trim() : largo > 0),
       recipients: !!(_ultimaVista && _ultimaVista.summary.people > 0),
     };
     /* "Ready to send" sólo si lo que pide el envío está: en una encuesta,
        también el plazo (y la fecha de la sesión en la disponibilidad); y
        nunca con un PDF subiendo. */
-    const encuestaLista = !encuesta || (!!$('hub-deadline').value
+    const encuestaLista = !encuesta || resena || (!!$('hub-deadline').value
       && (_clase !== 'availability' || !!$('hub-session').value));
     hecho.ready = hecho.subject && hecho.message && hecho.recipients && largo <= MAX_TEXTO_HUB
       && largoAsunto <= MAX_ASUNTO_HUB && encuestaLista && !_subiendo;
@@ -1001,9 +1016,22 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     const clases = CLASES_DE[_tipo] || ['announcement'];
     $('hub-kind-wrap').hidden = clases.length < 2;
     $('hub-kind-availability').hidden = !clases.includes('availability');
+    /* §113: con otra escalera o torneo que no está completado, la review
+       ya no vale: vuelve a "Announcement" y se dice. */
+    if (_clase === 'review' && !resenaPermitida()) {
+      ponerClase('announcement', true);
+      toast(`${textoNoCompleta()} It was switched to Announcement.`, true);
+      return;
+    }
     pintarClase();
     if (sinTocar()) aplicarTextoDeClase();
   }
+
+  /* §113: ¿se puede pedir una review de lo que está elegido? */
+  const resenaPermitida = () => _tipo !== 'all_players' && !!_audiencia && _completas.has(_audiencia);
+  const textoNoCompleta = () => (_tipo === 'tournament'
+    ? 'A review request is available once the tournament is completed (not cancelled).'
+    : 'A review request is available once the ladder is completed.');
 
   /* El asunto y el texto de partida según lo que se manda. */
   function aplicarTextoDeClase() {
@@ -1011,6 +1039,8 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
       aplicarPlantilla(`${_nombres.get(_audiencia) || ''} — Availability Required`, '');
     } else if (_clase === 'custom') {
       aplicarPlantilla('', '');
+    } else if (_clase === 'review') {
+      aplicarPlantilla(`⭐ How was ${_nombres.get(_audiencia) || ''}?`, '');
     } else if (OPCIONES[_tipo]) {
       aplicarPreset();
     }
@@ -1142,6 +1172,10 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
   function ponerClase(clase, sinAviso) {
     if (!BOTON[clase]) return;
     if (!(CLASES_DE[_tipo] || ['announcement']).includes(clase)) clase = 'announcement';
+    if (clase === 'review' && !resenaPermitida()) {
+      if (!sinAviso) toast(textoNoCompleta(), true);
+      return;
+    }
     const antes = _clase;
     _clase = clase;
     /* Un PDF no viaja en una encuesta: se quita y se dice, para que no
@@ -1151,6 +1185,9 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
       if (!sinAviso) toast('The PDF was removed: polls are sent without attachments.');
     }
     pintarClase();
+    /* §113: una review va a todos: si había otros destinatarios elegidos,
+       se vuelve a "todos" (y con ello a su vista previa). */
+    if (clase === 'review' && _segmento !== 'all') ponerSegmento('all');
     /* El plazo de partida es distinto en cada clase de encuesta: se pone
        el que toca, salvo que ella ya lo haya cambiado a mano. */
     if (antes !== clase && _plazoSolo) ponerPlazoSolo();
@@ -1165,8 +1202,21 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
       b.classList.toggle('co-pfilter-on', on);
       b.setAttribute('aria-pressed', on ? 'true' : 'false');
     });
+    const resena = _clase === 'review';
     $('hub-preset-wrap').hidden = !OPCIONES[_tipo] || encuesta;
-    $('hub-poll-wrap').hidden = !encuesta;
+    $('hub-poll-wrap').hidden = !encuesta || resena;
+    /* §113: la review — lo que recibirán, el botón apagado (con el
+       porqué) si la escalera o el torneo no está completado, y los
+       demás destinatarios apagados mientras está elegida. */
+    $('hub-review-wrap').hidden = !resena;
+    $('hub-review-question').textContent = resena ? resenaPregunta(_nombres.get(_audiencia) || '') : '';
+    const permitida = resenaPermitida();
+    $('hub-kind-review').disabled = !permitida;
+    $('hub-kind-review-hint').hidden = permitida || _tipo === 'all_players';
+    $('hub-kind-review-hint').textContent = permitida ? '' : textoNoCompleta();
+    document.querySelectorAll('#hub-segments [data-segment]').forEach((b) => {
+      if (b.dataset.segment !== 'all') b.disabled = resena;
+    });
     $('hub-session-wrap').hidden = _clase !== 'availability';
     $('hub-options-fixed').hidden = _clase !== 'availability';
     $('hub-options').hidden = _clase !== 'custom';
@@ -1174,7 +1224,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     pintarBotonRespuesta();
     $('hub-message-req').hidden = encuesta;
     $('hub-message-opt').hidden = !encuesta;
-    $('hub-message-hint').textContent = encuesta ? AVISO_ENCUESTA : (AVISO_MENSAJE[_tipo] || '');
+    $('hub-message-hint').textContent = resena ? AVISO_RESENA : encuesta ? AVISO_ENCUESTA : (AVISO_MENSAJE[_tipo] || '');
     $('hub-question').placeholder = _clase === 'availability'
       ? 'Will you be playing this Monday?' : 'Which time works best?';
     pintarAdjunto();
@@ -1313,6 +1363,11 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
   /* La encuesta tal como se manda, o el primer problema que tiene (con
      el campo donde está). El servidor lo vuelve a comprobar todo. */
   function leerEncuesta() {
+    /* §113: de una review sólo se manda la clase; el resto lo pone el servidor. */
+    if (_clase === 'review') {
+      return { poll: { kind: 'review' }, plazoTexto: textoPlazo(Date.now() + RESENA_DIAS * 864e5),
+               pregunta: resenaPregunta(_nombres.get(_audiencia) || '') };
+    }
     const pregunta = $('hub-question').value.trim();
     const sesion = $('hub-session').value;
     if (_clase === 'availability' && !/^\d{4}-\d{2}-\d{2}$/.test(sesion)) {
@@ -1558,15 +1613,19 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
   /* La pregunta antes de mandar una encuesta: qué se pregunta, a
      cuántos, que cada uno lleva sus botones y hasta cuándo. */
   function avisoEncuesta(clase, encuesta, uno, s, donde) {
-    const que = clase === 'availability' ? 'availability request' : 'poll';
-    const pregunta = `"${encuesta.poll.question}"`;
-    const plazo = `Answers can be changed until ${encuesta.plazoTexto} (Florida time).`;
+    const resena = clase === 'review';
+    const que = clase === 'availability' ? 'availability request' : resena ? 'review request' : 'poll';
+    const pregunta = `"${resena ? encuesta.pregunta : encuesta.poll.question}"`;
+    const plazo = resena
+      ? `Players can share or update their review until about ${encuesta.plazoTexto} (Florida time).`
+      : `Answers can be changed until ${encuesta.plazoTexto} (Florida time).`;
     const comprobar = 'This cannot be undone. To check it first, cancel and use "Send only to me".';
+    const botones = resena ? 'own private review link' : 'own private answer buttons';
     if (uno) {
       return {
         title: `Send this ${que} to ${window.nombreDestinatario(uno)}?`,
         message: `${pregunta} will be emailed to ${window.nombreDestinatario(uno)} (${uno.email}), `
-               + `with their own private answer buttons. ${plazo} ${comprobar}`,
+               + `with their ${botones}. ${plazo} ${comprobar}`,
         okLabel: 'Send', cancelLabel: 'Cancel', danger: true, focusCancel: true,
       };
     }
@@ -1574,7 +1633,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
       title: `Send this ${que} to ${s.people} player${s.people === 1 ? '' : 's'}?`,
       message: `${pregunta} will be emailed to ${s.people} player${s.people === 1 ? '' : 's'} `
              + `(${s.emails} email address${s.emails === 1 ? '' : 'es'}) in ${donde}, plus a sample copy to you. `
-             + `Each player gets their own private answer buttons. ${plazo} ${comprobar}`,
+             + `Each player gets their ${botones}. ${plazo} ${comprobar}`,
       okLabel: `Send to ${s.people}`, cancelLabel: 'Cancel', danger: true, focusCancel: true,
     };
   }

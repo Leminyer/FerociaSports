@@ -1,0 +1,32 @@
+/* ============================================================
+   FEROCIA SPORTS CENTER — LA PÁGINA DE LA REVIEW (review.html)
+   Usa la base de respond.css (cabecera, tarjeta, botones); aquí sólo
+   lo propio: las cinco estrellas y los dos cuadros de texto.
+   ============================================================ */
+
+/* ── Las estrellas ────────────────────────────────────────── */
+.rv-stars{display:flex;justify-content:center;gap:6px;margin-top:22px;}
+.rv-star{width:48px;height:48px;border:none;background:none;padding:0;cursor:pointer;
+         font-size:40px;line-height:48px;color:#d6dff5;font-family:'Inter',sans-serif;}
+.rv-star:focus-visible{outline:3px solid rgba(23,76,204,0.35);outline-offset:2px;border-radius:8px;}
+.rv-star.is-on{color:#F5B301;}
+.rv-stars-label{margin-top:6px;text-align:center;font-size:13px;font-weight:600;color:var(--muted);}
+
+/* ── Los textos ───────────────────────────────────────────── */
+.rv-label{display:block;margin-top:22px;font-size:14px;font-weight:800;color:#0d1f4a;}
+.rv-optional{font-weight:600;color:var(--muted);}
+.rv-text{display:block;width:100%;margin-top:8px;padding:12px 14px;border:1.5px solid #d6dff5;border-radius:10px;
+         font-family:'Inter',sans-serif;font-size:15px;line-height:1.5;color:var(--text);resize:vertical;background:white;}
+.rv-text:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(23,76,204,0.15);}
+.rv-help{display:flex;justify-content:space-between;gap:12px;margin-top:6px;
+         font-size:12px;font-weight:500;line-height:1.5;color:var(--muted);}
+.rv-count{flex-shrink:0;font-weight:700;}
+.rv-count.is-near{color:var(--danger);}
+
+/* ── Hecha / cerrada ──────────────────────────────────────── */
+.rv-done-stars{margin-top:4px;font-size:28px;letter-spacing:2px;color:#F5B301;}
+.rv-done-stars .rv-off{color:#d6dff5;}
+
+@media (max-width:480px){
+  .rv-star{width:42px;height:42px;font-size:34px;line-height:42px;}
+}

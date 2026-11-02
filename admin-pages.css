@@ -953,3 +953,41 @@
 .pl-nomail strong { color: var(--text); }
 .pill-nomail { background: #fde6da; color: #9a3412; white-space: nowrap; }
 @media (forced-colors: active) { .pl-nomail { border-color: CanvasText; } }
+
+/* ── §113 Reviews: el Hub ("Review Request") y la pantalla Reviews ── */
+.hub-review-box p + p { margin-top: 6px; }
+.hub-review-box strong { color: var(--text); }
+.rvw-filtros { display: flex; flex-wrap: wrap; gap: 12px; margin: 0 0 14px; }
+.rvw-filtros[hidden], .rvw-resumen[hidden] { display: none; }
+.rvw-filtro { display: flex; flex-direction: column; gap: 4px; flex: 1 1 200px; min-width: 0;
+  font-size: 11px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; color: var(--text-muted); }
+.rvw-filtro select { width: 100%; }
+.rvw-resumen { margin: 0 0 12px; font-size: 12px; font-weight: 600; color: var(--text-muted); }
+.rvw-card { padding: 16px 18px; margin-bottom: 12px; }
+.rvw-cab { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 14px; }
+.rvw-estrellas { font-size: 20px; letter-spacing: 1px; color: #F5B301; line-height: 1; }
+.rvw-estrellas .rvw-off { color: #dfe4ee; }
+.rvw-quien { display: flex; flex-direction: column; min-width: 0; }
+.rvw-nombre { font-size: 14px; font-weight: 800; color: var(--text); }
+.rvw-como { font-size: 11px; font-weight: 600; color: var(--text-muted); }
+.rvw-nueva { margin-left: auto; background: #e8efff; color: var(--blue); }
+.rvw-meta { margin-top: 8px; font-size: 12px; font-weight: 600; color: var(--text-muted); }
+.rvw-rotulo { margin-top: 12px; font-size: 10px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: var(--text-muted); }
+.rvw-texto { margin: 4px 0 0; font-size: 14px; line-height: 1.55; color: var(--text); white-space: pre-wrap; overflow-wrap: anywhere; }
+.rvw-vacio { margin: 12px 0 0; font-size: 13px; font-style: italic; color: var(--text-muted); }
+.rvw-privado { margin-top: 12px; padding: 2px 12px 10px; border-radius: 8px; background: #fff7e8; border: 1px solid #f6e0b5; }
+.rvw-pie { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; margin-top: 14px; padding-top: 12px;
+  border-top: 0.5px solid var(--divider-color); }
+.rvw-pista { font-size: 12px; color: var(--text-muted); }
+/* El interruptor "Show on website". */
+.rvw-switch { display: inline-flex; align-items: center; gap: 10px; min-height: 36px; padding: 4px 0; border: none; background: none;
+  cursor: pointer; font: 700 13px 'Inter', sans-serif; color: var(--text); }
+.rvw-switch:disabled { opacity: .5; cursor: not-allowed; }
+.rvw-switch:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; border-radius: 6px; }
+.rvw-switch-pista { position: relative; flex-shrink: 0; width: 38px; height: 22px; border-radius: 99px; background: #cfd6e4; transition: background .15s; }
+.rvw-switch-pista::after { content: ''; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%;
+  background: white; box-shadow: 0 1px 3px rgba(0,0,0,.2); transition: transform .15s; }
+.rvw-switch[aria-checked="true"] .rvw-switch-pista { background: #1d9e68; }
+.rvw-switch[aria-checked="true"] .rvw-switch-pista::after { transform: translateX(16px); }
+@media (prefers-reduced-motion: reduce) { .rvw-switch-pista, .rvw-switch-pista::after { transition: none; } }
+@media (forced-colors: active) { .rvw-switch-pista { border: 1px solid CanvasText; } .rvw-privado { border-color: CanvasText; } }

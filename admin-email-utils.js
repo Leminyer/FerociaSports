@@ -144,6 +144,10 @@
     poll_not_in_audience:  'That poll is not from this ladder. Choose another one — nothing was sent.',
     invalid_segment:       'That answer is not part of the poll. Choose again — nothing was sent.',
     poll_still_sending:    'The poll itself has not finished sending. Finish it first (History → View → Retry). Nothing was sent.',
+
+    /* §113: las reviews. */
+    review_not_completed:  'A review request can only be sent once the ladder or tournament is completed (not cancelled). Nothing was sent.',
+    review_not_allowed:    'A review request goes to everyone who played: choose "All" in Recipients. Nothing was sent.',
   };
 
   /**

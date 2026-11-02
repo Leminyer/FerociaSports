@@ -312,6 +312,7 @@ footer{
 <link rel="stylesheet" href="index-portada.css?v=20261014a">
 <!-- §107: el popup "Almost Done!" después de suscribirse. -->
 <link rel="stylesheet" href="alta-aviso.css?v=20261022a">
+<link rel="stylesheet" href="index-resenas.css?v=20261102a">
 </head>
 <body>
 
@@ -416,6 +417,15 @@ footer{
     <div class="ac-chips" id="ac-chips" role="group" aria-label="Filter videos by topic" hidden></div>
     <div class="ac-grid" id="ac-grid"></div>
   </div>
+</section>
+
+<!-- §113: WHAT PLAYERS SAY — la rellena index-resenas.js con las reviews
+     que se marcaron "Show on website" en el panel. Escondida hasta que haya
+     alguna. Nombre e inicial del apellido; sin promedio de estrellas. -->
+<section class="sec rvs" id="reviews" hidden>
+  <div class="sec-eyebrow">Player Reviews</div>
+  <h2 class="sec-title">WHAT PLAYERS SAY</h2>
+  <div class="rvs-grid" id="rvs-grid"></div>
 </section>
 
 <!-- SUBSCRIBE -->
@@ -597,6 +607,7 @@ footer{
 <script src="videos-common.js?v=20261027a"></script>
 <script src="index-programs.js?v=20261013g"></script>
 <script src="index-videos.js?v=20261027a"></script>
+<script src="index-resenas.js?v=20261102a"></script>
 <script src="alta-aviso.js?v=20261022a"></script>
 </body>
 </html>
