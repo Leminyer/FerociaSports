@@ -2212,6 +2212,13 @@
       /* Sin el SQL 124 la casilla no se enseña (no se guardaría). */
       noMail.closest('label').hidden = !('do_not_email' in p);
     }
+    /* §115: WhatsApp (Yes / No / Unknown). Sin el SQL 129 no se enseña. */
+    const wa = document.getElementById('edit-whatsapp');
+    if (wa) {
+      wa.value = ['yes', 'no'].includes(p.whatsapp) ? p.whatsapp : 'unknown';
+      wa.dataset.antes = wa.value;
+      document.getElementById('edit-whatsapp-group').hidden = !('whatsapp' in p);
+    }
 
     // Reset reason field state
     const reasonEl = document.getElementById('edit-reason');
@@ -2379,6 +2386,12 @@
       ...(document.getElementById('edit-do-not-email')
           && !document.getElementById('edit-do-not-email').closest('label').hidden
             ? { do_not_email: document.getElementById('edit-do-not-email').checked } : {}),
+      /* §115 (SQL 129): sólo si la base ya tiene la columna. */
+      /* Sólo si se cambió aquí: así no pisa una marca puesta mientras la
+         ventana estaba abierta (Send Text & WhatsApp). */
+      ...(document.getElementById('edit-whatsapp-group') && !document.getElementById('edit-whatsapp-group').hidden
+          && document.getElementById('edit-whatsapp').value !== document.getElementById('edit-whatsapp').dataset.antes
+            ? { whatsapp: document.getElementById('edit-whatsapp').value } : {}),
     };
 
     try {
@@ -2392,6 +2405,10 @@
       window.logAuditAction(id, 'player_edited', 'Edited player information');
       /* §112: queda en su historial cuándo se marcó o se quitó "Do not email". */
       const antesNoMail = document.getElementById('edit-do-not-email')?.dataset.antes === 'true';
+      const antesWa = document.getElementById('edit-whatsapp')?.dataset.antes;
+      if ('whatsapp' in body && antesWa && antesWa !== body.whatsapp) {
+        window.logAuditAction(id, 'player_edited', `WhatsApp: ${{ yes: 'Yes', no: 'No', unknown: 'Unknown' }[body.whatsapp]}`);
+      }
       if ('do_not_email' in body && antesNoMail !== body.do_not_email) {
         window.logAuditAction(id, 'player_edited', body.do_not_email
           ? 'Marked "Do not email": no Communications Hub emails'

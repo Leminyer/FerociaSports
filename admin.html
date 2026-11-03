@@ -22,7 +22,7 @@
      four must stay in this sequence. See the header of admin-layout.css. -->
 <link rel="stylesheet" href="admin-layout.css?v=20261012a">
 <link rel="stylesheet" href="admin-components.css?v=20261008a">
-<link rel="stylesheet" href="admin-pages.css?v=20261103c">
+<link rel="stylesheet" href="admin-pages.css?v=20261103d">
 <link rel="stylesheet" href="admin-ftc.css?v=20260928b">
 <link rel="stylesheet" href="admin-comms-hub.css?v=20261013c">
 
@@ -1981,11 +1981,21 @@
     <div class="pp-tabs" id="co-tabs">
       <button class="pp-tab co-tab pp-tab-on" data-action="commShowTab" data-tab="send">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-        Send
+        Send Email
+      </button>
+      <!-- §115: los avisos de última hora por texto o WhatsApp, desde el
+           teléfono de ella (admin-text-whatsapp.js). -->
+      <button class="pp-tab co-tab" data-action="commShowTab" data-tab="text">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-4.9A8 8 0 1 1 21 12z"/></svg>
+        Send Text &amp; WhatsApp
       </button>
       <button class="pp-tab co-tab" data-action="commShowTab" data-tab="history">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>
-        History
+        Email History
+      </button>
+      <button class="pp-tab co-tab" data-action="commShowTab" data-tab="texthistory">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>
+        Text &amp; WhatsApp History
       </button>
       <!-- Ajuste 16: los rebotes y quejas de spam que avisa Resend
            (admin-delivery-problems.js). -->
@@ -2509,6 +2519,90 @@
     </div>
 
     <!-- ── PESTAÑA 2: HISTORY ───────────────────────────────── -->
+    <!-- ── PESTAÑA: SEND TEXT & WHATSAPP (§115) ─────────────────
+         Nada se manda desde aquí: cada botón abre WhatsApp o Mensajes en
+         el teléfono de ella, con su número. Lo maneja admin-text-whatsapp.js;
+         los estilos, admin-pages.css (tw-). -->
+    <div class="co-tab-content" data-tab="text" style="display:none;">
+      <div class="card" id="tw-home">
+        <h2 class="co-aud-head">Choose your audience</h2>
+        <p class="co-aud-sub">Send a last-minute text or WhatsApp message from your phone, with your own number.</p>
+        <div class="co-aud-grid">
+          <button type="button" class="co-aud" data-action="twOpen" data-audience="all_players">
+            <span class="co-aud-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+            <span class="co-aud-t">All Players</span>
+            <span class="co-aud-d">Your active player community</span>
+            <svg class="co-aud-go" aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="8 7 17 7 17 16"/></svg>
+          </button>
+          <button type="button" class="co-aud" data-action="twOpen" data-audience="ladder">
+            <span class="co-aud-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 6h11"/><path d="M10 12h11"/><path d="M10 18h11"/><path d="M4 4.5l1-.5v4"/><path d="M4 8h2"/><path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1"/></svg></span>
+            <span class="co-aud-t">Ladder Players</span>
+            <span class="co-aud-d">One ladder's players</span>
+            <svg class="co-aud-go" aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="8 7 17 7 17 16"/></svg>
+          </button>
+          <button type="button" class="co-aud" data-action="twOpen" data-audience="tournament">
+            <span class="co-aud-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/></svg></span>
+            <span class="co-aud-t">Tournament Players</span>
+            <span class="co-aud-d">One tournament's players</span>
+            <svg class="co-aud-go" aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="8 7 17 7 17 16"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="card tw-panel" id="tw-panel" hidden>
+        <button type="button" class="hub-back" data-action="twClose">&lsaquo; All channels</button>
+        <h2 class="tw-title" id="tw-title"></h2>
+        <p class="co-aud-sub" id="tw-sub"></p>
+
+        <div class="hub-field" id="tw-aud-wrap" hidden>
+          <label class="hub-field-label" for="tw-aud-select" id="tw-aud-label">Ladder</label>
+          <select class="hub-select" id="tw-aud-select"></select>
+        </div>
+
+        <div id="tw-resto" hidden>
+          <div class="hub-field">
+            <label class="hub-field-label" for="tw-plantilla">Template</label>
+            <select class="hub-select" id="tw-plantilla"></select>
+          </div>
+          <div class="hub-field">
+            <div class="hub-field-row">
+              <label class="hub-field-label" for="tw-mensaje">Message <span class="hub-req">*</span></label>
+              <span class="hub-count-chars" id="tw-mensaje-count">0/1000</span>
+            </div>
+            <textarea class="hub-input tw-mensaje" id="tw-mensaje" rows="4" maxlength="1000" placeholder="Write your message…"></textarea>
+            <div class="hub-hint hub-hint-after">Messages sent one by one start with &ldquo;Hi [first name],&rdquo; automatically.</div>
+          </div>
+
+          <div class="tw-wa-box">
+            <div class="tw-wa-title">WhatsApp broadcast list</div>
+            <p class="tw-wa-text">Copy the message and paste it in your WhatsApp broadcast list: everyone gets it privately, from your number. Only people who saved your number receive it.</p>
+            <div class="tw-wa-btns">
+              <button type="button" class="hub-attach-btn" data-action="twCopy">Copy message</button>
+              <button type="button" class="hub-attach-btn" data-action="twContacts">Download contacts</button>
+            </div>
+            <p class="tw-wa-text tw-wa-small">&ldquo;Download contacts&rdquo; saves this list as contacts for your phone (&ldquo;Ana Uno &middot; FEROCIA&rdquo;), to build the broadcast list once per season.</p>
+          </div>
+
+          <div class="tw-list-head">
+            <div class="hub-field-label">Players</div>
+            <label class="tw-filter"><input type="checkbox" id="tw-solo-sin-wa"> Only players without WhatsApp</label>
+            <span class="tw-count" id="tw-count" aria-live="polite"></span>
+          </div>
+          <p class="tw-excluded" id="tw-excluded"></p>
+          <div class="tw-list" id="tw-list"></div>
+          <p class="tw-note">Tap WhatsApp or Text to open the conversation on your phone with the message ready. &ldquo;✓&rdquo; marks the ones you tapped. Text works best from your phone (or a Mac linked to your iPhone).</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── PESTAÑA: TEXT & WHATSAPP HISTORY (§115) ────────────── -->
+    <div class="co-tab-content" data-tab="texthistory" style="display:none;">
+      <div class="card">
+        <div class="card-title" style="margin:0 0 12px;">Text &amp; WhatsApp messages</div>
+        <div id="twh-body"><div class="tw-empty">Loading...</div></div>
+      </div>
+    </div>
+
     <div class="co-tab-content" data-tab="history" style="display:none;">
       <div class="card" style="padding:0;overflow:hidden;">
 
@@ -3434,8 +3528,18 @@
         <input type="checkbox" id="edit-do-not-email">
         <span><strong>Do not email</strong> — this player gets no email from the Communications Hub
           (All Players, ladders, tournaments, Selected Players, polls and their reminders). They stay an
-          active player. The newsletter and campaigns follow the subscriber list (Unsubscribe).</span>
+          active player. The newsletter and campaigns follow the subscriber list (Unsubscribe). They are
+          also left out of Send Text &amp; WhatsApp.</span>
       </label>
+      <!-- §115 (SQL 129): si usa WhatsApp. Lo usa Send Text & WhatsApp. -->
+      <div class="form-group" id="edit-whatsapp-group" hidden>
+        <label for="edit-whatsapp">WhatsApp</label>
+        <select id="edit-whatsapp">
+          <option value="unknown">Unknown</option>
+          <option value="yes">Yes</option>
+          <option value="no">No</option>
+        </select>
+      </div>
       <div class="form-group" id="edit-reason-group" style="display:none;">
         <label>Reason for inactivating <span style="color:var(--orange);">*</span></label>
         <textarea id="edit-reason" rows="3" placeholder="Why is this player inactive? (required)"
@@ -4130,14 +4234,16 @@
 <script src="admin-rich-editor.js?v=20261009b"></script>
 <script src="admin-share.js?v=20260928b"></script>
 <script src="admin-player-status-history.js?v=20260928b"></script>
-<script src="admin-player-profile.js?v=20261015e"></script>
+<script src="admin-player-profile.js?v=20261103d"></script>
 <script src="admin-ladder-standings.js?v=20260930a"></script>
 <script src="admin-sessions.js?v=20261018a"></script>
 <script src="admin-print-roster.js?v=20260928b"></script>
 <script src="admin-ladder-management.js?v=20261008a"></script>
 <!-- El limpiador de los mensajes guardados (DOMPurify 3.4.16, Apache-2.0 / MPL-2.0), copiado en el sitio. -->
 <script src="purify.min.js?v=3.4.16"></script>
-<script src="admin-communications.js?v=20261013c"></script>
+<script src="admin-communications.js?v=20261103d"></script>
+<!-- §115: Send Text & WhatsApp (también los botones de la ficha del jugador). -->
+<script src="admin-text-whatsapp.js?v=20261103d"></script>
 <script src="admin-delivery-problems.js?v=20261014a"></script>
 <script src="admin-comms-hub.js?v=20261103c"></script>
 <script src="admin-comms-results.js?v=20261011d"></script>
@@ -4148,7 +4254,7 @@
      Delete this line and temp-dob-backfill.js once every player has one.
      See the header of that file. -->
 <script src="temp-dob-backfill.js?v=20260928b"></script>
-<script src="admin-players.js?v=20261029a"></script>
+<script src="admin-players.js?v=20261103d"></script>
 <script src="admin-ftc-standings.js?v=20260928b"></script>
 <script src="admin-ftc-playoffs-schedule.js?v=20260928b"></script>
 <script src="admin-ftc-teams.js?v=20260928b"></script>

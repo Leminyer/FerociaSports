@@ -476,9 +476,30 @@
           + _botonQuitarMarca + '</div>'
         : '';
 
+    /* §115: WhatsApp y Text, desde el teléfono de ella, con "Hi Ana, " ya
+       escrito (decisión 5A). Sin un número que se pueda usar no salen;
+       marcado "No WhatsApp", sólo Text; marcado "Do not email", ninguno
+       (igual que "Send Email" desde la ficha). */
+    function filaMensajes(j) {
+      const C = window.FerociaContacto;
+      if (!C) return '';
+      const n = C.numero(j.country_code, j.phone);
+      if (!n.ok) return '';
+      const contenido = j.do_not_email
+        ? '<span class="pp-msg-off">Marked &ldquo;Do not email&rdquo;: uncheck it in Edit Player to message them.</span>'
+        : [
+            j.whatsapp !== 'no'
+              ? `<a class="tw-btn tw-btn-wa pp-msg-btn" href="${esc(C.enlaceWhatsApp(n.completo, C.conSaludo(j.first_name, '')))}" target="_blank" rel="noopener noreferrer">WhatsApp</a>` : '',
+            `<a class="tw-btn tw-btn-sms pp-msg-btn" href="${esc(C.enlaceTexto(n.completo, C.conSaludo(j.first_name, '')))}">Text</a>`,
+            j.whatsapp === 'no' ? '<span class="pill pill-inactive">No WhatsApp</span>' : '',
+          ].join(' ');
+      return `<div class="pp-quick-row"><div class="pp-quick-lbl">${ppSVG(ICONS.phone)} Message</div><div class="pp-quick-val pp-msg">${contenido}</div></div>`;
+    }
+
     const quickInfoHTML = `${problemaEmail}
       <div class="pp-quick-row"><div class="pp-quick-lbl">${ppSVG(ICONS.mail)} Email</div><div class="pp-quick-val">${p.email ? esc(p.email) : '—'} ${p.email ? `<span class="${p.email_verified ? 'pp-pill-verified' : 'pp-pill-unverified'}">${p.email_verified ? 'Verified' : 'Unverified'}</span>` : ''}</div></div>
       <div class="pp-quick-row"><div class="pp-quick-lbl">${ppSVG(ICONS.phone)} Phone</div><div class="pp-quick-val">${p.phone ? esc(FerociaPhone.format(p.country_code, p.phone)) : '—'} ${p.phone ? `<span class="${p.phone_verified ? 'pp-pill-verified' : 'pp-pill-unverified'}">${p.phone_verified ? 'Verified' : 'Unverified'}</span>` : ''}</div></div>
+      ${filaMensajes(p)}
       <div class="pp-quick-row"><div class="pp-quick-lbl">${ppSVG(ICONS.skill)} Skill Level</div><div class="pp-quick-val">${p.skill_level ? esc(p.skill_level) : '—'}</div></div>
       <div class="pp-quick-row"><div class="pp-quick-lbl">${ppSVG(ICONS.star)} Coach Rating</div><div class="pp-quick-val">${
         p.coach_rating !== null && p.coach_rating !== undefined

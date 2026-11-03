@@ -330,6 +330,9 @@
     if (cual === 'history') cargarEnvios(true);
     /* Ajuste 16: la pestaña de rebotes y quejas (admin-delivery-problems.js). */
     if (cual === 'problems') window.cargarProblemasDeEntrega?.(true);
+    /* §115: Send Text & WhatsApp y su historial (admin-text-whatsapp.js). */
+    if (cual === 'text') window.FerociaTexto?.alAbrir();
+    if (cual === 'texthistory') window.FerociaTexto?.historial();
   }
 
   // ── PESTAÑA HISTORIAL: LA LISTA ───────────────────────────
