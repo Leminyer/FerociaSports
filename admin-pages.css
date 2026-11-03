@@ -996,3 +996,7 @@
 .hub-pick-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 10px; margin-top: 8px; }
 .hub-pick-tools[hidden] { display: none; }
 .hub-pick-count { margin-left: auto; font-size: 12px; font-weight: 700; color: var(--text-muted); }
+
+/* ── §113 (SQL 128): en una review, quien ya la recibió (sin poder elegirlo) ── */
+.hub-pick-off { cursor: default; opacity: .65; }
+.hub-pick-pill { margin-left: auto; flex-shrink: 0; }

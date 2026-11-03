@@ -106,6 +106,8 @@
     invalid_email: { corto: 'Invalid email', plural: (n) => `${n} with an invalid email` },
     /* §112 (SQL 124): marcado "Do not email" en su ficha. */
     do_not_email:  { corto: 'Do not email',  plural: (n) => `${n} marked "Do not email"` },
+    /* §113 (SQL 128): en una review, ya la recibió de este evento. */
+    already_reviewed: { corto: 'Already received', plural: (n) => `${n} already received this review` },
   };
 
   /* Los errores que el servidor devuelve con un código fijo, en una
@@ -117,6 +119,7 @@
     poll_not_in_audience:       'That poll is not from this ladder. Choose another one.',
     invalid_segment:            'That answer is not part of the poll. Choose again.',
     not_authorized:             'Your account is not an active admin.',
+    review_already_received:    'One of the selected players already received this review request. Review the selection.',
   };
   /* Una sesión caducada la rechaza Supabase antes de llegar a la
      función, con su propio mensaje y sin nuestro código: se reconoce
@@ -311,7 +314,8 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
   let _espera = null;
   let _nombres     = new Map();  // id → nombre de cada escalera o torneo de la lista
   let _completas   = new Set();  // §113: ids de las escaleras o torneos completados (no cancelados)
-  let _resenaPrevia = null;      // §113-2B: cuándo se pidió ya la review de este evento (o null)
+  let _resenaPrevia = null;      // §113: cuándo se pidió ya la review de este evento (o null)
+  let _yaRecibieron = [];        // §113 (SQL 128): en una review, quienes ya la recibieron (se ven, sin poder elegirlos)
   let _ultimaVista = null;       // la vista previa que se ve AHORA; null mientras carga
   let _plantilla   = { subject: '', html: '' };  // lo último que puso una plantilla
   let _clase       = 'announcement';  // 'announcement' | 'availability' | 'custom' | 'review'
@@ -334,6 +338,8 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
       audience_type: _tipo,
       audience_id:   _tipo === 'all_players' ? null : _audiencia,
       segment:       segmento,
+      /* §113 (SQL 128): en una review, quien ya la recibió queda fuera. */
+      ...(_clase === 'review' ? { review: true } : {}),
       ...extra,
     };
     try {
@@ -476,6 +482,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     _ultimaVista = null;
     $('hub-search').value = '';
     $('hub-pick-list').replaceChildren();
+    _yaRecibieron = [];
     pintarCuentaElegidos();
     $('hub-divisions').replaceChildren();
     $('hub-seg-divisions').hidden = true;
@@ -639,9 +646,10 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
       + ` · sent ${corto(enviada, { timeZone: ZONA })}`;
   }
 
-  /* §113-2B: ¿ya se pidió la review de este evento? (de verdad; los
-     ensayos no cuentan). Si falla la lectura, el servidor lo frena igual. */
-  async function cargarResenaPrevia(silencioso) {
+  /* §113: ¿ya se pidió la review de este evento? (de verdad; los ensayos
+     no cuentan). Sólo para avisarlo: a quién le llegó ya lo dice la lista
+     de destinatarios (SQL 128). */
+  async function cargarResenaPrevia() {
     if (_tipo !== 'ladder' && _tipo !== 'tournament') return;
     const turno = _turnoAudiencia;
     let filas;
@@ -655,11 +663,6 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     }
     if (turno !== _turnoAudiencia) return;
     _resenaPrevia = filas && filas[0] ? filas[0].created_at : null;
-    if (_clase === 'review' && !resenaPermitida()) {
-      ponerClase('announcement', true);
-      if (!silencioso) toast(`${textoSinResena()} It was switched to Announcement.`, true);
-      return;
-    }
     if (!$('hub-step-compose').hidden) pintarClase();
   }
 
@@ -704,7 +707,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
   /* ── DESTINATARIOS ──────────────────────────────────────── */
   async function ponerSegmento(segmento) {
     /* §113: una review va a todos los que jugaron. */
-    if (_clase === 'review' && segmento !== 'all') return;
+    if (_clase === 'review' && segmento !== 'all' && segmento !== 'selected') return;
     _segmento = segmento;
     _turnoVista++;
     /* La vista previa del segmento anterior deja de valer YA: mientras
@@ -745,10 +748,14 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     const lista = $('hub-pick-list');
     if (_candidatos) { pintarCandidatos(); return; }
     const turno = _turnoAudiencia;
+    const pedida = _pidiendoCandidatos || pedirAudiencia('all', {});
+    const deResena = _clase === 'review';
     lista.replaceChildren(nota('hub-pick-empty', 'Loading players…'));
-    if (!_pidiendoCandidatos) _pidiendoCandidatos = pedirAudiencia('all', {});
-    const r = await _pidiendoCandidatos;
+    _pidiendoCandidatos = pedida;
+    const r = await pedida;
     if (turno !== _turnoAudiencia) return;
+    /* Pedida antes de entrar o salir de la review: ya no vale (la de ahora viene detrás). */
+    if (deResena !== (_clase === 'review') || _pidiendoCandidatos !== pedida) return;
     _pidiendoCandidatos = null;
     if (!r.ok) { lista.replaceChildren(nota('hub-pick-empty', r.mensaje)); pintarCuentaElegidos(); return; }
     guardarCandidatos(r.data.people);
@@ -773,6 +780,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
      y ya no se puede elegir sale de la selección. */
   function guardarCandidatos(gente) {
     _candidatos = gente.filter((p) => p.included);
+    _yaRecibieron = gente.filter((p) => p.excluded_reason === 'already_reviewed');
     _motivos = new Map(gente.filter((p) => !p.included).map((p) => [p.player_id, p.excluded_reason]));
     const validos = new Set(_candidatos.map((p) => p.player_id));
     _elegidos = new Set([..._elegidos].filter((id) => validos.has(id)));
@@ -780,12 +788,39 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
 
   function pintarCandidatos() {
     const lista = $('hub-pick-list');
-    if (!_candidatos.length) {
+    if (!_candidatos.length && !_yaRecibieron.length) {
       lista.replaceChildren(nota('hub-pick-empty', 'No one in this group can receive email.'));
       pintarCuentaElegidos();
       return;
     }
-    lista.replaceChildren(..._candidatos.map((p) => {
+    /* §113: quienes ya recibieron la review, al final, sin poder elegirlos. */
+    const recibidos = _yaRecibieron.map((p) => {
+      const nombre = window.nombreDestinatario(p);
+      const fila = document.createElement('label');
+      fila.className = 'hub-pick hub-pick-off';
+      fila.dataset.name = `${nombre} ${p.email}`.toLowerCase();
+      const caja = document.createElement('input');
+      caja.type = 'checkbox';
+      caja.disabled = true;
+      caja.value = String(p.player_id);
+      const textos = document.createElement('span');
+      textos.className = 'hub-pick-text';
+      const n = document.createElement('span');
+      n.className = 'hub-pick-name';
+      n.textContent = nombre;
+      const m = document.createElement('span');
+      m.className = 'hub-pick-mail';
+      m.textContent = p.email;
+      textos.append(n, m);
+      const marca = document.createElement('span');
+      marca.className = 'pill pill-inactive hub-pick-pill';
+      marca.textContent = 'Already received';
+      fila.append(caja, textos, marca);
+      return fila;
+    });
+    const todosRecibieron = !_candidatos.length
+      ? [nota('hub-pick-empty', 'Everyone in this group already received this review request.')] : [];
+    lista.replaceChildren(...todosRecibieron, ..._candidatos.map((p) => {
       const nombre = window.nombreDestinatario(p);
       const fila = document.createElement('label');
       fila.className = 'hub-pick';
@@ -805,7 +840,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
       textos.append(n, m);
       fila.append(caja, textos);
       return fila;
-    }));
+    }), ...recibidos);
     filtrarCandidatos();
     pintarCuentaElegidos();
   }
@@ -823,7 +858,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
   function marcarVisibles(si) {
     if (!_candidatos || !_candidatos.length) return;
     let cambio = false;
-    document.querySelectorAll('#hub-pick-list .hub-pick:not([hidden]) input[type="checkbox"]').forEach((c) => {
+    document.querySelectorAll('#hub-pick-list .hub-pick:not([hidden]) input[type="checkbox"]:not(:disabled)').forEach((c) => {
       if (c.checked === si) return;
       c.checked = si;
       const id = Number(c.value);
@@ -882,7 +917,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
          elegir se rehace con lo que hay ahora, y la vista previa con
          ella. Esa vista nueva tapa este mensaje en un momento, así que
          se dice también en el aviso, para que no pase sin verse. */
-      if (r.codigo === 'player_not_in_audience' && segmento === 'selected') {
+      if ((r.codigo === 'player_not_in_audience' || r.codigo === 'review_already_received') && segmento === 'selected') {
         toast(r.mensaje, true);
         rehacerCandidatos();
       }
@@ -902,7 +937,10 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     const partes = [];
 
     if (!s.people) {
-      partes.push(nota('hub-count', 'No one in this group can receive email.'));
+      /* §113: en una review, puede ser que ya la recibieran todos. */
+      partes.push(nota('hub-count', s.excluded?.already_reviewed && gente.every((p) => p.included || p.excluded_reason === 'already_reviewed' || p.excluded_reason === 'sub')
+        ? 'Everyone in this group already received this review request.'
+        : 'No one in this group can receive email.'));
     } else {
       partes.push(nota('hub-count',
         `${s.people} player${s.people === 1 ? '' : 's'} \u2022 ${s.emails} email${s.emails === 1 ? '' : 's'}`));
@@ -947,6 +985,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
       const estado = p.included
         ? '<span class="pill pill-active">Receives</span>'
         : `<span class="pill ${p.excluded_reason === 'sub' || p.excluded_reason === 'inactive' || p.excluded_reason === 'do_not_email'
+              || p.excluded_reason === 'already_reviewed'
               ? 'pill-inactive' : 'hub-pill-warn'}">${esc(MOTIVOS[p.excluded_reason]?.corto || p.excluded_reason)}</span>`;
       return `<tr class="${p.included ? '' : 'hub-row-out'}">
         <td>${esc(window.nombreDestinatario(p))}</td>
@@ -1083,11 +1122,12 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
   }
 
   /* §113: ¿se puede pedir una review de lo que está elegido? */
-  const resenaPermitida = () => _tipo !== 'all_players' && !!_audiencia && _completas.has(_audiencia) && !_resenaPrevia;
-  const textoSinResena = () => (_resenaPrevia
-    ? `A review request was already sent for this ${_tipo === 'tournament' ? 'tournament' : 'ladder'} on `
-      + `${new Date(_resenaPrevia).toLocaleDateString('en-US', { timeZone: ZONA, month: 'short', day: 'numeric', year: 'numeric' })}. Only one per event.`
-    : _tipo === 'tournament'
+  const resenaPermitida = () => _tipo !== 'all_players' && !!_audiencia && _completas.has(_audiencia);
+  /* §113 (1B): ya se mandó antes: se puede volver a mandar a los demás. */
+  const textoResenaPrevia = () => `A review request was already sent for this ${_tipo === 'tournament' ? 'tournament' : 'ladder'} on `
+    + `${new Date(_resenaPrevia).toLocaleDateString('en-US', { timeZone: ZONA, month: 'short', day: 'numeric', year: 'numeric' })}. `
+    + 'Players who received it are left out automatically.';
+  const textoSinResena = () => (_tipo === 'tournament'
     ? 'A review request is available once the tournament is completed (not cancelled).'
     : 'A review request is available once the ladder is completed.');
 
@@ -1243,9 +1283,20 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
       if (!sinAviso) toast('The PDF was removed: polls are sent without attachments.');
     }
     pintarClase();
-    /* §113: una review va a todos: si había otros destinatarios elegidos,
-       se vuelve a "todos" (y con ello a su vista previa). */
-    if (clase === 'review' && _segmento !== 'all') ponerSegmento('all');
+    /* §113 (3A): una review va a todos o a unos jugadores. Con otro tipo
+       de destinatarios elegido, se vuelve a "todos". Al entrar o salir de
+       la review, la lista cambia (quien ya la recibió queda fuera): se
+       vuelve a pedir. */
+    const cruza = (antes === 'review') !== (clase === 'review');
+    if (cruza) { _candidatos = null; _pidiendoCandidatos = null; _yaRecibieron = []; }
+    if (clase === 'review' && _segmento !== 'all' && _segmento !== 'selected') ponerSegmento('all');
+    else if (cruza && (_tipo === 'all_players' || _audiencia)) {
+      /* La vista previa de antes (con la otra regla) ya no vale. */
+      _turnoVista++;
+      _ultimaVista = null;
+      limpiarVista();
+      if (_segmento === 'selected') rehacerCandidatos(); else pedirVista();
+    }
     /* El plazo de partida es distinto en cada clase de encuesta: se pone
        el que toca, salvo que ella ya lo haya cambiado a mano. */
     if (antes !== clase && _plazoSolo) ponerPlazoSolo();
@@ -1270,10 +1321,11 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     $('hub-review-question').textContent = resena ? resenaPregunta(_nombres.get(_audiencia) || '') : '';
     const permitida = resenaPermitida();
     $('hub-kind-review').disabled = !permitida;
-    $('hub-kind-review-hint').hidden = permitida || _tipo === 'all_players';
-    $('hub-kind-review-hint').textContent = permitida ? '' : textoSinResena();
+    const pista = !permitida ? textoSinResena() : (_resenaPrevia ? textoResenaPrevia() : '');
+    $('hub-kind-review-hint').hidden = !pista || _tipo === 'all_players';
+    $('hub-kind-review-hint').textContent = pista;
     document.querySelectorAll('#hub-segments [data-segment]').forEach((b) => {
-      if (b.dataset.segment !== 'all') b.disabled = resena;
+      if (b.dataset.segment !== 'all' && b.dataset.segment !== 'selected') b.disabled = resena;
     });
     $('hub-session-wrap').hidden = _clase !== 'availability';
     $('hub-options-fixed').hidden = _clase !== 'availability';
@@ -1472,6 +1524,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
   const REFRESCAR_VISTA = new Set([
     'player_not_in_audience', 'division_not_in_tournament', 'no_recipients',
     'audience_changed', 'poll_not_in_audience', 'invalid_segment',
+    'review_already_sent', 'review_already_received',
   ]);
   /* El mismo tope que el servidor (comms-send, MAX_CUERPO). */
   const MAX_MENSAJE = 200000;
@@ -1629,7 +1682,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     if (!r.ok) {
       console.error('[comms-hub] send failed:', r);
       toast(r.message, true);
-      if (r.code === 'review_already_sent') cargarResenaPrevia(true);   // el aviso ya lo dio el toast de arriba
+      if (r.code === 'review_already_sent' || r.code === 'review_already_received') { cargarResenaPrevia(); _candidatos = null; }
       if (REFRESCAR_VISTA.has(r.code)) {
         if (_segmento === 'selected') rehacerCandidatos(); else pedirVista();
       }
@@ -1658,7 +1711,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
       claveador.limpiar();
       empezarDeNuevo();
       /* §113-2B: ya no se puede pedir otra review de este evento. */
-      if (clase === 'review' && _audiencia === pedido.audience_id) { _resenaPrevia = new Date().toISOString(); pintarClase(); }
+      if (clase === 'review' && _audiencia === pedido.audience_id && !_resenaPrevia) { _resenaPrevia = new Date().toISOString(); pintarClase(); }
       /* Una encuesta nueva ya se puede usar para "By Poll Answer". */
       if (pedido.poll && tipo === 'ladder' && _audiencia === pedido.audience_id) cargarEncuestas();
       toast(window.mensajeExito(d) + window.loQueFalto(d) + window.loQueEntro(d),
