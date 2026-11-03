@@ -7,6 +7,10 @@
    con la flecha y el plazo en una caja con el calendario.
    ============================================================ */
 
+/* ── La tarjeta: un poco más ancha que la de las encuestas, para que
+   "Private: only the FEROCIA team…" quepa en una línea en la computadora. */
+.rv-tarjeta { max-width: 560px; }
+
 /* ── La cabecera de la tarjeta ────────────────────────────── */
 .rv-cabeza { position: relative; text-align: center; padding: 4px 8px 0; }
 .rv-chispa { position: absolute; top: -6px; left: -4px; color: #a6d608; }
@@ -43,16 +47,16 @@
 .rv-help:has(> span:first-child:empty):has(.rv-count:empty) { display: none; }
 .rv-count { flex-shrink: 0; font-weight: 700; }
 .rv-count.is-near { color: var(--danger); }
-.rv-privado { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 12px;
+.rv-privado { display: flex; align-items: flex-start; justify-content: center; gap: 8px; margin-top: 12px;
   font-size: 13px; font-weight: 500; line-height: 1.4; color: #4b5874; text-align: center; }
-.rv-ico-candado { flex-shrink: 0; width: 16px; height: 16px; color: #2f3a52; }
+.rv-ico-candado { flex-shrink: 0; width: 15px; height: 15px; margin-top: 1px; color: #2f3a52; }
 
 /* ── El botón y el plazo ──────────────────────────────────── */
 .rv-enviar { display: flex; align-items: center; justify-content: center; gap: 12px; width: 100%; margin-top: 18px;
-  padding: 15px 18px; border: none; border-radius: 99px; background: linear-gradient(180deg, #2c45c9, #1f35a8);
+  padding: 15px 18px; border: none; border-radius: 99px; background: var(--blue);   /* el azul de la app (#174CCC) */
   color: white; font-family: 'Inter', sans-serif; font-size: 16px; font-weight: 800; cursor: pointer;
-  box-shadow: 0 6px 18px rgba(31,53,168,.25); }
-.rv-enviar:hover { background: linear-gradient(180deg, #2f4ad6, #2139b5); }
+  box-shadow: 0 6px 18px rgba(23,76,204,.25); }
+.rv-enviar:hover { background: var(--blue-hover); }
 .rv-enviar:disabled { opacity: .5; cursor: default; box-shadow: none; }
 .rv-enviar:focus-visible { outline: 3px solid rgba(23,76,204,0.4); outline-offset: 3px; }
 .rv-flecha { width: 20px; height: 20px; }
