@@ -38,6 +38,7 @@
   let _review = null;     // lo último que contestó el servidor
   let _estrellas = null;  // las estrellas marcadas ahora (1 a 5)
   let _enviando = false;
+  let _tipoEvento = null; // 'ladder' | 'tournament' (lo dice review_view)
 
   /* ── HABLAR CON EL SERVIDOR ─────────────────────────────── */
   async function pedir(cuerpo) {
@@ -73,6 +74,19 @@
   }
 
   const valida = (n) => Number.isInteger(n) && n >= 1 && n <= 5;
+
+  /* Una estrella dibujada: el contorno, y rellena cuando está marcada (CSS). */
+  function estrellaSvg() {
+    const NS = 'http://www.w3.org/2000/svg';
+    const s = document.createElementNS(NS, 'svg');
+    s.setAttribute('viewBox', '0 0 24 24');
+    s.setAttribute('aria-hidden', 'true');
+    const p = document.createElementNS(NS, 'path');
+    p.setAttribute('d', 'M12 2.8l2.8 5.8 6.3.9-4.6 4.4 1.1 6.3L12 17.2l-5.6 3 1.1-6.3L2.9 9.5l6.3-.9z');
+    p.setAttribute('stroke-linejoin', 'round');
+    s.append(p);
+    return s;
+  }
 
   /* Las estrellas como texto, para "Your rating": ★★★★☆ (las apagadas en gris). */
   function pintarEstrellas(caja, n) {
@@ -128,7 +142,9 @@
   function pintarFormulario(e, rellenar) {
     _review = e;
     $('rv-sample').hidden = !e.sample;
-    $('rv-title').textContent = e.title || '';
+    if (e.event_type) _tipoEvento = e.event_type;
+    $('rv-improve').placeholder = `Share any suggestions or ideas for future ${
+      _tipoEvento === 'tournament' ? 'tournaments' : _tipoEvento === 'ladder' ? 'ladders' : 'events'}.`;
     $('rv-question').textContent = e.question || '';
     $('rv-for').textContent = e.name ? `Reviewing as ${e.name}` : '';
     $('rv-for').hidden = !e.name;
@@ -149,13 +165,17 @@
       b.setAttribute('role', 'radio');
       b.setAttribute('aria-label', n === 1 ? '1 star' : `${n} stars`);
       b.dataset.stars = String(n);
-      b.textContent = '★';
+      b.append(estrellaSvg());
       return b;
     }));
     marcar();
 
     const plazo = textoPlazo(e.deadline);
-    $('rv-deadline').textContent = plazo ? `You can share or update your review until ${plazo}.` : '';
+    /* "You can share or update your review until" + la fecha en negrita. */
+    const fecha = document.createElement('strong');
+    fecha.textContent = plazo ? `${plazo}.` : '';
+    $('rv-deadline').replaceChildren(document.createTextNode('You can share or update your review until '), fecha);
+    $('rv-deadline-box').hidden = !plazo;
     const errores = {
       bad_option: 'Choose from 1 to 5 stars.',
       too_long: `Each answer can have up to ${MAXIMO.toLocaleString('en-US')} characters.`,
@@ -214,11 +234,11 @@
     const improve = $('rv-improve').value;
     if (comment.length > MAXIMO || improve.length > MAXIMO) { pintar({ state: 'too_long' }); return; }
     _enviando = true;
-    $('rv-submit').textContent = 'Saving…';
+    $('rv-submit-text').textContent = 'Saving…';
     marcar();
     const e = await pedir({ action: 'review_answer', rating: _estrellas, comment, improve });
     _enviando = false;
-    $('rv-submit').textContent = 'Submit my review';
+    $('rv-submit-text').textContent = 'Submit My Review';
     marcar();
     /* Sin conexión o un fallo pasajero: se queda en el formulario, con
        todo lo escrito, para que pueda volver a pulsar. */

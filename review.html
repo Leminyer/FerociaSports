@@ -18,10 +18,10 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="design-tokens.css?v=20261013a">
 <link rel="stylesheet" href="respond.css?v=20261011a">
-<link rel="stylesheet" href="review.css?v=20261102a">
+<link rel="stylesheet" href="review.css?v=20261103a">
 <script src="config.js?v=20260929j"></script>
 <script src="assets.js?v=20261013a"></script>
-<script src="review.js?v=20261102a" defer></script>
+<script src="review.js?v=20261103a" defer></script>
 </head>
 <body>
 
@@ -35,32 +35,43 @@
     <div class="rs-loading" id="rv-loading">Loading…</div>
 
     <!-- La review: los textos los pone review.js. -->
-    <section id="rv-form" hidden>
+    <section id="rv-form" class="rv-form" hidden>
       <div class="rs-sample" id="rv-sample" hidden>Sample copy &mdash; nothing you enter here is saved.</div>
-      <div class="rs-title" id="rv-title"></div>
-      <h1 class="rs-question" id="rv-question"></h1>
-      <div class="rs-for" id="rv-for" hidden></div>
+      <div class="rv-cabeza">
+        <!-- Los dos trazos lima de la propuesta visual (decoración). -->
+        <svg class="rv-chispa" aria-hidden="true" width="34" height="30" viewBox="0 0 34 30" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"><path d="M14 4l4 10"/><path d="M4 16l10 4"/></svg>
+        <h1 class="rv-pregunta" id="rv-question"></h1>
+        <p class="rv-lema">Your feedback helps us keep making FEROCIA events better for our community.</p>
+        <div class="rv-para" id="rv-for" hidden></div>
+      </div>
 
-      <div class="rv-stars" id="rv-stars" role="radiogroup" aria-labelledby="rv-question"></div>
+      <div class="rv-estrellas-caja">
+        <div class="rv-stars" id="rv-stars" role="radiogroup" aria-labelledby="rv-question"></div>
+      </div>
       <p class="rv-stars-label" id="rv-stars-label">Tap a star — 1 is poor, 5 is excellent.</p>
 
-      <label class="rv-label" for="rv-comment">Tell us about it <span class="rv-optional">(optional)</span></label>
-      <textarea class="rv-text" id="rv-comment" rows="4" maxlength="1000"></textarea>
-      <div class="rv-help">
-        <span>Your rating and comment may be shown on ferociasports.com with your first name and last initial (for example, &ldquo;Ana U.&rdquo;).</span>
-        <span class="rv-count" id="rv-comment-count"></span>
+      <div class="rv-bloque">
+        <label class="rv-label" for="rv-comment"><svg class="rv-ico rv-ico-azul" aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-4.9A8 8 0 1 1 21 12z"/><path d="M8.5 12h.01M12 12h.01M15.5 12h.01"/></svg><span>Tell us about it <span class="rv-optional">(optional)</span></span></label>
+        <textarea class="rv-text" id="rv-comment" rows="3" maxlength="1000" placeholder="Share what you enjoyed, what stood out, or any other comments about the event."></textarea>
+        <div class="rv-help">
+          <span>Your rating and comment may be shown on ferociasports.com with your first name and last initial (for example, &ldquo;Ana U.&rdquo;).</span>
+          <span class="rv-count" id="rv-comment-count"></span>
+        </div>
       </div>
 
-      <label class="rv-label" for="rv-improve">What could we do better? <span class="rv-optional">(optional)</span></label>
-      <textarea class="rv-text" id="rv-improve" rows="3" maxlength="1000"></textarea>
-      <div class="rv-help">
-        <span>Private: only the FEROCIA team reads this, to make every event better.</span>
-        <span class="rv-count" id="rv-improve-count"></span>
+      <div class="rv-bloque rv-bloque-privado">
+        <label class="rv-label" for="rv-improve"><svg class="rv-ico rv-ico-morado" aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.6 10.8c.6.5 1 1.2 1 2V16h5.2v-.2c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z"/><path d="M12 0.5v0M3.5 4l1 1M20.5 4l-1 1M1.5 11h1M21.5 11h1"/></svg><span>What could we do better? <span class="rv-optional">(optional)</span></span></label>
+        <textarea class="rv-text" id="rv-improve" rows="2" maxlength="1000" placeholder="Share any suggestions or ideas for future events."></textarea>
+        <div class="rv-help"><span></span><span class="rv-count" id="rv-improve-count"></span></div>
       </div>
+      <p class="rv-privado"><svg class="rv-ico-candado" aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2" fill="currentColor" stroke="none"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg><span>Private: only the FEROCIA team reads this, to make every event better.</span></p>
 
-      <button type="button" class="rs-confirm" id="rv-submit" disabled>Submit my review</button>
+      <button type="button" class="rv-enviar" id="rv-submit" disabled><span id="rv-submit-text">Submit My Review</span><svg class="rv-flecha" aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
       <p class="rs-error" id="rv-error" role="alert" hidden></p>
-      <p class="rs-deadline" id="rv-deadline"></p>
+      <div class="rv-plazo" id="rv-deadline-box" hidden>
+        <svg class="rv-ico rv-ico-azul" aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 17.5h.01M12 17.5h.01"/></svg>
+        <p id="rv-deadline"></p>
+      </div>
     </section>
 
     <!-- Después de enviar. -->

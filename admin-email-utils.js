@@ -148,6 +148,7 @@
     /* §113: las reviews. */
     review_not_completed:  'A review request can only be sent once the ladder or tournament is completed (not cancelled). Nothing was sent.',
     review_not_allowed:    'A review request goes to everyone who played: choose "All" in Recipients. Nothing was sent.',
+    review_already_sent:   'A review request was already sent for this event (only one per event). Nothing was sent.',
   };
 
   /**

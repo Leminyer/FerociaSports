@@ -22,7 +22,7 @@
      four must stay in this sequence. See the header of admin-layout.css. -->
 <link rel="stylesheet" href="admin-layout.css?v=20261012a">
 <link rel="stylesheet" href="admin-components.css?v=20261008a">
-<link rel="stylesheet" href="admin-pages.css?v=20261102a">
+<link rel="stylesheet" href="admin-pages.css?v=20261103a">
 <link rel="stylesheet" href="admin-ftc.css?v=20260928b">
 <link rel="stylesheet" href="admin-comms-hub.css?v=20261013c">
 
@@ -2093,6 +2093,12 @@
                 <div class="hub-hint hub-hint-after" id="promo-seg-hint" hidden>A resend goes only to the subscribers you choose.</div>
                 <div class="hub-sub-step" id="promo-selected-wrap" hidden>
                   <input type="search" class="hub-input" id="promo-search" placeholder="Search subscribers..." autocomplete="off" aria-label="Search subscribers">
+                  <!-- §114: marcar o desmarcar de una vez (los que se ven con la búsqueda). -->
+                  <div class="hub-pick-tools" id="promo-pick-tools" hidden>
+                    <button type="button" class="hub-attach-btn" data-action="promoPickAll">Select all</button>
+                    <button type="button" class="hub-attach-btn" data-action="promoPickNone">Clear</button>
+                    <span class="hub-pick-count" id="promo-pick-count" aria-live="polite"></span>
+                  </div>
                   <div class="hub-pick-list" id="promo-pick-list"></div>
                 </div>
               </div>
@@ -2318,6 +2324,12 @@
 
                 <div class="hub-sub-step" id="hub-selected-wrap" hidden>
                   <input type="search" class="hub-input" id="hub-search" placeholder="Search players..." autocomplete="off" aria-label="Search players">
+                  <!-- §114: marcar o desmarcar de una vez (los que se ven con la búsqueda). -->
+                  <div class="hub-pick-tools" id="hub-pick-tools" hidden>
+                    <button type="button" class="hub-attach-btn" data-action="hubPickAll">Select all</button>
+                    <button type="button" class="hub-attach-btn" data-action="hubPickNone">Clear</button>
+                    <span class="hub-pick-count" id="hub-pick-count" aria-live="polite"></span>
+                  </div>
                   <div class="hub-pick-list" id="hub-pick-list"></div>
                 </div>
               </div>
@@ -4114,7 +4126,7 @@
 <!-- Ajuste 24: los videos de la Academy (lo común, y la pantalla). -->
 <script src="videos-common.js?v=20261027a"></script>
 <script src="admin-videos.js?v=20261027a"></script>
-<script src="admin-email-utils.js?v=20261102a"></script>
+<script src="admin-email-utils.js?v=20261103a"></script>
 <script src="admin-rich-editor.js?v=20261009b"></script>
 <script src="admin-share.js?v=20260928b"></script>
 <script src="admin-player-status-history.js?v=20260928b"></script>
@@ -4127,9 +4139,9 @@
 <script src="purify.min.js?v=3.4.16"></script>
 <script src="admin-communications.js?v=20261013c"></script>
 <script src="admin-delivery-problems.js?v=20261014a"></script>
-<script src="admin-comms-hub.js?v=20261102a"></script>
+<script src="admin-comms-hub.js?v=20261103a"></script>
 <script src="admin-comms-results.js?v=20261011d"></script>
-<script src="admin-promotions.js?v=20261013f"></script>
+<script src="admin-promotions.js?v=20261103a"></script>
 <script src="admin-subscriber-reminder.js?v=20261005a"></script>
 <script src="admin-newsletter.js?v=20261028a"></script>
 <!-- TEMPORARY: fills in missing dates of birth from a CSV import.

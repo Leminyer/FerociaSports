@@ -991,3 +991,8 @@
 .rvw-switch[aria-checked="true"] .rvw-switch-pista::after { transform: translateX(16px); }
 @media (prefers-reduced-motion: reduce) { .rvw-switch-pista, .rvw-switch-pista::after { transition: none; } }
 @media (forced-colors: active) { .rvw-switch-pista { border: 1px solid CanvasText; } .rvw-privado { border-color: CanvasText; } }
+
+/* ── §114: "Select all" / "Clear" en Selected Players y Selected Subscribers ── */
+.hub-pick-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 10px; margin-top: 8px; }
+.hub-pick-tools[hidden] { display: none; }
+.hub-pick-count { margin-left: auto; font-size: 12px; font-weight: 700; color: var(--text-muted); }

@@ -311,6 +311,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
   let _espera = null;
   let _nombres     = new Map();  // id → nombre de cada escalera o torneo de la lista
   let _completas   = new Set();  // §113: ids de las escaleras o torneos completados (no cancelados)
+  let _resenaPrevia = null;      // §113-2B: cuándo se pidió ya la review de este evento (o null)
   let _ultimaVista = null;       // la vista previa que se ve AHORA; null mientras carga
   let _plantilla   = { subject: '', html: '' };  // lo último que puso una plantilla
   let _clase       = 'announcement';  // 'announcement' | 'availability' | 'custom' | 'review'
@@ -470,10 +471,12 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     _encuestas = [];
     _encuesta = null;
     _respuesta = null;
+    _resenaPrevia = null;
     cerrarPersonas();
     _ultimaVista = null;
     $('hub-search').value = '';
     $('hub-pick-list').replaceChildren();
+    pintarCuentaElegidos();
     $('hub-divisions').replaceChildren();
     $('hub-seg-divisions').hidden = true;
     $('hub-seg-poll').hidden = true;
@@ -560,6 +563,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
        "todos" no las necesita, y el botón aparece cuando llegan. */
     if (_tipo === 'tournament') cargarDivisiones();
     if (_tipo === 'ladder') cargarEncuestas();
+    cargarResenaPrevia();
     ponerSegmento('all');
   }
 
@@ -633,6 +637,30 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     const pregunta = String(p.question || '');
     return `Poll · ${pregunta.length > 50 ? `${pregunta.slice(0, 49)}…` : pregunta}`
       + ` · sent ${corto(enviada, { timeZone: ZONA })}`;
+  }
+
+  /* §113-2B: ¿ya se pidió la review de este evento? (de verdad; los
+     ensayos no cuentan). Si falla la lectura, el servidor lo frena igual. */
+  async function cargarResenaPrevia(silencioso) {
+    if (_tipo !== 'ladder' && _tipo !== 'tournament') return;
+    const turno = _turnoAudiencia;
+    let filas;
+    try {
+      filas = await api('communications?select=created_at,comm_polls!inner(kind)&comm_polls.kind=eq.review'
+        + `&meta->audience->>type=eq.${_tipo}&meta->audience->>id=eq.${encodeURIComponent(_audiencia)}`
+        + '&meta->>solo_admin=is.null&status=neq.failed&order=created_at.asc&limit=1');
+    } catch (e) {
+      console.error('[comms-hub] no se pudo mirar si ya se pidió la review:', e);
+      return;
+    }
+    if (turno !== _turnoAudiencia) return;
+    _resenaPrevia = filas && filas[0] ? filas[0].created_at : null;
+    if (_clase === 'review' && !resenaPermitida()) {
+      ponerClase('announcement', true);
+      if (!silencioso) toast(`${textoSinResena()} It was switched to Announcement.`, true);
+      return;
+    }
+    if (!$('hub-step-compose').hidden) pintarClase();
   }
 
   /* Un botón por respuesta de la encuesta elegida, y "No response". */
@@ -722,7 +750,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     const r = await _pidiendoCandidatos;
     if (turno !== _turnoAudiencia) return;
     _pidiendoCandidatos = null;
-    if (!r.ok) { lista.replaceChildren(nota('hub-pick-empty', r.mensaje)); return; }
+    if (!r.ok) { lista.replaceChildren(nota('hub-pick-empty', r.mensaje)); pintarCuentaElegidos(); return; }
     guardarCandidatos(r.data.people);
     pintarCandidatos();
   }
@@ -733,6 +761,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
   async function rehacerCandidatos() {
     const turno = _turnoAudiencia;
     _candidatos = null;
+    pintarCuentaElegidos();
     await cargarCandidatos();
     /* Sólo si la lista llegó: si no, la vista volvería a fallar igual y
        se pedirían las dos cosas una y otra vez. */
@@ -753,6 +782,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     const lista = $('hub-pick-list');
     if (!_candidatos.length) {
       lista.replaceChildren(nota('hub-pick-empty', 'No one in this group can receive email.'));
+      pintarCuentaElegidos();
       return;
     }
     lista.replaceChildren(..._candidatos.map((p) => {
@@ -777,6 +807,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
       return fila;
     }));
     filtrarCandidatos();
+    pintarCuentaElegidos();
   }
 
   function filtrarCandidatos() {
@@ -784,6 +815,30 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     document.querySelectorAll('#hub-pick-list .hub-pick').forEach((f) => {
       f.hidden = !!q && !f.dataset.name.includes(q);
     });
+  }
+
+  /* §114: "Select all" / "Clear" — sólo los que se ven (con una búsqueda
+     escrita, sólo los que coinciden; decidido 1A). Los que no pueden
+     recibir correo no están en la lista, así que nunca se marcan. */
+  function marcarVisibles(si) {
+    if (!_candidatos || !_candidatos.length) return;
+    let cambio = false;
+    document.querySelectorAll('#hub-pick-list .hub-pick:not([hidden]) input[type="checkbox"]').forEach((c) => {
+      if (c.checked === si) return;
+      c.checked = si;
+      const id = Number(c.value);
+      if (si) _elegidos.add(id); else _elegidos.delete(id);
+      cambio = true;
+    });
+    pintarCuentaElegidos();
+    if (cambio) pedirVista();
+  }
+
+  /* "18 of 24 selected", y los botones sólo con alguien en la lista. */
+  function pintarCuentaElegidos() {
+    const total = _candidatos ? _candidatos.length : 0;
+    $('hub-pick-tools').hidden = !total;
+    $('hub-pick-count').textContent = total ? `${_elegidos.size} of ${total} selected` : '';
   }
 
   /* ── VISTA PREVIA ───────────────────────────────────────── */
@@ -1020,7 +1075,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
        ya no vale: vuelve a "Announcement" y se dice. */
     if (_clase === 'review' && !resenaPermitida()) {
       ponerClase('announcement', true);
-      toast(`${textoNoCompleta()} It was switched to Announcement.`, true);
+      toast(`${textoSinResena()} It was switched to Announcement.`, true);
       return;
     }
     pintarClase();
@@ -1028,8 +1083,11 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
   }
 
   /* §113: ¿se puede pedir una review de lo que está elegido? */
-  const resenaPermitida = () => _tipo !== 'all_players' && !!_audiencia && _completas.has(_audiencia);
-  const textoNoCompleta = () => (_tipo === 'tournament'
+  const resenaPermitida = () => _tipo !== 'all_players' && !!_audiencia && _completas.has(_audiencia) && !_resenaPrevia;
+  const textoSinResena = () => (_resenaPrevia
+    ? `A review request was already sent for this ${_tipo === 'tournament' ? 'tournament' : 'ladder'} on `
+      + `${new Date(_resenaPrevia).toLocaleDateString('en-US', { timeZone: ZONA, month: 'short', day: 'numeric', year: 'numeric' })}. Only one per event.`
+    : _tipo === 'tournament'
     ? 'A review request is available once the tournament is completed (not cancelled).'
     : 'A review request is available once the ladder is completed.');
 
@@ -1173,7 +1231,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     if (!BOTON[clase]) return;
     if (!(CLASES_DE[_tipo] || ['announcement']).includes(clase)) clase = 'announcement';
     if (clase === 'review' && !resenaPermitida()) {
-      if (!sinAviso) toast(textoNoCompleta(), true);
+      if (!sinAviso) toast(textoSinResena(), true);
       return;
     }
     const antes = _clase;
@@ -1213,7 +1271,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     const permitida = resenaPermitida();
     $('hub-kind-review').disabled = !permitida;
     $('hub-kind-review-hint').hidden = permitida || _tipo === 'all_players';
-    $('hub-kind-review-hint').textContent = permitida ? '' : textoNoCompleta();
+    $('hub-kind-review-hint').textContent = permitida ? '' : textoSinResena();
     document.querySelectorAll('#hub-segments [data-segment]').forEach((b) => {
       if (b.dataset.segment !== 'all') b.disabled = resena;
     });
@@ -1571,6 +1629,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     if (!r.ok) {
       console.error('[comms-hub] send failed:', r);
       toast(r.message, true);
+      if (r.code === 'review_already_sent') cargarResenaPrevia(true);   // el aviso ya lo dio el toast de arriba
       if (REFRESCAR_VISTA.has(r.code)) {
         if (_segmento === 'selected') rehacerCandidatos(); else pedirVista();
       }
@@ -1598,6 +1657,8 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     if (window.envioTerminado(d) && !d.unconfirmed) {
       claveador.limpiar();
       empezarDeNuevo();
+      /* §113-2B: ya no se puede pedir otra review de este evento. */
+      if (clase === 'review' && _audiencia === pedido.audience_id) { _resenaPrevia = new Date().toISOString(); pintarClase(); }
       /* Una encuesta nueva ya se puede usar para "By Poll Answer". */
       if (pedido.poll && tipo === 'ladder' && _audiencia === pedido.audience_id) cargarEncuestas();
       toast(window.mensajeExito(d) + window.loQueFalto(d) + window.loQueEntro(d),
@@ -1750,6 +1811,7 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     if (!caja) return;
     const id = Number(caja.value);
     if (caja.checked) _elegidos.add(id); else _elegidos.delete(id);
+    pintarCuentaElegidos();
     pedirVista();
   });
 
@@ -1783,6 +1845,8 @@ I'm looking forward to an amazing season of friendly competition and good vibes 
     hubKind:         (btn) => ponerClase(btn.dataset.kind),
     hubOptionAdd:    () => anadirRespuesta(),
     hubOptionDel:    (btn) => quitarRespuesta(btn),
+    hubPickAll:      () => marcarVisibles(true),
+    hubPickNone:     () => marcarVisibles(false),
     /* Los botones de las otras pantallas. */
     hubNotifyLadder: () => {
       const escalera = window.AdminState.currentLadder;

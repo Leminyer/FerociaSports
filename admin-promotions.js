@@ -2120,6 +2120,7 @@
     const lista = document.getElementById('promo-pick-list');
     if (!lista) return;
     if (_candidatosCampana === null) {
+      pintarCuentaCampana();
       if (!_errorAudiencia) { lista.replaceChildren(notaLista('Loading subscribers…')); return; }
       const nota = notaLista('Could not load the subscribers. ');
       const otra = document.createElement('button');
@@ -2131,7 +2132,7 @@
       lista.replaceChildren(nota);
       return;
     }
-    if (!_candidatosCampana.length) { lista.replaceChildren(notaLista('There are no active subscribers.')); return; }
+    if (!_candidatosCampana.length) { lista.replaceChildren(notaLista('There are no active subscribers.')); pintarCuentaCampana(); return; }
     lista.replaceChildren(..._candidatosCampana.map((p) => {
       const nombre = window.nombreDestinatario(p) || p.email;
       const fila = document.createElement('label');
@@ -2154,6 +2155,28 @@
       return fila;
     }));
     filtrarCandidatosCampana();
+    pintarCuentaCampana();
+  }
+
+  /* §114: "Select all" / "Clear" — sólo los que se ven (con una búsqueda
+     escrita, sólo los que coinciden). Sólo salen suscriptores activos. */
+  function marcarVisiblesCampana(si) {
+    if (!_candidatosCampana || !_candidatosCampana.length) return;
+    document.querySelectorAll('#promo-pick-list .hub-pick:not([hidden]) input[type="checkbox"]').forEach((c) => {
+      c.checked = si;
+      const id = Number(c.value);
+      if (si) _elegidosCampana.add(id); else _elegidosCampana.delete(id);
+    });
+    pintarCuentaCampana();
+    pintarCampana();
+  }
+
+  function pintarCuentaCampana() {
+    const total = _candidatosCampana ? _candidatosCampana.length : 0;
+    const herramientas = document.getElementById('promo-pick-tools');
+    const cuenta = document.getElementById('promo-pick-count');
+    if (herramientas) herramientas.hidden = !total;
+    if (cuenta) cuenta.textContent = total ? `${_elegidosCampana.size} of ${total} selected` : '';
   }
 
   function filtrarCandidatosCampana() {
@@ -2342,6 +2365,7 @@
     /* A quién: todos, como siempre; la lista de elegidos, vacía. */
     _reenvio = null;
     _elegidosCampana = new Set();
+    pintarCuentaCampana();
     const busca = document.getElementById('promo-search');
     if (busca) busca.value = '';
     pintarReenvio();
@@ -3147,6 +3171,7 @@
     if (!caja) return;
     const id = Number(caja.value);
     if (caja.checked) _elegidosCampana.add(id); else _elegidosCampana.delete(id);
+    pintarCuentaCampana();
     pintarCampana();
   });
   document.getElementById('promo-search')?.addEventListener('input', filtrarCandidatosCampana);
@@ -3174,6 +3199,8 @@
 
   Object.assign(window.CLICK_HANDLERS, {
     // CLICK_HANDLERS are called with ONE argument: the button element.
+    promoPickAll:  () => marcarVisiblesCampana(true),    // §114
+    promoPickNone: () => marcarVisiblesCampana(false),
     viewSubscriber:      (btn) => window.viewSubscriber(btn.dataset.subid),
     // Los dos abren la ventana; ninguno cambia nada por sí solo.
     unsubscribeSubscriber: (btn) => _abrirSubStatus(btn.dataset.subid, 'baja'),

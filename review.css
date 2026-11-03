@@ -1,32 +1,80 @@
 /* ============================================================
    FEROCIA SPORTS CENTER — LA PÁGINA DE LA REVIEW (review.html)
-   Usa la base de respond.css (cabecera, tarjeta, botones); aquí sólo
-   lo propio: las cinco estrellas y los dos cuadros de texto.
+   Usa la base de respond.css (cabecera, tarjeta, avisos). Aquí, el
+   diseño de la propuesta visual del 2 de noviembre: la pregunta grande
+   y centrada con los trazos lima, las estrellas en una franja lima
+   clara, "What could we do better?" en una caja lila, el botón azul
+   con la flecha y el plazo en una caja con el calendario.
    ============================================================ */
 
-/* ── Las estrellas ────────────────────────────────────────── */
-.rv-stars{display:flex;justify-content:center;gap:6px;margin-top:22px;}
-.rv-star{width:48px;height:48px;border:none;background:none;padding:0;cursor:pointer;
-         font-size:40px;line-height:48px;color:#d6dff5;font-family:'Inter',sans-serif;}
-.rv-star:focus-visible{outline:3px solid rgba(23,76,204,0.35);outline-offset:2px;border-radius:8px;}
-.rv-star.is-on{color:#F5B301;}
-.rv-stars-label{margin-top:6px;text-align:center;font-size:13px;font-weight:600;color:var(--muted);}
+/* ── La cabecera de la tarjeta ────────────────────────────── */
+.rv-cabeza { position: relative; text-align: center; padding: 4px 8px 0; }
+.rv-chispa { position: absolute; top: -6px; left: -4px; color: #a6d608; }
+.rv-pregunta { font-size: 26px; font-weight: 800; line-height: 1.2; color: #0d1f4a; letter-spacing: -.3px; }
+.rv-lema { margin-top: 8px; font-size: 15px; font-weight: 500; line-height: 1.45; color: #4b5874; }
+.rv-para { margin-top: 6px; font-size: 12px; font-weight: 600; color: var(--muted); }
 
-/* ── Los textos ───────────────────────────────────────────── */
-.rv-label{display:block;margin-top:22px;font-size:14px;font-weight:800;color:#0d1f4a;}
-.rv-optional{font-weight:600;color:var(--muted);}
-.rv-text{display:block;width:100%;margin-top:8px;padding:12px 14px;border:1.5px solid #d6dff5;border-radius:10px;
-         font-family:'Inter',sans-serif;font-size:15px;line-height:1.5;color:var(--text);resize:vertical;background:white;}
-.rv-text:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(23,76,204,0.15);}
-.rv-help{display:flex;justify-content:space-between;gap:12px;margin-top:6px;
-         font-size:12px;font-weight:500;line-height:1.5;color:var(--muted);}
-.rv-count{flex-shrink:0;font-weight:700;}
-.rv-count.is-near{color:var(--danger);}
+/* ── Las estrellas ────────────────────────────────────────── */
+.rv-estrellas-caja { margin: 20px auto 0; max-width: 340px; padding: 10px 14px; border-radius: 18px; background: #eef8cf; }
+.rv-stars { display: flex; justify-content: center; gap: 8px; }
+.rv-star { display: inline-flex; align-items: center; justify-content: center; width: 46px; height: 46px;
+  padding: 0; border: none; border-radius: 10px; background: none; cursor: pointer; color: #34405e; }
+.rv-star svg { width: 36px; height: 36px; fill: none; stroke: currentColor; stroke-width: 1.6; transition: transform .1s; }
+.rv-star:hover svg { transform: scale(1.08); }
+.rv-star.is-on { color: #e8a800; }
+.rv-star.is-on svg { fill: #F5B301; }
+.rv-star:focus-visible { outline: 3px solid rgba(23,76,204,0.35); outline-offset: 1px; }
+.rv-stars-label { margin-top: 8px; text-align: center; font-size: 13px; font-weight: 600; color: #4b5874; }
+
+/* ── Los dos cuadros ──────────────────────────────────────── */
+.rv-bloque { margin-top: 22px; }
+.rv-bloque-privado { margin-top: 16px; padding: 12px 12px 10px; border-radius: 14px; background: #f1f0fd; }
+.rv-label { display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 800; color: #0d1f4a; }
+.rv-optional { font-weight: 500; color: #4b5874; }
+.rv-ico { flex-shrink: 0; }
+.rv-ico-azul { color: #0d1f4a; }
+.rv-ico-morado { color: #6b4fd8; }
+.rv-text { display: block; width: 100%; margin-top: 10px; padding: 12px 14px; border: 1.5px solid #d6dbe8; border-radius: 12px;
+  font-family: 'Inter', sans-serif; font-size: 15px; line-height: 1.5; color: var(--text); resize: vertical; background: white; }
+.rv-text::placeholder { color: #8a93a8; }
+.rv-text:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(23,76,204,0.15); }
+.rv-help { display: flex; justify-content: space-between; gap: 12px; margin-top: 6px;
+  font-size: 12px; font-weight: 500; line-height: 1.5; color: var(--muted); }
+.rv-help:has(> span:first-child:empty):has(.rv-count:empty) { display: none; }
+.rv-count { flex-shrink: 0; font-weight: 700; }
+.rv-count.is-near { color: var(--danger); }
+.rv-privado { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 12px;
+  font-size: 13px; font-weight: 500; line-height: 1.4; color: #4b5874; text-align: center; }
+.rv-ico-candado { flex-shrink: 0; width: 16px; height: 16px; color: #2f3a52; }
+
+/* ── El botón y el plazo ──────────────────────────────────── */
+.rv-enviar { display: flex; align-items: center; justify-content: center; gap: 12px; width: 100%; margin-top: 18px;
+  padding: 15px 18px; border: none; border-radius: 99px; background: linear-gradient(180deg, #2c45c9, #1f35a8);
+  color: white; font-family: 'Inter', sans-serif; font-size: 16px; font-weight: 800; cursor: pointer;
+  box-shadow: 0 6px 18px rgba(31,53,168,.25); }
+.rv-enviar:hover { background: linear-gradient(180deg, #2f4ad6, #2139b5); }
+.rv-enviar:disabled { opacity: .5; cursor: default; box-shadow: none; }
+.rv-enviar:focus-visible { outline: 3px solid rgba(23,76,204,0.4); outline-offset: 3px; }
+.rv-flecha { width: 20px; height: 20px; }
+.rv-plazo { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 16px; padding: 12px 16px;
+  border-radius: 14px; background: #f2f4fa; }
+.rv-plazo[hidden] { display: none; }
+.rv-plazo p { font-size: 13px; font-weight: 500; line-height: 1.45; color: #2f3a52; }
+.rv-plazo strong { display: block; font-weight: 800; color: #0d1f4a; }
 
 /* ── Hecha / cerrada ──────────────────────────────────────── */
-.rv-done-stars{margin-top:4px;font-size:28px;letter-spacing:2px;color:#F5B301;}
-.rv-done-stars .rv-off{color:#d6dff5;}
+.rv-done-stars { margin-top: 4px; font-size: 28px; letter-spacing: 2px; color: #F5B301; }
+.rv-done-stars .rv-off { color: #d6dff5; }
 
-@media (max-width:480px){
-  .rv-star{width:42px;height:42px;font-size:34px;line-height:42px;}
+@media (max-width: 480px) {
+  .rv-pregunta { font-size: 22px; }
+  .rv-lema { font-size: 14px; }
+  .rv-star { width: 42px; height: 42px; }
+  .rv-star svg { width: 32px; height: 32px; }
+  .rv-chispa { top: -10px; left: -10px; transform: scale(.8); }
+}
+@media (prefers-reduced-motion: reduce) { .rv-star svg { transition: none; } }
+@media (forced-colors: active) {
+  .rv-estrellas-caja, .rv-bloque-privado, .rv-plazo { border: 1px solid CanvasText; }
+  .rv-star.is-on svg { fill: Highlight; }
 }
