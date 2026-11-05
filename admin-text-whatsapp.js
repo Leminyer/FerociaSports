@@ -26,6 +26,10 @@
 
    También: window.FerociaContacto, lo que usa la ficha del jugador
    (admin-player-profile.js) para sus botones WhatsApp y Text.
+
+   Familias (4 nov, 1A · 2A): quienes comparten EXACTAMENTE el mismo
+   número van en una sola fila, con un solo mensaje ("Hi Ana and Bea,"),
+   un solo contacto en "Download contacts" y una sola marca ✓.
    ============================================================ */
 
 (function () {
@@ -97,8 +101,14 @@
   /* "?&body=" lo entienden tanto el iPhone como Android. */
   const enlaceTexto = (completo, texto) => `sms:+${completo}${texto ? `?&body=${codificar(texto)}` : ''}`;
   const nombrePila = (n) => (String(n || '').trim().split(/\s+/)[0] || '');
+  /* "Ana", "Ana and Bea", "Ana, Bea and Carla" (decisión 2A del 4 nov). */
+  const unirNombres = (lista) => (lista.length <= 1 ? (lista[0] || '')
+    : `${lista.slice(0, -1).join(', ')} and ${lista[lista.length - 1]}`);
+  /* nombre: uno, o varios (quienes comparten el número). */
   const conSaludo = (nombre, texto) => {
-    const n = nombrePila(nombre);
+    const nombres = (Array.isArray(nombre) ? nombre : [nombre]).map(nombrePila).filter(Boolean)
+      .filter((x, i, todos) => todos.indexOf(x) === i);
+    const n = unirNombres(nombres);
     if (!n) return texto;
     return texto ? `Hi ${n},\n${texto}` : `Hi ${n}, `;
   };
@@ -117,9 +127,9 @@
   let _registrando = null;   // la creación en vuelo
   let _copiado = false;
   let _guardarEn = null;
-  let _plantillaPuesta = '';
-  let _ultima = 0;           // cuándo se tocó por última vez este aviso (copiar o un botón)
-  const _waAntes = new Map(); // player_id → la marca de WhatsApp antes de "No WhatsApp" (para deshacer)  // el texto que puso la última plantilla (para saber si ella lo cambió)
+  let _plantillaPuesta = '';  // el texto que puso la última plantilla (para saber si ella lo cambió)
+  let _ultima = 0;            // cuándo se tocó por última vez este aviso (copiar o un botón)
+  const _waAntes = new Map(); // player_id → la marca de WhatsApp antes de "No WhatsApp" (para deshacer)
 
   const nombreDe = (p) => [p.first_name, p.last_name].filter(Boolean).join(' ').trim() || 'Player';
   const etiquetaAudiencia = () => (_tipo === 'all_players' ? 'All Players' : (_nombres.get(_audiencia) || ''));
@@ -272,6 +282,41 @@
 
   function mensaje() { return $('tw-mensaje').value.trim(); }
 
+  /* §115 (4 nov, 1A): quienes comparten EXACTAMENTE el mismo número (una
+     mamá y su hija) van en UNA fila, con un solo mensaje para los dos. Un
+     número que no se puede usar no se junta con nadie. La clave es el
+     número completo; la de una fila suelta, su id. */
+  function grupos() {
+    const porNumero = new Map();
+    const lista = [];
+    _gente.forEach((p) => {
+      const n = numero(p.country_code, p.phone);
+      if (!n.ok) { lista.push({ clave: `p${p.player_id}`, personas: [p], n }); return; }
+      if (!porNumero.has(n.completo)) {
+        const g = { clave: n.completo, personas: [], n };
+        porNumero.set(n.completo, g);
+        lista.push(g);
+      }
+      porNumero.get(n.completo).personas.push(p);
+    });
+    /* Un mismo teléfono: si alguien ya lo marcó "No WhatsApp", vale para todos. */
+    lista.forEach((g) => { g.sinWhatsApp = g.personas.some((p) => p.whatsapp === 'no'); });
+    return lista;
+  }
+
+  /* "Ana Uno & Bea Uno" (en la lista) y "Ana & Bea Uno" (en el contacto). */
+  const nombreGrupo = (g) => g.personas.map(nombreDe).join(' & ');
+  function nombreContacto(g) {
+    const ap = g.personas.map((p) => String(p.last_name || '').trim());
+    if (g.personas.length > 1 && ap.every((x) => x && x === ap[0])) {
+      return { n: `${ap[0]} · FEROCIA;${g.personas.map((p) => nombrePila(p.first_name) || 'Player').join(' & ')}`,
+               fn: `${g.personas.map((p) => nombrePila(p.first_name) || 'Player').join(' & ')} ${ap[0]} · FEROCIA` };
+    }
+    if (g.personas.length > 1) return { n: `· FEROCIA;${nombreGrupo(g)}`, fn: `${nombreGrupo(g)} · FEROCIA` };
+    const p = g.personas[0];
+    return { n: `${`${p.last_name || ''} · FEROCIA`.trim()};${p.first_name || ''}`, fn: `${nombreDe(p)} · FEROCIA` };
+  }
+
   function pintar() {
     const lista = $('tw-list');
     const fuera = Object.entries(_fuera).filter(([, n]) => n > 0).map(([m, n]) => (MOTIVOS[m] ? MOTIVOS[m](n) : `${n} ${m}`));
@@ -283,74 +328,79 @@
     }
     const soloSinWa = $('tw-solo-sin-wa').checked;
     const texto = mensaje();
-    const filas = _gente.filter((p) => !soloSinWa || p.whatsapp === 'no').map((p) => fila(p, texto));
+    const filas = grupos().filter((g) => !soloSinWa || g.sinWhatsApp).map((g) => fila(g, texto));
     lista.replaceChildren(...(filas.length ? filas : [nota('Everyone in this list may have WhatsApp.')]));
     pintarCuenta();
   }
 
-  function fila(p, texto) {
-    const n = numero(p.country_code, p.phone);
-    const m = _marcas.get(p.player_id) || {};
+  function fila(g, texto) {
+    const n = g.n;
+    const ids = g.personas.map((p) => p.player_id);
+    const m = _marcas.get(g.clave) || {};
     const f = document.createElement('div');
     f.className = 'tw-row';
-    f.dataset.id = String(p.player_id);
+    f.dataset.id = ids.join(',');
 
     const quien = document.createElement('div');
     quien.className = 'tw-who';
     const nom = document.createElement('div');
     nom.className = 'tw-name';
-    nom.textContent = nombreDe(p);
+    nom.textContent = nombreGrupo(g);
     const tel = document.createElement('div');
     tel.className = 'tw-phone';
-    tel.textContent = n.ok ? n.mostrar : (p.phone ? String(p.phone) : '');
+    const p0 = g.personas[0];
+    tel.textContent = (n.ok ? n.mostrar : (p0.phone ? String(p0.phone) : ''))
+      + (g.personas.length > 1 ? ` · shared number (${g.personas.length} players)` : '');
     quien.append(nom, tel);
 
     const etiquetas = document.createElement('div');
     etiquetas.className = 'tw-tags';
     const pill = (txt, cls) => { const s = document.createElement('span'); s.className = `pill ${cls}`; s.textContent = txt; return s; };
     if (!n.ok) etiquetas.append(pill(n.motivo === 'none' ? 'No phone' : 'Check number', 'hub-pill-warn'));
-    else if (p.whatsapp === 'no') etiquetas.append(pill('No WhatsApp', 'pill-inactive'));
+    else if (g.sinWhatsApp) etiquetas.append(pill('No WhatsApp', 'pill-inactive'));
     if (m.wa) etiquetas.append(pill('WhatsApp ✓', 'pill-active'));
     if (m.sms) etiquetas.append(pill('Text ✓', 'pill-active'));
 
     const botones = document.createElement('div');
     botones.className = 'tw-actions';
     if (n.ok) {
-      const cuerpo = conSaludo(p.first_name, texto);
-      if (p.whatsapp !== 'no') botones.append(enlace('WhatsApp', 'tw-btn tw-btn-wa', enlaceWhatsApp(n.completo, cuerpo), 'wa', p, !texto));
-      botones.append(enlace('Text', 'tw-btn tw-btn-sms', enlaceTexto(n.completo, cuerpo), 'sms', p, !texto));
+      const cuerpo = conSaludo(g.personas.map((p) => p.first_name), texto);
+      if (!g.sinWhatsApp) botones.append(enlace('WhatsApp', 'tw-btn tw-btn-wa', enlaceWhatsApp(n.completo, cuerpo), 'wa', g, !texto));
+      botones.append(enlace('Text', 'tw-btn tw-btn-sms', enlaceTexto(n.completo, cuerpo), 'sms', g, !texto));
       const marca = document.createElement('button');
       marca.type = 'button';
       marca.className = 'tw-link';
       marca.dataset.action = 'twWhatsAppMark';
-      marca.dataset.id = String(p.player_id);
-      marca.dataset.valor = p.whatsapp === 'no' ? (_waAntes.get(p.player_id) || 'unknown') : 'no';
-      marca.textContent = p.whatsapp === 'no' ? 'Has WhatsApp?' : 'No WhatsApp';
-      marca.title = p.whatsapp === 'no' ? 'Show the WhatsApp button again' : 'WhatsApp said this number isn\'t on WhatsApp';
+      marca.dataset.ids = ids.join(',');
+      marca.dataset.valor = g.sinWhatsApp ? 'restore' : 'no';
+      marca.textContent = g.sinWhatsApp ? 'Has WhatsApp?' : 'No WhatsApp';
+      marca.title = g.sinWhatsApp ? 'Show the WhatsApp button again' : 'WhatsApp said this number isn\'t on WhatsApp';
       botones.append(marca);
     }
     f.append(quien, etiquetas, botones);
     return f;
   }
 
-  function enlace(txt, cls, href, canal, p, sinTexto) {
+  function enlace(txt, cls, href, canal, g, sinTexto) {
     const a = document.createElement('a');
     a.className = cls;
     a.href = href;
     a.textContent = txt;
     a.dataset.canal = canal;
-    a.dataset.id = String(p.player_id);
+    a.dataset.clave = g.clave;
     if (canal === 'wa') { a.target = '_blank'; a.rel = 'noopener noreferrer'; }
     if (sinTexto) { a.setAttribute('aria-disabled', 'true'); a.classList.add('tw-btn-off'); a.title = 'Write the message first'; }
-    a.setAttribute('aria-label', `${txt} ${nombreDe(p)}`);
+    a.setAttribute('aria-label', `${txt} ${nombreGrupo(g)}`);
     return a;
   }
 
   function pintarCuenta() {
     const total = _gente.length;
+    const numeros = grupos().filter((g) => g.n.ok).length;
     const wa = [..._marcas.values()].filter((m) => m.wa).length;
     const sms = [..._marcas.values()].filter((m) => m.sms).length;
-    $('tw-count').textContent = total ? `${total} player${total === 1 ? '' : 's'} · ${wa} WhatsApp ✓ · ${sms} Text ✓` : '';
+    $('tw-count').textContent = total
+      ? `${total} player${total === 1 ? '' : 's'} · ${numeros} number${numeros === 1 ? '' : 's'} · ${wa} WhatsApp ✓ · ${sms} Text ✓` : '';
   }
 
   /* ── EL MENSAJE ─────────────────────────────────────────── */
@@ -471,16 +521,22 @@
      que se puede usar. */
   function descargarContactos() {
     const escV = (s) => String(s || '').replace(/[\\,;]/g, (c) => `\\${c}`).replace(/\r?\n/g, ' ');
-    const filas = _gente.map((p) => ({ p, n: numero(p.country_code, p.phone) })).filter((x) => x.n.ok);
+    /* Un contacto por NÚMERO: una familia que lo comparte es un contacto
+       ("Ana & Bea Uno · FEROCIA"). */
+    const filas = grupos().filter((g) => g.n.ok);
     if (!filas.length) { toast('No one in this list has a usable phone number.', true); return; }
-    const vcf = filas.map(({ p, n }) => [
-      'BEGIN:VCARD', 'VERSION:3.0',
-      `N:${escV(`${p.last_name || ''} · FEROCIA`.trim())};${escV(p.first_name)};;;`,
-      `FN:${escV(`${nombreDe(p)} · FEROCIA`)}`,
-      'ORG:FEROCIA Sports Center',
-      `TEL;TYPE=CELL:+${n.completo}`,
-      'END:VCARD',
-    ].join('\r\n')).join('\r\n') + '\r\n';
+    const vcf = filas.map((g) => {
+      const c = nombreContacto(g);
+      const [apellido, nombre] = c.n.split(';');
+      return [
+        'BEGIN:VCARD', 'VERSION:3.0',
+        `N:${escV(apellido)};${escV(nombre)};;;`,
+        `FN:${escV(c.fn)}`,
+        'ORG:FEROCIA Sports Center',
+        `TEL;TYPE=CELL:+${g.n.completo}`,
+        'END:VCARD',
+      ].join('\r\n');
+    }).join('\r\n') + '\r\n';
     const nombre = `FEROCIA - ${etiquetaAudiencia() || 'All Players'} - contacts.vcf`.replace(/[\\/:*?"<>|]+/g, '-');
     const url = URL.createObjectURL(new Blob([vcf], { type: 'text/vcard;charset=utf-8' }));
     const a = document.createElement('a');
@@ -503,10 +559,10 @@
       $('tw-mensaje').focus();
       return;
     }
-    const id = Number(a.dataset.id);
-    const m = _marcas.get(id) || {};
+    const clave = a.dataset.clave;
+    const m = _marcas.get(clave) || {};
     m[a.dataset.canal] = true;
-    _marcas.set(id, m);
+    _marcas.set(clave, m);
     /* La fila se rehace después de que el navegador siga el enlace. */
     setTimeout(pintar, 0);
     _ultima = Date.now();
@@ -514,25 +570,38 @@
     registrar().then((r) => { if (r && mia === _vez) programarGuardado(); });
   }
 
+  /* "No WhatsApp" (o deshacerlo) para TODOS los que comparten ese número.
+     Deshacer devuelve a cada uno la marca que tenía antes. */
   async function marcarWhatsApp(btn) {
-    const id = Number(btn.dataset.id);
-    const valor = btn.dataset.valor;
+    const ids = String(btn.dataset.ids || '').split(',').map(Number).filter(Boolean);
+    if (!ids.length) return;
+    const quitar = btn.dataset.valor === 'restore';
+    const personas = ids.map((id) => _gente.find((x) => x.player_id === id)).filter(Boolean);
+    const nuevo = (p) => (quitar ? (_waAntes.get(p.player_id) || (p.whatsapp === 'no' ? 'unknown' : p.whatsapp)) : 'no');
     btn.disabled = true;
     try {
-      await api(`players?id=eq.${id}`, 'PATCH', { whatsapp: valor });
+      /* Agrupados por valor: normalmente es una sola llamada. */
+      const porValor = new Map();
+      personas.forEach((p) => { const v = nuevo(p); if (!porValor.has(v)) porValor.set(v, []); porValor.get(v).push(p.player_id); });
+      for (const [v, lista] of porValor) await api(`players?id=in.(${lista.join(',')})`, 'PATCH', { whatsapp: v });
     } catch (e) {
       btn.disabled = false;
       toast(/whatsapp/i.test(e.message) ? 'WhatsApp marks are not set up yet (SQL 129).' : `Could not save: ${e.message}`, true);
       return;
     }
-    const p = _gente.find((x) => x.player_id === id);
-    if (p && valor === 'no') _waAntes.set(id, p.whatsapp === 'no' ? 'unknown' : p.whatsapp);
-    if (p) p.whatsapp = valor;
-    window.logAuditAction?.(id, 'player_edited', `WhatsApp: ${{ yes: 'Yes', no: 'No', unknown: 'Unknown' }[valor]} (Send Text & WhatsApp)`);
-    /* La ficha en memoria del panel, para que Edit Player diga lo mismo. */
-    const enLista = (window.AdminState?.allPlayers || []).find((x) => x.id === id);
-    if (enLista) enLista.whatsapp = valor;
-    toast(valor === 'no' ? 'Marked "No WhatsApp". Use Text for this player.' : 'WhatsApp button is back for this player.');
+    const nombres = { yes: 'Yes', no: 'No', unknown: 'Unknown' };
+    personas.forEach((p) => {
+      const v = nuevo(p);
+      if (!quitar) _waAntes.set(p.player_id, p.whatsapp === 'no' ? 'unknown' : p.whatsapp);
+      else _waAntes.delete(p.player_id);
+      p.whatsapp = v;
+      window.logAuditAction?.(p.player_id, 'player_edited', `WhatsApp: ${nombres[v]} (Send Text & WhatsApp)`);
+      /* La ficha en memoria del panel, para que Edit Player diga lo mismo. */
+      const enLista = (window.AdminState?.allPlayers || []).find((x) => x.id === p.player_id);
+      if (enLista) enLista.whatsapp = v;
+    });
+    toast(quitar ? 'WhatsApp button is back for this number.'
+      : `Marked "No WhatsApp"${personas.length > 1 ? ` for the ${personas.length} players who share this number` : ''}. Use Text.`);
     pintar();
   }
 
