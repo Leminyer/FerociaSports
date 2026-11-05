@@ -295,3 +295,71 @@
   background:#e8f0ff; color:var(--blue); padding:2px 8px;
   border-radius:99px; margin-left:6px;
 }
+
+/* ─── §116 AUTO COURTS (admin-auto-courts.js) ─────────────── */
+.ac-root { margin-bottom:14px; }
+.ac-card { background:#fff; border:1px solid #e0e7f5; border-radius:14px; padding:14px 16px; box-shadow:0 1px 4px rgba(23,76,204,.06); max-width:560px; }
+.ac-mini { font-size:12px; font-weight:600; color:#6b7a99; }
+.ac-err-card { color:#9A3412; background:#FDECE4; border-color:#f6c9b3; font-size:12px; font-weight:700; }
+.ac-head { display:flex; flex-wrap:wrap; align-items:flex-start; justify-content:space-between; gap:10px; margin-bottom:10px; }
+.ac-kicker { font-size:10px; font-weight:800; letter-spacing:.6px; text-transform:uppercase; color:#6b7a99; }
+.ac-title { font-size:15px; font-weight:800; color:#0d1f4a; margin-top:2px; }
+.ac-lbl { display:block; font-size:10px; font-weight:800; letter-spacing:.6px; text-transform:uppercase; color:#6b7a99; margin:0 0 6px; }
+.ac-input { width:100%; border:1.5px solid #e0e7f5; border-radius:10px; padding:10px 12px; font-size:15px; font-family:'Inter',sans-serif; color:#0d1f4a; outline:none; }
+.ac-input:focus { border-color:var(--blue); box-shadow:0 0 0 3px rgba(23,76,204,.1); }
+.ac-help { font-size:12px; color:#6b7a99; margin:6px 0 10px; line-height:1.45; }
+.ac-note { margin:10px 0 0; }
+.ac-upd { margin:10px 0 0; }
+.ac-chips { display:flex; flex-wrap:wrap; gap:6px; margin:2px 0 6px; }
+.ac-chip { background:rgba(23,76,204,.08); color:var(--blue); font-weight:700; border-radius:999px; padding:4px 10px; font-size:12px; }
+.ac-err { background:#FDECE4; color:#9A3412; border-radius:8px; padding:8px 10px; font-size:12px; margin:0 0 10px; }
+.ac-actions { display:flex; flex-wrap:wrap; gap:8px; }
+.ac-btn { display:inline-block; border-radius:10px; padding:10px 14px; font-weight:700; font-size:13px; font-family:'Inter',sans-serif; cursor:pointer; border:0; line-height:1.2; white-space:nowrap; }
+.ac-btn:disabled { opacity:.45; cursor:not-allowed; }
+.ac-btn-pri { background:var(--blue); color:#fff; }
+.ac-btn-sec { background:#fff; color:var(--blue); border:1.5px solid var(--blue); }
+.ac-btn-ok { background:#24BC96; color:#fff; }
+.ac-btn-link { background:transparent; color:var(--blue); padding:6px 4px; }
+.ac-btn-full { display:block; width:100%; margin-top:8px; }
+.ac-btn-sm { padding:7px 11px; font-size:12px; margin:0 4px 6px 0; }
+.ac-btn-xs { padding:3px 8px; font-size:11px; border-radius:7px; margin-left:4px; }
+.ac-stats { display:flex; gap:10px; margin:0 0 12px; }
+.ac-stats div { flex:1; background:#f4f6fc; border-radius:10px; padding:8px; text-align:center; }
+.ac-stats b { display:block; font-size:18px; color:#0d1f4a; }
+.ac-stats span { font-size:11px; color:#6b7a99; }
+.ac-court { border:1px solid #e0e7f5; border-radius:12px; margin:0 0 10px; overflow:hidden; }
+.ac-court-h { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:4px 8px; padding:8px 12px; background:#f8faff; border-bottom:1px solid #e0e7f5; }
+.ac-court-n { font-weight:800; color:var(--blue); font-size:13px; letter-spacing:.5px; white-space:nowrap; }
+.ac-court-m { padding:10px 12px 8px; }
+.ac-court-a { padding:0 12px 4px; }
+.ac-court-out .ac-court-m { color:#9CA3AF; }
+.ac-muted { font-size:12px; color:#6b7a99; }
+.ac-team { font-weight:700; font-size:13px; color:#0d1f4a; }
+.ac-vs { color:#9CA3AF; font-size:11px; margin:2px 0; }
+.ac-tag { font-size:11px; font-weight:700; border-radius:999px; padding:3px 9px; white-space:nowrap; }
+.ac-tag-play { background:#E3F7F1; color:#13795f; }
+.ac-tag-new { background:#C6F221; color:#1d2a00; }
+.ac-tag-free { background:#EEF2FF; color:var(--blue); }
+.ac-tag-out { background:#FDECE4; color:#9A3412; }
+.ac-inline { padding:0 12px 8px; display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
+.ac-inline[hidden] { display:none; }
+.ac-inline-q { font-size:12px; font-weight:700; color:#0d1f4a; margin-right:4px; }
+.ac-select { width:100%; border:1.5px solid var(--blue); border-radius:10px; padding:10px 12px; font-size:14px; font-family:'Inter',sans-serif; background:#fff; margin:4px 0; }
+.ac-select-sm { width:auto; padding:6px 10px; font-size:12px; margin:0 4px 0 0; }
+.ac-next-lbl { margin-top:14px; }
+.ac-q { border-top:1px dashed #e0e7f5; padding:9px 0; display:flex; justify-content:space-between; align-items:center; gap:8px; font-size:13px; color:#0d1f4a; }
+.ac-q:first-of-type { border-top:0; }
+.ac-q-w { color:#6b7a99; font-size:12px; white-space:nowrap; text-align:right; }
+.ac-q-absent { color:#9A3412; }
+.ac-banner { background:#E3F7F1; border:1px solid #9ADFCB; border-radius:12px; padding:12px; margin:0 0 12px; font-size:13px; color:#0d1f4a; }
+.ac-banner b { color:#13795f; }
+/* El modal del score: la cancha la pone el sistema. */
+.ac-lock { display:flex; align-items:center; gap:6px; flex-wrap:wrap; background:rgba(23,76,204,.08); color:var(--blue); border-radius:10px; padding:9px 12px; font-weight:800; font-size:13px; margin:0 0 14px; }
+.ac-lock-sub { font-weight:500; }
+.ac-lock-wait { background:#FFF8E6; color:#7a5a00; }
+.ac-lock-done { background:#f4f6fc; color:#6b7a99; }
+@media (max-width:600px) {
+  .ac-card { padding:12px; }
+  .ac-q { flex-direction:column; align-items:flex-start; }
+  .ac-q-w { text-align:left; white-space:normal; }
+}

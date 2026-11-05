@@ -1,0 +1,30 @@
+/* ============================================================
+   FEROCIA — LIVE COURTS (página pública del torneo) · §116, SQL 131
+   ============================================================ */
+.tl-wrap { max-width:1000px; margin:24px auto 0; padding:0 28px; }
+.tl-wrap[hidden] { display:none; }
+.tl-card { background:#0B1430; color:#fff; border-radius:18px; padding:20px 22px; box-shadow:0 12px 30px rgba(8,15,46,.2); }
+.tl-head { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.tl-title { font-size:20px; font-weight:800; margin:0; letter-spacing:.3px; }
+.tl-live { display:inline-flex; align-items:center; gap:6px; color:#C6F221; font-weight:800; font-size:12px; letter-spacing:1px; }
+.tl-dot { width:8px; height:8px; border-radius:50%; background:#C6F221; display:inline-block; animation:tl-pulse 1.6s ease-in-out infinite; }
+@keyframes tl-pulse { 50% { opacity:.35; } }
+.tl-cat { color:#9CE3FF; font-weight:700; margin:16px 0 8px; font-size:12px; letter-spacing:1px; text-transform:uppercase; }
+.tl-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(210px, 1fr)); gap:10px; }
+.tl-court { background:#16224A; border-radius:12px; padding:12px; }
+.tl-court-free { background:transparent; border:1.5px dashed #2f3f74; }
+.tl-n { font-size:12px; font-weight:800; color:#C6F221; letter-spacing:1px; }
+.tl-team { font-weight:600; margin-top:4px; font-size:14px; line-height:1.35; }
+.tl-wait { color:#7f8db5; }
+.tl-vs { color:#7f8db5; font-size:11px; margin-top:2px; }
+.tl-next-lbl { margin-top:14px; }
+.tl-next { display:flex; flex-wrap:wrap; gap:8px; }
+.tl-chip { background:#16224A; border-radius:999px; padding:6px 12px; font-size:13px; }
+.tl-upd { color:#7f8db5; font-size:12px; margin-top:14px; }
+@media (max-width:600px) {
+  .tl-wrap { padding:0 16px; margin-top:16px; }
+  .tl-card { padding:16px; }
+  .tl-grid { grid-template-columns:1fr 1fr; }
+}
+@media (max-width:380px) { .tl-grid { grid-template-columns:1fr; } }
+@media (prefers-reduced-motion:reduce) { .tl-dot { animation:none; } }

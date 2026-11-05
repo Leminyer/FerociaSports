@@ -24,6 +24,9 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js" integrity="sha384-TcHRA3zBbn+Lexh5n+Oil4guNPOS3rjNDpGRAN46u/s/mB2IZ50ceC6TYDU2yvgK" crossorigin="anonymous"></script>
 <script src="db.js?v=20260820e"></script>
 <script src="assets.js?v=20261013a"></script>
+<!-- §116 (SQL 131): LIVE COURTS, las canchas en vivo (Auto Courts). -->
+<link rel="stylesheet" href="tournament-live.css?v=20261105a">
+<script src="tournament-live.js?v=20261105a" defer></script>
 <style>
   /* Color/typography/radius tokens now come from design-tokens.css. */
   * { box-sizing:border-box; margin:0; padding:0; }
@@ -197,6 +200,8 @@
   </div>
   <div class="tournament-pill" id="tournament-pill">Loading...</div>
 </header>
+
+<section id="t-live" class="tl-wrap" aria-live="polite" hidden></section>
 
 <main id="main-content">
   <div class="loading">Loading tournament results...</div>
