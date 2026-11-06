@@ -488,10 +488,11 @@
       const contenido = j.do_not_email
         ? '<span class="pp-msg-off">Marked &ldquo;Do not email&rdquo;: uncheck it in Edit Player to message them.</span>'
         : [
+            /* Iconos (6 nov, 3A): los mismos de Send Text & WhatsApp. */
             j.whatsapp !== 'no'
-              ? `<a class="tw-btn tw-btn-wa pp-msg-btn" href="${esc(C.enlaceWhatsApp(n.completo, C.conSaludo(j.first_name, '')))}" target="_blank" rel="noopener noreferrer">WhatsApp</a>` : '',
-            `<a class="tw-btn tw-btn-sms pp-msg-btn" href="${esc(C.enlaceTexto(n.completo, C.conSaludo(j.first_name, '')))}">Text</a>`,
-            j.whatsapp === 'no' ? '<span class="pill pill-inactive">No WhatsApp</span>' : '',
+              ? `<a class="tw-ico tw-ico-wa" href="${esc(C.enlaceWhatsApp(n.completo, C.conSaludo(j.first_name, '')))}" target="_blank" rel="noopener noreferrer" title="WhatsApp" aria-label="WhatsApp ${esc(j.first_name || '')}">${C.iconoHTML ? C.iconoHTML('wa') : 'WhatsApp'}</a>` : '',
+            `<a class="tw-ico tw-ico-sms" href="${esc(C.enlaceTexto(n.completo, C.conSaludo(j.first_name, '')))}" title="Text" aria-label="Text ${esc(j.first_name || '')}">${C.iconoHTML ? C.iconoHTML('sms') : 'Text'}</a>`,
+            j.whatsapp === 'no' ? `<span class="tw-ico tw-ico-no tw-ico-on tw-ico-static" title="No WhatsApp (change it in Edit Player)">${C.iconoHTML ? C.iconoHTML('no') : 'No WhatsApp'}</span>` : '',
           ].join(' ');
       return `<div class="pp-quick-row"><div class="pp-quick-lbl">${ppSVG(ICONS.phone)} Message</div><div class="pp-quick-val pp-msg">${contenido}</div></div>`;
     }

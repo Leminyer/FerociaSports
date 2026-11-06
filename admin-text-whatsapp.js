@@ -27,6 +27,12 @@
    También: window.FerociaContacto, lo que usa la ficha del jugador
    (admin-player-profile.js) para sus botones WhatsApp y Text.
 
+   Iconos (6 nov, 1B · 2A · 3A): WhatsApp, Text y No WhatsApp son iconos
+   con su nombre debajo, aquí y en la ficha del jugador. El de WhatsApp es
+   el icono OFICIAL que ella sube a Supabase Storage
+   (newsletter-images/icons/whatsapp.png); mientras no esté, sale un
+   globito verde provisional. "Sent ✓" es una marquita en el icono.
+
    Familias (4 nov, 1A · 2A): quienes comparten EXACTAMENTE el mismo
    número van en una sola fila, con un solo mensaje ("Hi Ana and Bea,"),
    un solo contacto en "Download contacts" y una sola marca ✓.
@@ -113,7 +119,35 @@
     return texto ? `Hi ${n},\n${texto}` : `Hi ${n}, `;
   };
 
-  window.FerociaContacto = { numero, enlaceWhatsApp, enlaceTexto, conSaludo };
+  /* ── ICONOS (6 nov) ─────────────────────────────────────────
+     Sólo texto fijo (nada que haya escrito alguien): se puede usar en
+     innerHTML. */
+  const ICONO_WHATSAPP = 'https://yyocceadorckkfbgnbqk.supabase.co/storage/v1/object/public/newsletter-images/icons/whatsapp.png';
+  const SVG_WA_PROVISIONAL = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3.2c-4.9 0-8.8 3.6-8.8 8.1 0 1.6.5 3.1 1.4 4.4L3.6 20l4.5-1.2c1.2.6 2.5.9 3.9.9 4.9 0 8.8-3.6 8.8-8.2S16.9 3.2 12 3.2Z" fill="#fff"/><circle cx="8.3" cy="11.4" r="1.15" fill="#25D366"/><circle cx="12" cy="11.4" r="1.15" fill="#25D366"/><circle cx="15.7" cy="11.4" r="1.15" fill="#25D366"/></svg>';
+  const SVG_TEXTO = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3.2" y="4.2" width="17.6" height="12.6" rx="3.4" fill="#fff"/><path d="M7.5 16.6 6.3 20.2l4.4-3.4" fill="#fff"/><path d="M7.4 9.2h9.2M7.4 12.4h6" stroke="#174CCC" stroke-width="1.7" stroke-linecap="round"/></svg>';
+  const SVG_NO_WA = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3.2c-4.9 0-8.8 3.6-8.8 8.1 0 1.6.5 3.1 1.4 4.4L3.6 20l4.5-1.2c1.2.6 2.5.9 3.9.9 4.9 0 8.8-3.6 8.8-8.2S16.9 3.2 12 3.2Z" fill="#c3c9d6"/><circle cx="12" cy="12" r="9.6" fill="none" stroke="#E5484D" stroke-width="2.1"/><path d="M5.3 18.7 18.7 5.3" stroke="#E5484D" stroke-width="2.1" stroke-linecap="round"/></svg>';
+  const SVG_OK = '<svg viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path d="M2.5 6.3 5 8.6l4.6-5" stroke="#13795f" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  /* El círculo del icono + su nombre debajo (1B). tipo: 'wa' | 'sms' | 'no' | 'no-on'. */
+  function iconoHTML(tipo, enviado) {
+    const circulo = tipo === 'wa'
+      ? `<span class="tw-ico-dot tw-ico-dot-wa"><img class="tw-ico-img" src="${ICONO_WHATSAPP}" alt="" width="38" height="38"></span>`
+      : tipo === 'sms' ? `<span class="tw-ico-dot tw-ico-dot-sms">${SVG_TEXTO}</span>`
+        : `<span class="tw-ico-dot tw-ico-dot-no">${SVG_NO_WA}</span>`;
+    const nombre = { wa: 'WhatsApp', sms: 'Text', no: 'No WhatsApp', 'no-on': 'Has WhatsApp?' }[tipo];
+    const ok = enviado ? `<span class="tw-ico-ok" title="Sent">${SVG_OK}</span>` : '';
+    return circulo.replace(/<\/span>$/, `${ok}</span>`) + `<span class="tw-ico-lbl">${nombre}</span>`;
+  }
+  /* Si el icono oficial todavía no está en Storage (o no carga), sale el
+     globito verde provisional. "error" no sube: se escucha en captura. */
+  document.addEventListener('error', (ev) => {
+    const img = ev.target;
+    if (!(img instanceof HTMLImageElement) || !img.classList.contains('tw-ico-img')) return;
+    const dot = img.parentElement;
+    dot.classList.add('tw-ico-dot-fb');
+    img.replaceWith(document.createRange().createContextualFragment(SVG_WA_PROVISIONAL));
+  }, true);
+
+  window.FerociaContacto = { numero, enlaceWhatsApp, enlaceTexto, conSaludo, iconoHTML };
 
   /* ── ESTADO ─────────────────────────────────────────────── */
   let _tipo = null;          // 'all_players' | 'ladder' | 'tournament'
@@ -351,46 +385,52 @@
     const p0 = g.personas[0];
     tel.textContent = (n.ok ? n.mostrar : (p0.phone ? String(p0.phone) : ''))
       + (g.personas.length > 1 ? ` · shared number (${g.personas.length} players)` : '');
+    if (n.ok && g.sinWhatsApp) {
+      const sin = document.createElement('span');
+      sin.className = 'tw-sin-wa';
+      sin.textContent = ' · No WhatsApp';
+      tel.append(sin);
+    }
     quien.append(nom, tel);
 
     const etiquetas = document.createElement('div');
     etiquetas.className = 'tw-tags';
     const pill = (txt, cls) => { const s = document.createElement('span'); s.className = `pill ${cls}`; s.textContent = txt; return s; };
     if (!n.ok) etiquetas.append(pill(n.motivo === 'none' ? 'No phone' : 'Check number', 'hub-pill-warn'));
-    else if (g.sinWhatsApp) etiquetas.append(pill('No WhatsApp', 'pill-inactive'));
-    if (m.wa) etiquetas.append(pill('WhatsApp ✓', 'pill-active'));
-    if (m.sms) etiquetas.append(pill('Text ✓', 'pill-active'));
+    /* "Sent ✓" ya no es una etiqueta: es la marquita en el icono (6 nov). */
 
     const botones = document.createElement('div');
     botones.className = 'tw-actions';
     if (n.ok) {
       const cuerpo = conSaludo(g.personas.map((p) => p.first_name), texto);
-      if (!g.sinWhatsApp) botones.append(enlace('WhatsApp', 'tw-btn tw-btn-wa', enlaceWhatsApp(n.completo, cuerpo), 'wa', g, !texto));
-      botones.append(enlace('Text', 'tw-btn tw-btn-sms', enlaceTexto(n.completo, cuerpo), 'sms', g, !texto));
+      if (!g.sinWhatsApp) botones.append(enlace('WhatsApp', 'wa', enlaceWhatsApp(n.completo, cuerpo), g, !texto, !!m.wa));
+      botones.append(enlace('Text', 'sms', enlaceTexto(n.completo, cuerpo), g, !texto, !!m.sms));
       const marca = document.createElement('button');
       marca.type = 'button';
-      marca.className = 'tw-link';
+      marca.className = `tw-ico tw-ico-no${g.sinWhatsApp ? ' tw-ico-on' : ''}`;
       marca.dataset.action = 'twWhatsAppMark';
       marca.dataset.ids = ids.join(',');
       marca.dataset.valor = g.sinWhatsApp ? 'restore' : 'no';
-      marca.textContent = g.sinWhatsApp ? 'Has WhatsApp?' : 'No WhatsApp';
-      marca.title = g.sinWhatsApp ? 'Show the WhatsApp button again' : 'WhatsApp said this number isn\'t on WhatsApp';
+      marca.innerHTML = iconoHTML(g.sinWhatsApp ? 'no-on' : 'no');
+      marca.title = g.sinWhatsApp ? 'Has WhatsApp? Show the WhatsApp button again' : 'No WhatsApp: this number isn\'t on WhatsApp';
+      marca.setAttribute('aria-label', `${marca.title} — ${nombreGrupo(g)}`);
       botones.append(marca);
     }
     f.append(quien, etiquetas, botones);
     return f;
   }
 
-  function enlace(txt, cls, href, canal, g, sinTexto) {
+  function enlace(txt, canal, href, g, sinTexto, enviado) {
     const a = document.createElement('a');
-    a.className = cls;
+    a.className = `tw-ico tw-ico-${canal}`;
     a.href = href;
-    a.textContent = txt;
+    a.innerHTML = iconoHTML(canal, enviado);
     a.dataset.canal = canal;
     a.dataset.clave = g.clave;
+    a.title = enviado ? `${txt} — sent ✓` : txt;
     if (canal === 'wa') { a.target = '_blank'; a.rel = 'noopener noreferrer'; }
-    if (sinTexto) { a.setAttribute('aria-disabled', 'true'); a.classList.add('tw-btn-off'); a.title = 'Write the message first'; }
-    a.setAttribute('aria-label', `${txt} ${nombreGrupo(g)}`);
+    if (sinTexto) { a.setAttribute('aria-disabled', 'true'); a.classList.add('tw-ico-off'); a.title = 'Write the message first'; }
+    a.setAttribute('aria-label', `${txt} ${nombreGrupo(g)}${enviado ? ' (sent)' : ''}`);
     return a;
   }
 
@@ -551,7 +591,7 @@
 
   /* Pulsar WhatsApp o Text: se abre (lo hace el enlace) y se marca ✓. */
   function alPulsarEnlace(ev) {
-    const a = ev.target.closest('a.tw-btn');
+    const a = ev.target.closest('a[data-canal]');
     if (!a) return;
     if (a.getAttribute('aria-disabled') === 'true') {
       ev.preventDefault();
