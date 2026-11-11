@@ -728,8 +728,8 @@
 
   // Own these two forms' submit listeners directly (DOM is already parsed
   // by the time this script runs, same as every other listener).
-  document.getElementById('create-ladder-form')?.addEventListener('submit', createLadder);
-  document.querySelector('#edit-ladder-modal form')?.addEventListener('submit', saveEditLadder);
+  document.getElementById('create-ladder-form')?.addEventListener('submit', window.FerociaBoton ? window.FerociaBoton.formulario(createLadder) : createLadder);
+  document.querySelector('#edit-ladder-modal form')?.addEventListener('submit', window.FerociaBoton ? window.FerociaBoton.formulario(saveEditLadder) : saveEditLadder);
 
   // ── Ladder Library ───────────────────────────────────────────────────
   // Read-only historical view — ladders completed 30+ days ago. Reuses

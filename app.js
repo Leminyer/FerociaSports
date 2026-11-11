@@ -1193,7 +1193,12 @@ window.selectLadderType = (type) => {
     const btn = e.target.closest('[data-action]');
     if (!btn) return;
     const handler = window.CLICK_HANDLERS[btn.dataset.action];
-    if (handler) handler(btn);
+    if (!handler) return;
+    /* §117: un clic a la vez. Mientras la acción de este botón trabaja
+       (guarda, envía, borra), otro clic en él no hace nada. */
+    if (window.FerociaBoton && window.FerociaBoton.ocupado(btn)) { e.preventDefault(); return; }
+    if (window.FerociaBoton) window.FerociaBoton.ejecutar(btn, () => handler(btn));
+    else handler(btn);
   });
 
   // Change handler — for selects / radios that need a custom action
@@ -1289,8 +1294,8 @@ window.selectLadderType = (type) => {
   // edit-game-form's and edit-session-form's submit listeners are now wired by admin-sessions.js itself
   // ladder-selector's change listener is now wired by admin-ladder-selector.js itself
   document.getElementById('tournament-selector')?.addEventListener('change', onTournamentChange);
-  document.getElementById('create-event-form')?.addEventListener('submit', createEvent);
-  document.getElementById('edit-event-form')?.addEventListener('submit', editEvent);
+  document.getElementById('create-event-form')?.addEventListener('submit', window.FerociaBoton ? window.FerociaBoton.formulario(createEvent) : createEvent);
+  document.getElementById('edit-event-form')?.addEventListener('submit', window.FerociaBoton ? window.FerociaBoton.formulario(editEvent) : editEvent);
   // promo-form's, sub-status-filter's, and sub-search's listeners are now wired by admin-promotions.js itself
   // edit-ladder-modal form's submit listener is now wired by admin-ladder-management.js itself
   // add-player-form's, edit-player-form's, player-status-filter's, and player-search's

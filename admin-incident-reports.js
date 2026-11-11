@@ -179,7 +179,7 @@
   });
 
   // ── Save ──────────────────────────────────────────────────────────────
-  document.getElementById('incident-report-form')?.addEventListener('submit', async (e) => {
+  document.getElementById('incident-report-form')?.addEventListener('submit', (window.FerociaBoton ? window.FerociaBoton.formulario : (h) => h)(async (e) => {
     e.preventDefault();
     if (!_irCtx) return;
 
@@ -266,7 +266,7 @@
       saveBtn.disabled = false;
       saveBtn.innerHTML = origHTML;
     }
-  });
+  }));
 
   // ── Shared list renderer — used by Ladder Sessions, Tournament Detail,
   //    and (read-only, no create) Player Profile's Admin tab. ───────────

@@ -584,3 +584,11 @@
     .header-divider{display:none;}
 
   }
+
+/* ─── §117 Un clic a la vez (ferocia-boton.js) ─────────────── */
+.fb-busy { cursor: progress; }
+.fb-busy-visible { opacity: .6; }
+.fb-spin { display: inline-block; flex: none; width: .9em; height: .9em; margin-right: .45em; vertical-align: -.12em;
+  border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: fb-giro .7s linear infinite; }
+@keyframes fb-giro { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .fb-spin { animation-duration: 2s; } }

@@ -1538,6 +1538,8 @@
 
   // Own these two forms' submit listeners directly (DOM is already parsed
   // by the time this script runs, same as every other listener).
-  document.getElementById('edit-session-form')?.addEventListener('submit', saveEditSession);
-  document.getElementById('edit-game-form')?.addEventListener('submit', saveEditGame);
+  document.getElementById('edit-session-form')?.addEventListener('submit', window.FerociaBoton ? window.FerociaBoton.formulario(saveEditSession) : saveEditSession);
+  document.getElementById('edit-game-form')?.addEventListener('submit', window.FerociaBoton ? window.FerociaBoton.formulario(saveEditGame) : saveEditGame);
+  // §117: un clic a la vez en el interruptor de la penalización (onclick="…").
+  if (window.FerociaBoton) window.FerociaBoton.unaVez(['toggleNoShowPenalty']);
 })();

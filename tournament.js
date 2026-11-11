@@ -742,7 +742,7 @@ async function renderTournamentList() {
           <div class="t-new-divider" style="margin:8px 0;"></div>
           <!-- Submit -->
           <div style="display:flex;justify-content:center;">
-            <button type="submit" class="t-new-submit-btn">
+            <button type="submit" class="t-new-submit-btn" data-busy="Saving…">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
               Create Tournament
             </button>
@@ -1342,7 +1342,7 @@ function _tRenderEditTournament() {
     </div>
     <div class="t-new-divider" style="margin:10px 0;"></div>
     <div style="display:flex;justify-content:flex-end;">
-      <button type="button" class="t-new-submit-btn" style="padding:8px 20px;" onclick="tSaveEditTournament()">
+      <button data-busy="Saving…" type="button" class="t-new-submit-btn" style="padding:8px 20px;" onclick="tSaveEditTournament()">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
         Apply Updates
       </button>
@@ -1696,7 +1696,7 @@ async function deleteTournament(id) {
 
     <!-- CTA -->
     <div style="display:flex;justify-content:flex-end;">
-      <button type="button" class="t-op-btn t-op-btn-danger" onclick="confirmDeleteTournament(${id})" style="width:auto;padding:10px 20px;font-size:12px;">
+      <button data-busy="Deleting…" type="button" class="t-op-btn t-op-btn-danger" onclick="confirmDeleteTournament(${id})" style="width:auto;padding:10px 20px;font-size:12px;">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
         Delete Tournament
       </button>
@@ -2337,7 +2337,7 @@ function renderCategory(cat, teams, rrMatches, bracketMatches, tournament, group
         <div id="bb-preview-${cat.id}" style="margin-bottom:16px;">${qualifiedPreviewHtml}</div>
 
         <div style="display:flex;justify-content:flex-end;">
-          <button onclick="generateBracket(${cat.id}, ${cat.tournament_id})"
+          <button data-busy="Generating…" onclick="generateBracket(${cat.id}, ${cat.tournament_id})"
             style="display:inline-flex;align-items:center;gap:7px;padding:10px 22px;border:none;border-radius:99px;background:linear-gradient(180deg,#2456d3,#174CCC);color:white;font-family:'Montserrat',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
             Generate Finals Bracket
@@ -2648,7 +2648,7 @@ async function showAddTeam(catId) {
       + '</div></div>'
       + '<div class="t-form-actions">'
       + '<button type="button" class="t-btn t-btn-ghost" onclick="closeTModal()">Cancel</button>'
-      + '<button type="button" class="t-btn t-btn-primary" onclick="saveMultiplePlayers(' + catId + ')">Add Players</button>'
+      + '<button data-busy="Saving…" type="button" class="t-btn t-btn-primary" onclick="saveMultiplePlayers(' + catId + ')">Add Players</button>'
       + '</div>';
     openTModal();
     document.getElementById('t-player-search').focus();
@@ -2751,7 +2751,7 @@ async function showAddTeam(catId) {
 
     <!-- Footer -->
     <div style="display:flex;justify-content:flex-end;margin-top:20px;padding-top:14px;border-top:0.5px solid #e0e7f5;">
-      <button onclick="ctSaveTeam()"
+      <button data-busy="Saving…" onclick="ctSaveTeam()"
         style="display:inline-flex;align-items:center;gap:7px;padding:11px 28px;border:none;border-radius:99px;background:linear-gradient(180deg,#2456d3 0%,#174CCC 100%);color:white;font-family:'Montserrat',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
         Create Team
@@ -3138,7 +3138,7 @@ async function editTeam(teamId, catId) {
 
     <!-- Footer -->
     <div style="display:flex;justify-content:flex-end;margin-top:20px;padding-top:14px;border-top:0.5px solid #e0e7f5;">
-      <button onclick="etSaveTeam()"
+      <button data-busy="Saving…" onclick="etSaveTeam()"
         style="display:inline-flex;align-items:center;gap:7px;padding:11px 28px;border:none;border-radius:99px;background:linear-gradient(180deg,#2456d3 0%,#174CCC 100%);color:white;font-family:'Montserrat',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
         Update Team
@@ -4134,7 +4134,7 @@ async function openScoreModal(type, matchId, teamAId, teamBId, catId) {
       </div>
       <div id="t-score-preview" style="text-align:center;min-height:28px;margin-top:12px;"></div>
       <div style="display:flex;justify-content:flex-end;margin-top:16px;padding-top:12px;border-top:0.5px solid #e0e7f5;">
-        <button type="button" onclick="saveMatch('${type}',${matchId},${teamAId},${teamBId},${catId})"
+        <button data-busy="Saving…" type="button" onclick="saveMatch('${type}',${matchId},${teamAId},${teamBId},${catId})"
           style="display:inline-flex;align-items:center;gap:7px;padding:10px 24px;border:none;border-radius:99px;background:linear-gradient(180deg,#2456d3,#174CCC);color:white;font-family:'Montserrat',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
           Save Result
@@ -4233,7 +4233,7 @@ async function openScoreModal(type, matchId, teamAId, teamBId, catId) {
 
     <!-- Footer -->
     <div style="display:flex;justify-content:flex-end;">
-      <button onclick="saveMatch('${type}',${matchId},${teamAId},${teamBId},${catId})"
+      <button data-busy="Saving…" onclick="saveMatch('${type}',${matchId},${teamAId},${teamBId},${catId})"
         style="display:inline-flex;align-items:center;gap:7px;padding:11px 28px;border:none;border-radius:99px;background:linear-gradient(180deg,#2456d3,#174CCC);color:white;font-family:'Montserrat',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
         Save Result
@@ -4387,7 +4387,7 @@ async function saveMatch(type, matchId, teamAId, teamBId, catId) {
 
       <!-- Footer -->
       <div style="display:flex;justify-content:center;padding-top:10px;border-top:0.5px solid #e0e7f5;margin-top:6px;">
-        <button
+        <button data-busy="Saving…"
           onclick="tSetModalSubtitle('');processForfeit('${type}', ${matchId}, ${teamAId}, ${teamBId}, ${catId}, ${forfeitTeamId}, ${autoEl ? 'null' : courtNum})"
           style="display:inline-flex;align-items:center;gap:7px;padding:11px 32px;border:none;border-radius:99px;background:#F26024;color:white;font-family:'Montserrat',sans-serif;font-size:13px;font-weight:700;cursor:pointer;"
           onmouseover="this.style.background='#db531d'"
@@ -4708,11 +4708,11 @@ function openForfeitModal(type, matchId, teamAId, teamBId, catId, teamAName, tea
         Select which team is forfeiting:
       </p>
       <div style="display:flex;flex-direction:column;gap:10px;">
-        <button type="button" class="t-btn t-btn-danger" style="width:100%;"
+        <button data-busy="Saving…" type="button" class="t-btn t-btn-danger" style="width:100%;"
           onclick="processForfeit('${type}', ${matchId}, ${teamAId}, ${teamBId}, ${catId}, ${teamAId})">
           ${teamAName} forfeits
         </button>
-        <button type="button" class="t-btn t-btn-danger" style="width:100%;"
+        <button data-busy="Saving…" type="button" class="t-btn t-btn-danger" style="width:100%;"
           onclick="processForfeit('${type}', ${matchId}, ${teamAId}, ${teamBId}, ${catId}, ${teamBId})">
           ${teamBName} forfeits
         </button>
@@ -5351,4 +5351,13 @@ async function printTournamentRoster(btn) {
   } finally {
     if (btn) { btn.disabled = false; btn.innerHTML = printBtnOrigHTML; }
   }
+}
+
+/* §117: un clic a la vez. Estas funciones se llaman desde onclick="…";
+   mientras una guarda, otro clic en ella no hace nada. */
+if (window.FerociaBoton) {
+  window.FerociaBoton.unaVez(['saveMatch', 'processForfeit', 'ctSaveTeam', 'etSaveTeam', 'confirmDeleteTeam',
+    'confirmDeleteTournament', 'confirmEmergencyClose', 'startTournament', 'tToggleStatus', 'tSaveEditTournament',
+    'generateBracket', 'generateRR', 'saveMultiplePlayers', 'tCheckFinalizeConfirm', 'tCheckFinalizeConfirmHub',
+    'createTournament']);
 }

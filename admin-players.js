@@ -1188,7 +1188,7 @@
         <div style="font-size:13px;font-weight:600;color:var(--text-muted);line-height:1.6;">This will permanently remove the match and all its data. This action cannot be undone.</div>
       </div>
       <div style="display:flex;justify-content:flex-end;">
-        <button onclick="mhConfirmDelete(${id})" style="padding:9px 22px;border:none;border-radius:99px;background:#e53935;color:white;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Delete Match</button>
+        <button data-busy="Deleting…" onclick="mhConfirmDelete(${id})" style="padding:9px 22px;border:none;border-radius:99px;background:#e53935;color:white;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Delete Match</button>
       </div>`;
     const xBtn = document.getElementById('t-modal-close-x');
     if (xBtn) xBtn.style.display = 'flex';
@@ -2459,8 +2459,8 @@
 
   // Own these three forms' listeners directly (DOM is already parsed by
   // the time this script runs, same as every other listener).
-  document.getElementById('add-player-form')?.addEventListener('submit', addPlayer);
-  document.getElementById('edit-player-form')?.addEventListener('submit', saveEditPlayer);
+  document.getElementById('add-player-form')?.addEventListener('submit', window.FerociaBoton ? window.FerociaBoton.formulario(addPlayer) : addPlayer);
+  document.getElementById('edit-player-form')?.addEventListener('submit', window.FerociaBoton ? window.FerociaBoton.formulario(saveEditPlayer) : saveEditPlayer);
   document.getElementById('player-status-filter')?.addEventListener('change', filterPlayers);
   document.getElementById('player-search')?.addEventListener('input', filterPlayers);
 
@@ -2477,4 +2477,6 @@
     // Player Profile page). The old modal version has been removed.
     closeModal:         () => closeModal(),
   });
+  // §117: un clic a la vez en lo que guarda o borra (se llama desde onclick="…").
+  if (window.FerociaBoton) window.FerociaBoton.unaVez(['lmSaveMatch', 'mhConfirmDelete', 'importConfirm']);
 })();

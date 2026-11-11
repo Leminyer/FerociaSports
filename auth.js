@@ -115,7 +115,7 @@
     `;
     document.body.appendChild(modal);
 
-    modal.querySelector('#auth-login-form').addEventListener('submit', handleLogin);
+    modal.querySelector('#auth-login-form').addEventListener('submit', window.FerociaBoton ? window.FerociaBoton.formulario(handleLogin) : handleLogin);
     return modal;
   }
 

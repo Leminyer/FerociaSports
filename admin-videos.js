@@ -510,7 +510,7 @@
     pintarTemas();
     if (!$('av-form')._enganchado) {
       $('av-form')._enganchado = true;
-      $('av-form').addEventListener('submit', guardar);
+      $('av-form').addEventListener('submit', window.FerociaBoton ? window.FerociaBoton.formulario(guardar) : guardar);
       $('av-link').addEventListener('input', alCambiarEnlace);
       $('av-title').addEventListener('input', pintarVista);
       $('av-topics').addEventListener('change', pintarVista);

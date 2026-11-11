@@ -163,7 +163,7 @@
           <tbody id="ftc-po-seed-body">${rows}</tbody>
         </table>
         <div style="display:flex;justify-content:flex-end;margin-top:14px;">
-          <button onclick="ftcGeneratePlayoffBracket()" style="display:inline-flex;align-items:center;gap:6px;padding:8px 20px;border:none;border-radius:99px;background:var(--blue);color:white;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">
+          <button data-busy="Generating…" onclick="ftcGeneratePlayoffBracket()" style="display:inline-flex;align-items:center;gap:6px;padding:8px 20px;border:none;border-radius:99px;background:var(--blue);color:white;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
             Generate Bracket
           </button>
@@ -536,7 +536,7 @@
         </div>
         <!-- Actions -->
         <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
-          <button onclick="ftcPsmSaveScore('${m?.id||''}','${mt}',${sidNum})"
+          <button data-busy="Saving…" onclick="ftcPsmSaveScore('${m?.id||''}','${mt}',${sidNum})"
             style="display:inline-flex;align-items:center;gap:5px;padding:8px 16px;border:none;border-radius:8px;background:var(--blue);color:white;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
             Save Score
@@ -1320,7 +1320,7 @@
         <div style="font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:16px;line-height:1.6;">
           ${totalWeeks} week${totalWeeks!==1?'s':''} scheduled. Click below to create the individual match lineups.
         </div>
-        <button onclick="ftcGenerateMatchesForSchedule()" style="padding:9px 22px;border:none;border-radius:99px;background:linear-gradient(180deg,#2456d3,var(--blue));color:white;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:7px;">
+        <button data-busy="Generating…" onclick="ftcGenerateMatchesForSchedule()" style="padding:9px 22px;border:none;border-radius:99px;background:linear-gradient(180deg,#2456d3,var(--blue));color:white;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:7px;">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
           Create Match Lineups
         </button>
@@ -2217,4 +2217,11 @@
   // ── Expose with the shared infrastructure ──────────────────────────────
   window.loadFtcPlayoffs = loadFtcPlayoffs; // called from the page router
   window.loadFtcSchedule = loadFtcSchedule; // called from the page router
+
+  // §117: un clic a la vez en lo que guarda, genera o borra (se llama desde onclick="…").
+  if (window.FerociaBoton) {
+    window.FerociaBoton.unaVez(['ftcGenerateSchedule', 'ftcDeleteSchedule', 'ftcGenerateMatchesForSchedule',
+      'ftcGeneratePlayoffBracket', 'ftcSaveScore', 'ftcSaveTiebreaker', 'ftcSaveOverride', 'ftcSaveMatchEdit',
+      'ftcPsmSaveScore', 'ftcPsmClearScore', 'ftcPsmSaveTiebreaker']);
+  }
 })();

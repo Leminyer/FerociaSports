@@ -134,7 +134,7 @@
         <div class="ftc-card-actions">
           <button class="ftc-card-btn" onclick="ftcOpenViewModal(${t.id})">View</button>
           <button class="ftc-card-btn" onclick="ftcOpenEditModal(${t.id})">Edit</button>
-          <button class="ftc-card-btn danger" onclick="ftcDeleteTeam(${t.id}, '${label}')">Delete</button>
+          <button data-busy="Deleting…" class="ftc-card-btn danger" onclick="ftcDeleteTeam(${t.id}, '${label}')">Delete</button>
         </div>
       </div>`;
     }).join('');
@@ -606,4 +606,7 @@
 
   // ── Expose with the shared infrastructure ──────────────────────────────
   window.loadFtcTeams = loadFtcTeams; // called from the page router
+
+  // §117: un clic a la vez en lo que guarda o borra (se llama desde onclick="…").
+  if (window.FerociaBoton) window.FerociaBoton.unaVez(['ftcSaveTeam', 'ftcDeleteTeam']);
 })();

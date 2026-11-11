@@ -3162,7 +3162,7 @@
     _preparandoCampana = true;
     try { await enviarCampana(e); } finally { _preparandoCampana = false; }
   };
-  document.getElementById('promo-form')?.addEventListener('submit', sendPromoEmail);
+  document.getElementById('promo-form')?.addEventListener('submit', window.FerociaBoton ? window.FerociaBoton.formulario(sendPromoEmail) : sendPromoEmail);
 
   /* "Selected Subscribers" (ajuste 12): marcar y buscar. Una vez, al
      cargar; la lista se vuelve a pintar entera, los escuchadores no. */
