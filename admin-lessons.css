@@ -3,7 +3,15 @@
    Usa las piezas del panel (av-cabecera, pc-tabs, pc-pill, btn, modal).
    ============================================================ */
 
-.lsn-cabecera { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+/* La cabecera mide lo mismo que el contenido: "+ Add a lesson" queda a la
+   vista, justo encima del aviso / las pestañas (no en la otra punta). */
+.lsn-cabecera { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; max-width: 1100px; }
+
+/* Los botones de Lessons, un poco más gorditos (como los de las otras
+   secciones del panel), sin pasarse. */
+#page-lessons .btn, #lsn-modal .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  min-height: 38px; padding: 9px 18px; font-size: 11px; line-height: 1.2; box-sizing: border-box; }
+#page-lessons .lsn-semana-nav .btn { min-width: 38px; }
 .lsn-google-aviso { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
   background: #fdecea; border: 1px solid #f5c2bd; color: #8a1c13; border-radius: var(--radius); padding: 12px 16px;
   margin: 0 0 16px; font-size: 13px; font-weight: 600; max-width: 1100px; }

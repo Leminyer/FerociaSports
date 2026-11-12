@@ -576,7 +576,7 @@
         <td data-k="Status"><span class="pc-pill ${t.active ? 'pc-pill-green' : 'pc-pill-gray'}">${t.active ? 'Active' : 'Paused'}</span></td>
         <td class="lsn-td-acc"><button type="button" class="btn btn-outline btn-sm" data-action="lsnTipoAbrir" data-id="${esc(t.id)}">Edit</button>
           <button type="button" class="btn btn-outline btn-sm" data-action="lsnTipoActivo" data-id="${esc(t.id)}" data-busy="Saving…">${t.active ? 'Pause' : 'Activate'}</button>
-          ${t.used ? '' : `<button type="button" class="btn btn-danger btn-sm" data-action="lsnTipoBorrar" data-id="${esc(t.id)}">Delete</button>`}</td></tr>`).join('');
+          ${t.used ? '' : `<button type="button" class="btn btn-danger btn-sm" data-action="lsnTipoBorrar" data-id="${esc(t.id)}" data-busy="Deleting…">Delete</button>`}</td></tr>`).join('');
     const bloques = (a.blocks || []).map((b) => `<li><span>${esc(b.from_day === b.to_day ? diaCorto(b.from_day) : `${diaCorto(b.from_day)} – ${diaCorto(b.to_day)}`)}${b.note ? ` · ${esc(b.note)}` : ''}</span>
       <button type="button" class="btn btn-outline btn-sm" data-action="lsnBloqueoQuitar" data-id="${esc(b.id)}" data-busy="Removing…" aria-label="Remove blocked dates">Remove</button></li>`).join('');
     const num = (id, label, v, min, max, sufijo) => `<div class="lsn-regla"><label for="${id}">${label}</label><span><input type="number" id="${id}" value="${esc(v)}" min="${min}" max="${max}" step="1" required> ${sufijo}</span></div>`;
@@ -598,7 +598,7 @@
         ${g.status === 'connected' ? `<p class="lsn-sub2">Check these calendars for busy times</p>
           <div id="lsn-cals" class="lsn-cals"><p class="lsn-gris">Loading your calendars…</p></div>
           <div class="lsn-fila-botones"><button type="button" class="btn btn-sm btn-primary" data-action="lsnCalsGuardar" data-busy="Saving…">Save calendars</button>
-          <button type="button" class="btn btn-sm btn-outline" data-action="lsnGoogleQuitar">Disconnect</button></div>
+          <button type="button" class="btn btn-sm btn-outline" data-action="lsnGoogleQuitar" data-busy="Disconnecting…">Disconnect</button></div>
           <p class="lsn-gris">Events marked “Free” in Google don't block lessons. FEROCIA only sees busy/free — never what your events are.</p>`
         : `<div class="lsn-fila-botones"><button type="button" class="btn btn-sm btn-primary" data-action="lsnGoogleConectar" data-busy="Opening Google…">Connect Google Calendar</button></div>
           <p class="lsn-gris">Google will say the app isn't verified: it's yours, so tap “Advanced” → “Go to FEROCIA Lessons”, and leave all 3 permission boxes checked.</p>`}
@@ -823,6 +823,9 @@
   window.AdminPageLoaders = window.AdminPageLoaders || {};
   window.AdminPageLoaders.lessons = () => cargar();
   Object.assign(window.CLICK_HANDLERS, {
+    /* Pestañas y semanas: sin "ocupado" (se puede cambiar de pestaña
+       mientras carga; la última gana). El resto devuelve su promesa: el
+       botón se bloquea al primer clic hasta que termina (§117). */
     lsnTab: (btn) => { _tab = btn.dataset.tab; cargar(); },
     lsnVista: (btn) => { _vista = btn.dataset.vista; cargar(); },
     lsnSemana: (btn) => { const d = Number(btn.dataset.dir); _lunes = d === 0 ? lunesDe(diaET()) : sumarDias(_lunes || lunesDe(diaET()), 7 * d); cargar(); },
