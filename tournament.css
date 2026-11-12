@@ -346,7 +346,29 @@
 .ac-inline-q { font-size:12px; font-weight:700; color:#0d1f4a; margin-right:4px; }
 .ac-select { width:100%; border:1.5px solid var(--blue); border-radius:10px; padding:10px 12px; font-size:14px; font-family:'Inter',sans-serif; background:#fff; margin:4px 0; }
 .ac-select-sm { width:auto; padding:6px 10px; font-size:12px; margin:0 4px 0 0; }
-.ac-next-lbl { margin-top:14px; }
+/* §137 (11 nov): el tablero usa todo el ancho. Las canchas en cuadrícula
+   (3 por fila en una pantalla ancha, 2 en una mediana, 1 en el teléfono) y
+   "Up next" en una columna a la derecha, bien a la vista. */
+.ac-card.ac-board { max-width:none; }
+.ac-cols { display:grid; grid-template-columns:minmax(0,1fr) 320px; gap:16px; align-items:start; }
+.ac-courts { display:grid; grid-template-columns:repeat(auto-fill, minmax(270px, 1fr)); gap:12px; min-width:0; }
+.ac-courts .ac-court { margin:0; display:flex; flex-direction:column; }
+.ac-courts .ac-court-m { flex:1; }
+.ac-next { background:#F7FBE8; border:1.5px solid #C6F221; border-radius:14px; padding:12px 14px 6px; position:sticky; top:12px; }
+.ac-next-h { display:flex; align-items:center; justify-content:space-between; gap:8px; margin:-12px -14px 8px; padding:10px 14px;
+  background:#C6F221; border-radius:12px 12px 0 0; }
+.ac-next-t { margin:0; font-size:15px; font-weight:900; letter-spacing:1.2px; text-transform:uppercase; color:#0d1f4a; }
+.ac-next-n { font-size:11px; font-weight:800; color:#0d1f4a; background:rgba(255,255,255,.65); border-radius:99px; padding:3px 9px; white-space:nowrap; }
+.ac-next .ac-q { border-top:1px dashed #d5e6a3; }
+.ac-next-h + .ac-q, .ac-next-h + .ac-help + .ac-q { border-top:0; }
+/* Cada partido en dos líneas: quiénes, y debajo cómo está. */
+.ac-next .ac-q { flex-direction:column; align-items:flex-start; gap:2px; }
+.ac-next .ac-q-w { white-space:normal; text-align:left; }
+.ac-next .ac-q-w .ac-btn-xs:first-child { margin-left:0; }
+@media (max-width:1100px) {
+  .ac-cols { grid-template-columns:1fr; }
+  .ac-next { position:static; }
+}
 .ac-q { border-top:1px dashed #e0e7f5; padding:9px 0; display:flex; justify-content:space-between; align-items:center; gap:8px; font-size:13px; color:#0d1f4a; }
 .ac-q:first-of-type { border-top:0; }
 .ac-q-w { color:#6b7a99; font-size:12px; white-space:nowrap; text-align:right; }

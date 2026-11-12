@@ -227,6 +227,9 @@
     }
 
     const libres = b.board.filter((x) => x.state === 'free').map((x) => x.court);
+    /* §137 (11 nov): las canchas en cuadrícula a todo el ancho y "Up next"
+       en su propia columna a la derecha (abajo en pantallas angostas). */
+    html += '<div class="ac-cols"><div class="ac-courts">';
     for (const c of b.board) {
       if (c.state === 'playing') {
         const min = minutos((ahora - new Date(c.called_at).getTime()) / 1000);
@@ -268,7 +271,11 @@
       }
     }
 
-    html += '<div class="ac-lbl ac-next-lbl">Up next</div>';
+    html += '</div>';
+    const esperando = b.queue.filter((q) => q.state === 'ready').length;
+    html += `<aside class="ac-next" aria-labelledby="ac-next-${cat.id}">
+      <div class="ac-next-h"><h3 class="ac-next-t" id="ac-next-${cat.id}">Up next</h3>
+        <span class="ac-next-n">${b.queue.length ? `${b.queue.length} match${b.queue.length === 1 ? '' : 'es'}${esperando ? ` · ${esperando} ready` : ''}` : 'none'}</span></div>`;
     if (!b.queue.length) html += '<p class="ac-help">No matches waiting.</p>';
     for (const q of b.queue) {
       let estado = '';
@@ -288,6 +295,7 @@
       html += `<div class="ac-q ac-q-absent"><span>Not here: ${otrosAusentes.map((t) => esc(nombreCorto(t))).join(', ')}</span>
         <span class="ac-q-w">${otrosAusentes.map((t) => `<button type="button" class="ac-btn ac-btn-sec ac-btn-xs" data-ac="here" data-team="${t}">${esc(nombreCorto(t))} is here</button>`).join(' ')}</span></div>`;
     }
+    html += '</aside></div>';
     html += `<p class="ac-help ac-upd">Updated ${esc(new Date(b.now).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }))} · refreshes every 15 seconds</p>`;
     return html + '</div>';
   }
