@@ -124,6 +124,14 @@
 .lsn-bloques { list-style: none; margin: 0 0 12px; padding: 0; }
 .lsn-bloques li { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px dashed #edf0f6; font-size: 13px; }
 .lsn-bloqueo-form { gap: 10px; }
+/* §138: desde / hasta con hora opcional. */
+.lsn-b-fila { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.lsn-b-k { width: 40px; font-size: 10px; font-weight: 800; letter-spacing: .8px; text-transform: uppercase; color: var(--text-muted); }
+.lsn-b-fila input[type="date"] { flex: 1 1 150px; min-width: 0; }
+.lsn-b-fila input[type="time"] { flex: 0 1 130px; min-width: 0; }
+.lsn-oculto { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.lsn-bloq-parcial { left: 0; right: 0; border-radius: 0; z-index: 1; background: repeating-linear-gradient(-45deg, #f3f5f9, #f3f5f9 6px, #e9edf4 6px, #e9edf4 12px);
+  border-top: 2px solid #c3cbdc; color: var(--text-muted); font-size: 10px; font-weight: 700; padding: 3px 6px; }
 .lsn-regla { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px dashed #edf0f6; }
 .lsn-regla label { text-transform: none; letter-spacing: 0; font-size: 13px; font-weight: 600; color: var(--text); }
 .lsn-regla span { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); white-space: nowrap; }

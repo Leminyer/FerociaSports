@@ -80,6 +80,17 @@
   /* Minutos desde medianoche (hora de Florida) de un instante. */
   const minutosET = (iso) => { const p = fmt(iso, { hourCycle: 'h23', hour: '2-digit', minute: '2-digit' }).split(':'); return (+p[0] % 24) * 60 + +p[1]; };
   const hhmmA12 = (hhmm) => { const [h, m] = hhmm.split(':').map(Number); return `${((h + 11) % 12) + 1}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`; };
+  /* "Nov 25, 12:00 PM – Nov 30, 12:00 PM", "Nov 27 – 28", "Dec 2, 3:00 – 5:00 PM". */
+  function textoBloqueo(b) {
+    const ft = b.from_time ? hhmmA12(b.from_time) : '', tt = b.to_time ? hhmmA12(b.to_time) : '';
+    if (b.from_day === b.to_day) {
+      if (!ft && !tt) return diaCorto(b.from_day);
+      return `${diaCorto(b.from_day)}, ${ft || '12:00 AM'} – ${tt || 'end of day'}`;
+    }
+    const a = ft ? `${diaCorto(b.from_day)}, ${ft}` : diaCorto(b.from_day);
+    const z = tt ? `${diaCorto(b.to_day)}, ${tt}` : diaCorto(b.to_day);
+    return `${a} – ${z}`;
+  }
   const precio = (v) => (v == null || v === '' ? '—' : `$${Number(v) % 1 ? Number(v).toFixed(2) : Number(v)}`);
 
   // ── Errores en palabras ──────────────────────────────────
@@ -203,11 +214,22 @@
 
     const columnas = dias.map((d) => {
       const dow = dowDe(d);
-      const bloqueo = bloques.find((b) => d >= b.from_day && d <= b.to_day);
+      /* §138: un bloqueo puede tapar el día entero o sólo unas horas. */
+      const iniDia = Date.parse(instanteET(d)), finDia = Date.parse(instanteET(sumarDias(d, 1)));
+      const tramos = bloques.map((b) => ({ b, s: Math.max(Date.parse(b.starts_at || instanteET(b.from_day)), iniDia),
+                                              e: Math.min(Date.parse(b.ends_at || instanteET(sumarDias(b.to_day, 1))), finDia) }))
+        .filter((x) => x.e > x.s);
+      const bloqueo = tramos.find((x) => x.s <= iniDia && x.e >= finDia);
       const ventanas = bloqueo ? [] : horas.filter((h) => h.dow === dow);
       const capas = [];
       ventanas.forEach((h) => capas.push(`<div class="lsn-ev lsn-abierto" data-t="${top(toMin(h.starts))}" data-a="${(toMin(h.ends) - toMin(h.starts)) * PX}"></div>`));
-      if (bloqueo) capas.push(`<div class="lsn-bloqueado">Blocked${bloqueo.note ? ` · ${esc(bloqueo.note)}` : ''}</div>`);
+      if (bloqueo) capas.push(`<div class="lsn-bloqueado">Blocked${bloqueo.b.note ? ` · ${esc(bloqueo.b.note)}` : ''}</div>`);
+      else tramos.forEach((x) => {
+        const mi = Math.max(minutosET(new Date(x.s).toISOString()), ini);
+        const mf = Math.min(x.e >= finDia ? 24 * 60 : minutosET(new Date(x.e).toISOString()), fin);
+        if (mf <= mi) return;
+        capas.push(`<div class="lsn-ev lsn-bloq-parcial" data-t="${top(mi)}" data-a="${(mf - mi) * PX}">Blocked${x.b.note ? ` · ${esc(x.b.note)}` : ''}</div>`);
+      });
       ((google && google.busy) || []).forEach((b) => {
         const s = Math.max(Date.parse(b.s), Date.parse(instanteET(d))), e = Math.min(Date.parse(b.e), Date.parse(instanteET(sumarDias(d, 1))));
         if (e <= s) return;
@@ -577,7 +599,7 @@
         <td class="lsn-td-acc"><button type="button" class="btn btn-outline btn-sm" data-action="lsnTipoAbrir" data-id="${esc(t.id)}">Edit</button>
           <button type="button" class="btn btn-outline btn-sm" data-action="lsnTipoActivo" data-id="${esc(t.id)}" data-busy="Saving…">${t.active ? 'Pause' : 'Activate'}</button>
           ${t.used ? '' : `<button type="button" class="btn btn-danger btn-sm" data-action="lsnTipoBorrar" data-id="${esc(t.id)}" data-busy="Deleting…">Delete</button>`}</td></tr>`).join('');
-    const bloques = (a.blocks || []).map((b) => `<li><span>${esc(b.from_day === b.to_day ? diaCorto(b.from_day) : `${diaCorto(b.from_day)} – ${diaCorto(b.to_day)}`)}${b.note ? ` · ${esc(b.note)}` : ''}</span>
+    const bloques = (a.blocks || []).map((b) => `<li><span>${esc(textoBloqueo(b))}${b.note ? ` · ${esc(b.note)}` : ''}</span>
       <button type="button" class="btn btn-outline btn-sm" data-action="lsnBloqueoQuitar" data-id="${esc(b.id)}" data-busy="Removing…" aria-label="Remove blocked dates">Remove</button></li>`).join('');
     const num = (id, label, v, min, max, sufijo) => `<div class="lsn-regla"><label for="${id}">${label}</label><span><input type="number" id="${id}" value="${esc(v)}" min="${min}" max="${max}" step="1" required> ${sufijo}</span></div>`;
     const estadoG = g.status === 'connected'
@@ -626,8 +648,13 @@
         <h3 class="lsn-h3-2">Blocked dates</h3>
         ${bloques ? `<ul class="lsn-bloques">${bloques}</ul>` : '<p class="lsn-gris">No blocked dates.</p>'}
         <form id="lsn-bloqueo-form" class="lsn-bloqueo-form">
-          <div class="form-row"><div class="form-group"><label for="lsn-b-desde">From</label><input type="date" id="lsn-b-desde" required min="${esc(diaET())}"></div>
-          <div class="form-group"><label for="lsn-b-hasta">To</label><input type="date" id="lsn-b-hasta" required min="${esc(diaET())}"></div></div>
+          <div class="lsn-b-fila"><span class="lsn-b-k">From</span>
+            <label class="lsn-oculto" for="lsn-b-desde">From day</label><input type="date" id="lsn-b-desde" required min="${esc(diaET())}">
+            <label class="lsn-oculto" for="lsn-b-desde-h">From time (optional)</label><input type="time" id="lsn-b-desde-h" step="900"></div>
+          <div class="lsn-b-fila"><span class="lsn-b-k">To</span>
+            <label class="lsn-oculto" for="lsn-b-hasta">To day</label><input type="date" id="lsn-b-hasta" required min="${esc(diaET())}">
+            <label class="lsn-oculto" for="lsn-b-hasta-h">To time (optional)</label><input type="time" id="lsn-b-hasta-h" step="900"></div>
+          <p class="lsn-gris">Leave a time empty to block the whole day. Example: from Wed 12:00 PM to Mon 12:00 PM — the Wednesday morning stays open.</p>
           <div class="form-group"><label for="lsn-b-nota">Note (optional)</label><input type="text" id="lsn-b-nota" maxlength="80" placeholder="e.g. Vacation, Tournament"></div>
           <div><button type="submit" class="btn btn-sm btn-outline" data-busy="Saving…">Block these dates</button></div>
         </form>
@@ -691,8 +718,11 @@
   async function bloquear(e) {
     e.preventDefault();
     const desde = $('lsn-b-desde').value, hasta = $('lsn-b-hasta').value || desde;
+    const hDesde = $('lsn-b-desde-h').value || null, hHasta = $('lsn-b-hasta-h').value || null;
+    if (desde === hasta && hDesde && hHasta && hHasta <= hDesde) { window.toast('The end time must be after the start time.', true); return; }
     try {
-      const n = await rpc('admin_clases_bloqueo_agregar', { p_desde: desde, p_hasta: hasta, p_nota: $('lsn-b-nota').value.trim() || null });
+      const n = await rpc('admin_clases_bloqueo_agregar', { p_desde: desde, p_desde_hora: hDesde, p_hasta: hasta, p_hasta_hora: hHasta,
+                                                            p_nota: $('lsn-b-nota').value.trim() || null });
       window.toast(n > 0 ? `Dates blocked. You have ${n} lesson${n === 1 ? '' : 's'} already booked in those days — they were NOT cancelled. Cancel them from Bookings if needed.` : 'Dates blocked.', n > 0);
       await cargar();
     } catch (err) { window.toast(errorLegible(err), true); }
