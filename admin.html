@@ -25,6 +25,7 @@
 <link rel="stylesheet" href="admin-pages.css?v=20261106a">
 <link rel="stylesheet" href="admin-ftc.css?v=20260928b">
 <link rel="stylesheet" href="admin-comms-hub.css?v=20261013c">
+<link rel="stylesheet" href="admin-lessons.css?v=20261111a">
 
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="config.js?v=20260929j"></script>
@@ -164,6 +165,11 @@
     <button class="sb-item" id="sb-events" data-action="showPage" data-page="events">
       <span class="sb-item-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" ><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>
       <span class="sb-item-label">Events</span>
+    </button>
+    <!-- §118: las clases con Leminyer (admin-lessons.js). -->
+    <button class="sb-item" id="sb-lessons" data-action="showPage" data-page="lessons">
+      <span class="sb-item-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="M12 14v3l2 1"/></svg></span>
+      <span class="sb-item-label">Lessons</span>
     </button>
     <button class="sb-item" id="sb-orders" data-action="showPage" data-page="orders">
       <span class="sb-item-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" ><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg></span>
@@ -3168,6 +3174,29 @@
      esperan a los jugadores, los verificados y los juegos que vienen).
      Lo maneja admin-play-games.js; los estilos, admin-pages.css (pc-,
      pp-perf-, ps- y pg-). -->
+<!-- §118: LESSONS. Las clases con Leminyer: su semana (con lo ocupado de
+     su Google Calendar), las reservas y los ajustes. Lo maneja
+     admin-lessons.js; los estilos, admin-lessons.css (lsn-). -->
+<div id="page-lessons" class="page">
+  <div class="av-cabecera lsn-cabecera">
+    <div>
+      <div class="av-titulo">Lessons</div>
+      <div class="av-sub">Lessons players book with you in the Player Portal. Times are Florida time (ET).</div>
+    </div>
+    <button type="button" class="btn btn-primary btn-sm" data-action="lsnAnadir">+ Add a lesson</button>
+  </div>
+  <div class="lsn-google-aviso" id="lsn-google-aviso" role="status" hidden></div>
+  <div class="pc-tabs" role="tablist" aria-label="Lessons">
+    <button type="button" role="tab" class="pc-tab active" data-action="lsnTab" data-tab="schedule" aria-selected="true">Schedule</button>
+    <button type="button" role="tab" class="pc-tab" data-action="lsnTab" data-tab="bookings" aria-selected="false">Bookings</button>
+    <button type="button" role="tab" class="pc-tab" data-action="lsnTab" data-tab="settings" aria-selected="false">Settings</button>
+  </div>
+  <div id="lsn-body"><div class="loading">Loading...</div></div>
+</div>
+<div class="modal-bg lsn-modal" id="lsn-modal" role="dialog" aria-modal="true" aria-label="Lesson">
+  <div class="modal" id="lsn-modal-box"></div>
+</div>
+
 <div id="page-play-games" class="page">
   <div class="av-cabecera">
     <div class="av-titulo">Play games</div>
@@ -3384,6 +3413,9 @@
   </button>
   <button class="more-drawer-item" id="md-events" data-action="showPage" data-page="events">
     <span class="more-drawer-icon">📅</span>Events
+  </button>
+  <button class="more-drawer-item" id="md-lessons" data-action="showPage" data-page="lessons">
+    <span class="more-drawer-icon">🏓</span>Lessons
   </button>
   <button class="more-drawer-item" id="md-orders" data-action="showPage" data-page="orders">
     <span class="more-drawer-icon">🛒</span>Orders
@@ -4263,7 +4295,7 @@
 <!-- §105: los días de las clínicas (antes de app.js, que los usa al guardar). -->
 <script src="event-days.js?v=20261020a"></script>
 <script src="admin-event-days.js?v=20261020a"></script>
-<script src="app.js?v=20261110a"></script>
+<script src="app.js?v=20261111a"></script>
 
 <script src="tournament.js?v=20261110a"></script>
 <!-- §116 Auto Courts (SQL 131): las canchas automáticas del round robin. Después de tournament.js. -->
@@ -4276,6 +4308,8 @@
 <!-- Matchmaking M-2a: Player Safety (también después de app.js, por su círculo rojo). -->
 <script src="admin-player-safety.js?v=20261015b"></script>
 <script src="admin-play-games.js?v=20261016b"></script>
+<!-- §118: Lessons (SQL 134 + función "lessons"). -->
+<script src="admin-lessons.js?v=20261111a"></script>
 <!-- SQL 106: Player Portal → Portal activity (después de app.js). -->
 <script src="admin-portal-activity.js?v=20261017a"></script>
 <!-- §113: Reviews (después de app.js, por su círculo rojo). -->
