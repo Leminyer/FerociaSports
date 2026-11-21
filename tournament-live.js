@@ -9,6 +9,7 @@
    Sólo enseña lo que la página ya enseña hoy: los nombres de las parejas
    (de public_players, igual que el resto de la página) y los números de
    cancha. No dice qué cancha está "out" ni quién "no está".
+   SQL 139 (20 nov): si la categoría está en pausa, lo dice en una línea.
    Si el torneo no usa Auto Courts (o el SQL 131 no está), no aparece.
    ============================================================ */
 (function () {
@@ -84,6 +85,8 @@
 
     for (const c of vivo) {
       tarjeta.append(el('div', 'tl-cat', categorias[c.category_id] || ''));
+      /* SQL 139 (4A): la categoría está en pausa. */
+      if (c.paused) tarjeta.append(el('div', 'tl-paused', 'Courts paused — matches will resume shortly.'));
       const grid = el('div', 'tl-grid');
       for (const x of c.courts) {
         const pc = el('div', x.team_a_id ? 'tl-court' : 'tl-court tl-court-free');
@@ -91,7 +94,7 @@
         if (x.team_a_id) {
           pc.append(el('div', 'tl-team', nombreLargo(x.team_a_id)), el('div', 'tl-vs', 'vs'), el('div', 'tl-team', nombreLargo(x.team_b_id)));
         } else {
-          pc.append(el('div', 'tl-team tl-wait', 'Getting ready…'));
+          pc.append(el('div', 'tl-team tl-wait', c.paused ? 'Paused' : 'Getting ready…'));
         }
         grid.append(pc);
       }

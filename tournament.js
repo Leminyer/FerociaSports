@@ -4458,7 +4458,7 @@ async function saveMatch(type, matchId, teamAId, teamBId, catId) {
   if (autoEl && autoState === 'on_court') {
     const [ahora] = await tApi(`tournament_rr_matches?id=eq.${matchId}&select=status,called_at,court`);
     if (ahora && ahora.status === 'pending' && !ahora.called_at) {
-      tToast('This match is no longer on a court (a team was marked not here). Close and check the Court board.', true);
+      tToast('This match is no longer on a court (a team was marked not here, or the court was taken out). Close and check the Court board.', true);
       return;
     }
     if (ahora && ahora.court) courtAviso = ahora.court;

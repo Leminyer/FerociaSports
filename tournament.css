@@ -341,6 +341,14 @@
 .ac-tag-new { background:#C6F221; color:#1d2a00; }
 .ac-tag-free { background:#EEF2FF; color:var(--blue); }
 .ac-tag-out { background:#FDECE4; color:#9A3412; }
+.ac-tag-paused { background:#FFF1C7; color:#7a5a00; }
+/* SQL 139: pausa */
+.ac-head-a { display:flex; align-items:center; flex-wrap:wrap; gap:4px; }
+.ac-head-a .ac-btn-sm { margin:0; }
+.ac-paused { background:#FFF8E6; border:1px solid #F2D27A; border-radius:12px; padding:10px 12px; margin:0 0 10px; font-size:13px; line-height:1.45; color:#0d1f4a; }
+.ac-paused b { color:#7a5a00; }
+.ac-all { margin:-2px 0 10px; }
+.ac-all .ac-btn-sm { margin:0 0 0 4px; }
 .ac-inline { padding:0 12px 8px; display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
 .ac-inline[hidden] { display:none; }
 .ac-inline-q { font-size:12px; font-weight:700; color:#0d1f4a; margin-right:4px; }

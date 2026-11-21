@@ -1,14 +1,18 @@
 /* ============================================================
    FEROCIA — AUTO COURTS (§116, SQL 131) · 5 de noviembre de 2026
    Canchas automáticas en el round robin de los torneos.
+   SQL 139 (20 nov): "Pause courts" / "Resume courts" (y "Pause all" para
+   el torneo) y "Court out" también en una cancha con partido (el partido
+   vuelve a "Up next", primero).
 
    Qué hace este archivo (el panel):
      · "Courts for this category": guardar las canchas de la categoría
        (20-25, o 20, 21, 23…). Sin canchas, todo sigue a mano, como antes.
      · "Start courts": el sistema llena las canchas con los primeros partidos.
      · Court board: cada cancha con su estado (Playing / New / Free /
-       Court out), "Up next", y los botones Enter score, Move, Team not
-       here / Here, Court out / Back in y, al terminar, "Lend courts to…".
+       Court out / Paused), "Up next", y los botones Enter score, Move,
+       Team not here / Here, Court out / Back in, Pause / Resume y, al
+       terminar, "Lend courts to…".
      · Al guardar un score: "Saved 11–7. Court 20 → next: …".
 
    Quién decide qué partido va a cada cancha: la base de datos (SQL 131),
@@ -92,11 +96,15 @@
       case 'busy': return 'That match is being saved right now — try again.';
       case 'rr_not_complete': return 'This round robin is not complete yet.';
       case 'not_playing': return 'That category is not playing with Auto Courts.';
+      case 'not_started': return 'Press Start courts first.';
+      case 'changed': return `Court ${r.court} changed since you opened this. Check the board and try again.`;
+      case 'tournament_not_found': return 'Not found — reload the page.';
       case 'category_not_found': case 'match_not_found': case 'team_not_found': return 'Not found — reload the page.';
       default:
+        if (/auto_courts_not_on_court/.test(String(e))) return 'This match is no longer on a court, so its score was not saved. Close and check the Court board.';
         if (/auto_courts_locked/.test(String(e))) return 'Courts in this category are set by Auto Courts. Reload the page (Ctrl + Shift + R).';
         if (/not_authorized/.test(String(e))) return 'You do not have permission to do that.';
-        if (/Could not find the function|PGRST202/.test(String(e))) return 'Auto Courts is not installed yet (SQL 131).';
+        if (/Could not find the function|PGRST202/.test(String(e))) return 'This button needs the latest Auto Courts update (SQL 139).';
         return `Error: ${e}`;
     }
   }
@@ -160,6 +168,7 @@
       _equipos = {}; (equipos || []).forEach((t) => { _equipos[t.id] = t; });
       const c = (b?.board || []).find((x) => x.court === court);
       if (c && c.state === 'playing') texto += ` Court ${court} → next: ${nombreEquipo(c.team_a_id)} vs ${nombreEquipo(c.team_b_id)}. Call them to Court ${court}.`;
+      else if (b?.paused) texto += ` Court ${court} is free — courts are paused.`;
       else texto += ` Court ${court} is free — no match can start yet.`;
     } catch (_) { /* el score ya se guardó; el aviso es lo de menos */ }
     aviso(texto);
@@ -209,8 +218,21 @@
     let html = `<div class="ac-card ac-board">
       <div class="ac-head"><div><div class="ac-kicker">${esc(cat.name)} · Courts ${esc(escribirCanchas(b.courts))}</div>
         <div class="ac-title">Court board</div></div>
-        <button type="button" class="ac-btn ac-btn-link" data-ac="open-setup">Edit courts</button></div>
+        <div class="ac-head-a">${completo ? '' : `<button type="button" class="ac-btn ${b.paused ? 'ac-btn-ok' : 'ac-btn-sec'} ac-btn-sm" data-ac="${b.paused ? 'resume' : 'pause'}">${b.paused ? 'Resume courts' : 'Pause courts'}</button>`}
+          <button type="button" class="ac-btn ac-btn-link" data-ac="open-setup">Edit courts</button></div></div>
       <div class="ac-stats"><div><b>${b.done}</b><span>done</span></div><div><b>${b.on_court}</b><span>on court</span></div><div><b>${b.left}</b><span>left</span></div></div>`;
+    /* SQL 139: en pausa no se llama a nadie; los partidos en cancha siguen. */
+    if (!completo && b.paused) {
+      html += `<div class="ac-paused" role="status"><b>Courts paused</b> — no new matches are called. Matches on court keep playing.
+        When a court frees up, it stays free so you can take it out, move a match or wait for a team.</div>`;
+    }
+    /* "Pause all" sólo si hay más de una categoría con Auto Courts. */
+    if (!completo && b.auto_categories > 1) {
+      const todas = b.paused_categories === b.auto_categories;
+      html += `<p class="ac-help ac-all">${b.paused_categories ? `${b.paused_categories} of ${b.auto_categories} categories paused.` : `${b.auto_categories} categories use Auto Courts.`}
+        <button type="button" class="ac-btn ac-btn-link ac-btn-sm" data-ac="${todas ? 'resume-all' : 'pause-all'}">${todas ? 'Resume all categories' : 'Pause all categories'}</button>
+        ${b.paused_categories && !todas ? '<button type="button" class="ac-btn ac-btn-link ac-btn-sm" data-ac="resume-all">Resume all</button>' : ''}</p>`;
+    }
 
     if (completo) {
       html += `<div class="ac-banner"><b>Round robin complete ✓</b><br>${b.done} of ${b.total} matches played.${b.courts.length ? ` Courts ${esc(escribirCanchas(b.courts))} are free.` : ''}</div>`;
@@ -243,6 +265,7 @@
             <button type="button" class="ac-btn ac-btn-pri ac-btn-sm" data-ac="score" data-match="${c.match_id}" data-a="${c.team_a_id}" data-b="${c.team_b_id}">Enter score</button>
             <button type="button" class="ac-btn ac-btn-sec ac-btn-sm" data-ac="move-open" ${libres.length ? '' : 'disabled'}>Move</button>
             <button type="button" class="ac-btn ac-btn-sec ac-btn-sm" data-ac="nothere-open">Team not here</button>
+            <button type="button" class="ac-btn ac-btn-sec ac-btn-sm" data-ac="out-open">Court out</button>
           </div>
           <div class="ac-inline" data-ac="move-box" hidden>
             <select class="ac-select ac-select-sm" data-ac="move-select">${libres.map((x) => `<option value="${x}">Court ${x}</option>`).join('')}</select>
@@ -255,11 +278,20 @@
             <button type="button" class="ac-btn ac-btn-sec ac-btn-sm" data-ac="nothere" data-team="${c.team_b_id}">${esc(nombreCorto(c.team_b_id))}</button>
             <button type="button" class="ac-btn ac-btn-link ac-btn-sm" data-ac="cancel">Cancel</button>
           </div>
+          <div class="ac-inline" data-ac="out-box" hidden>
+            <span class="ac-inline-q">Take Court ${c.court} out? This match goes back to the top of Up next.</span>
+            <button type="button" class="ac-btn ac-btn-pri ac-btn-sm" data-ac="out" data-court="${c.court}" data-match="${c.match_id}">Court out</button>
+            <button type="button" class="ac-btn ac-btn-link ac-btn-sm" data-ac="cancel">Cancel</button>
+          </div>
         </div>`;
       } else if (c.state === 'free') {
         html += `<div class="ac-court" data-court="${c.court}">
-          <div class="ac-court-h"><span class="ac-court-n">COURT ${c.court}</span><span class="ac-tag ac-tag-free">Free · waiting for a team</span></div>
-          <div class="ac-court-m ac-muted">No match can start yet: the teams left are on court${noAqui.size ? ' or not here' : ''}. It fills by itself when a game ends.</div>
+          <div class="ac-court-h"><span class="ac-court-n">COURT ${c.court}</span>${b.paused
+            ? '<span class="ac-tag ac-tag-paused">Free · paused</span>'
+            : '<span class="ac-tag ac-tag-free">Free · waiting for a team</span>'}</div>
+          <div class="ac-court-m ac-muted">${b.paused
+            ? 'Courts are paused. Press Resume courts to call the next match.'
+            : `No match can start yet: the teams left are on court${noAqui.size ? ' or not here' : ''}. It fills by itself when a game ends.`}</div>
           <div class="ac-court-a"><button type="button" class="ac-btn ac-btn-sec ac-btn-sm" data-ac="out" data-court="${c.court}">Court out</button></div>
         </div>`;
       } else {
@@ -280,7 +312,7 @@
     for (const q of b.queue) {
       let estado = '';
       let boton = '';
-      if (q.state === 'ready') estado = `waiting ${minutos(q.wait_seconds)} min`;
+      if (q.state === 'ready') estado = q.first ? 'first in line' : `waiting ${minutos(q.wait_seconds)} min`;
       else if (q.state === 'playing') estado = 'after their games';
       else {
         const ausentes = [q.team_a_id, q.team_b_id].filter((t) => noAqui.has(Number(t)));
@@ -331,7 +363,7 @@
       if (!el.isConnected) { clearInterval(_timer); _timer = null; return; }
       if (document.visibilityState !== 'visible') return;
       if (document.querySelector('.t-modal-bg.t-modal-open')) return;   // no molestar con un modal abierto
-      if (el.querySelector('[data-ac="move-box"]:not([hidden]), [data-ac="nothere-box"]:not([hidden]), .ac-setup')) return;
+      if (el.querySelector('[data-ac="move-box"]:not([hidden]), [data-ac="nothere-box"]:not([hidden]), [data-ac="out-box"]:not([hidden]), .ac-setup')) return;
       pintarBoard(el, ctx, false);
     }, REFRESCO_MS);
   }
@@ -345,7 +377,7 @@
     if (window.tCurrentCategoryId != null && Number(window.tCurrentCategoryId) !== Number(ctx.cat.id)) return;
     /* Red de seguridad: una cancha libre y un partido listo para jugar no
        deberían coincidir; si pasa (algo quedó a medias), se llena ahora. */
-    if (!ctx._llenando && b.board.some((x) => x.state === 'free') && b.queue.some((q) => q.state === 'ready')) {
+    if (!ctx._llenando && !b.paused && b.board.some((x) => x.state === 'free') && b.queue.some((q) => q.state === 'ready')) {
       ctx._llenando = true;
       try {
         const r = await rpc('auto_courts_fill_now', { p_category_id: ctx.cat.id });
@@ -353,7 +385,7 @@
       } catch (_) { /* se intenta en la próxima vuelta */ }
       finally { ctx._llenando = false; }
     }
-    const firma = JSON.stringify([b.done, b.out, b.courts, b.not_here, b.board.map((x) => [x.court, x.match_id])]);
+    const firma = JSON.stringify([b.done, b.out, b.courts, b.not_here, b.paused, b.paused_categories, b.board.map((x) => [x.court, x.match_id])]);
     if (!primera && firma !== _firma && typeof window.loadCategory === 'function') {
       /* Alguien guardó un score (u otro cambio): se recarga la categoría
          entera, así las rondas y la tabla de abajo también se ponen al día. */
@@ -438,9 +470,10 @@
         case 'score':
           if (typeof window.openScoreModal === 'function') window.openScoreModal('rr', Number(b.dataset.match), Number(b.dataset.a), Number(b.dataset.b), c.cat.id);
           return;
-        case 'move-open': case 'nothere-open': {
-          el.querySelectorAll('[data-ac="move-box"], [data-ac="nothere-box"]').forEach((x) => { x.hidden = true; });
-          tarjeta.querySelector(b.dataset.ac === 'move-open' ? '[data-ac="move-box"]' : '[data-ac="nothere-box"]').hidden = false;
+        case 'move-open': case 'nothere-open': case 'out-open': {
+          el.querySelectorAll('[data-ac="move-box"], [data-ac="nothere-box"], [data-ac="out-box"]').forEach((x) => { x.hidden = true; });
+          const caja = { 'move-open': 'move-box', 'nothere-open': 'nothere-box', 'out-open': 'out-box' }[b.dataset.ac];
+          tarjeta.querySelector(`[data-ac="${caja}"]`).hidden = false;
           return;
         }
         case 'cancel':
@@ -459,8 +492,28 @@
           const nombre = nombreCorto(Number(b.dataset.team));
           return accion(b, c, 'auto_courts_team_here', { p_team_id: Number(b.dataset.team), p_here: true }, `${nombre} is here.`);
         }
-        case 'out':
-          return accion(b, c, 'auto_courts_court_out', { p_category_id: c.cat.id, p_court: Number(b.dataset.court), p_out: true }, `Court ${b.dataset.court} is out.`);
+        case 'out': {
+          /* El partido que se vio al confirmar: si ya es otro, la base no toca nada. */
+          const args = { p_category_id: c.cat.id, p_court: Number(b.dataset.court), p_out: true };
+          if (b.dataset.match) args.p_match_id = Number(b.dataset.match);
+          return accion(b, c, 'auto_courts_court_out', args, (r) => {
+            if (r && r.moved_to) return `Court ${b.dataset.court} is out. Its match moved to Court ${r.moved_to}.`;
+            if (r && r.requeued) return `Court ${b.dataset.court} is out. Its match goes first to the next free court.`;
+            return `Court ${b.dataset.court} is out.`;
+          });
+        }
+        case 'pause':
+          return accion(b, c, 'auto_courts_pause', { p_category_id: c.cat.id, p_paused: true },
+            `Courts paused for ${c.cat.name}. No new matches will be called.`);
+        case 'resume':
+          return accion(b, c, 'auto_courts_pause', { p_category_id: c.cat.id, p_paused: false },
+            (r) => `Courts resumed${r && r.called ? ` — ${r.called} match${r.called === 1 ? '' : 'es'} called to court` : ''}.`);
+        case 'pause-all':
+          return accion(b, c, 'auto_courts_pause_all', { p_tournament_id: c.tournament.id, p_paused: true },
+            (r) => `Courts paused in all ${r.categories} categories. No new matches will be called.`);
+        case 'resume-all':
+          return accion(b, c, 'auto_courts_pause_all', { p_tournament_id: c.tournament.id, p_paused: false },
+            (r) => `Courts resumed in all categories${r && r.called ? ` — ${r.called} match${r.called === 1 ? '' : 'es'} called to court` : ''}.`);
         case 'back':
           return accion(b, c, 'auto_courts_court_out', { p_category_id: c.cat.id, p_court: Number(b.dataset.court), p_out: false }, `Court ${b.dataset.court} is back in.`);
         case 'lend': {

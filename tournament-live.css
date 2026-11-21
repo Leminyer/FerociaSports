@@ -28,3 +28,5 @@
 }
 @media (max-width:380px) { .tl-grid { grid-template-columns:1fr; } }
 @media (prefers-reduced-motion:reduce) { .tl-dot { animation:none; } }
+/* SQL 139: categoría en pausa */
+.tl-paused { background:rgba(255,241,199,.12); border:1px solid rgba(242,210,122,.55); color:#F2D27A; border-radius:10px; padding:8px 10px; font-size:13px; font-weight:700; margin:0 0 10px; }
