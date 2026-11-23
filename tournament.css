@@ -43,6 +43,8 @@
 .td-step-lbl.locked{color:#b0bbd6;}
 .td-step-conn{background:#e0e7f5;flex:1;height:2px;margin-top:-16px;}
 .td-step-conn.done{background:var(--teal);}
+/* §120: 5 pasos — en pantallas angostas, el nombre del paso baja a dos líneas para no chocar */
+@media (max-width:700px){.td-step-lbl{max-width:64px;line-height:1.25;}}
 
 .t-phase-card {
   background:#fff; border:0.5px solid var(--border); border-radius:12px;

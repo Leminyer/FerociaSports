@@ -2020,8 +2020,16 @@ function renderCategory(cat, teams, rrMatches, bracketMatches, tournament, group
     const cls = done ? 'done' : current ? 'current' : 'locked';
     return `<div class="td-step-lbl ${cls}">${label}</div>`;
   };
-  const s1done = step1Done, s2done = step2Done, s3done = step3Done;
-  const s1cur  = !s1done, s2cur = s1done && !s2done, s3cur = s2done && !s3done, s4cur = s3done && !step4Done;
+  /* Los pasos en el orden real del torneo (§120, 22 nov): el round robin
+     sólo se genera con el torneo iniciado. Un paso es "el actual" cuando
+     todos los anteriores están hechos. */
+  const pasos = [
+    ['Teams Added', step1Done],
+    ['Tournament Started', tournament.status !== 'draft'],
+    ['Round Robin', step2Done],
+    ['Bracket', step3Done],
+    ['Completed', step4Done],
+  ].map(([label, done], i, todos) => ({ label, done, current: !done && todos.slice(0, i).every(([, d]) => d) }));
   const connCls = (done) => done ? 'td-step-conn done' : 'td-step-conn';
 
   const progressionEl = document.getElementById('td-setup-progression');
@@ -2033,32 +2041,11 @@ function renderCategory(cat, teams, rrMatches, bracketMatches, tournament, group
           Tournament Setup Progress
         </div>
         <div style="display:flex;align-items:flex-start;margin-top:4px;">
-          <!-- Step 1 -->
+          ${pasos.map((p, i) => `${i ? `<div class="${connCls(pasos[i - 1].done)}" style="height:2px;flex:1;margin-top:13px;"></div>` : ''}
           <div style="display:flex;flex-direction:column;align-items:center;flex:0 0 auto;">
-            ${stepIcon(s1done, s1cur, '1')}
-            ${stepLbl(s1done, s1cur, 'Teams Added')}
-          </div>
-          <!-- Connector 1→2 -->
-          <div class="${connCls(s1done)}" style="height:2px;flex:1;margin-top:13px;"></div>
-          <!-- Step 2 -->
-          <div style="display:flex;flex-direction:column;align-items:center;flex:0 0 auto;">
-            ${stepIcon(s2done, s2cur, '2')}
-            ${stepLbl(s2done, s2cur, 'Round Robin')}
-          </div>
-          <!-- Connector 2→3 -->
-          <div class="${connCls(s2done)}" style="height:2px;flex:1;margin-top:13px;"></div>
-          <!-- Step 3 -->
-          <div style="display:flex;flex-direction:column;align-items:center;flex:0 0 auto;">
-            ${stepIcon(s3done, s3cur, '3')}
-            ${stepLbl(s3done, s3cur, 'Bracket Setup')}
-          </div>
-          <!-- Connector 3→4 -->
-          <div class="${connCls(s3done)}" style="height:2px;flex:1;margin-top:13px;"></div>
-          <!-- Step 4 -->
-          <div style="display:flex;flex-direction:column;align-items:center;flex:0 0 auto;">
-            ${stepIcon(step4Done, s4cur, '4')}
-            ${stepLbl(step4Done, s4cur, 'Start Tournament')}
-          </div>
+            ${stepIcon(p.done, p.current, String(i + 1))}
+            ${stepLbl(p.done, p.current, p.label)}
+          </div>`).join('')}
         </div>
       </div>`;
   }
