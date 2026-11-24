@@ -1,0 +1,32 @@
+/* FEROCIA — modo TV de las canchas en vivo (§121). Letra grande, fondo oscuro. */
+* { box-sizing:border-box; margin:0; padding:0; }
+html, body { height:100%; background:#080f2e; color:#fff; font-family:Inter, system-ui, sans-serif; }
+.tv { min-height:100vh; display:flex; flex-direction:column; padding:2.2vw 2.6vw 1.4vw; gap:1.6vw; }
+.tv-top { display:flex; justify-content:space-between; align-items:center; gap:2vw; flex-wrap:wrap; }
+.tv-marca { font-weight:900; font-size:clamp(20px, 2.4vw, 46px); letter-spacing:.06em; }
+.tv-marca span { color:#c6f221; }
+.tv-info { display:flex; align-items:center; gap:.8em; font-weight:800; font-size:clamp(13px, 1.4vw, 26px); color:#c6f221; }
+.tv-info #tv-hora { color:#9aa6c0; }
+.tv-punto { width:.6em; height:.6em; border-radius:50%; background:#ff4d4d; animation:tv-late 1.4s infinite; }
+@keyframes tv-late { 0%, 100% { opacity:1; } 50% { opacity:.35; } }
+.tv-cuerpo { flex:1; display:grid; grid-template-columns:repeat(var(--cats, 2), minmax(0, 1fr)) minmax(0, .9fr); gap:1.6vw; align-content:start; }
+.tv-cat h2 { font-size:clamp(14px, 1.5vw, 30px); color:#c6f221; letter-spacing:.12em; text-transform:uppercase; margin-bottom:.8vw; }
+.tv-pausa { background:rgba(255,241,199,.12); border:1px solid rgba(242,210,122,.55); color:#F2D27A; border-radius:.6vw; padding:.6vw .9vw; font-weight:800; font-size:clamp(12px, 1.1vw, 22px); margin-bottom:.8vw; }
+.tv-c { background:#111a44; border-radius:.9vw; padding:.9vw 1.1vw; margin-bottom:.8vw; display:flex; gap:1.2vw; align-items:center; }
+.tv-cn { color:#c6f221; font-weight:900; font-size:clamp(26px, 3.2vw, 64px); line-height:1; min-width:2.2em; text-align:center; }
+.tv-cn small { display:block; font-size:clamp(8px, .7vw, 14px); letter-spacing:.1em; color:#9aa6c0; font-weight:800; margin-bottom:.15em; }
+.tv-eq { font-size:clamp(14px, 1.6vw, 32px); font-weight:700; line-height:1.3; }
+.tv-eq .vs { color:#9aa6c0; font-weight:600; font-size:.75em; }
+.tv-c.libre .tv-eq { color:#9aa6c0; font-weight:600; }
+.tv-next { background:#111a44; border-radius:.9vw; padding:1.1vw 1.2vw; align-self:start; }
+.tv-next h2 { font-size:clamp(14px, 1.5vw, 30px); color:#c6f221; letter-spacing:.12em; margin-bottom:.5vw; }
+.tv-it { padding:.8vw 0; border-top:1px solid rgba(255,255,255,.08); font-size:clamp(13px, 1.4vw, 28px); font-weight:700; line-height:1.3; }
+.tv-it span { display:block; font-size:.62em; color:#9aa6c0; letter-spacing:.06em; text-transform:uppercase; }
+.tv-vacio { grid-column:1 / -1; text-align:center; color:#9aa6c0; font-size:clamp(16px, 2vw, 36px); font-weight:700; padding:12vh 2vw; }
+.tv-pie { display:flex; justify-content:space-between; align-items:center; gap:1.5vw; flex-wrap:wrap; color:#9aa6c0; font-size:clamp(11px, 1vw, 20px); }
+.tv-pantalla { background:transparent; border:1px solid rgba(255,255,255,.25); color:#fff; border-radius:99px; padding:.4em 1em; font:700 1em Inter, sans-serif; cursor:pointer; }
+:fullscreen .tv-pantalla { display:none; }
+@media (max-width:760px) {
+  .tv-cuerpo { grid-template-columns:1fr; }
+  .tv-c { border-radius:12px; padding:12px 14px; }
+}

@@ -226,6 +226,12 @@
       html += `<div class="ac-paused" role="status"><b>Courts paused</b> — no new matches are called. Matches on court keep playing.
         When a court frees up, it stays free so you can take it out, move a match or wait for a team.</div>`;
     }
+    /* SQL 141: jugadores sin check-in (sus partidos esperan). */
+    if (!completo && b.checkin_missing > 0) {
+      html += `<p class="ac-help ac-checkin">${Number(b.checkin_missing)} player${b.checkin_missing === 1 ? '' : 's'} of this category ${b.checkin_missing === 1 ? 'has' : 'have'} not checked in.
+        Their matches wait until they do — check them in under Team Registration.
+        ${window.AdminCheckin ? '<button type="button" class="ac-btn ac-btn-sec ac-checkin-btn" data-ac="checkin-all">✓ Check in everyone</button>' : ''}</p>`;
+    }
     /* "Pause all" sólo si hay más de una categoría con Auto Courts. */
     if (!completo && b.auto_categories > 1) {
       const todas = b.paused_categories === b.auto_categories;
@@ -291,7 +297,7 @@
             : '<span class="ac-tag ac-tag-free">Free · waiting for a team</span>'}</div>
           <div class="ac-court-m ac-muted">${b.paused
             ? 'Courts are paused. Press Resume courts to call the next match.'
-            : `No match can start yet: the teams left are on court${noAqui.size ? ' or not here' : ''}. It fills by itself when a game ends.`}</div>
+            : `No match can start yet: the teams left are on court${noAqui.size ? ' or not here' : ''}${b.checkin_missing ? ' or not checked in' : ''}. It fills by itself when a game ends.`}</div>
           <div class="ac-court-a"><button type="button" class="ac-btn ac-btn-sec ac-btn-sm" data-ac="out" data-court="${c.court}">Court out</button></div>
         </div>`;
       } else {
@@ -314,6 +320,8 @@
       let boton = '';
       if (q.state === 'ready') estado = q.first ? 'first in line' : `waiting ${minutos(q.wait_seconds)} min`;
       else if (q.state === 'playing') estado = 'after their games';
+      /* SQL 141: alguien de las dos parejas no hizo check-in. */
+      else if (q.state === 'not_checked_in') estado = `⏳ waiting for check-in${q.missing && q.missing.length ? `: ${q.missing.join(', ')}` : ''}`;
       else {
         const ausentes = [q.team_a_id, q.team_b_id].filter((t) => noAqui.has(Number(t)));
         estado = ausentes.map((t) => `${nombreCorto(t)} not here`).join(' · ');
@@ -357,6 +365,7 @@
       return;
     }
     el.innerHTML = '<div class="ac-card ac-board"><div class="ac-help">Loading Court board…</div></div>';
+    _actual = { el, ctx };
     enlazar(el, ctx);
     pintarBoard(el, ctx, true);
     _timer = setInterval(() => {
@@ -366,6 +375,12 @@
       if (el.querySelector('[data-ac="move-box"]:not([hidden]), [data-ac="nothere-box"]:not([hidden]), [data-ac="out-box"]:not([hidden]), .ac-setup')) return;
       pintarBoard(el, ctx, false);
     }, REFRESCO_MS);
+  }
+
+  /* SQL 141: el check-in de Team Registration pide pintar el board ya. */
+  let _actual = null;
+  function refrescar() {
+    if (_actual && _actual.el.isConnected) pintarBoard(_actual.el, _actual.ctx, false);
   }
 
   async function pintarBoard(el, ctx, primera) {
@@ -385,7 +400,7 @@
       } catch (_) { /* se intenta en la próxima vuelta */ }
       finally { ctx._llenando = false; }
     }
-    const firma = JSON.stringify([b.done, b.out, b.courts, b.not_here, b.paused, b.paused_categories, b.board.map((x) => [x.court, x.match_id])]);
+    const firma = JSON.stringify([b.done, b.out, b.courts, b.not_here, b.paused, b.paused_categories, b.checkin_missing, b.board.map((x) => [x.court, x.match_id])]);
     if (!primera && firma !== _firma && typeof window.loadCategory === 'function') {
       /* Alguien guardó un score (u otro cambio): se recarga la categoría
          entera, así las rondas y la tabla de abajo también se ponen al día. */
@@ -459,7 +474,13 @@
         }
         case 'start':
           return accion(b, c, 'auto_courts_start', { p_category_id: c.cat.id },
-            (r) => `Auto Courts started — ${r.called} match${r.called === 1 ? '' : 'es'} called to court.`);
+            (r) => (r && r.called > 0
+              ? `Auto Courts started — ${r.called} match${r.called === 1 ? '' : 'es'} called to court.`
+              : 'Auto Courts started. No match could be called yet — check players in under Team Registration (or tap “Check in everyone”).'));
+        case 'checkin-all':
+          /* El panel de check-in pregunta antes y luego refresca este tablero. */
+          if (window.AdminCheckin?.todos) await window.AdminCheckin.todos();
+          return;
         case 'open-setup': {
           if (_timer) { clearInterval(_timer); _timer = null; }
           el.innerHTML = htmlAjustes(c);
@@ -526,5 +547,5 @@
     });
   }
 
-  window.AutoCourts = { montar, esAuto, htmlCanchaFija, avisoSiguiente, mensaje, leerCanchas, escribirCanchas };
+  window.AutoCourts = { montar, esAuto, htmlCanchaFija, avisoSiguiente, mensaje, leerCanchas, escribirCanchas, refrescar };
 })();

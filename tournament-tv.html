@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>FEROCIA — Live Courts (TV)</title>
+<!-- §121 (23 nov): modo TV de las canchas en vivo, para una TV, tablet o laptop
+     junto a las canchas. Sólo canchas y "Up next"; se actualiza sola. -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tournament-tv.css?v=20261123a">
+<script src="config.js?v=20260820e"></script>
+<!-- SRI (§101): supabase-js fijo en 2.118.0, igual que tournament-results.html. -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js" integrity="sha384-TcHRA3zBbn+Lexh5n+Oil4guNPOS3rjNDpGRAN46u/s/mB2IZ50ceC6TYDU2yvgK" crossorigin="anonymous"></script>
+<script src="db.js?v=20260820e"></script>
+<script src="tournament-tv.js?v=20261123a" defer></script>
+</head>
+<body>
+<main class="tv" id="tv">
+  <header class="tv-top">
+    <div class="tv-marca">FEROCIA <span>LIVE COURTS</span></div>
+    <div class="tv-info"><i class="tv-punto" aria-hidden="true"></i><span id="tv-torneo"></span><span id="tv-hora"></span></div>
+  </header>
+  <section class="tv-cuerpo" id="tv-cuerpo" aria-live="off"></section>
+  <footer class="tv-pie">
+    <span>Results &amp; standings on your phone: open the tournament link we sent you</span>
+    <span id="tv-pagina"></span>
+    <button type="button" class="tv-pantalla" id="tv-pantalla">Full screen</button>
+  </footer>
+</main>
+</body>
+</html>

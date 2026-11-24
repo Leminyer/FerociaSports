@@ -712,7 +712,7 @@ async function renderTournamentList() {
       <div class="t-panel-body" style="padding:14px 16px 16px;">
         <form id="t-create-form" onsubmit="createTournament(event)">
           <!-- Name + Date -->
-          <div style="display:grid;grid-template-columns:2fr 1fr;gap:10px;margin-bottom:6px;">
+          <div class="t-grid-nombre">
             <div style="display:flex;flex-direction:column;gap:3px;">
               <div class="t-new-field-lbl">Tournament Name <span style="color:#e53935;">*</span></div>
               <input class="t-new-input" type="text" id="t-name" required placeholder="e.g. Spring Doubles Open 2026">
@@ -721,7 +721,12 @@ async function renderTournamentList() {
               <div class="t-new-field-lbl">Date <span style="color:#e53935;">*</span></div>
               <input class="t-new-input" type="date" id="t-date">
             </div>
+            <div style="display:flex;flex-direction:column;gap:3px;">
+              <div class="t-new-field-lbl">Start time</div>
+              <input class="t-new-input" type="time" id="t-start-time" step="900">
+            </div>
           </div>
+          <p class="t-hora-ayuda">Optional. Players can check in from the Player Portal 2 hours before (from 6:00 AM if empty).</p>
           <div class="t-new-divider" style="margin:8px 0;"></div>
           <!-- Categories -->
           <div>
@@ -1257,6 +1262,8 @@ async function tEditTournament(id) {
     id,
     name:   t.name,
     date:   t.date || '',
+    startTime: (t.start_time || '').slice(0, 5),
+    startTimeAntes: (t.start_time || '').slice(0, 5),
     status: t.status,
     cats:   cats.map(c => ({ id: c.id, name: c.name, isNew: false })),
     counts,
@@ -1273,8 +1280,10 @@ function _tCaptureEditInputs() {
   if (!st) return;
   const nameEl = document.getElementById('t-edit-name');
   const dateEl = document.getElementById('t-edit-date');
+  const horaEl = document.getElementById('t-edit-start');
   if (nameEl) st.name = nameEl.value;
   if (dateEl) st.date = dateEl.value;
+  if (horaEl) st.startTime = horaEl.value;
 }
 
 // Redraws just the category list. Used by add/remove, which must not
@@ -1314,7 +1323,7 @@ function _tRenderEditTournament() {
     </button>
     <div style="font-size:11px;font-weight:600;color:#6b7a99;margin-bottom:16px;">Update tournament information and categories.</div>
     ${isActive ? `<div style="padding:8px 12px;background:#fde8d8;border-radius:7px;font-size:12px;font-weight:600;color:#c04a0e;margin-bottom:14px;">⚠️ Tournament is active — categories are locked to protect team data. You can still update the name and date.</div>` : ''}
-    <div style="display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-bottom:10px;">
+    <div class="t-grid-nombre">
       <div>
         <div class="t-new-field-lbl">Tournament Name</div>
         <input id="t-edit-name" class="t-new-input" type="text" value="${tEsc(st.name)}" required>
@@ -1323,7 +1332,12 @@ function _tRenderEditTournament() {
         <div class="t-new-field-lbl">Date</div>
         <input id="t-edit-date" class="t-new-input" type="date" value="${st.date || ''}">
       </div>
+      <div>
+        <div class="t-new-field-lbl">Start time</div>
+        <input id="t-edit-start" class="t-new-input" type="time" step="900" value="${tEsc(st.startTime || '')}">
+      </div>
     </div>
+    <p class="t-hora-ayuda">Optional. Players can check in from the Player Portal 2 hours before (from 6:00 AM if empty).</p>
     <div class="t-new-divider" style="margin:10px 0;"></div>
     <div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
@@ -1474,6 +1488,15 @@ async function tSaveEditTournament() {
         : st.cats.map(c => ({ id: c.isNew ? null : c.id, name: c.name })),
     });
     if (error) throw error;
+    /* §121: la hora de inicio (SQL 141) va aparte y sólo si cambió;
+       si falla, lo demás ya quedó. */
+    if ((st.startTime || '') !== (st.startTimeAntes || '')) {
+      try {
+        await tApi(`tournaments?id=eq.${Number(st.id)}`, 'PATCH', { start_time: st.startTime || null });
+      } catch (e) {
+        tToast(`Saved, but the start time was not: ${e.message}`, true);
+      }
+    }
 
     closeTModal();
     window._tEditState = null;
@@ -1598,7 +1621,8 @@ async function createTournament(e) {
       tToast(`A tournament named "${name}" ${date ? 'on this date ' : ''}already exists.`, true);
       return;
     }
-    await tApi('tournaments', 'POST', { name, date, status: 'draft' });
+    const startTime = document.getElementById('t-start-time')?.value || null;
+    await tApi('tournaments', 'POST', { name, date, status: 'draft', ...(startTime ? { start_time: startTime } : {}) });
     const [t] = await tApi(`tournaments?name=eq.${encodeURIComponent(name)}&status=eq.draft&select=*&order=id.desc&limit=1`);
     if (categories.length) {
       // Bulk insert all categories in a single POST
@@ -2101,16 +2125,24 @@ function renderCategory(cat, teams, rrMatches, bracketMatches, tournament, group
       </button>`
     : '';
 
+  /* §121 check-in (SQL 141): mientras el torneo no está terminado, cada
+     jugador es un botón para marcar que llegó (admin-checkin.js). */
+  const conCheckin = tournament.status !== 'completed' && !!window.AdminCheckin;
   const teamsBody = teams.length
-    ? `<div style="display:flex;flex-direction:column;gap:8px;padding:16px 20px;">
+    ? `${conCheckin ? `<div id="ci-mount" class="ci-mount" data-tournament="${Number(tournament.id)}"></div>` : ''}
+      <div id="ci-teams" style="display:flex;flex-direction:column;gap:8px;padding:16px 20px;">
         ${teams.map((team, i) => {
-          const players = [team.player1_id, team.player2_id, team.player3_id, team.player4_id]
-            .filter(Boolean).map(id => { const p = tAllPlayers.find(x => x.id === id); return p ? `${p.first_name} ${p.last_name}` : '?'; });
+          const ids = [team.player1_id, team.player2_id, team.player3_id, team.player4_id].filter(Boolean);
+          const players = ids.map(id => { const p = tAllPlayers.find(x => x.id === id); return p ? `${p.first_name} ${p.last_name}` : '?'; });
+          const chips = conCheckin
+            ? `<div class="ci-jug">${ids.map((id, k) => `<button type="button" class="ci-chip" data-ci-player="${Number(id)}" aria-pressed="false"><span class="ci-c" aria-hidden="true">✓</span>${tEsc(players[k])}</button>`).join('')}
+                 <span class="ci-estado" data-ci-team="${Number(team.id)}" data-ci-players="${ids.map(Number).join(',')}"></span></div>`
+            : '';
           return `<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:#f8f9ff;border:0.5px solid #e0e7f5;border-radius:8px;">
             <div style="width:24px;height:24px;border-radius:50%;background:#174CCC;color:white;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${i + 1}</div>
             <div style="flex:1;">
               <div style="font-size:12px;font-weight:800;color:#0d1f4a;">${tEsc(team.name)}</div>
-              ${!singlesMode ? `<div style="font-size:11px;font-weight:600;color:#6b7a99;">${players.join(' & ')}</div>` : ''}
+              ${chips || (!singlesMode ? `<div style="font-size:11px;font-weight:600;color:#6b7a99;">${players.map(tEsc).join(' &amp; ')}</div>` : '')}
             </div>
             ${tournament.status !== 'completed' && !singlesMode ? `<button onclick="editTeam(${team.id}, ${cat.id})" style="width:24px;height:24px;border:none;background:transparent;color:#174CCC;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;border-radius:5px;" title="Edit">✏️</button>` : ''}
             ${tournament.status === 'draft' ? `<button onclick="deleteTeam(${team.id}, ${cat.id})" data-tname="${tEsc(team.name)}" style="width:22px;height:22px;border:none;background:transparent;color:#e53935;cursor:pointer;font-size:16px;font-weight:700;display:flex;align-items:center;justify-content:center;">×</button>` : ''}
@@ -2372,6 +2404,9 @@ function renderCategory(cat, teams, rrMatches, bracketMatches, tournament, group
   // §116 Auto Courts: las canchas de la categoría y el Court board (admin-auto-courts.js).
   const acMount = document.getElementById(`ac-mount-${cat.id}`);
   if (acMount && window.AutoCourts) window.AutoCourts.montar(acMount, { cat, tournament, teams, rrMatches });
+  // §121 check-in (admin-checkin.js).
+  const ciMount = document.getElementById('ci-mount');
+  if (ciMount && window.AdminCheckin) window.AdminCheckin.montar(ciMount, { tournament, cat, teams });
 }
 
 

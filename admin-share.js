@@ -90,6 +90,8 @@
 
     const baseLadderUrl = window.location.origin + window.location.pathname.replace('admin.html', '') + 'players.html';
     const baseTourneyUrl= window.location.origin + window.location.pathname.replace('admin.html', '') + 'tournament-results.html';
+    // §121: modo TV de las canchas en vivo (pantalla grande junto a las canchas).
+    const baseTvUrl     = window.location.origin + window.location.pathname.replace('admin.html', '') + 'tournament-tv.html';
 
     // Build visit maps with namespaced keys to avoid ladder/tournament ID collisions
     // e.g. ladder 5 → "l_5", tournament 5 → "t_5"
@@ -107,6 +109,7 @@
     const maxVisits = Math.max(...Object.values(visitsByItem), 0);
 
     const copyIcon   = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
+    const tvIcon     = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="13" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>`;
     const eyeIcon    = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
     const shareIcon  = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>`;
     const linkIcon   = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#b0bbd6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`;
@@ -143,6 +146,8 @@
         ? `${baseLadderUrl}?l=${btoa(String(item.id))}`
         : `${baseTourneyUrl}?t=${btoa(String(item.id))}`;
       const btnId   = `copy-${tab}-${item.id}`;
+      const tvUrl   = tab === 'ladders' ? '' : `${baseTvUrl}?t=${btoa(String(item.id))}`;
+      const tvBtnId = `copy-tv-${item.id}`;
       const isActive = item.status === 'active';
       const isClosed = !isActive;
       const visitCount = visitsByItem[tab === 'ladders' ? `l_${Number(item.id)}` : `t_${Number(item.id)}`] || 0;
@@ -179,6 +184,9 @@
             <a href="${esc(url)}" target="_blank" rel="noopener" class="share-card-btn preview"
               style="text-decoration:none;" onclick="_recordShareVisit('${esc(url)}')">${eyeIcon} Preview Page</a>
             <button class="share-card-btn" data-action="showShareQR" data-url="${esc(url)}">${shareIcon} Share</button>
+            ${tvUrl ? `<button class="share-card-btn" data-action="copyShareLink" data-url="${esc(tvUrl)}" data-btnid="${tvBtnId}" id="${tvBtnId}"
+              title="Live courts for a TV or tablet next to the courts">${tvIcon} Copy TV link</button>
+            <a href="${esc(tvUrl)}" target="_blank" rel="noopener" class="share-card-btn preview" style="text-decoration:none;">${tvIcon} Open TV mode</a>` : ''}
           </div>
         </div>
         <div class="share-card-url">${linkIcon}<span class="share-card-url-text">${esc(url)}</span></div>

@@ -395,3 +395,33 @@
   .ac-q { flex-direction:column; align-items:flex-start; }
   .ac-q-w { text-align:left; white-space:normal; }
 }
+
+/* ── §121 Check-in y hora de inicio (SQL 141) ── */
+.t-grid-nombre { display:grid; grid-template-columns:2fr 1fr 1fr; gap:10px; margin-bottom:4px; }
+@media (max-width:600px) { .t-grid-nombre { grid-template-columns:1fr 1fr; } .t-grid-nombre > :first-child { grid-column:1 / -1; } }
+.t-hora-ayuda { margin:0 0 6px; font-size:11px; font-weight:600; color:var(--text-muted, #6b7a99); }
+.ci-mount:empty { display:none; }
+.ci-resumen { display:flex; align-items:center; gap:14px; flex-wrap:wrap; padding:12px 20px; background:#f7f9ff; border-bottom:0.5px solid #eef1f8; font-size:12px; }
+.ci-resumen.ci-error { color:#c62828; font-weight:700; }
+.ci-leyendo { color:#6b7a99; font-weight:600; }
+.ci-cuenta { font-size:13px; color:#0d1f4a; }
+.ci-prog { flex:1; min-width:140px; height:8px; border-radius:99px; background:#e6ebf5; overflow:hidden; }
+.ci-prog i { display:block; height:100%; width:0; background:#24BC96; transition:width .3s; }
+.ci-equipos { color:#6b7a99; font-weight:600; }
+.ci-todos { display:inline-flex; align-items:center; gap:6px; padding:8px 16px; min-height:36px; border:none; border-radius:99px; background:#24BC96; color:#fff; font:700 11px Inter, sans-serif; cursor:pointer; }
+.ci-todos:disabled { opacity:.6; cursor:default; }
+.ci-jug { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-top:5px; }
+.ci-chip { display:inline-flex; align-items:center; gap:7px; padding:5px 11px 5px 6px; min-height:30px; border-radius:99px; border:1px solid #e0e7f5; background:#fff; color:#0d1f4a; font:600 12px Inter, sans-serif; cursor:pointer; }
+.ci-chip:hover { border-color:#174CCC; }
+.ci-chip:focus-visible { outline:2px solid #174CCC; outline-offset:2px; }
+.ci-chip .ci-c { width:18px; height:18px; border-radius:50%; border:1.5px solid #cfd6e6; color:transparent; display:inline-flex; align-items:center; justify-content:center; font-size:10px; font-weight:800; }
+.ci-chip.si { border-color:#bfe9da; background:#f2fbf8; }
+.ci-chip.si .ci-c { background:#24BC96; border-color:#24BC96; color:#fff; }
+.ci-chip.ci-busy { opacity:.55; pointer-events:none; }
+.ci-estado { font-size:10.5px; font-weight:700; padding:4px 9px; border-radius:99px; }
+.ci-estado:empty { display:none; }
+.ci-estado.ok { background:#e5f7f1; color:#14805f; }
+.ci-estado.medio { background:#FFF1C7; color:#7a5a00; }
+.ci-estado.no { background:#f4f5f8; color:#5f6c8c; border:1px dashed #cfd6e6; }
+.ac-checkin { background:#FFF8E6; border:1px solid #F2D27A; border-radius:12px; padding:9px 12px; color:#0d1f4a; margin:0 0 10px; }
+.ac-checkin-btn { display:block; margin-top:8px; padding:8px 12px; font-size:12.5px; }
