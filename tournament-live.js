@@ -11,6 +11,7 @@
    cancha. No dice qué cancha está "out" ni quién "no está".
    SQL 139 (20 nov): si la categoría está en pausa, lo dice en una línea.
    Si el torneo no usa Auto Courts (o el SQL 131 no está), no aparece.
+   SQL 142 (§122): también el bracket, con la ronda ("Semifinal", "Final").
    ============================================================ */
 (function () {
   'use strict';
@@ -34,6 +35,9 @@
     if (texto != null) e.textContent = texto;
     return e;
   }
+  /* §122: la ronda del bracket, en palabras. */
+  const RONDA = { Final: 'Final', '3rd Place': '3rd place', Semifinals: 'Semifinal', QF: 'Quarterfinal', R16: 'Round of 16', R32: 'Round of 32' };
+  const ronda = (r) => (r ? (RONDA[r] || String(r)) : '');
   const idsDe = (t) => [t.player1_id, t.player2_id, t.player3_id, t.player4_id].filter(Boolean);
   function nombreLargo(id) {
     const t = equipos[id];
@@ -84,13 +88,14 @@
     tarjeta.append(cab);
 
     for (const c of vivo) {
-      tarjeta.append(el('div', 'tl-cat', categorias[c.category_id] || ''));
+      tarjeta.append(el('div', 'tl-cat', `${categorias[c.category_id] || ''}${c.phase === 'bracket' ? ' · Finals' : ''}`));
       /* SQL 139 (4A): la categoría está en pausa. */
       if (c.paused) tarjeta.append(el('div', 'tl-paused', 'Courts paused — matches will resume shortly.'));
       const grid = el('div', 'tl-grid');
       for (const x of c.courts) {
         const pc = el('div', x.team_a_id ? 'tl-court' : 'tl-court tl-court-free');
         pc.append(el('div', 'tl-n', `COURT ${x.court}`));
+        if (x.round) pc.append(el('div', 'tl-round', ronda(x.round)));
         if (x.team_a_id) {
           pc.append(el('div', 'tl-team', nombreLargo(x.team_a_id)), el('div', 'tl-vs', 'vs'), el('div', 'tl-team', nombreLargo(x.team_b_id)));
         } else {
@@ -102,7 +107,7 @@
       if (c.next.length) {
         tarjeta.append(el('div', 'tl-cat tl-next-lbl', 'Up next — get ready'));
         const lista = el('div', 'tl-next');
-        c.next.forEach((x) => lista.append(el('span', 'tl-chip', `${nombreCorto(x.team_a_id)} vs ${nombreCorto(x.team_b_id)}`)));
+        c.next.forEach((x) => lista.append(el('span', 'tl-chip', `${x.round ? `${ronda(x.round)} · ` : ''}${nombreCorto(x.team_a_id)} vs ${nombreCorto(x.team_b_id)}`)));
         tarjeta.append(lista);
       }
     }

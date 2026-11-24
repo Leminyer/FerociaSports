@@ -101,6 +101,10 @@
       case 'tournament_not_found': return 'Not found — reload the page.';
       case 'category_not_found': case 'match_not_found': case 'team_not_found': return 'Not found — reload the page.';
       default:
+        /* SQL 142: corregir el bracket con el siguiente partido ya en cancha. */
+        if (/bracket_winner_locked/.test(String(e))) return 'The winner can’t change now: the next match of these teams is already on court. On the Court board, mark the team(s) of this match that are on court as “Team not here”, correct the score, then press “Here” for them.';
+        if (/bracket_same_team/.test(String(e))) return 'That would put the same team on both sides of a match. Reload the page and check the bracket.';
+        if (/bracket_next_on_court/.test(String(e))) return 'Score saved. The next match is already on court, so it was left as it is.';
         if (/auto_courts_not_on_court/.test(String(e))) return 'This match is no longer on a court, so its score was not saved. Close and check the Court board.';
         if (/auto_courts_locked/.test(String(e))) return 'Courts in this category are set by Auto Courts. Reload the page (Ctrl + Shift + R).';
         if (/not_authorized/.test(String(e))) return 'You do not have permission to do that.';
@@ -289,6 +293,12 @@
             <button type="button" class="ac-btn ac-btn-pri ac-btn-sm" data-ac="out" data-court="${c.court}" data-match="${c.match_id}">Court out</button>
             <button type="button" class="ac-btn ac-btn-link ac-btn-sm" data-ac="cancel">Cancel</button>
           </div>
+        </div>`;
+      } else if (c.state === 'in_use') {
+        /* SQL 142: otra categoría (p. ej. su bracket) está jugando en esta cancha. */
+        html += `<div class="ac-court bc-court-used" data-court="${c.court}">
+          <div class="ac-court-h"><span class="ac-court-n">COURT ${c.court}</span><span class="ac-tag ac-tag-out">In use</span></div>
+          <div class="ac-court-m ac-muted">${esc(c.in_use_by ? `${c.in_use_by} is playing here.` : 'Another match is playing here.')} It's used again as soon as it's free.</div>
         </div>`;
       } else if (c.state === 'free') {
         html += `<div class="ac-court" data-court="${c.court}">

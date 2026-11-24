@@ -23,6 +23,9 @@
   try { torneoId = parseInt(atob(new URLSearchParams(location.search).get('t') || ''), 10); } catch (_) { torneoId = 0; }
 
   const categorias = {};
+  /* §122 (SQL 142): la ronda del bracket, en palabras. */
+  const RONDA = { Final: 'Final', '3rd Place': '3rd place', Semifinals: 'Semifinal', QF: 'Quarterfinal', R16: 'Round of 16', R32: 'Round of 32' };
+  const ronda = (r) => (r ? (RONDA[r] || String(r)) : '');
   const equipos = {};
   const jugadores = {};
   let vivo = [];
@@ -80,7 +83,7 @@
     const partes = [];
     for (const c of visibles) {
       const col = el('div', 'tv-cat');
-      col.append(el('h2', null, categorias[c.category_id] || ''));
+      col.append(el('h2', null, `${categorias[c.category_id] || ''}${c.phase === 'bracket' ? ' · Finals' : ''}`));
       if (c.paused) col.append(el('div', 'tv-pausa', 'Courts paused — matches will resume shortly.'));
       for (const x of c.courts) {
         const fila = el('div', x.team_a_id ? 'tv-c' : 'tv-c libre');
@@ -88,6 +91,7 @@
         n.append(el('small', null, 'COURT'), document.createTextNode(String(x.court)));
         const eq = el('div', 'tv-eq');
         if (x.team_a_id) {
+          if (x.round) eq.append(el('span', 'tv-ronda', ronda(x.round)), el('br'));
           eq.append(document.createTextNode(nombre(x.team_a_id)), el('br'),
             el('span', 'vs', 'vs '), document.createTextNode(nombre(x.team_b_id)));
         } else {
@@ -104,7 +108,7 @@
     for (const c of visibles) {
       for (const x of c.next) {
         const it = el('div', 'tv-it');
-        it.append(el('span', null, categorias[c.category_id] || ''), document.createTextNode(`${nombre(x.team_a_id)} vs ${nombre(x.team_b_id)}`));
+        it.append(el('span', null, `${categorias[c.category_id] || ''}${x.round ? ` · ${ronda(x.round)}` : ''}`), document.createTextNode(`${nombre(x.team_a_id)} vs ${nombre(x.team_b_id)}`));
         sig.append(it);
         hay = true;
       }

@@ -425,3 +425,23 @@
 .ci-estado.no { background:#f4f5f8; color:#5f6c8c; border:1px dashed #cfd6e6; }
 .ac-checkin { background:#FFF8E6; border:1px solid #F2D27A; border-radius:12px; padding:9px 12px; color:#0d1f4a; margin:0 0 10px; }
 .ac-checkin-btn { display:block; margin-top:8px; padding:8px 12px; font-size:12.5px; }
+
+/* ── §122 Canchas del bracket (admin-bracket-courts.js) ── */
+.bc-mount { padding:12px 20px 0; }
+.bc-mount:empty { display:none; }
+.bc-chips { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:8px 0 12px; }
+.bc-chip { border:1px solid #d6dff5; background:#fff; color:#0d1f4a; font:inherit; font-size:12.5px; font-weight:700; border-radius:999px; padding:7px 13px; cursor:pointer; min-height:36px; }
+.bc-chip[aria-pressed="true"] { background:var(--blue); border-color:var(--blue); color:#fff; }
+.bc-chip:focus-visible, .bc-add-in:focus-visible { outline:2px solid var(--blue); outline-offset:2px; }
+.bc-add { display:inline-flex; align-items:center; gap:6px; }
+.bc-add-in { width:56px; height:36px; min-height:36px; padding:4px 8px; text-align:center; box-sizing:border-box; }
+.bc-sr { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+.bc-final { max-width:280px; }
+.bc-round { font-size:11px; font-weight:800; letter-spacing:.5px; text-transform:uppercase; color:#6b7a99; margin:2px 0 6px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.bc-star { background:#FFF4D6; color:#7a5a00; border-radius:999px; padding:2px 8px; font-size:10.5px; letter-spacing:.3px; }
+.bc-court-used { background:#f7f8fb; }
+.bc-q-r { display:inline-block; font-size:10px; font-weight:800; letter-spacing:.4px; text-transform:uppercase; color:#6b7a99; margin-right:4px; }
+.bc-lbl { font-size:10.5px; font-weight:700; color:#5f6c8c; padding:5px 14px; background:#f4f6fc; border-bottom:1px solid #d6dff5; }
+.bc-lbl-now { color:#13795f; background:#E3F7F1; }
+.bc-lbl-done { color:#5f6c8c; }
+.bc-lbl-next { color:var(--blue); background:#EEF2FF; }

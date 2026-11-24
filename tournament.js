@@ -2335,7 +2335,8 @@ function renderCategory(cat, teams, rrMatches, bracketMatches, tournament, group
           ${statusDot}
         </div>`;
 
-      return `${intelligenceHTML}<div style="padding:12px 20px 16px;">${renderBracket(bracketMatches, tMap, tournament)}</div>`;
+      // §122: canchas del bracket (admin-bracket-courts.js) arriba del dibujo.
+      return `${intelligenceHTML}<div class="bc-mount" id="bc-mount-${cat.id}"></div><div style="padding:12px 20px 16px;">${renderBracket(bracketMatches, tMap, tournament, cat)}</div>`;
     })() : `<div style="padding:16px 20px 20px;">
         <div style="font-size:11px;font-weight:600;color:#6b7a99;margin-bottom:14px;">Select finalists, bracket type, and match format before generating the finals bracket.</div>
 
@@ -2404,6 +2405,9 @@ function renderCategory(cat, teams, rrMatches, bracketMatches, tournament, group
   // §116 Auto Courts: las canchas de la categoría y el Court board (admin-auto-courts.js).
   const acMount = document.getElementById(`ac-mount-${cat.id}`);
   if (acMount && window.AutoCourts) window.AutoCourts.montar(acMount, { cat, tournament, teams, rrMatches });
+  // §122 canchas del bracket (admin-bracket-courts.js).
+  const bcMount = document.getElementById(`bc-mount-${cat.id}`);
+  if (bcMount && window.BracketCourts) window.BracketCourts.montar(bcMount, { cat, tournament, teams, bracketMatches });
   // §121 check-in (admin-checkin.js).
   const ciMount = document.getElementById('ci-mount');
   if (ciMount && window.AdminCheckin) window.AdminCheckin.montar(ciMount, { tournament, cat, teams });
@@ -2540,7 +2544,9 @@ function tRenderStandings(standings, catName) {
     </div>`;
 }
 
-function renderBracket(matches, tMap, tournament) {
+function renderBracket(matches, tMap, tournament, cat) {
+  // §122: con canchas del bracket, cada partido dice dónde está ("● On Court 2 now"…).
+  const bcAuto = !!(cat && window.BracketCourts && window.BracketCourts.esAuto(cat));
   const roundOrder = ['R32','R16','QF','Semifinals','3rd Place','Final'];
   const grouped = {};
   matches.forEach(m => {
@@ -2599,7 +2605,8 @@ function renderBracket(matches, tMap, tournament) {
         return `
           <div class="t-bracket-match ${isDone ? 't-bracket-done' : ''}"
             onclick="${tournament.status !== 'completed' ? `openScoreModal('bracket',${m.id},${m.team_a_id||0},${m.team_b_id||0},${m.category_id})` : ''}">
-            ${m.court ? `<div style="font-size:9px;font-weight:800;letter-spacing:1px;color:#6b7a99;padding:4px 14px;background:#f4f6fc;border-bottom:1px solid #d6dff5;">COURT ${m.court}</div>` : ''}
+            ${bcAuto ? window.BracketCourts.etiqueta(m, matches, cat)
+              : m.court ? `<div style="font-size:9px;font-weight:800;letter-spacing:1px;color:#6b7a99;padding:4px 14px;background:#f4f6fc;border-bottom:1px solid #d6dff5;">COURT ${m.court}</div>` : ''}
             <div class="t-bracket-team ${winA ? 't-bracket-winner' : ''} ${!m.team_a_id ? 't-bracket-tbd' : ''}">
               <div style="flex:1;">
                 <div style="font-weight:700;">${tEsc(teamA?.name || (m.status === 'bye' ? 'BYE' : 'TBD'))}${m.forfeit_team_id === m.team_a_id ? ' <span class="t-forfeit-badge">FF</span>' : ''}</div>
@@ -4103,7 +4110,8 @@ async function openScoreModal(type, matchId, teamAId, teamBId, catId) {
   const singlesMatch = bestOf > 1;
   const existingGames = match.games || [];
   // §116: con Auto Courts la cancha la pone el sistema: se enseña, no se escribe.
-  const autoCourtHTML = (type === 'rr' && window.AutoCourts && window.AutoCourts.esAuto(cat))
+  const autoCourtHTML = ((type === 'rr' && window.AutoCourts && window.AutoCourts.esAuto(cat))
+    || (type === 'bracket' && window.AutoCourts && window.BracketCourts && window.BracketCourts.esAuto(cat)))
     ? window.AutoCourts.htmlCanchaFija(match) : null;
 
   // ── Format label ─────────────────────────────────────────────────────
@@ -4327,7 +4335,7 @@ function smToggleForfeit(side) {
 async function saveMatch(type, matchId, teamAId, teamBId, catId) {
   // ── §116 Auto Courts: la cancha la pone el sistema ───────────────────
   // (#t-auto-court sólo existe en el modal de una categoría con Auto Courts.)
-  const autoEl = type === 'rr' ? document.getElementById('t-auto-court') : null;
+  const autoEl = document.getElementById('t-auto-court');   // §122: también en el bracket automático
   const autoCourt = autoEl ? (parseInt(autoEl.dataset.court) || null) : null;
   const autoState = autoEl ? autoEl.dataset.state : null;   // 'on_court' | 'waiting' | 'done'
 
@@ -4478,7 +4486,7 @@ async function saveMatch(type, matchId, teamAId, teamBId, catId) {
   // (si lo movieron de cancha, el aviso dirá la cancha nueva).
   let courtAviso = autoCourt;
   if (autoEl && autoState === 'on_court') {
-    const [ahora] = await tApi(`tournament_rr_matches?id=eq.${matchId}&select=status,called_at,court`);
+    const [ahora] = await tApi(`${type === 'rr' ? 'tournament_rr_matches' : 'tournament_bracket_matches'}?id=eq.${matchId}&select=status,called_at,court`);
     if (ahora && ahora.status === 'pending' && !ahora.called_at) {
       tToast('This match is no longer on a court (a team was marked not here, or the court was taken out). Close and check the Court board.', true);
       return;
@@ -4501,7 +4509,8 @@ async function saveMatch(type, matchId, teamAId, teamBId, catId) {
       }
       if (autoEl && autoState === 'on_court' && courtAviso) {
         // "Saved 11–7. Court 20 → next: …" (el sistema ya llamó al siguiente).
-        await window.AutoCourts.avisoSiguiente(catId, courtAviso, sa, sb);
+        if (type === 'bracket' && window.BracketCourts) await window.BracketCourts.avisoSiguiente(catId, courtAviso, sa, sb);
+        else await window.AutoCourts.avisoSiguiente(catId, courtAviso, sa, sb);
       } else {
         tToast('Result saved!');
       }
@@ -4539,16 +4548,26 @@ async function advanceBracket(matchId, winnerId, loserId, catId) {
   if (curIdx === -1) return;
 
   // Special handling: SF winner → Final (and SF loser → 3rd Place).
+  // §122: cada semi tiene SU lado (semi 1 → arriba, semi 2 → abajo), así
+  // corregir el score de una semi reemplaza a su pareja y no a la otra.
+  // Con una sola semi (3 parejas), la Final ya tiene al primero arriba.
   if (match.round_name === 'Semifinals') {
     const finalMatch = allMatches.find(m => m.round_name === 'Final');
     const thirdMatch = allMatches.find(m => m.round_name === '3rd Place');
+    const semis = allMatches.filter(m => m.round_name === 'Semifinals');
+    const propio = semis.length >= 2 ? ((match.match_number || 1) === 1 ? 'team_a_id' : 'team_b_id') : 'team_b_id';
+    const deEstaSemi = (id) => id === match.team_a_id || id === match.team_b_id;
+    // Si su lado ya lo ocupa la pareja de la OTRA semi (un bracket empezado con
+    // la regla de antes), se usa el otro lado: nunca se pisa a nadie.
+    const lado = (m) => {
+      const otro = propio === 'team_a_id' ? 'team_b_id' : 'team_a_id';
+      return m[propio] && !deEstaSemi(m[propio]) ? otro : propio;
+    };
     if (finalMatch) {
-      const patch = finalMatch.team_a_id ? { team_b_id: winnerId } : { team_a_id: winnerId };
-      await tApi(`tournament_bracket_matches?id=eq.${finalMatch.id}`, 'PATCH', patch);
+      await tApi(`tournament_bracket_matches?id=eq.${finalMatch.id}`, 'PATCH', { [lado(finalMatch)]: winnerId });
     }
     if (thirdMatch) {
-      const patch = thirdMatch.team_a_id ? { team_b_id: loserId } : { team_a_id: loserId };
-      await tApi(`tournament_bracket_matches?id=eq.${thirdMatch.id}`, 'PATCH', patch);
+      await tApi(`tournament_bracket_matches?id=eq.${thirdMatch.id}`, 'PATCH', { [lado(thirdMatch)]: loserId });
     }
     return;
   }
