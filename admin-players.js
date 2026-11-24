@@ -86,10 +86,11 @@
       const stats   = d.stats;
       const wr      = stats.played > 0 ? Math.round(stats.wins / stats.played * 100) : null;
       const wrColor = wr === null ? 'var(--text-muted)' : wr >= 70 ? 'var(--teal)' : wr >= 50 ? 'var(--blue)' : 'var(--orange)';
-      const ind     = d.ind;
-      const indHTML = ind
-        ? `<div class="player-ind ${ind.cls}">${ind.icon} ${ind.label}<div class="player-ind-tip">${ind.tip}</div></div>`
-        : '<span style="color:#d0d5e8;font-size:11px;">—</span>';
+      /* §127: la columna "Player Tags" pasa a ser el DUPR ID (las etiquetas
+         siguen en la ficha y en el filtro New Player / Hot Streak). */
+      const duprHTML = p.dupr_id
+        ? `<span class="pl-dupr">${esc(p.dupr_id)}</span>`
+        : '<span class="pl-dupr-vacio">—</span>';
       const expandId = `pex-${p.id}`;
 
       return `<tr class="player-row" data-pid="${p.id}" data-expand="${expandId}">
@@ -124,7 +125,7 @@
             <span style="font-family:'Inter',sans-serif;font-size:20px;color:${wrColor};line-height:1;display:block;">${wr !== null ? wr + '%' : '—'}</span>
             <span style="font-size:10px;font-weight:600;color:var(--text-muted);display:block;">${stats.wins}W · ${stats.played - stats.wins}L</span>
           </td>
-          <td class="players-td" style="text-align:center;">${indHTML}</td>
+          <td class="players-td pl-dupr-td">${duprHTML}</td>
           <td class="players-td" style="text-align:center;">
             <span style="font-size:10px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;padding:3px 10px;border-radius:99px;background:var(--bg);color:var(--text-muted);">Free</span>
           </td>
@@ -198,7 +199,7 @@
             <th class="players-th sortable-th" data-sort="age" style="text-align:center;cursor:pointer;">Age ${sortArrow('age')}</th>
             <th class="players-th sortable-th" data-sort="played" style="text-align:center;cursor:pointer;">Games Played ${sortArrow('played')}</th>
             <th class="players-th sortable-th" data-sort="wr" style="text-align:center;cursor:pointer;">Win Rate ${sortArrow('wr')}</th>
-            <th class="players-th sortable-th" data-sort="ind" style="text-align:center;cursor:pointer;">Player Tags ${sortArrow('ind')}</th>
+            <th class="players-th sortable-th pl-dupr-th" data-sort="dupr">DUPR ID ${sortArrow('dupr')}</th>
             <th class="players-th" style="text-align:center;">Membership</th>
             <th class="players-th sortable-th" data-sort="status" style="text-align:center;cursor:pointer;">Status ${sortArrow('status')}</th>
             <th class="players-th" style="text-align:center;width:44px;"></th>
@@ -272,7 +273,13 @@
           const wb = b.stats.played > 0 ? b.stats.wins / b.stats.played : -1;
           return mult * (wa - wb);
         }
-        case 'ind':    return mult * ((a.ind?.label || '').localeCompare(b.ind?.label || ''));
+        case 'dupr': {   // los que no tienen DUPR ID, siempre al final
+          const da = a.player.dupr_id || '', db = b.player.dupr_id || '';
+          if (!da && !db) return 0;
+          if (!da) return 1;
+          if (!db) return -1;
+          return mult * da.localeCompare(db);
+        }
         case 'status': return mult * (a.statusText.localeCompare(b.statusText));
         default:       return 0;
       }

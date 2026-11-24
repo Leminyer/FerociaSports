@@ -1093,3 +1093,9 @@
 .du-copiar:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 .du-mal { color: #e53935; }
 .ap-group[hidden], .du-campo[hidden], .form-group[hidden] { display: none; }
+
+/* §127 — Players: columna DUPR ID (en lugar de "Player Tags") */
+.pl-dupr-th { text-align:center; cursor:pointer; }
+.pl-dupr-td { text-align:center; }
+.pl-dupr { font-family:'Inter',sans-serif; font-size:13px; font-weight:700; color:var(--blue); letter-spacing:.5px; white-space:nowrap; }
+.pl-dupr-vacio { font-size:12px; font-weight:600; color:var(--text-muted); }
