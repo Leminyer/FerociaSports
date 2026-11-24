@@ -22,7 +22,7 @@
      four must stay in this sequence. See the header of admin-layout.css. -->
 <link rel="stylesheet" href="admin-layout.css?v=20261012a">
 <link rel="stylesheet" href="admin-components.css?v=20261110a">
-<link rel="stylesheet" href="admin-pages.css?v=20261106a">
+<link rel="stylesheet" href="admin-pages.css?v=20261124a">
 <link rel="stylesheet" href="admin-ftc.css?v=20260928b">
 <link rel="stylesheet" href="admin-comms-hub.css?v=20261013c">
 <link rel="stylesheet" href="admin-lessons.css?v=20261112a">
@@ -1498,7 +1498,7 @@
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           Download Template
         </button>
-        <span style="font-size:11px;font-weight:600;color:var(--text-muted);">CSV format: first_name, last_name, email, phone, gender, date_of_birth, coach_rating, city, state · date MM/DD/YYYY · rating 1-8 · state 2 letters</span>
+        <span style="font-size:11px;font-weight:600;color:var(--text-muted);">CSV format: first_name, last_name, email, phone, gender, date_of_birth, coach_rating, city, state, dupr_id (optional) · date MM/DD/YYYY · rating 1-8 · state 2 letters · DUPR ID 6 letters or numbers</span>
       </div>
       <!-- Drop zone -->
       <div class="import-drop-zone" id="import-drop-zone" onclick="document.getElementById('import-file-input').click()" ondragover="importDragOver(event)" ondragleave="importDragLeave(event)" ondrop="importDrop(event)">
@@ -1516,7 +1516,7 @@
           <div style="overflow-x:auto;max-height:320px;overflow-y:auto;">
             <table class="import-table">
               <thead><tr>
-                <th title="Line number in your CSV file (line 1 is the header row), so you can find any flagged row in the original file">CSV Line</th><th>First Name</th><th>Last Name</th><th>Email</th><th>Phone</th><th>Gender</th><th>Date of Birth</th><th>Rating</th><th>Location</th><th>Status</th>
+                <th title="Line number in your CSV file (line 1 is the header row), so you can find any flagged row in the original file">CSV Line</th><th>First Name</th><th>Last Name</th><th>Email</th><th>Phone</th><th>Gender</th><th>Date of Birth</th><th>Rating</th><th>Location</th><th>DUPR ID</th><th>Status</th>
               </tr></thead>
               <tbody id="import-table-body"></tbody>
             </table>
@@ -1644,6 +1644,12 @@
                 <input type="number" id="p-coach-rating" class="ap-input"
                        min="1" max="8" step="0.001" placeholder="3.500"
                        oninput="apUpdatePreview()">
+              </div>
+              <!-- §124 (SQL 144): opcional; 6 letras o números (admin-dupr.js). -->
+              <div class="ap-group" hidden>
+                <label class="ap-label" for="p-dupr">DUPR ID <span class="du-opcional">(optional)</span></label>
+                <input type="text" id="p-dupr" class="ap-input du-codigo" maxlength="10" placeholder="8DPLX8"
+                       autocomplete="off" autocapitalize="characters" spellcheck="false">
               </div>
             </div>
           </div>
@@ -3549,6 +3555,9 @@
         <div class="form-group"><label>Phone <span style="color:#e53935;">*</span></label><div id="edit-phone-field"></div></div>
         <div class="form-group"><label>Date of Birth</label><input type="date" id="edit-dob"></div>
         <div class="form-group"><label>Coach Rating</label><input type="number" id="edit-coach-rating" min="1" max="8" step="0.001" placeholder="3.500"></div>
+        <!-- §124 (SQL 144): opcional. Sin el SQL 144 no se enseña (admin-players.js). -->
+        <div class="form-group" id="edit-dupr-group" hidden><label for="edit-dupr">DUPR ID <span class="du-opcional">(optional)</span></label>
+          <input type="text" id="edit-dupr" class="du-codigo" maxlength="10" placeholder="8DPLX8" autocomplete="off" autocapitalize="characters" spellcheck="false"></div>
         <div class="form-group"><label>City</label><input type="text" id="edit-city" list="city-suggestions" placeholder="Boca Raton"></div>
         <div class="form-group"><label>State</label><select id="edit-state"></select></div>
         <!-- Skill Level was missing from this modal: it could be set when
@@ -4292,7 +4301,7 @@
 <script src="admin-rich-editor.js?v=20261009b"></script>
 <script src="admin-share.js?v=20261123a"></script>
 <script src="admin-player-status-history.js?v=20260928b"></script>
-<script src="admin-player-profile.js?v=20261106a"></script>
+<script src="admin-player-profile.js?v=20261124a"></script>
 <script src="admin-ladder-standings.js?v=20260930a"></script>
 <script src="admin-sessions.js?v=20261110a"></script>
 <script src="admin-print-roster.js?v=20260928b"></script>
@@ -4305,14 +4314,16 @@
 <script src="admin-delivery-problems.js?v=20261014a"></script>
 <script src="admin-comms-hub.js?v=20261103c"></script>
 <script src="admin-comms-results.js?v=20261011d"></script>
-<script src="admin-promotions.js?v=20261110a"></script>
+<script src="admin-promotions.js?v=20261124a"></script>
 <script src="admin-subscriber-reminder.js?v=20261005a"></script>
 <script src="admin-newsletter.js?v=20261028a"></script>
 <!-- TEMPORARY: fills in missing dates of birth from a CSV import.
      Delete this line and temp-dob-backfill.js once every player has one.
      See the header of that file. -->
 <script src="temp-dob-backfill.js?v=20260928b"></script>
-<script src="admin-players.js?v=20261110a"></script>
+<!-- §124: DUPR ID (antes de admin-players.js y admin-promotions.js; los usa al guardar). -->
+<script src="admin-dupr.js?v=20261124a"></script>
+<script src="admin-players.js?v=20261124a"></script>
 <script src="admin-ftc-standings.js?v=20260928b"></script>
 <script src="admin-ftc-playoffs-schedule.js?v=20261110a"></script>
 <script src="admin-ftc-teams.js?v=20261110a"></script>

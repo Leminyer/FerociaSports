@@ -1080,3 +1080,17 @@
 }
 @media (forced-colors: active) { .tw-wa-box { border-color: CanvasText; } .tw-btn { border: 1px solid ButtonText; } }
 .tw-filter { text-transform: none; letter-spacing: normal; }
+
+/* §124 (SQL 144): DUPR ID — Add Player, Edit Player, convertir suscriptor, ficha. admin-dupr.js. */
+.du-opcional { font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--text-muted); }
+.du-codigo { text-transform: uppercase; letter-spacing: 1.5px; font-variant-numeric: tabular-nums; }
+.du-codigo::placeholder { letter-spacing: 1.5px; }
+.du-input { width: 100%; padding: 9px 12px; border: 1px solid var(--divider-color); border-radius: 8px; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600; color: var(--text); outline: none; box-sizing: border-box; }
+.du-input:focus { border-color: var(--blue); }
+.du-label { font-size: 9px; font-weight: 800; letter-spacing: .5px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px; }
+.du-valor { letter-spacing: 1.5px; font-variant-numeric: tabular-nums; }
+.du-copiar { margin-left: 8px; padding: 2px 10px; min-height: 24px; border: 1px solid var(--divider-color); border-radius: 99px; background: #fff; color: var(--blue); font-family: 'Inter', sans-serif; font-size: 10px; font-weight: 800; cursor: pointer; vertical-align: middle; }
+.du-copiar:hover { border-color: var(--blue); }
+.du-copiar:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.du-mal { color: #e53935; }
+.ap-group[hidden], .du-campo[hidden], .form-group[hidden] { display: none; }

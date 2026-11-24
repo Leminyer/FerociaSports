@@ -1671,6 +1671,8 @@
           <option value="active">Active</option>
           <option value="inactive">Inactive</option>
         </select></div>
+        <div class="du-campo" hidden><label class="du-label" for="sc-dupr">DUPR ID <span class="du-opcional">(optional)</span></label>
+          <input type="text" id="sc-dupr" class="du-input du-codigo" maxlength="10" placeholder="8DPLX8" autocomplete="off" autocapitalize="characters" spellcheck="false"></div>
       </div>
       <div style="margin-top:16px;padding:12px 14px;background:#fff4e6;border-left:3px solid var(--orange);border-radius:0 8px 8px 0;font-size:12px;font-weight:600;color:#9a6200;line-height:1.6;">
         ⚠️ This cannot be undone from the app — there is no option to delete a player. Reversing it would need direct database access.
@@ -1690,6 +1692,7 @@
       value:     { country_code: s.country_code, phone: s.phone },
     });
     document.getElementById('sc-state').innerHTML = FerociaLocation.stateOptions(s.state || '');
+    window.FerociaDupr.mostrar('sc-dupr');   // §124: sólo con el SQL 144
     if (s.gender) document.getElementById('sc-gender').value = s.gender;
 
     /* subscribe.html stores the level lower-cased ("beginner"), while the
@@ -1729,6 +1732,17 @@
     if (!ratingRaw || !Number.isFinite(rating) || rating < 1 || rating > 8) {
       toast('Coach rating is required and must be between 1 and 8.', true);
       return;
+    }
+
+    /* §124: DUPR ID opcional (6 letras o números, de un solo jugador). */
+    const duprEl = document.getElementById('sc-dupr');
+    const dupr = duprEl && !duprEl.closest('.du-campo').hidden ? window.FerociaDupr.revisar(duprEl.value) : { ok: true, value: null };
+    if (!dupr.ok) { toast(dupr.error, true); document.getElementById('sc-dupr').focus(); return; }
+    if (dupr.value) {
+      try {
+        const otro = await window.FerociaDupr.dueno(dupr.value);
+        if (otro) { toast(window.FerociaDupr.textoDueno(dupr.value, otro), true); document.getElementById('sc-dupr').focus(); return; }
+      } catch (e) { toast(`Error: ${e.message}`, true); return; }
     }
 
     // confirmModal() renders with textContent, so this is one flowing
@@ -1797,6 +1811,7 @@
         source_detail:     s.source_detail     || null,
         heard_about:       s.heard_about       || null,
         heard_about_other: s.heard_about_other || null,
+        ...(dupr.value ? { dupr_id: dupr.value } : {}),   // §124
       });
 
       /* Push the completed details back onto the subscriber row.
@@ -1826,7 +1841,9 @@
       toast(`${s.first_name} ${s.last_name} is now a player.`);
       await loadSubscribers();   // rebuilds the index so the icon flips
     } catch (err) {
-      toast(`Error creating player: ${err.message}`, true);
+      toast(window.FerociaDupr.esRepetido(err)
+        ? 'That DUPR ID already belongs to another player. Each player has their own DUPR ID.'
+        : `Error creating player: ${err.message}`, true);
       if (btn) { btn.disabled = false; btn.textContent = 'Create Player'; }
     }
   };

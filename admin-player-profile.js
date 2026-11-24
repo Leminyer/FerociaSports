@@ -507,6 +507,12 @@
           ? Number(p.coach_rating).toFixed(3)
           : '—'
       }</div></div>
+      ${/* §124 (SQL 144, 5B): el DUPR ID, como texto con "Copy" (sin enlace
+            a DUPR). Sin el SQL 144 la ficha no trae la columna y no sale. */
+        'dupr_id' in p ? `<div class="pp-quick-row"><div class="pp-quick-lbl">${ppSVG(ICONS.star)} DUPR ID</div><div class="pp-quick-val">${
+          p.dupr_id
+            ? `<span class="du-valor">${esc(p.dupr_id)}</span><button type="button" class="du-copiar" data-action="ppCopiarDupr" data-dupr="${esc(p.dupr_id)}" aria-label="Copy DUPR ID ${esc(p.dupr_id)}">Copy</button>`
+            : '—'}</div></div>` : ''}
       ${/* Justo debajo del coach rating, a propósito: lo interesante no
             es el número suelto sino la DISTANCIA entre los dos. Alguien
             que se pone 4.5 y al que el coach pone 3.0 se ve a sí mismo
@@ -2491,7 +2497,15 @@
   // ── Expose / register with the shared infrastructure ───────────────────
   window.loadPlayerProfilePage = loadPlayerProfilePage;
 
+  /* §124: copiar el DUPR ID. */
+  async function copiarDupr(btn) {
+    const v = btn.dataset.dupr || '';
+    try { await navigator.clipboard.writeText(v); toast(`DUPR ID ${v} copied.`); }
+    catch (_) { toast(`Could not copy. The DUPR ID is ${v}.`, true); }
+  }
+
   Object.assign(window.CLICK_HANDLERS, {
+    ppCopiarDupr: (btn) => copiarDupr(btn),
     ppShowTab:      (btn) => ppShowTab(btn.dataset.pptab),
     ppPrevPlayer:   () => ppPrevPlayer(),
     ppToggleMore:   () => ppToggleMore(),

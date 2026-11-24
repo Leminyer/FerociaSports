@@ -288,7 +288,9 @@
       const p = d.player;
       // Include the bare digits so a search for "5613026946" matches a row
       // displayed as "+1 (561) 302-6946", and vice versa.
-      const nameMatch = (`${p.first_name} ${p.last_name} ${p.email || ''} ${p.phone || ''} ${FerociaPhone.searchable(p.country_code, p.phone)}`).toLowerCase().includes(q);
+      /* §124 (6A): también por DUPR ID. */
+      const nameMatch = (`${p.first_name} ${p.last_name} ${p.email || ''} ${p.phone || ''} ${FerociaPhone.searchable(p.country_code, p.phone)} ${p.dupr_id || ''}`).toLowerCase().includes(q)
+        || (!!p.dupr_id && q.replace(/[\s-]/g, '').length >= 3 && p.dupr_id.toLowerCase().includes(q.replace(/[\s-]/g, '')));
       let statusMatch = true;
       switch (statusFilter) {
         case 'active':     statusMatch = p.status === 'active'; break;
@@ -859,6 +861,8 @@
   const initAddPlayer = () => {
     const form = document.getElementById('add-player-form');
     if (form) form.reset();
+    /* §124: el DUPR ID sólo si la base ya tiene el SQL 144. */
+    window.FerociaDupr.mostrar('p-dupr');
 
     // Mount the phone field fresh. form.reset() cannot clear it — the
     // component keeps its own state and renders its own markup — so it is
@@ -933,6 +937,11 @@
     const _state = FerociaLocation.validateState(document.getElementById('p-state')?.value, { required: true });
     if (!_state.ok) { toast(_state.error, true); return; }
 
+    /* §124: DUPR ID, opcional (6 letras o números). Escondido = sin SQL 144. */
+    const _duprEl = document.getElementById('p-dupr');
+    const _dupr = _duprEl && !_duprEl.closest('.ap-group').hidden ? window.FerociaDupr.revisar(_duprEl.value) : { ok: true, value: null };
+    if (!_dupr.ok) { toast(_dupr.error, true); document.getElementById('p-dupr')?.focus(); return; }
+
     const _dob = document.getElementById('p-dob')?.value || '';
     const _dobCheck = dobCheck(_dob, { required: true });
     if (!_dobCheck.ok) { toast(_dobCheck.error, true); return; }
@@ -958,6 +967,12 @@
       // and * as wildcards, which can only ever return MORE candidates,
       // never fewer, so nothing is missed. The exact comparison below is
       // what actually decides.
+      /* §124 (2A): un DUPR ID es de un solo jugador. */
+      if (_dupr.value) {
+        const otro = await window.FerociaDupr.dueno(_dupr.value);
+        if (otro) { toast(window.FerociaDupr.textoDueno(_dupr.value, otro), true); return; }
+      }
+
       const candidates = await api(
         `players?last_name=ilike.${encodeURIComponent(lastName)}` +
         `&select=id,first_name,last_name,email&limit=50`
@@ -1007,6 +1022,8 @@
         status:     document.getElementById('p-status').value,
         date_joined:document.getElementById('p-joined').value || null,
         current_rank: 999,
+        /* §124: sólo si se escribió (así, sin el SQL 144, se guarda como antes). */
+        ...(_dupr.value ? { dupr_id: _dupr.value } : {}),
       };
 
       await api('players', 'POST', body);
@@ -1025,7 +1042,9 @@
       apUpdatePreview();
       AdminState.allPlayers = [];
     } catch (err) {
-      toast(`Error: ${err.message}`, true);
+      toast(window.FerociaDupr.esRepetido(err)
+        ? 'That DUPR ID already belongs to another player. Each player has their own DUPR ID.'
+        : `Error: ${err.message}`, true);
     } finally {
       if (saveBtn) {
         saveBtn.disabled = false;
@@ -1775,9 +1794,10 @@
     // date_of_birth uses MM/DD/YYYY in the template. The importer also
     // accepts YYYY-MM-DD, because Excel sometimes rewrites a date column
     // into that shape when the file is saved.
-    const csv = 'first_name,last_name,email,phone,gender,date_of_birth,coach_rating,city,state\n'
-              + 'John,Smith,john@email.com,561-555-1234,Male,03/15/1985,3.500,Boca Raton,FL\n'
-              + 'Jane,Doe,jane@email.com,954-555-5678,Female,11/02/1990,4.250,Delray Beach,FL';
+    // §124: dupr_id es opcional (puede ir vacío o no estar la columna).
+    const csv = 'first_name,last_name,email,phone,gender,date_of_birth,coach_rating,city,state,dupr_id\n'
+              + 'John,Smith,john@email.com,561-555-1234,Male,03/15/1985,3.500,Boca Raton,FL,8DPLX8\n'
+              + 'Jane,Doe,jane@email.com,954-555-5678,Female,11/02/1990,4.250,Delray Beach,FL,';
     const blob = new Blob([csv], { type: 'text/csv' });
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement('a');
@@ -1849,6 +1869,30 @@
       _importSubs = null;
     }
 
+    /* §124: los DUPR ID que ya tienen los jugadores (para no repetirlos).
+       Sin el SQL 144 la consulta falla y simplemente no se revisa. */
+    let duprDe = new Map();
+    let duprOk = true;
+    try {
+      /* De 1.000 en 1.000 (el servidor no da más de una vez). */
+      for (let desde = 0; ; desde += 1000) {
+        const filas = await api(`players?dupr_id=not.is.null&select=id,dupr_id,first_name,last_name&order=id&limit=1000&offset=${desde}`);
+        (filas || []).forEach((p) => duprDe.set(p.dupr_id, `${p.first_name} ${p.last_name}`));
+        if (!filas || filas.length < 1000) break;
+      }
+    } catch (err) {
+      console.warn('[import] could not load DUPR IDs —', err.message);
+      /* Sin el SQL 144: los DUPR ID del archivo no se importan; lo demás, sí
+         (se avisa una vez, después de la vista previa). Otro fallo (la
+         conexión): se para aquí, para no importar sin revisar repetidos. */
+      if (await window.FerociaDupr.disponible()) {
+        toast('Could not check the DUPR IDs already on file. Check your connection and try again.', true);
+        return;
+      }
+      duprOk = false;
+    }
+    const duprEnArchivo = new Set();
+
     const text = await file.text();
     const lines = text.split(/\r?\n/).filter(l => l.trim());
     if (lines.length < 2) { toast('CSV file is empty or has no data rows.', true); return; }
@@ -1865,6 +1909,8 @@
       email:      headers.indexOf('email'),
       phone:      headers.indexOf('phone'),
       gender:     headers.indexOf('gender'),
+      // §124: opcional ("dupr_id" o "dupr id").
+      dupr_id:    headers.indexOf('dupr_id') >= 0 ? headers.indexOf('dupr_id') : headers.indexOf('dupr id'),
     };
 
     if (colIdx.first_name < 0 || colIdx.last_name < 0 || colIdx.email < 0) {
@@ -1902,6 +1948,8 @@
         dob_raw:    get(colIdx.date_of_birth),
         dob:        null,   // rellenado por dobParse() más abajo
         gender:     get(colIdx.gender),
+        dupr_raw:   get(colIdx.dupr_id),
+        dupr:       null,   // rellenado por FerociaDupr.revisar() más abajo
         date_joined: today,
         status:     'active',
         // new        -> will be imported
@@ -1965,6 +2013,14 @@
         row.gender = row.gender.charAt(0).toUpperCase() + row.gender.slice(1).toLowerCase();
       }
 
+      /* §124: DUPR ID opcional: 6 letras o números (que sea de otro
+         jugador se mira más abajo, después de ver si la fila ya existe). */
+      if (row.dupr_raw && duprOk) {
+        const _du = window.FerociaDupr.revisar(row.dupr_raw);
+        if (!_du.ok) row._errors.push('DUPR ID must be 6 letters or numbers');
+        else row.dupr = _du.value;
+      }
+
       if (row._errors.length) { row._state = 'error'; return row; }
 
       // Dedup check against the database: all 3 must match (case-insensitive).
@@ -1993,10 +2049,28 @@
       if (seenInFile.has(key)) { row._state = 'dupfile'; return row; }
       seenInFile.add(key);
 
+      /* §124: el DUPR ID de otro jugador, o el mismo en dos filas del archivo. */
+      if (row.dupr) {
+        if (duprDe.has(row.dupr)) {
+          row._errors.push(`DUPR ID ${row.dupr} already belongs to ${duprDe.get(row.dupr)}`);
+          row._state = 'error';
+          return row;
+        }
+        if (duprEnArchivo.has(row.dupr)) {
+          row._errors.push(`DUPR ID ${row.dupr} is on another row of this file`);
+          row._state = 'error';
+          return row;
+        }
+        duprEnArchivo.add(row.dupr);
+      }
+
       return row;
     }).filter(r => r.first_name || r.last_name || r.email); // skip completely empty rows
 
     importRenderPreview();
+    if (!duprOk && _importRows.some((r) => r.dupr_raw)) {
+      toast('DUPR IDs in this file will not be imported: the database is not ready for them yet (SQL 144). The rest imports normally.', true);
+    }
   };
 
   // ── Render preview table ───────────────────────────────────────────────
@@ -2049,6 +2123,7 @@
         <td>${r.rating !== null ? esc(ratingDisplay(r.rating)) : (r.rating_raw ? `<span style="color:#e53935;">${esc(r.rating_raw)}</span>` : '—')}</td>
         <td>${(r.city && r.state) ? esc(FerociaLocation.formatLocation(r.city, r.state))
               : ((r.city_raw || r.state_raw) ? `<span style="color:#e53935;">${esc([r.city_raw, r.state_raw].filter(Boolean).join(', '))}</span>` : '—')}</td>
+        <td class="du-valor">${r.dupr ? esc(r.dupr) : (r.dupr_raw ? `<span class="du-mal">${esc(r.dupr_raw)}</span>` : '—')}</td>
         <td style="white-space:nowrap;">${badge}${dobBadge}</td>
       </tr>`;
     }).join('');
@@ -2098,6 +2173,7 @@
           gender:      row.gender || null,
           date_joined: row.date_joined,
           status:      'active',
+          ...(row.dupr ? { dupr_id: row.dupr } : {}),   // §124
         };
 
         // db.js's POST deliberately does not chain .select(), so it never
@@ -2191,6 +2267,14 @@
 
     const editSkill = document.getElementById('edit-skill');
     if (editSkill) editSkill.value = p.skill_level || '';
+
+    /* §124: DUPR ID. Sin el SQL 144 (la ficha no trae la columna) no se enseña. */
+    const editDupr = document.getElementById('edit-dupr');
+    if (editDupr) {
+      editDupr.value = p.dupr_id || '';
+      editDupr.dataset.antes = p.dupr_id || '';
+      document.getElementById('edit-dupr-group').hidden = !('dupr_id' in p);
+    }
 
     const editRating = document.getElementById('edit-coach-rating');
     if (editRating) editRating.value = p.coach_rating !== null && p.coach_rating !== undefined
@@ -2329,6 +2413,20 @@
     // it mandatory would block every unrelated edit.
     const _editRating = ratingCheck(document.getElementById('edit-coach-rating')?.value, { required: false });
     if (!_editRating.ok) { toast(_editRating.error, true); return; }
+
+    /* §124: DUPR ID (sólo si el campo se enseñó: la base tiene el SQL 144). */
+    const _duprGroup = document.getElementById('edit-dupr-group');
+    const _duprVisible = !!_duprGroup && !_duprGroup.hidden;
+    const _editDupr = _duprVisible ? window.FerociaDupr.revisar(document.getElementById('edit-dupr').value) : { ok: true, value: null };
+    if (!_editDupr.ok) { toast(_editDupr.error, true); document.getElementById('edit-dupr').focus(); return; }
+    const _duprAntes = _duprVisible ? (document.getElementById('edit-dupr').dataset.antes || null) : null;
+    const _duprCambio = _duprVisible && _editDupr.value !== _duprAntes;
+    if (_duprCambio && _editDupr.value) {
+      try {
+        const otro = await window.FerociaDupr.dueno(_editDupr.value, id);
+        if (otro) { toast(window.FerociaDupr.textoDueno(_editDupr.value, otro), true); document.getElementById('edit-dupr').focus(); return; }
+      } catch (e) { toast(`Error: ${e.message}`, true); return; }
+    }
     // The rating this player had before the edit, read from the cache that
     // openEdit() populated. Used below to stamp the date only on a real
     // change. Falls back to null when the player is not cached, which makes
@@ -2392,6 +2490,9 @@
       ...(document.getElementById('edit-whatsapp-group') && !document.getElementById('edit-whatsapp-group').hidden
           && document.getElementById('edit-whatsapp').value !== document.getElementById('edit-whatsapp').dataset.antes
             ? { whatsapp: document.getElementById('edit-whatsapp').value } : {}),
+      /* §124: sólo si se cambió aquí (no pisa uno que el jugador puso en el
+         portal mientras la ventana estaba abierta). */
+      ...(_duprCambio ? { dupr_id: _editDupr.value } : {}),
     };
 
     try {
@@ -2408,6 +2509,9 @@
       const antesWa = document.getElementById('edit-whatsapp')?.dataset.antes;
       if ('whatsapp' in body && antesWa && antesWa !== body.whatsapp) {
         window.logAuditAction(id, 'player_edited', `WhatsApp: ${{ yes: 'Yes', no: 'No', unknown: 'Unknown' }[body.whatsapp]}`);
+      }
+      if ('dupr_id' in body) {
+        window.logAuditAction(id, 'player_edited', `DUPR ID: ${_duprAntes || '—'} → ${body.dupr_id || '—'}`);
       }
       if ('do_not_email' in body && antesNoMail !== body.do_not_email) {
         window.logAuditAction(id, 'player_edited', body.do_not_email
@@ -2452,7 +2556,9 @@
       AdminState.allPlayers = [];
       loadPlayers();
     } catch (err) {
-      toast(`Error: ${err.message}`, true);
+      toast(window.FerociaDupr.esRepetido(err)
+        ? 'That DUPR ID already belongs to another player. Each player has their own DUPR ID.'
+        : `Error: ${err.message}`, true);
     }
   };
 
