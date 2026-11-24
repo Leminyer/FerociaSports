@@ -96,6 +96,7 @@ window.selectLadderType = (type) => {
       'portal-activity': ['sb-portal-activity', null],
       'player-claims': ['sb-player-claims', null],
       'player-safety': ['sb-player-safety', null],
+      'photo-requests': ['sb-photo-requests', null],   // §123
       'play-games':   ['sb-play-games', null],
       'lessons':      ['sb-lessons',    null],   // §118
       'player-profile': ['sb-players',   'bn-players'],
@@ -118,7 +119,7 @@ window.selectLadderType = (type) => {
     ids.forEach(id => { if (id) { const el = document.getElementById(id); if (el) el.classList.add('active'); } });
 
     // Bottom nav: pages in "more" drawer activate the ⋯ button
-    const morePages = ['add-player','ladders','t-tournaments','events','lessons','orders','promotions','newsletter','videos','communications','share','match-hub','player-claims','player-safety','play-games','portal-activity','reviews'];
+    const morePages = ['add-player','ladders','t-tournaments','events','lessons','orders','promotions','newsletter','videos','communications','share','match-hub','player-claims','player-safety','photo-requests','play-games','portal-activity','reviews'];
     if (morePages.includes(pageOrKey)) {
       document.getElementById('bn-more')?.classList.add('active');
       const mdEl = document.getElementById(`md-${pageOrKey === 'newsletter' ? 'communications' : pageOrKey}`);
@@ -546,6 +547,8 @@ window.selectLadderType = (type) => {
     if (name === 'videos') window.AdminPageLoaders.videos?.();
     if (name === 'player-claims') window.AdminPageLoaders.playerClaims?.();
     if (name === 'player-safety') window.AdminPageLoaders.playerSafety?.();
+    if (name === 'photo-requests') window.AdminPageLoaders.photoRequests?.();   // §123
+    if (name === 'ladder' || name === 'ftc-standings') window.AdminPageLoaders.eventPhotosLadder?.();   // §123: fotos de la escalera
     if (name === 'play-games') window.AdminPageLoaders.playGames?.();
     if (name === 'portal-activity') window.AdminPageLoaders.portalActivity?.();
     if (name === 'reviews') window.AdminPageLoaders.reviews?.();   // §113

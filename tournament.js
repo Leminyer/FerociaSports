@@ -1959,10 +1959,13 @@ function renderTournamentDetail(t, categories) {
 
     <div style="padding:16px 28px 0;" id="td-setup-progression"></div>
     <div style="padding:0 28px 28px;" id="t-category-content"><div class="t-loading">Loading...</div></div>
+    <div class="ep-slot-torneo" id="ep-tournament"></div>
   `;
 
   if (tCurrentCategoryId) loadCategory(tCurrentCategoryId, t);
   loadTournamentIncidents(t.id);
+  /* §123 (SQL 143): las fotos del torneo (admin-event-photos.js). */
+  if (window.EventPhotos) window.EventPhotos.montar('tournament', t.id, 'ep-tournament');
 }
 async function switchCategory(catId, tId) {
   tCurrentCategoryId = catId;
@@ -2610,7 +2613,7 @@ function renderBracket(matches, tMap, tournament, cat) {
             <div class="t-bracket-team ${winA ? 't-bracket-winner' : ''} ${!m.team_a_id ? 't-bracket-tbd' : ''}">
               <div style="flex:1;">
                 <div style="font-weight:700;">${tEsc(teamA?.name || (m.status === 'bye' ? 'BYE' : 'TBD'))}${m.forfeit_team_id === m.team_a_id ? ' <span class="t-forfeit-badge">FF</span>' : ''}</div>
-                ${teamA ? `<div style="font-size:10px;color:#6b7a99;font-weight:500;margin-top:1px;">${getTeamPlayerNames(teamA)}</div>` : ''}
+                ${teamA ? `<div style="font-size:10px;color:#6b7a99;font-weight:500;margin-top:1px;">${tEsc(getTeamPlayerNames(teamA))}</div>` : ''}
               </div>
               ${isDone ? `<span class="t-bracket-score ${winA ? 't-bracket-score-win' : ''}">${m.score_a}</span>` : ''}
             </div>
@@ -2618,7 +2621,7 @@ function renderBracket(matches, tMap, tournament, cat) {
             <div class="t-bracket-team ${winB ? 't-bracket-winner' : ''} ${!m.team_b_id ? 't-bracket-tbd' : ''}">
               <div style="flex:1;">
                 <div style="font-weight:700;">${tEsc(teamB?.name || (m.status === 'bye' ? 'BYE' : 'TBD'))}${m.forfeit_team_id === m.team_b_id ? ' <span class="t-forfeit-badge">FF</span>' : ''}</div>
-                ${teamB ? `<div style="font-size:10px;color:#6b7a99;font-weight:500;margin-top:1px;">${getTeamPlayerNames(teamB)}</div>` : ''}
+                ${teamB ? `<div style="font-size:10px;color:#6b7a99;font-weight:500;margin-top:1px;">${tEsc(getTeamPlayerNames(teamB))}</div>` : ''}
               </div>
               ${isDone ? `<span class="t-bracket-score ${winB ? 't-bracket-score-win' : ''}">${m.score_b}</span>` : ''}
             </div>

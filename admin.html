@@ -26,6 +26,7 @@
 <link rel="stylesheet" href="admin-ftc.css?v=20260928b">
 <link rel="stylesheet" href="admin-comms-hub.css?v=20261013c">
 <link rel="stylesheet" href="admin-lessons.css?v=20261112a">
+<link rel="stylesheet" href="admin-event-photos.css?v=20261124a">
 
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="config.js?v=20260929j"></script>
@@ -138,6 +139,11 @@
     <button class="sb-item" id="sb-player-safety" data-action="showPage" data-page="player-safety">
       <span class="sb-item-icon avp-ancla"><span class="avp-num avp-num-icono" id="ps-sb" hidden></span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg></span>
       <span class="sb-item-label">Player Safety</span>
+    </button>
+    <!-- §123 (SQL 143): fotos que un jugador pidió quitar ("Remove me") — admin-event-photos.js. -->
+    <button class="sb-item" id="sb-photo-requests" data-action="showPage" data-page="photo-requests">
+      <span class="sb-item-icon avp-ancla"><span class="avp-num avp-num-icono" id="fr-sb" hidden></span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path d="m21 17-5-5-7 7"/></svg></span>
+      <span class="sb-item-label">Photo requests</span>
     </button>
     <!-- Matchmaking M-3a: los juegos de los jugadores y sus resultados (admin-play-games.js). -->
     <button class="sb-item" id="sb-play-games" data-action="showPage" data-page="play-games">
@@ -377,6 +383,8 @@
       </div>
       <div id="ladder-table"><div class="loading">Loading standings...</div></div>
     </div>
+    <!-- §123: fotos de esta escalera (admin-event-photos.js). -->
+    <div class="ep-slot-escalera" id="ep-ladder"></div>
   </div>
 
   <!-- SESSIONS -->
@@ -589,6 +597,8 @@
     <div id="ftc-std-player-tab" style="display:none;background:white;border:0.5px solid var(--divider-color);border-top:none;border-radius:0 0 12px 12px;overflow:hidden;box-shadow:0 1px 4px rgba(23,76,204,0.06);">
       <div id="ftc-std-player-table"><div class="loading">Loading player stats...</div></div>
     </div>
+    <!-- §123: fotos de esta escalera (admin-event-photos.js). -->
+    <div class="ep-slot-escalera" id="ep-ftc"></div>
   </div>
 
   <div id="page-ftc-teams" class="page">
@@ -3225,6 +3235,17 @@
   <div id="pa-body"><div class="loading">Loading...</div></div>
 </div>
 
+<!-- §123 (SQL 143): PHOTO REMOVAL REQUESTS. Las fotos que un jugador pidió
+     quitar desde su recap ("Remove me"). La foto ya está escondida; aquí se
+     borra o se vuelve a mostrar. Lo maneja admin-event-photos.js. -->
+<div id="page-photo-requests" class="page">
+  <div class="av-cabecera">
+    <div class="av-titulo">Photo removal requests <span class="pc-pill pc-pill-red ep-cabecera-num" id="fr-nuevos" hidden></span></div>
+    <div class="av-sub">When a player taps "Remove me" on an event photo, it is hidden from everyone right away. Delete it for good, or keep it (it shows again).</div>
+  </div>
+  <div id="fr-body"><div class="loading">Loading...</div></div>
+</div>
+
 <div id="page-player-claims" class="page">
   <div class="av-cabecera">
     <div class="av-titulo">Player claims</div>
@@ -3400,6 +3421,9 @@
   </button>
   <button class="more-drawer-item" id="md-player-safety" data-action="showPage" data-page="player-safety">
     <span class="more-drawer-icon more-drawer-svg"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg></span>Player Safety<span class="avp-num avp-num-fila" id="ps-md" hidden></span>
+  </button>
+  <button class="more-drawer-item" id="md-photo-requests" data-action="showPage" data-page="photo-requests">
+    <span class="more-drawer-icon more-drawer-svg"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path d="m21 17-5-5-7 7"/></svg></span>Photo requests<span class="avp-num avp-num-fila" id="fr-md" hidden></span>
   </button>
   <button class="more-drawer-item" id="md-play-games" data-action="showPage" data-page="play-games">
     <span class="more-drawer-icon more-drawer-svg"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.5 2.5L16 9.5"/></svg></span>Play games<span class="avp-num avp-num-fila" id="pg-md" hidden></span>
@@ -4295,9 +4319,9 @@
 <!-- §105: los días de las clínicas (antes de app.js, que los usa al guardar). -->
 <script src="event-days.js?v=20261020a"></script>
 <script src="admin-event-days.js?v=20261020a"></script>
-<script src="app.js?v=20261111a"></script>
+<script src="app.js?v=20261124a"></script>
 
-<script src="tournament.js?v=20261124a"></script>
+<script src="tournament.js?v=20261124b"></script>
 <!-- §116 Auto Courts (SQL 131): las canchas automáticas del round robin. Después de tournament.js. -->
 <script src="admin-auto-courts.js?v=20261124a"></script>
 <script src="admin-checkin.js?v=20261123a"></script>
@@ -4310,6 +4334,8 @@
 <script src="admin-player-claims.js?v=20261014e"></script>
 <!-- Matchmaking M-2a: Player Safety (también después de app.js, por su círculo rojo). -->
 <script src="admin-player-safety.js?v=20261015b"></script>
+<!-- §123 (SQL 143): fotos de los eventos y pedidos de "Remove me" (después de app.js, por su círculo rojo). -->
+<script src="admin-event-photos.js?v=20261124a"></script>
 <script src="admin-play-games.js?v=20261016b"></script>
 <!-- §118: Lessons (SQL 134 + función "lessons"). -->
 <script src="admin-lessons.js?v=20261112a"></script>

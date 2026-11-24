@@ -1,0 +1,44 @@
+/* FEROCIA — Panel: fotos de los eventos y pedidos de "Remove me" (§123, SQL 143). Prefijo ep-. */
+.ep-slot-torneo { padding: 0 28px 28px; }
+.ep-slot-torneo:empty, .ep-slot-escalera:empty { display: none; }
+.ep-slot-escalera { margin-top: 14px; }
+.ep-bloque { background: #fff; border: 0.5px solid #e0e7f5; border-radius: 12px; box-shadow: 0 1px 4px rgba(23, 76, 204, .06); }
+.ep-cab { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; padding: 14px 18px; border-bottom: 0.5px solid #f0f2f8; }
+.ep-titulo { margin: 0; font-size: 12px; font-weight: 800; letter-spacing: .3px; text-transform: uppercase; color: #0d1f4a; display: flex; gap: 10px; align-items: center; }
+.ep-nota { font-size: 12px; color: #5f6c8c; }
+.ep-tag { font-size: 10.5px; font-weight: 800; padding: 3px 9px; border-radius: 99px; text-transform: none; letter-spacing: 0; }
+.ep-tag-azul { background: #EEF2FF; color: #174CCC; }
+.ep-cont { padding: 14px 18px; }
+.ep-drop { display: block; border: 2px dashed #b9c7ea; border-radius: 12px; padding: 18px; text-align: center; color: #5f6c8c; font-size: 13px; background: #f8faff; cursor: pointer; position: relative; }
+.ep-drop b { color: #174CCC; }
+.ep-drop:focus-within { outline: 3px solid #174CCC; outline-offset: 2px; }
+.ep-drop-on { border-color: #174CCC; background: #eef2ff; }
+.ep-drop-ocupado, .ep-drop-lleno { opacity: .55; pointer-events: none; }
+.ep-file { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; }
+.ep-estado { margin: 8px 0 0; font-size: 12px; font-weight: 700; color: #174CCC; min-height: 1em; }
+.ep-estado:empty { display: none; }
+.ep-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin-top: 12px; }
+.ep-vacio { grid-column: 1 / -1; margin: 0; font-size: 12.5px; color: #5f6c8c; }
+.ep-foto { margin: 0; position: relative; aspect-ratio: 1; border-radius: 8px; overflow: hidden; background: #e9eef8; }
+.ep-foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ep-x { position: absolute; top: 5px; right: 5px; width: 26px; height: 26px; border-radius: 50%; border: none; background: rgba(13, 31, 74, .78); color: #fff; font-size: 12px; font-weight: 800; cursor: pointer; z-index: 2; }
+.ep-x:hover { background: #b3261e; }
+.ep-x:focus-visible { outline: 3px solid #c6f221; outline-offset: 1px; }
+.ep-oculta { position: absolute; inset: 0; background: rgba(8, 15, 46, .58); color: #fff; font-size: 10px; font-weight: 800; display: flex; align-items: center; justify-content: center; text-align: center; padding: 4px; z-index: 1; }
+.ep-pedidos { background: #fff; border: 0.5px solid #e0e7f5; border-radius: 12px; padding: 4px 18px; max-width: 1100px; }
+.ep-pedido { display: grid; grid-template-columns: 72px 1fr auto; gap: 14px; align-items: center; padding: 12px 0; border-bottom: 1px solid #f0f2f8; font-size: 13px; }
+.ep-pedido:last-child { border-bottom: 0; }
+.ep-pedido-foto { width: 72px; height: 72px; border-radius: 8px; overflow: hidden; background: #e9eef8; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #5f6c8c; text-align: center; }
+.ep-pedido-foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ep-pedido-txt .pc-pill { margin-top: 6px; }
+.ep-pedido-botones { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.ep-gris { color: #5f6c8c; }
+.ep-cabecera-num { margin-left: 8px; vertical-align: middle; }
+@media (max-width: 900px) { .ep-grid { grid-template-columns: repeat(4, 1fr); } }
+@media (max-width: 640px) {
+  .ep-slot-torneo { padding: 0 14px 20px; }
+  .ep-grid { grid-template-columns: repeat(3, 1fr); }
+  .ep-pedido { grid-template-columns: 60px 1fr; }
+  .ep-pedido-foto { width: 60px; height: 60px; }
+  .ep-pedido-botones { grid-column: 1 / -1; justify-content: flex-start; }
+}
