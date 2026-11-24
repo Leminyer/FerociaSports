@@ -445,3 +445,10 @@
 .bc-lbl-now { color:#13795f; background:#E3F7F1; }
 .bc-lbl-done { color:#5f6c8c; }
 .bc-lbl-next { color:var(--blue); background:#EEF2FF; }
+
+/* §126 — "DUPR results" (admin-dupr-export.js). Gris hasta que el torneo está Completed. */
+.td-dupr-btn { height:34px; padding:0 14px; border:0.5px solid rgba(23,76,204,0.3); border-radius:8px; background:white; display:flex; align-items:center; gap:6px; cursor:pointer; color:var(--blue); white-space:nowrap; font-family:'Inter',sans-serif; font-size:11px; font-weight:700; }
+.td-dupr-btn:hover { background:#EEF2FF; }
+.td-dupr-btn:focus-visible { outline:2px solid var(--blue); outline-offset:2px; }
+.td-dupr-btn.is-off { color:#b0bbd6; border-color:#e0e7f5; cursor:not-allowed; }
+.td-dupr-btn.is-off:hover { background:white; }

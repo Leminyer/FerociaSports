@@ -1934,6 +1934,14 @@ function renderTournamentDetail(t, categories) {
         style="min-width:34px;height:34px;padding:0 10px;border:0.5px solid #e0e7f5;border-radius:8px;background:white;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#6b7a99;white-space:nowrap;" title="Print Roster">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
       </button>
+      ${/* §126: resultados para DUPR (admin-dupr-export.js); sólo con el torneo Completed. */''}
+      <button type="button" data-action="duprResults" data-id="${t.id}" data-busy="Preparing…"
+        class="td-dupr-btn${t.status === 'completed' ? '' : ' is-off'}"
+        aria-disabled="${t.status === 'completed' ? 'false' : 'true'}"
+        title="${t.status === 'completed' ? 'Download the results file for DUPR' : 'Available when the tournament is completed'}">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        DUPR results
+      </button>
       <button onclick="openIncidentReportForTournament(${t.id}, '${tEsc(t.name).replace(/'/g, "\\'")}', '${t.date || ''}')"
         style="height:34px;padding:0 14px;border:0.5px solid rgba(242,96,36,0.3);border-radius:8px;background:white;display:flex;align-items:center;gap:6px;cursor:pointer;color:#F26024;white-space:nowrap;font-family:'Inter',sans-serif;font-size:11px;font-weight:700;" title="Incident Report">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
