@@ -1672,7 +1672,7 @@
           <option value="inactive">Inactive</option>
         </select></div>
         <div class="du-campo" hidden><label class="du-label" for="sc-dupr">DUPR ID <span class="du-opcional">(optional)</span></label>
-          <input type="text" id="sc-dupr" class="du-input du-codigo" maxlength="10" placeholder="8DPLX8" autocomplete="off" autocapitalize="characters" spellcheck="false"></div>
+          <input type="text" id="sc-dupr" class="du-input du-codigo" maxlength="10" autocomplete="off" autocapitalize="characters" spellcheck="false"></div>
       </div>
       <div style="margin-top:16px;padding:12px 14px;background:#fff4e6;border-left:3px solid var(--orange);border-radius:0 8px 8px 0;font-size:12px;font-weight:600;color:#9a6200;line-height:1.6;">
         ⚠️ This cannot be undone from the app — there is no option to delete a player. Reversing it would need direct database access.

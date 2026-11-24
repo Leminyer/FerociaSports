@@ -124,6 +124,19 @@
       </div>`;
   };
 
+  /* §125: la forma de una foto. true = horizontal (más de 1,2 veces más
+     ancha que alta), false = cuadrada o vertical, null = no se pudo leer.
+     La usa el correo para el tamaño de la foto del Pick of the Month. */
+  const fotoHorizontal = (src) => new Promise((ok) => {
+    const img = new Image();
+    const reloj = setTimeout(() => ok(null), 10000);   // si no carga en 10 s: sin dato (sale mediana)
+    img.onload = () => { clearTimeout(reloj); ok(img.naturalWidth && img.naturalHeight ? img.naturalWidth > img.naturalHeight * 1.2 : null); };
+    img.onerror = () => { clearTimeout(reloj); ok(null); };
+    img.src = src;
+  });
+  let _midiendoPick = null;   // la edición cuya foto del Pick se está midiendo al abrirla
+  const FOTO_PICK = 'pick.image_url';
+
   /** Uploads to the newsletter-images bucket and stores the public URL. */
   const uploadImage = async (file, path, statusId) => {
     const st = document.getElementById(statusId);
@@ -161,7 +174,16 @@
         if (ahora < 0) { toast('The event was removed before its image finished uploading.', true); return; }
         destino = `${enLista[1]}.${ahora}.${enLista[3]}`;
       }
-      set(destino, `${CFG.SUPABASE_URL}/storage/v1/object/public/newsletter-images/${name}`);
+      const subida = `${CFG.SUPABASE_URL}/storage/v1/object/public/newsletter-images/${name}`;
+      set(destino, subida);
+      if (destino === FOTO_PICK) {
+        /* §125: se mide el archivo que se acaba de subir (no hace falta bajarlo). */
+        const local = URL.createObjectURL(file);
+        const ancha = await fotoHorizontal(local);
+        URL.revokeObjectURL(local);
+        // Sólo si sigue siendo esa foto (dos subidas seguidas, o "Remove" mientras se medía).
+        if (_current === edicion && get(FOTO_PICK) === subida) set('pick.image_wide', ancha);
+      }
       setStatus('');
       renderSections();
       toast('Image uploaded.');
@@ -177,7 +199,29 @@
     }
   });
 
-  window.nlImgClear = (path) => { set(path, ''); renderSections(); };
+  window.nlImgClear = (path) => {
+    set(path, '');
+    if (path === FOTO_PICK) set('pick.image_wide', null);   // §125
+    renderSections();
+  };
+
+  /* §125: un número que ya tenía la foto del Pick antes de este cambio no
+     sabe su forma: se mide al abrirlo (queda como cambio sin guardar, y
+     Preview / Send Test / Send guardan primero). */
+  // Ojo: get(path, undefined) devuelve '' (valor por defecto), por eso se lee directo.
+  const formaGuardada = () => _current?.content?.pick?.image_wide;
+  const medirFotoPick = () => {
+    const url = get(FOTO_PICK);
+    if (!url || isSent() || formaGuardada() != null) return;   // sin medir: undefined o null
+    const edicion = _current;
+    _midiendoPick = edicion;
+    fotoHorizontal(url).then((ancha) => {
+      if (_midiendoPick === edicion) _midiendoPick = null;
+      if (ancha !== null && _current === edicion && get(FOTO_PICK) === url && formaGuardada() == null) {
+        set('pick.image_wide', ancha);
+      }
+    });
+  };
 
   const sectionCard = (num, title, purpose, body) => `
     <div class="card" style="padding:0;margin-bottom:14px;overflow:hidden;">
@@ -484,7 +528,7 @@
   const secPick = () => sectionCard(6, 'FEROCIA Pick of the Month', 'One product — never a carousel', `
     ${field('Product name', 'pick.name')}
     ${imageField('Product photo', 'pick.image_url',
-       'Optional. A photo of the product — the email still reads fine without one.')}
+       'Optional. A wide image (like a banner) fills the whole card; a square or tall product photo shows medium-size. The email still reads fine without one.')}
     ${field('Description', 'pick.description', { textarea: true, rows: 3 })}
     ${field("Coach's tip", 'pick.tip', { textarea: true, rows: 3 })}
     ${field('Amazon / affiliate URL', 'pick.amazon_url', { hint: 'Pasted exactly as given. Nothing is appended to it.' })}`);
@@ -508,6 +552,7 @@
     if (!el || !_current) return;
     el.innerHTML = secHeader() + secUpcoming() + secSpotlight() + secChampions()
                  + secCoach() + secVideo() + secPick() + secNumbers();
+    medirFotoPick();
   };
 
   // One delegated listener rather than one per field: the sections are
@@ -1240,6 +1285,12 @@
        ahead now would save — and use — the edition without it. */
     if (_trayendoVideo && _trayendoVideo === _current) {
       toast(`The Video of the Month is still loading, so ${queIba} was not started. Try again in a moment.`, true);
+      return false;
+    }
+    /* §125: igual con la foto del Pick de un número viejo: se mide al abrirlo
+       (menos de un segundo) y esa forma tiene que guardarse antes. */
+    if (_midiendoPick && _midiendoPick === _current) {
+      toast(`The Pick of the Month photo is still being checked, so ${queIba} was not started. Try again in a moment.`, true);
       return false;
     }
     if (!_dirty) return true;
