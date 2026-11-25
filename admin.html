@@ -22,7 +22,7 @@
      four must stay in this sequence. See the header of admin-layout.css. -->
 <link rel="stylesheet" href="admin-layout.css?v=20261012a">
 <link rel="stylesheet" href="admin-components.css?v=20261110a">
-<link rel="stylesheet" href="admin-pages.css?v=20261124c">
+<link rel="stylesheet" href="admin-pages.css?v=20261124d">
 <link rel="stylesheet" href="admin-ftc.css?v=20260928b">
 <link rel="stylesheet" href="admin-comms-hub.css?v=20261013c">
 <link rel="stylesheet" href="admin-lessons.css?v=20261112a">
@@ -3273,6 +3273,12 @@
     <div class="av-titulo">Reviews</div>
     <div class="av-sub">What players said after each ladder and tournament. Only the reviews you mark &ldquo;Show on website&rdquo; appear on ferociasports.com, with the player&rsquo;s first name and last initial.</div>
   </div>
+  <!-- §129: pestañas Reviews (la lista de siempre) e Insights (admin-reviews-insights.js). -->
+  <div class="rvw-tabs" id="rvw-tabs" role="tablist" aria-label="Reviews">
+    <button type="button" role="tab" class="rvw-tab" id="rvw-tab-lista" aria-selected="true" aria-controls="rvw-p-lista" data-action="rvwTab" data-tab="lista">Reviews</button>
+    <button type="button" role="tab" class="rvw-tab" id="rvw-tab-ins" aria-selected="false" aria-controls="rvw-p-ins" tabindex="-1" data-action="rvwTab" data-tab="insights">Insights</button>
+  </div>
+  <div id="rvw-p-lista" role="tabpanel" aria-labelledby="rvw-tab-lista">
   <div class="rvw-filtros" id="rvw-filtros" hidden>
     <label class="rvw-filtro">Event
       <select class="hub-select" id="rvw-f-evento"><option value="">All events</option></select>
@@ -3280,6 +3286,7 @@
     <label class="rvw-filtro">Rating
       <select class="hub-select" id="rvw-f-estrellas">
         <option value="">All ratings</option>
+        <option value="low">1–2 stars</option>
         <option value="5">5 stars</option><option value="4">4 stars</option><option value="3">3 stars</option>
         <option value="2">2 stars</option><option value="1">1 star</option>
       </select>
@@ -3294,9 +3301,17 @@
       </select>
     </label>
   </div>
+  <div class="rvw-tema" id="rvw-tema" hidden>
+    <span id="rvw-tema-t"></span>
+    <button type="button" class="rvw-tema-x" data-action="rvwTemaQuitar" aria-label="Clear the theme and period filter">×</button>
+  </div>
   <span class="pa-sr" id="rvw-estado" aria-live="polite"></span>
   <div id="rvw-resumen" class="rvw-resumen" hidden></div>
   <div id="rvw-body"><div class="loading">Loading...</div></div>
+  </div>
+  <div id="rvw-p-ins" role="tabpanel" aria-labelledby="rvw-tab-ins" hidden>
+    <div id="rvi-body"><div class="loading">Loading...</div></div>
+  </div>
 </div>
 
 <div id="page-newsletter" class="page">
@@ -4355,7 +4370,9 @@
 <!-- SQL 106: Player Portal → Portal activity (después de app.js). -->
 <script src="admin-portal-activity.js?v=20261017a"></script>
 <!-- §113: Reviews (después de app.js, por su círculo rojo). -->
-<script src="admin-reviews.js?v=20261102a"></script>
+<script src="admin-reviews.js?v=20261124b"></script>
+<!-- §129: Reviews → Insights (temas, números, CSV). -->
+<script src="admin-reviews-insights.js?v=20261124b"></script>
 <script>
   // ── Sidebar toggle — persisted in localStorage ──────────────────────
   (function() {

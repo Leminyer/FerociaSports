@@ -19,6 +19,8 @@
        sitio.
    El círculo rojo del menú cuenta las nuevas; al abrir la pantalla, las
    que se ven dejan de ser nuevas (siguen marcadas "New" en esta visita).
+   §129: la pestaña "Insights" (admin-reviews-insights.js) usa la misma
+   lista y abre ésta ya filtrada (evento, "1–2 stars" o un tema).
 
    Todo lo que escribió un jugador se pone con textContent, nunca como
    HTML. Si el SQL 125 todavía no está, la pantalla lo dice y el resto
@@ -36,6 +38,11 @@
   let _nuevasAhora = new Set();   // las que eran nuevas al abrir (siguen con "New" en esta visita)
   let _vez = 0;           // una respuesta vieja no pinta encima de una nueva
   let _cambiando = new Set();     // link_id con el interruptor en vuelo
+  let _tema = null;       // §129: { clave, lado, nombre } — la lista filtrada por un tema de Insights
+  let _periodo = null;    // §129: { nombre, dentro(r) } — el periodo de Insights al abrir la lista desde allí
+  let _sinEnsayos = null; // §129: Set de link_id de ensayos que no se muestran al abrir la lista desde Insights
+  let _estado = 'cargando';   // §129: 'cargando' | 'ok' | 'error' (Insights lo mira)
+  const _alCargar = [];   // §129: Insights se vuelve a pintar cuando llega la lista
 
   const $ = (id) => document.getElementById(id);
   const sb = () => window.supabase;
@@ -102,6 +109,7 @@
      sin salir (tras un aviso), las que eran "New" lo siguen siendo. */
   async function cargar(nuevaVisita) {
     const mia = ++_vez;
+    _estado = 'cargando';
     if (nuevaVisita) _nuevasAhora = new Set();
     $('rvw-body').replaceChildren(el('div', 'loading', 'Loading...'));
     $('rvw-filtros').hidden = true;
@@ -113,6 +121,8 @@
       data = r.data || [];
     } catch (err) {
       if (mia !== _vez) return;
+      _estado = 'error';
+      _alCargar.forEach((f) => { try { f(); } catch (e) { console.error('[reviews] insights:', e); } });
       console.error('[reviews] no se pudo leer la lista:', err);
       const sinSql = /admin_reviews_list|function|404|PGRST202/i.test(String(err?.message || err?.code || ''));
       $('rvw-body').replaceChildren(el('div', 'empty', sinSql
@@ -122,10 +132,12 @@
     }
     if (mia !== _vez) return;
     _todas = data;
+    _estado = 'ok';
     data.filter((r) => r.is_new).forEach((r) => _nuevasAhora.add(r.link_id));
     pintarFiltros();
     pintar();
     marcarVistas();
+    _alCargar.forEach((f) => { try { f(); } catch (e) { console.error('[reviews] insights:', e); } });
   }
 
   /* Las que se acaban de ver dejan de contar como nuevas en el menú. Con
@@ -173,10 +185,16 @@
 
   function filtradas() {
     const ev = $('rvw-f-evento').value;
-    const est = Number($('rvw-f-estrellas').value) || 0;
+    const valEst = $('rvw-f-estrellas').value;
+    const est = Number(valEst) || 0;
     const ver = $('rvw-f-ver').value;
+    const temas = window.FerociaReviewTemas;
     return _todas.filter((r) => (!ev || claveEvento(r) === ev)
+      && (valEst !== 'low' || r.rating <= 2)            // §129: "1–2 stars"
       && (!est || r.rating === est)
+      && (!_tema || !temas || temas.coincide(r, _tema.clave, _tema.lado))
+      && (!_periodo || _periodo.dentro(r))
+      && (!_sinEnsayos || !_sinEnsayos.has(Number(r.link_id)))
       && (ver !== 'new' || _nuevasAhora.has(r.link_id))
       && (ver !== 'public' || r.is_public)
       && (ver !== 'comment' || !!r.comment)
@@ -185,6 +203,7 @@
 
   /* ── PINTAR ─────────────────────────────────────────────── */
   function pintar() {
+    pintarTema();
     const lista = filtradas();
     /* Un resumen corto, sin promedio (decidido: nada de "4.8 estrellas"
        en la web; aquí tampoco hace falta). */
@@ -258,6 +277,54 @@
     return t;
   }
 
+  /* ── §129: EL TEMA ELEGIDO EN INSIGHTS Y LAS PESTAÑAS ─────── */
+  function pintarTema() {
+    const caja = $('rvw-tema');
+    if (!caja) return;
+    caja.hidden = !_tema && !_periodo;
+    if (caja.hidden) return;
+    $('rvw-tema-t').textContent = [
+      _tema ? `Theme: ${_tema.nombre} · ${_tema.lado === 'improve' ? 'what players ask to improve' : 'what players praise'}` : '',
+      _periodo ? _periodo.nombre : '',
+    ].filter(Boolean).join(' · ');
+  }
+
+  function verPestana(cual) {
+    const ins = cual === 'insights';
+    $('rvw-tab-lista').setAttribute('aria-selected', ins ? 'false' : 'true');
+    $('rvw-tab-ins').setAttribute('aria-selected', ins ? 'true' : 'false');
+    $('rvw-tab-lista').tabIndex = ins ? -1 : 0;
+    $('rvw-tab-ins').tabIndex = ins ? 0 : -1;
+    $('rvw-p-lista').hidden = ins;
+    $('rvw-p-ins').hidden = !ins;
+    if (window.FerociaReviewInsights) { if (ins) window.FerociaReviewInsights.abrir(); else window.FerociaReviewInsights.cerrar(); }
+  }
+
+  /* Insights abre la lista ya filtrada (por evento, por "1–2 estrellas
+     sin ver" o por un tema, y por su periodo si no es "All time"). Lo
+     demás de los filtros vuelve a "todo". */
+  function verLista(f) {
+    const opt = f || {};
+    $('rvw-f-evento').value = opt.evento && [...$('rvw-f-evento').options].some((o) => o.value === opt.evento) ? opt.evento : '';
+    $('rvw-f-estrellas').value = opt.rating || '';
+    $('rvw-f-ver').value = opt.ver || '';
+    _tema = opt.tema || null;
+    _periodo = opt.periodo || null;
+    _sinEnsayos = opt.sinEnsayos || null;   // así la lista cuadra con los números de Insights
+    verPestana('lista');
+    pintar();
+    $('rvw-tab-lista').focus();
+  }
+
+  window.FerociaReviews = {
+    filas: () => _todas,
+    estado: () => _estado,
+    nuevas: () => _nuevasAhora,
+    claveEvento,
+    verLista,
+    alCargar: (f) => { _alCargar.push(f); },
+  };
+
   /* ── PUBLICAR / QUITAR ──────────────────────────────────── */
   async function publicar(btn) {
     const id = Number(btn.dataset.link);
@@ -296,8 +363,23 @@
 
   /* ── EVENTOS ────────────────────────────────────────────── */
   ['rvw-f-evento', 'rvw-f-estrellas', 'rvw-f-ver'].forEach((id) => $(id)?.addEventListener('change', pintar));
-  Object.assign(window.CLICK_HANDLERS, { rvwPublicar: (btn) => publicar(btn) });
-  window.AdminPageLoaders.reviews = () => cargar(true);
+  Object.assign(window.CLICK_HANDLERS, {
+    rvwPublicar: (btn) => publicar(btn),
+    rvwTab: (btn) => verPestana(btn.dataset.tab),
+    rvwTemaQuitar: () => { _tema = null; _periodo = null; _sinEnsayos = null; pintar(); $('rvw-tab-lista').focus(); },
+  });
+  /* Pestañas con flechas (como un tablist de verdad). */
+  $('rvw-tabs')?.addEventListener('keydown', (e) => {
+    let cual;
+    if (e.key === 'Home') cual = 'lista';
+    else if (e.key === 'End') cual = 'insights';
+    else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') cual = $('rvw-tab-ins').getAttribute('aria-selected') === 'true' ? 'lista' : 'insights';
+    else return;
+    verPestana(cual);
+    (cual === 'lista' ? $('rvw-tab-lista') : $('rvw-tab-ins')).focus();
+    e.preventDefault();
+  });
+  window.AdminPageLoaders.reviews = () => { _tema = null; _periodo = null; _sinEnsayos = null; verPestana('lista'); return cargar(true); };
 
   const empezar = () => {
     contar();
