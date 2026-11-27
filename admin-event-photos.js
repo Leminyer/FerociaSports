@@ -2,8 +2,8 @@
    FEROCIA SPORTS CENTER — ADMIN: FOTOS DE LOS EVENTOS (§123, SQL 143)
    Torneos, etapa 2 · 24 nov 2026 · diseño etapa2.html (pantallas 6 y 7)
 
-   1. "Photos" al final de cada torneo y en cada escalera (Standings, o
-      la de equipos). Hasta 30. Se arrastran o se eligen; aquí mismo se
+   1. "Photos" al final de cada torneo y en cada escalera (debajo de
+      Standings). Hasta 30. Se arrastran o se eligen; aquí mismo se
       achican (1600 px, JPG) antes de subir. Van a la carpeta PRIVADA
       "event-photos": sólo las ven las administradoras y, en su Player
       Portal, los jugadores de ese evento.
@@ -222,16 +222,13 @@
     cargar(slotId);
   }
 
-  /* La escalera elegida arriba (Standings o, si es de equipos, su página). */
+  /* La escalera elegida arriba (debajo de Standings). */
   function montarEscalera() {
     const l = window.AdminState && window.AdminState.currentLadder;
-    ['ep-ladder', 'ep-ftc'].forEach((slotId) => {
-      const slot = $(slotId);
-      if (!slot) return;
-      const toca = l && ((slotId === 'ep-ftc') === (l.ladder_type === 'ftc'));
-      if (toca) montar('ladder', l.id, slotId);
-      else { slot.innerHTML = ''; delete secciones[slotId]; }
-    });
+    const slot = $('ep-ladder');
+    if (!slot) return;
+    if (l) montar('ladder', l.id, 'ep-ladder');
+    else { slot.innerHTML = ''; delete secciones['ep-ladder']; }
   }
 
   /* ═══ 2. Player Portal → Photo removal requests ═══ */

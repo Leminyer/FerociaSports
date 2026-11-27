@@ -2086,7 +2086,7 @@
     if (!ladder) { toast('Could not find that ladder.', true); return; }
     AdminState.currentLadder = ladder;
     if (window.loadLadderPlayers) await window.loadLadderPlayers();
-    window.showPage(ladder.ladder_type === 'ftc' ? 'ftc-standings' : 'ladder', document.getElementById(ladder.ladder_type === 'ftc' ? 'sb-ftc-standings' : 'sb-standings'));
+    window.showPage('ladder', document.getElementById('sb-standings'));
   };
   window.histViewSession = async (ladderId) => {
     const ladder = await histGetLadder(ladderId);

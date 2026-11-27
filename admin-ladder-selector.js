@@ -7,7 +7,7 @@
    writes to AdminState.currentLadder / .allLadders / .ladderPlayers — it's
    the reason those three had to move to shared state before anything
    could be safely extracted: every other section (Standings, Sessions,
-   Players, Ladder Management, FTC...) reads whichever ladder is currently
+   Players, Ladder Management...) reads whichever ladder is currently
    selected, and this is where that selection happens.
 
    Exposes on window (called directly by many still-in-app.js functions,
@@ -57,18 +57,12 @@
     AdminState.currentLadder = AdminState.allLadders.find((l) => l.id === id) || null;
     updateLadderBanner();
     await loadLadderPlayers();
-    if (AdminState.currentLadder?.ladder_type === 'ftc') {
-      window.showPage('ftc-standings', document.getElementById('sb-ftc-standings'));
-    } else {
-      window.showPage('ladder', document.getElementById('sb-standings'));
-    }
+    window.showPage('ladder', document.getElementById('sb-standings'));
   };
 
   const updateLadderBanner = () => {
-    const ladderPages    = ['ladder', 'sessions', 'entry'];
-    const ftcPages       = ['ftc-standings', 'ftc-teams', 'ftc-schedule', 'ftc-playoffs'];
-    const allLadderPages = [...ladderPages, ...ftcPages];
-    const ladderNavBtns  = document.querySelectorAll('#sb-standings, #sb-sessions, #sb-entry, #sb-ftc-teams, #sb-ftc-schedule, #sb-ftc-playoffs');
+    const allLadderPages = ['ladder', 'sessions', 'entry'];
+    const ladderNavBtns  = document.querySelectorAll('#sb-standings, #sb-sessions, #sb-entry');
     if (!AdminState.currentLadder) {
       ladderNavBtns.forEach((b) => (b.disabled = true));
       allLadderPages.forEach((p) => {

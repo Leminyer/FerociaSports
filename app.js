@@ -5,40 +5,6 @@
                      toast, confirmModal, FEROCIA_CONFIG
    ============================================================ */
 
-// ── Ladder type selector (global — called from inline onclick) ────────────
-window.selectLadderType = (type) => {
-  const rp       = document.getElementById('ltype-rp');
-  const ftc      = document.getElementById('ltype-ftc');
-  const rpCheck  = document.getElementById('ltype-rp-check');
-  const ftcCheck = document.getElementById('ltype-ftc-check');
-  const inp      = document.getElementById('new-ladder-type');
-  if (!rp || !ftc || !inp) return;
-  inp.value = type;
-
-  const selectedStyle = (el) => {
-    el.style.border          = '1.5px solid var(--blue)';
-    el.style.background      = 'linear-gradient(135deg,rgba(23,76,204,0.03),rgba(23,76,204,0.06))';
-    el.style.boxShadow       = '0 0 0 4px rgba(23,76,204,0.1),0 4px 16px rgba(23,76,204,0.12)';
-    el.style.transform       = 'scale(1.01)';
-  };
-  const defaultStyle = (el) => {
-    el.style.border          = '1.5px solid #e0e7f5';
-    el.style.background      = 'white';
-    el.style.boxShadow       = 'none';
-    el.style.transform       = 'scale(1)';
-  };
-
-  if (type === 'rotating_partner') {
-    selectedStyle(rp);  defaultStyle(ftc);
-    if (rpCheck)  rpCheck.style.display  = 'flex';
-    if (ftcCheck) ftcCheck.style.display = 'none';
-  } else {
-    selectedStyle(ftc); defaultStyle(rp);
-    if (ftcCheck) ftcCheck.style.display = 'flex';
-    if (rpCheck)  rpCheck.style.display  = 'none';
-  }
-};
-
 (function () {
   'use strict';
 
@@ -87,10 +53,6 @@ window.selectLadderType = (type) => {
       'ladder':           ['sb-standings',    'bn-ladder'],
       'sessions':         ['sb-sessions',    'bn-ladder'],
       'entry':            ['sb-entry',       'bn-ladder'],
-      'ftc-standings':    ['sb-ftc-standings','bn-ladder'],
-      'ftc-teams':        ['sb-ftc-teams',   'bn-ladder'],
-      'ftc-schedule':     ['sb-ftc-schedule','bn-ladder'],
-      'ftc-playoffs':     ['sb-ftc-playoffs','bn-ladder'],
       'tournament-view': ['sb-tournament', 'bn-tournament'],
       'players':      ['sb-players',     'bn-players'],
       'portal-activity': ['sb-portal-activity', null],
@@ -127,27 +89,13 @@ window.selectLadderType = (type) => {
     }
 
     // Show/hide ladder sub-items and select
-    const isLadderPage = ['ladder','sessions','entry','ftc-standings','ftc-teams','ftc-schedule','ftc-playoffs'].includes(pageOrKey);
+    const isLadderPage = ['ladder','sessions','entry'].includes(pageOrKey);
     const ladderWrap = document.getElementById('sb-ladder-select-wrap');
     if (ladderWrap) ladderWrap.style.display = isLadderPage ? 'block' : 'none';
-    ['sb-standings','sb-sessions','sb-entry','sb-ftc-standings','sb-ftc-teams','sb-ftc-schedule','sb-ftc-playoffs'].forEach(id => {
+    ['sb-standings','sb-sessions','sb-entry'].forEach(id => {
       const el = document.getElementById(id);
-      if (el) el.style.display = 'none'; // reset all first
+      if (el) el.style.display = isLadderPage && AdminState.currentLadder ? 'flex' : 'none';
     });
-    if (isLadderPage && AdminState.currentLadder) {
-      const isFTC = AdminState.currentLadder.ladder_type === 'ftc';
-      if (isFTC) {
-        ['sb-ftc-standings','sb-ftc-teams','sb-ftc-schedule','sb-ftc-playoffs'].forEach(id => {
-          const el = document.getElementById(id);
-          if (el) el.style.display = 'flex';
-        });
-      } else {
-        ['sb-standings','sb-sessions','sb-entry'].forEach(id => {
-          const el = document.getElementById(id);
-          if (el) el.style.display = 'flex';
-        });
-      }
-    }
 
     // Show/hide tournament select
     const isTournPage = ['tournament-view'].includes(pageOrKey);
@@ -431,24 +379,10 @@ window.selectLadderType = (type) => {
     // Always show the sub-items
     const wrap = document.getElementById('sb-ladder-select-wrap');
     if (wrap) wrap.style.display = 'block';
-    (() => {
-      const isFTC = AdminState.currentLadder?.ladder_type === 'ftc';
-      ['sb-standings','sb-sessions','sb-entry','sb-ftc-standings','sb-ftc-teams','sb-ftc-schedule','sb-ftc-playoffs'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.style.display = 'none';
-      });
-      if (isFTC) {
-        ['sb-ftc-standings','sb-ftc-teams','sb-ftc-schedule','sb-ftc-playoffs'].forEach(id => {
-          const el = document.getElementById(id);
-          if (el) el.style.display = 'flex';
-        });
-      } else {
-        ['sb-standings','sb-sessions','sb-entry'].forEach(id => {
-          const el = document.getElementById(id);
-          if (el) el.style.display = 'flex';
-        });
-      }
-    })();
+    ['sb-standings','sb-sessions','sb-entry'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'flex';
+    });
     document.getElementById('sb-ladder')?.classList.add('active');
     document.getElementById('bn-ladder')?.classList.add('active');
   };
@@ -537,10 +471,6 @@ window.selectLadderType = (type) => {
     if (name === 'player-profile') window.loadPlayerProfilePage(btn);
     if (name === 'entry') window.initEntry();
     if (name === 'ladders') window.loadLaddersPage();
-    if (name === 'ftc-standings') window.loadFtcStandings();
-    if (name === 'ftc-teams') window.loadFtcTeams();
-    if (name === 'ftc-schedule') window.loadFtcSchedule();
-    if (name === 'ftc-playoffs') window.loadFtcPlayoffs();
     if (name === 'add-player') window.initAddPlayer();
     if (name === 'share') window.AdminPageLoaders.share?.();
     if (name === 'orders') window.AdminPageLoaders.orders?.();
@@ -548,7 +478,7 @@ window.selectLadderType = (type) => {
     if (name === 'player-claims') window.AdminPageLoaders.playerClaims?.();
     if (name === 'player-safety') window.AdminPageLoaders.playerSafety?.();
     if (name === 'photo-requests') window.AdminPageLoaders.photoRequests?.();   // §123
-    if (name === 'ladder' || name === 'ftc-standings') window.AdminPageLoaders.eventPhotosLadder?.();   // §123: fotos de la escalera
+    if (name === 'ladder') window.AdminPageLoaders.eventPhotosLadder?.();   // §123: fotos de la escalera
     if (name === 'play-games') window.AdminPageLoaders.playGames?.();
     if (name === 'portal-activity') window.AdminPageLoaders.portalActivity?.();
     if (name === 'reviews') window.AdminPageLoaders.reviews?.();   // §113
@@ -1138,10 +1068,6 @@ window.selectLadderType = (type) => {
   /* ─── PROMOTIONS ───────────────────────────────────────── */
   /* Extracted to admin-promotions.js. */
 
-  /* ─── FTC LADDER ─────────────────────────────────────────  */
-  /* Extracted to admin-ftc-standings.js, admin-ftc-playoffs-schedule.js,
-     and admin-ftc-teams.js. */
-
   /* ─── EVENT DELEGATION ─────────────────────────────────── */
   // Recovered from a misplaced extraction — this general, app-wide click/
   // change/input delegation must live in app.js (it references bare
@@ -1288,7 +1214,7 @@ window.selectLadderType = (type) => {
   // Sidebar initialized — set home as active on boot
   sbSetActive('home');
   // Hide ladder sub-items until a ladder is selected
-  ['sb-standings','sb-sessions','sb-entry','sb-ftc-standings','sb-ftc-teams','sb-ftc-schedule','sb-ftc-playoffs'].forEach(id => {
+  ['sb-standings','sb-sessions','sb-entry'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = 'none';
   });
@@ -1327,8 +1253,8 @@ window.selectLadderType = (type) => {
   // showPage is called directly (not via CLICK_HANDLERS) from
   // admin-ladder-selector.js and admin-ladder-management.js
   window.showPage     = showPage;
-  // fmtTime12 is called directly from admin-sessions.js,
-  // admin-ftc-playoffs-schedule.js, and admin-print-roster.js
+  // fmtTime12 is called directly from admin-sessions.js
+  // and admin-print-roster.js
   window.fmtTime12    = fmtTime12;
 
   // Track auth state so tournament.js can wait on it too

@@ -47,15 +47,7 @@ window.AdminState = {
                         // read/written by Email Notifications, Tournament
                         // Notify, and Promotions, so it must live here, not
                         // as a separate local flag in each.
-  ftc: {
-    teams: [],    // ftcTeams — used across FTC Standings/Playoffs/Schedule/Team Registration
-    schedule: [], // ftcSchedule — used across FTC Standings/Schedule Generation
-    matches: [],  // ftcMatches — used across FTC Standings/Playoffs/Schedule Generation
-  },
-  lpGenderFilter: 'all', // Ladder Players modal's gender filter — the SAME modal
-                         // is opened by both admin-ladder-management.js (regular
-                         // ladders) and admin-ftc-teams.js (FTC roster), so this
-                         // can't be a private variable in either file.
+  lpGenderFilter: 'all', // Ladder Players modal's gender filter (admin-ladder-management.js).
 };
 
 window.CLICK_HANDLERS   = window.CLICK_HANDLERS   || {};

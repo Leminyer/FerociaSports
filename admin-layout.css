@@ -15,7 +15,6 @@
 
        admin-layout.css  →  admin-components.css
                          →  admin-pages.css
-                         →  admin-ftc.css
 
    Later rules of equal specificity override earlier ones, so
    reordering the <link> tags would change how the app looks.

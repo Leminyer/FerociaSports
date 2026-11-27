@@ -99,12 +99,7 @@
       <!-- Tabs at top -->
       <div class="lop-tabs">
         <button class="lop-tab active" onclick="lopTab(event,'${l.id}','overview')">${_ovSVG} Overview</button>
-        ${readOnly ? '' : l.ladder_type === 'ftc' ? `
-          <button class="lop-tab" onclick="lopTab(event,'${l.id}','ftc-standings')">${_stndSVG} Standings</button>
-          <button class="lop-tab" onclick="lopTab(event,'${l.id}','ftc-teams')">${_plrSVG} Teams</button>
-          <button class="lop-tab" onclick="lopTab(event,'${l.id}','ftc-schedule')">${_sessSVG} Schedule</button>
-          <button class="lop-tab" onclick="lopTab(event,'${l.id}','ftc-playoffs')">${_stndSVG} Playoffs</button>
-        ` : l.ladder_type === 'rotating_partner' ? `
+        ${readOnly ? '' : l.ladder_type === 'rotating_partner' ? `
           <button class="lop-tab" onclick="lopTab(event,'${l.id}','players')">${_plrSVG} Players</button>
           <button class="lop-tab" onclick="lopTab(event,'${l.id}','sessions')">${_sessSVG} Sessions</button>
           <button class="lop-tab" onclick="lopTab(event,'${l.id}','standings')">${_stndSVG} Standings</button>
@@ -116,10 +111,7 @@
         <div class="lop-left">
           <div class="lop-name">${esc(l.name)}</div>
           <div style="margin-bottom:4px;">
-            ${l.ladder_type === 'ftc'
-              ? `<span style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;background:rgba(198,242,33,0.15);color:#3B6D11;border:0.5px solid rgba(198,242,33,0.4);padding:2px 8px;border-radius:99px;">🏆 Ferocia Team Challenge</span>`
-              : `<span style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;background:#e8f0ff;color:var(--blue);border:0.5px solid #c5d6f5;padding:2px 8px;border-radius:99px;">🔄 Rotating Partner</span>`
-            }
+            <span style="font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;background:#e8f0ff;color:var(--blue);border:0.5px solid #c5d6f5;padding:2px 8px;border-radius:99px;">🔄 Rotating Partner</span>
           </div>
           <div class="lop-status-row">
             <span class="${isActive ? 'lop-active-pill' : 'lop-closed-pill'}">${isActive ? 'Season Active' : 'Completed'}</span>
@@ -258,15 +250,6 @@
     } else if (tab === 'standings') {
       window.showPage('ladder', document.getElementById('sb-standings'));
       await window.loadLadder();
-    // FTC tabs
-    } else if (tab === 'ftc-standings') {
-      window.showPage('ftc-standings', document.getElementById('sb-ftc-standings'));
-    } else if (tab === 'ftc-teams') {
-      window.showPage('ftc-teams', document.getElementById('sb-ftc-teams'));
-    } else if (tab === 'ftc-schedule') {
-      window.showPage('ftc-schedule', document.getElementById('sb-ftc-schedule'));
-    } else if (tab === 'ftc-playoffs') {
-      window.showPage('ftc-playoffs', document.getElementById('sb-ftc-playoffs'));
     }
   };
 
@@ -329,8 +312,6 @@
       await api('ladders', 'POST', { name, status: 'active', start_date: start, end_date: end, ladder_type: ladderType });
       toast(`Ladder "${name}" created!`);
       document.getElementById('create-ladder-form').reset();
-      // Reset type selector back to default
-      selectLadderType('rotating_partner');
       await window.loadLadderSelector();
       await loadLaddersPage();
     } catch (err) {
@@ -361,7 +342,7 @@
     // Show ladder type as read-only badge
     const typeEl  = document.getElementById('edit-ladder-type');
     const badgeEl = document.getElementById('edit-ladder-type-badge');
-    const typeLabel = l.ladder_type === 'ftc' ? '🏆 Ferocia Team Challenge Ladder' : '🔄 Rotating Partner Ladder';
+    const typeLabel = '🔄 Rotating Partner Ladder';
     if (typeEl)  typeEl.value       = l.ladder_type || 'rotating_partner';
     if (badgeEl) badgeEl.textContent = typeLabel;
     const modal = document.getElementById('edit-ladder-modal');
@@ -819,11 +800,7 @@
     if (!ladder) return;
     AdminState.currentLadder = ladder;
     if (window.loadLadderPlayers) await window.loadLadderPlayers();
-    if (ladder.ladder_type === 'ftc') {
-      window.showPage('ftc-standings', document.getElementById('sb-ftc-standings'));
-    } else {
-      window.showPage('ladder', document.getElementById('sb-standings'));
-    }
+    window.showPage('ladder', document.getElementById('sb-standings'));
   };
 
 
