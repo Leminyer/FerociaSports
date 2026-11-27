@@ -13,6 +13,10 @@
                                          tiene, el día de su fecha de inicio)
      FerociaEventDays.startsLabel(ev, hoy) → "Starts Nov 4" sólo si la
                                          clínica empieza DESPUÉS de hoy
+     FerociaEventDays.comingLabel(ev, hoy) → la cinta de un evento que todavía
+                                         no empezó (§131): "TODAY",
+                                         "STARTS JANUARY", "COMING IN DECEMBER",
+                                         "STARTS THIS MONTH"… o "" si ya empezó
 
    1 = lunes … 7 = domingo (como en la base).
    ============================================================ */
@@ -60,5 +64,26 @@
     return `Starts ${MESES[+m[2] - 1]} ${+m[3]}`;
   }
 
-  window.FerociaEventDays = { label, days, startsLabel, limpiar, diaDeFecha, LARGO, CORTO };
+  /* §131 (1A 2A): la cinta de los eventos que todavía no empezaron.
+     Escaleras y clínicas "STARTS …"; torneos y otros "COMING IN …"; el
+     mismo mes, "… THIS MONTH"; el mismo día, "TODAY". El año sólo si
+     faltan 12 meses o más. Private sessions y lo que ya empezó: "". */
+  const MES_LARGO = ['JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE', 'JULY',
+    'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER'];
+  function comingLabel(ev, hoy) {
+    if (!ev || ev.event_type === 'private_session') return '';
+    const f = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(ev.event_date || ''));
+    const h = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(hoy || ''));
+    if (!f || !h) return '';
+    const fecha = f[0], dia = h[0];
+    if (fecha < dia) return '';
+    if (fecha === dia) return ev.event_type === 'clinic' ? '' : 'TODAY';
+    const empieza = ev.event_type === 'ladder' || ev.event_type === 'clinic';
+    const meses = (+f[1] - +h[1]) * 12 + (+f[2] - +h[2]);
+    if (meses === 0) return empieza ? 'STARTS THIS MONTH' : 'COMING THIS MONTH';
+    const mes = MES_LARGO[+f[2] - 1] + (meses >= 12 ? ` ${f[1]}` : '');
+    return empieza ? `STARTS ${mes}` : `COMING IN ${mes}`;
+  }
+
+  window.FerociaEventDays = { label, days, startsLabel, comingLabel, limpiar, diaDeFecha, LARGO, CORTO };
 })();

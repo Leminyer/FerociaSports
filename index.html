@@ -33,7 +33,7 @@
 <script src="db.js?v=20261004c"></script>
 <script src="assets.js?v=20261013a"></script>
 <!-- §105: las clínicas enseñan el día y la hora, no una fecha. -->
-<script src="event-days.js?v=20261020a"></script>
+<script src="event-days.js?v=20261127a"></script>
 <style>
 :root {
   /* Dark-theme override — this page uses a dark hero background with
@@ -313,6 +313,7 @@ footer{
 <!-- §107: el popup "Almost Done!" después de suscribirse. -->
 <link rel="stylesheet" href="alta-aviso.css?v=20261022a">
 <link rel="stylesheet" href="index-resenas.css?v=20261102a">
+<link rel="stylesheet" href="index-eventos.css?v=20261127a">
 </head>
 <body>
 
@@ -547,6 +548,9 @@ footer{
       const img = ev.flyer_url
         ? `<img class="ecard-img" src="${esc(ev.flyer_url)}" alt="${esc(ev.title)}" loading="lazy">`
         : `<div class="ecard-placeholder">🏓</div>`;
+      /* §131: la cinta "STARTS JANUARY" / "COMING IN DECEMBER" sobre la imagen. */
+      const cinta = DIAS && DIAS.comingLabel ? DIAS.comingLabel(ev, today) : '';
+      const badge = cinta ? `<span class="ecard-badge${cinta === 'TODAY' ? ' is-today' : ''}">${esc(cinta)}</span>` : '';
       // "09:00:00" from Postgres → "9:00 AM".
       const fmtTime = (t) => {
         if (!t) return '';
@@ -567,7 +571,7 @@ footer{
              <span>Register Now</span>
            </a>` : '';
       return `<div class="ecard" data-type="${esc(ev.event_type || '')}" data-flyer="${esc(ev.flyer_url||'')}" data-reg="${esc(ev.registration_url||'')}" onclick="openFlyer(this)">
-        ${img}
+        <div class="ecard-media">${img}${badge}</div>
         <div class="ecard-body">
           <div class="ecard-date">📅 ${dateLabel}</div>
           ${timeLabel ? `<div class="ecard-time">🕘 ${timeLabel}</div>` : ''}
