@@ -38,10 +38,21 @@
     return e;
   }
   const idsDe = (t) => [t.player1_id, t.player2_id, t.player3_id, t.player4_id].filter(Boolean);
+  /* §132 Team Challenge (SQL 150): la línea ("Men's doubles"…) y el nombre
+     del equipo (lo que va antes de " · " en el nombre de la línea). */
+  const LINEA = { md: "Men's doubles", wd: "Women's doubles", mx1: 'Mixed line 1', mx2: 'Mixed line 2' };
+  const lineaDe = (id) => (equipos[id] && LINEA[equipos[id].tc_line]) || '';
+  function equipoTC(t) {
+    if (!t || !t.tc_line || !t.name) return '';
+    const i = t.name.lastIndexOf(' · ');
+    return i > 0 ? t.name.slice(0, i) : t.name;
+  }
   function nombre(id) {
     const t = equipos[id];
     if (!t) return '';
     const n = idsDe(t).map((p) => jugadores[p] && `${jugadores[p].first_name} ${jugadores[p].last_name}`).filter(Boolean);
+    const eq = equipoTC(t);
+    if (eq) return n.length ? `${eq}: ${n.join(' & ')}` : eq;
     return n.length ? n.join(' & ') : (t.name || '');
   }
 
@@ -92,6 +103,7 @@
         const eq = el('div', 'tv-eq');
         if (x.team_a_id) {
           if (x.round) eq.append(el('span', 'tv-ronda', ronda(x.round)), el('br'));
+          else if (lineaDe(x.team_a_id)) eq.append(el('span', 'tv-ronda', lineaDe(x.team_a_id)), el('br'));
           eq.append(document.createTextNode(nombre(x.team_a_id)), el('br'),
             el('span', 'vs', 'vs '), document.createTextNode(nombre(x.team_b_id)));
         } else {
@@ -108,7 +120,7 @@
     for (const c of visibles) {
       for (const x of c.next) {
         const it = el('div', 'tv-it');
-        it.append(el('span', null, `${categorias[c.category_id] || ''}${x.round ? ` · ${ronda(x.round)}` : ''}`), document.createTextNode(`${nombre(x.team_a_id)} vs ${nombre(x.team_b_id)}`));
+        it.append(el('span', null, `${categorias[c.category_id] || ''}${x.round ? ` · ${ronda(x.round)}` : lineaDe(x.team_a_id) ? ` · ${lineaDe(x.team_a_id)}` : ''}`), document.createTextNode(`${nombre(x.team_a_id)} vs ${nombre(x.team_b_id)}`));
         sig.append(it);
         hay = true;
       }

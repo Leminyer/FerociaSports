@@ -26,7 +26,10 @@
 <script src="assets.js?v=20261013a"></script>
 <!-- §116 (SQL 131): LIVE COURTS, las canchas en vivo (Auto Courts). -->
 <link rel="stylesheet" href="tournament-live.css?v=20261124a">
-<script src="tournament-live.js?v=20261124a" defer></script>
+<script src="tournament-live.js?v=20261127c" defer></script>
+<!-- §132 Team Challenge (SQL 150): la vista de esas divisiones. -->
+<link rel="stylesheet" href="tournament-results-tc.css?v=20261127c">
+<script src="tournament-results-tc.js?v=20261127c"></script>
 <style>
   /* Color/typography/radius tokens now come from design-tokens.css. */
   * { box-sizing:border-box; margin:0; padding:0; }
@@ -267,6 +270,8 @@
       players.forEach(p => { playerMap[p.id] = p; });
     } catch (_) {}
   }
+  // §132 Team Challenge: sus equipos y su tabla (si no hay, la página sigue igual).
+  if (window.ResultadosTC) await window.ResultadosTC.cargar(categories);
 
   function getPlayerNames(team) {
     const ids = [team.player1_id,team.player2_id,team.player3_id,team.player4_id].filter(Boolean);
@@ -457,10 +462,14 @@
       const cT=allTeams.filter(t=>t.category_id===c.id);
       const cR=allRR.filter(m=>m.category_id===c.id);
       const cB=allBracket.filter(m=>m.category_id===c.id);
-      const pill=getDivPill(cT,cR,cB);
+      const tc=!!(window.ResultadosTC&&window.ResultadosTC.esTC(c));
+      let pill=getDivPill(cT,cR,cB);
+      if(tc&&pill==='RR Complete') pill='Completed';
+      if(tc&&pill==='RR Live') pill='Live';
+      const nT=tc?window.ResultadosTC.cuantos(c.id):cT.length;
       return '<div class="div-tab '+(c.id===activeCatId?'active':'')+'" onclick="switchCat('+c.id+')">'
         +'<div class="div-tab-name">'+esc(c.name)+'</div>'
-        +'<div class="div-tab-meta">'+cT.length+' Team'+(cT.length!==1?'s':'')+'</div>'
+        +'<div class="div-tab-meta">'+nT+' Team'+(nT!==1?'s':'')+'</div>'
         +'<div class="div-tab-pill">'+pill+'</div>'
         +'</div>';
     }).join('');
@@ -509,6 +518,21 @@
     // Status banner
     const statusLabel={draft:'⏳ Draft',active:'🟢 In Progress',completed:'🏆 Completed'}[tournament.status]||tournament.status;
     const statusHtml='<div class="status-banner '+tournament.status+'">'+statusLabel+'</div>';
+
+    // §132 Team Challenge: su propia vista (equipos, tabla y cruces; sin bracket).
+    const activeCat=categories.find(c=>c.id===activeCatId);
+    if(window.ResultadosTC&&window.ResultadosTC.esTC(activeCat)){
+      document.getElementById('main-content').innerHTML =
+        '<div class="page-title">Tournament Hub</div>'
+        +'<div class="page-sub">Track standings, sessions, and results.</div>'
+        +'<div class="div-tabs">'+divTabsHtml+'</div>'
+        +window.ResultadosTC.pintar(activeCat,teams,rrMatches,{
+          esc,estado:statusHtml,
+          nombres:(t)=>getPlayerNames(t)||t.name||'',
+          jugadores:(ids)=>ids.map(id=>playerMap[id]?playerMap[id].first_name+' '+playerMap[id].last_name:'').filter(Boolean).join(' · ')
+        });
+      return;
+    }
 
     // Content sections
     let content='';

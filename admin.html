@@ -15,6 +15,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="design-tokens.css?v=20261013a">
 <link rel="stylesheet" href="tournament.css?v=20261124b">
+<link rel="stylesheet" href="admin-team-challenge.css?v=20261127c">
 <link rel="stylesheet" href="app.css?v=20260928b">
 <link rel="stylesheet" href="country-codes.css?v=20261013a">
 <!-- Extracted from the four embedded CSS blocks that used to live in this
@@ -3577,12 +3578,14 @@
 <script src="admin-event-days.js?v=20261020a"></script>
 <script src="app.js?v=20261127b"></script>
 
-<script src="tournament.js?v=20261124c"></script>
+<script src="tournament.js?v=20261127c"></script>
 <!-- §116 Auto Courts (SQL 131): las canchas automáticas del round robin. Después de tournament.js. -->
 <script src="admin-auto-courts.js?v=20261124a"></script>
 <script src="admin-checkin.js?v=20261123a"></script>
 <!-- §122 canchas del bracket (SQL 142). Después de admin-auto-courts.js. -->
 <script src="admin-bracket-courts.js?v=20261124a"></script>
+<!-- §132 Team Challenge de los torneos (SQL 150). Después de tournament.js y admin-checkin.js. -->
+<script src="admin-team-challenge.js?v=20261127c"></script>
 <!-- Ajuste 30: después de app.js, porque espera a window.app.authReady. -->
 <script src="admin-avisos-problemas.js?v=20261014a"></script>
 <!-- Portal del Jugador (hitos 3 y 4): Player claims. Después de app.js, como el

@@ -39,15 +39,27 @@
   const RONDA = { Final: 'Final', '3rd Place': '3rd place', Semifinals: 'Semifinal', QF: 'Quarterfinal', R16: 'Round of 16', R32: 'Round of 32' };
   const ronda = (r) => (r ? (RONDA[r] || String(r)) : '');
   const idsDe = (t) => [t.player1_id, t.player2_id, t.player3_id, t.player4_id].filter(Boolean);
+  /* §132 Team Challenge (SQL 150): la línea ("Men's doubles"…) y el nombre
+     del equipo (lo que va antes de " · " en el nombre de la línea). */
+  const LINEA = { md: "Men's doubles", wd: "Women's doubles", mx1: 'Mixed line 1', mx2: 'Mixed line 2' };
+  const lineaDe = (id) => (equipos[id] && LINEA[equipos[id].tc_line]) || '';
+  function equipoTC(t) {
+    if (!t || !t.tc_line || !t.name) return '';
+    const i = t.name.lastIndexOf(' · ');
+    return i > 0 ? t.name.slice(0, i) : t.name;
+  }
   function nombreLargo(id) {
     const t = equipos[id];
     if (!t) return '';
     const n = idsDe(t).map((p) => jugadores[p] && `${jugadores[p].first_name} ${jugadores[p].last_name}`).filter(Boolean);
+    const eq = equipoTC(t);
+    if (eq) return n.length ? `${eq}: ${n.join(' & ')}` : eq;
     return n.length ? n.join(' & ') : (t.name || '');
   }
   function nombreCorto(id) {
     const t = equipos[id];
     if (!t) return '';
+    if (equipoTC(t)) return equipoTC(t);
     const n = idsDe(t).map((p) => jugadores[p] && jugadores[p].first_name).filter(Boolean);
     return n.length ? n.join(' & ') : (t.name || '');
   }
@@ -96,6 +108,7 @@
         const pc = el('div', x.team_a_id ? 'tl-court' : 'tl-court tl-court-free');
         pc.append(el('div', 'tl-n', `COURT ${x.court}`));
         if (x.round) pc.append(el('div', 'tl-round', ronda(x.round)));
+        else if (x.team_a_id && lineaDe(x.team_a_id)) pc.append(el('div', 'tl-round', lineaDe(x.team_a_id)));
         if (x.team_a_id) {
           pc.append(el('div', 'tl-team', nombreLargo(x.team_a_id)), el('div', 'tl-vs', 'vs'), el('div', 'tl-team', nombreLargo(x.team_b_id)));
         } else {
@@ -107,7 +120,7 @@
       if (c.next.length) {
         tarjeta.append(el('div', 'tl-cat tl-next-lbl', 'Up next — get ready'));
         const lista = el('div', 'tl-next');
-        c.next.forEach((x) => lista.append(el('span', 'tl-chip', `${x.round ? `${ronda(x.round)} · ` : ''}${nombreCorto(x.team_a_id)} vs ${nombreCorto(x.team_b_id)}`)));
+        c.next.forEach((x) => lista.append(el('span', 'tl-chip', `${x.round ? `${ronda(x.round)} · ` : lineaDe(x.team_a_id) ? `${lineaDe(x.team_a_id)} · ` : ''}${nombreCorto(x.team_a_id)} vs ${nombreCorto(x.team_b_id)}`)));
         tarjeta.append(lista);
       }
     }

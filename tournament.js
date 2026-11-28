@@ -1992,14 +1992,22 @@ async function loadCategory(catId, t) {
     tApi(`tournament_rr_matches?category_id=eq.${catId}&select=*&order=round,court`),
     tApi(`tournament_bracket_matches?category_id=eq.${catId}&select=*&order=id`),
     tApi(`tournament_groups?category_id=eq.${catId}&select=*&order=position`),
-    tApi(`tournament_categories?tournament_id=eq.${t.id}&select=id`),
+    tApi(`tournament_categories?tournament_id=eq.${t.id}&select=id,format`),
   ]);
   // Fetch team counts for all categories in this tournament (for cross-category Start button validation)
   const allCatIds = allTournCats.map(c => c.id).join(',') || '0';
-  const allTeams = await tApi(`tournament_teams?category_id=in.(${allCatIds})&select=id,category_id`);
+  const allTeams = await tApi(`tournament_teams?category_id=in.(${allCatIds})&select=id,category_id,tc_team_id`);
+  /* §132 Team Challenge: ahí cuenta el equipo (4 líneas = 1 equipo) y
+     bastan 3; en las demás divisiones, 4 parejas como siempre. */
   const teamCountByCat = {};
-  allTeams.forEach(tm => { teamCountByCat[tm.category_id] = (teamCountByCat[tm.category_id] || 0) + 1; });
-  const allCatsHave4 = allTournCats.every(c => (teamCountByCat[c.id] || 0) >= 4);
+  const tcByCat = {};
+  allTeams.forEach(tm => {
+    if (tm.tc_team_id) (tcByCat[tm.category_id] = tcByCat[tm.category_id] || new Set()).add(tm.tc_team_id);
+    else teamCountByCat[tm.category_id] = (teamCountByCat[tm.category_id] || 0) + 1;
+  });
+  const allCatsHave4 = allTournCats.every(c => c.format === 'team_challenge'
+    ? (tcByCat[c.id]?.size || 0) >= 3
+    : (teamCountByCat[c.id] || 0) >= 4);
   renderCategory(cat, teams, rrMatches, bracketMatches, t, groups, allCatsHave4);
 }
 
@@ -2021,13 +2029,16 @@ function renderCategory(cat, teams, rrMatches, bracketMatches, tournament, group
   const singlesMode = isSingles(cat.name);
   const entityCap = singlesMode ? 'Player' : 'Team';
   const entityLow = singlesMode ? 'player' : 'team';
+  /* §132 Team Challenge: un equipo son 4 líneas (4 filas de tournament_teams). */
+  const esTC = !!(window.TeamChallenge && window.TeamChallenge.esTC(cat));
+  const numEquipos = esTC ? new Set(teams.map(t => t.tc_team_id).filter(Boolean)).size : teams.length;
 
   // ── Update division tab intel ──────────────────────────────────────────
   const intelEl = document.getElementById(`td-div-intel-${cat.id}`);
   if (intelEl) {
     const rrTotal = rrMatches.filter(m => m.status !== 'bye').length;
     const rrDone  = rrMatches.filter(m => m.status === 'completed').length;
-    let intel = `${teams.length} ${teams.length !== 1 ? (singlesMode ? 'players' : 'teams') : entityLow}`;
+    let intel = `${numEquipos} ${numEquipos !== 1 ? (singlesMode ? 'players' : 'teams') : entityLow}`;
     if (rrMatches.length > 0) intel += ` · ${rrDone}/${rrTotal} RR Matches`;
     if (bracketMatches.length > 0) intel += ` · Bracket Live`;
     intelEl.textContent = intel;
@@ -2035,7 +2046,7 @@ function renderCategory(cat, teams, rrMatches, bracketMatches, tournament, group
 
   // ── Update total teams in header ──────────────────────────────────────
   const totalTeamsEl = document.getElementById('td-total-teams');
-  if (totalTeamsEl) totalTeamsEl.textContent = teams.length;
+  if (totalTeamsEl) totalTeamsEl.textContent = numEquipos;
 
   // ── Setup progression ─────────────────────────────────────────────────
   const rrTotal2 = rrMatches.filter(m => m.status !== 'bye').length;
@@ -2061,10 +2072,11 @@ function renderCategory(cat, teams, rrMatches, bracketMatches, tournament, group
   const pasos = [
     ['Teams Added', step1Done],
     ['Tournament Started', tournament.status !== 'draft'],
-    ['Round Robin', step2Done],
+    [esTC ? 'Team Matches' : 'Round Robin', step2Done],
     ['Bracket', step3Done],
     ['Completed', step4Done],
-  ].map(([label, done], i, todos) => ({ label, done, current: !done && todos.slice(0, i).every(([, d]) => d) }));
+  ].filter(([label]) => !(esTC && label === 'Bracket'))   // §132: el Team Challenge no tiene bracket
+   .map(([label, done], i, todos) => ({ label, done, current: !done && todos.slice(0, i).every(([, d]) => d) }));
   const connCls = (done) => done ? 'td-step-conn done' : 'td-step-conn';
 
   const progressionEl = document.getElementById('td-setup-progression');
@@ -2097,7 +2109,7 @@ function renderCategory(cat, teams, rrMatches, bracketMatches, tournament, group
       startBtn.style.cursor = 'pointer';
     } else if (!step1Done) {
       // Fewer than 4 teams — disabled
-      hintEl.textContent = 'Add at least 4 teams to start tournament';
+      hintEl.textContent = esTC ? 'Add at least 3 teams to start tournament' : 'Add at least 4 teams to start tournament';
       hintEl.style.display = 'inline';
       startBtn.style.opacity = '0.45';
       startBtn.style.cursor = 'not-allowed';
@@ -2109,6 +2121,14 @@ function renderCategory(cat, teams, rrMatches, bracketMatches, tournament, group
       startBtn.style.cursor = 'pointer';
       startBtn.onclick = () => startTournament(tournament.id);
     }
+  }
+
+  /* §132 Team Challenge: la división la pinta admin-team-challenge.js
+     (equipos, cruces y tabla de equipos; sin bracket). */
+  if (esTC) {
+    el.innerHTML = '<div class="tc-vista"></div>';
+    window.TeamChallenge.pintar(el.firstElementChild, { cat, tournament, teams, rrMatches });
+    return;
   }
 
   // ── SVG helpers ───────────────────────────────────────────────────────
@@ -2411,6 +2431,11 @@ function renderCategory(cat, teams, rrMatches, bracketMatches, tournament, group
     </div>`;
   }
 
+  /* §132: en una división vacía (sin parejas ni partidos) se puede elegir
+     el formato Standard / Team Challenge. */
+  if (!teams.length && !rrMatches.length && !bracketMatches.length && window.TeamChallenge) {
+    html = window.TeamChallenge.barraFormato(cat, tournament) + html;
+  }
   el.innerHTML = html;
 
   // §116 Auto Courts: las canchas de la categoría y el Court board (admin-auto-courts.js).
@@ -4367,6 +4392,13 @@ async function saveMatch(type, matchId, teamAId, teamBId, catId) {
 
   if (forfeitA || forfeitB) {
     const forfeitTeamId = forfeitA ? teamAId : teamBId;
+
+    /* §132 Team Challenge: el forfeit es sólo de ese partido (no retira la
+       pareja); el retiro del equipo lo decide la base (2 seguidos). */
+    if (type === 'rr' && window.TeamChallenge) {
+      const [linea] = await tApi(`tournament_teams?id=eq.${Number(forfeitTeamId)}&select=tc_team_id`);
+      if (linea && linea.tc_team_id) { window.TeamChallenge.forfeitDesdeScore(matchId, forfeitTeamId); return; }
+    }
 
     // Fetch full team data (with players) + match round/court for subtitle
     const [forfeitTeamData, matchData] = await Promise.all([
